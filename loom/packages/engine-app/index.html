@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LOOM — Output</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      #out {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #fps {
+        position: fixed;
+        top: 8px;
+        right: 10px;
+        color: #6f6;
+        font: 12px monospace;
+        opacity: 0.8;
+        pointer-events: none;
+        z-index: 10;
+      }
+      #status {
+        position: fixed;
+        left: 10px;
+        bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #9ad;
+        font: 12px monospace;
+        opacity: 0.85;
+        z-index: 10;
+      }
+      #status .chip.ok {
+        color: #6f6;
+      }
+      #status .chip.err {
+        color: #f55;
+        font-weight: bold;
+      }
+      #status .meter {
+        display: inline-block;
+        width: 70px;
+        height: 8px;
+        border: 1px solid #345;
+        background: #0a0f14;
+      }
+      #status .meter span {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: #4cf;
+      }
+      #status select {
+        background: #0a0f14;
+        color: #9ad;
+        border: 1px solid #345;
+        font: 11px monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="out"></canvas>
+    <div id="fps"></div>
+    <div id="status"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@loom/runtime": ["./packages/runtime/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/runtime/src",
+    "packages/runtime/test",
+    "packages/engine-app/src",
+    "packages/engine-app/vite.config.ts",
+    "content"
+  ]
+}

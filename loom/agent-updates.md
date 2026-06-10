@@ -1,0 +1,44 @@
+# Agent build log
+
+Append-only progress log, newest entries at the bottom. Basic beats only; details live in commits and `DECISIONS.md`.
+
+## 2026-06-09 20:10 — M0 started
+
+- Read requirements + implementation plan. Scope for M0: pnpm monorepo, Vite engine-app, WebGPURenderer + fps meter, hardcoded `defineScene` TSL scene, HMR hot-swap with error rejection.
+- Branch: `claude/add-docs-loom-folder-8s4ox5` (M0 here; M1 will be cut onto its own branch per Zack's instruction).
+
+## 2026-06-09 20:30 — M0 scaffold complete, typecheck green
+
+- Monorepo: `loom/` root with `packages/runtime` (minimal `defineScene` + `SceneOutput` contract) and `packages/engine-app` (Vite app: fullscreen canvas, `WebGPURenderer`, `QuadMesh` fullscreen pass, fps meter).
+- `content/scenes/hello.scene.ts`: animated TSL rings scene.
+- HMR: `import.meta.hot.accept` on the scene file in `main.ts`; `SceneHost.setScene` try/catches `build()` and keeps the previous scene on any throw. Vite error overlay disabled so compile errors can't paint the Output window.
+- Pinned `three@0.184.0` (exact, per plan risk table). One type fix: `colorNode` must be the typed node union from `NodeMaterial["colorNode"]`, not base `Node`.
+- `pnpm typecheck` green. Playwright + Chromium installed for automated visual validation (will also serve M1).
+
+## 2026-06-09 20:42 — M0 SHIPPED: 10/10 automated acceptance checks pass
+
+- `pnpm validate:m0` (scripts/validate-m0.mjs) spins up Vite + headless Chromium and asserts the plan's "shipped when" end-to-end:
+  - initial scene renders non-black (avg luminance 137)
+  - editing the scene file hot-swaps in **102 ms** (plan budget: <2 s)
+  - solid-green edit visibly lands on screen (center pixel rgb(0,255,0))
+  - syntax error → screen unchanged, no reload, no error overlay
+  - `build()` that throws → scene rejected, previous scene stays live
+  - restoring the file hot-swaps the original back in
+- Screenshots of each state saved to `loom/artifacts/m0-*.png` for inspection.
+- Caveats: headless Chromium has no WebGPU adapter, so the automated run exercised three's WebGL2 fallback; desktop Chrome gets WebGPU. First pixel-sampling attempt via canvas `drawImage` read black (no `preserveDrawingBuffer`) — switched to decoding Playwright screenshots with pngjs.
+- Next: commit M0, cut a new branch, build M1 (Signals).
+
+## 2026-06-09 20:45 — M1 started on branch `claude/loom-m1-signals`
+
+- M0 committed (`1ffa145`). New branch cut per Zack's overnight instruction; M1 = type kernel + InputBus + TexNode graph + 6 stdlib modules + per-instance containment.
+- Kernel is pull-based and frame-memoized (`Signal.get(frame)` / `Events.poll(frame)`) so it unit-tests in Node with a fake clock. Wrote the tests first (TDD): 43 tests across signal/events/param/module/time/onset/control — red, then implementation, then green on the first full run.
+- Added a synthetic audio mode (`?audio=test`: scheduled WebAudio kick + offbeat hats through the same AnalyserNode path as the mic) so audio reactivity is validatable headlessly and demoable without mic permission.
+
+## 2026-06-09 21:00 — M1 SHIPPED: 19/19 browser checks + 43/43 unit tests + M0 regression 10/10
+
+- `packages/runtime` is now the real kernel: `Signal`/`Events` (gate/latch/divide/frame-quantize), `Param`+`Manifest` (zod-validated, clamped, serializable), `defineModule`/`defineScene` with zod metadata, `BuildCtx` (manifest collection + Signal→GPU-uniform bridging), `Instance` (NFR-2: render-time throws freeze the instance, engine keeps running), `TimeBus` (BPM set/tap, beatPhase, beatEvery), `AudioBus` (mic or test signal → FFT bands bass/mid/treble, RMS, threshold+refractory onset detection).
+- First 6 modules in `content/modules/`: `osc`, `noise`, `lag`, `lfo` (beat-synced), `feedback` (ping-pong render targets, the first stateful GPU pass), `levels`.
+- `content/scenes/pulse.scene.ts`: the "shipped when" scene — kick onsets punch ring brightness through an envelope, lagged bass rides gain, 16-beat LFO drifts palette, feedback drags trails. `live.scene.ts` re-exports the active scene (one-line switch).
+- `pnpm validate:m1` proves end-to-end: onsets ~2/s from synthetic kicks, luminance pulses with the kick (spread 33.6), HMR swap 102 ms, syntax error/build-throw/render-throw all keep pixels alive — the render-throw case freezes the instance while the engine loop keeps ticking (NFR-2), exactly per spec.
+- Stumbles worth knowing: (1) an aborted validation run left an orphaned Vite holding the port and the next run silently talked to the stale server — scripts now fail fast if Vite exits early; (2) `@types/three` wants `Node<"vec4">` discipline, so `TexNode.color` is typed vec4-only, which is honestly the right contract anyway.
+- Param manifest exists and collects (`punch`, `trail`, `drift` on pulse) but has no UI/MCP surface yet — that's M2/M3 per plan.
