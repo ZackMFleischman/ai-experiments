@@ -1,0 +1,21 @@
+{
+  "name": "loom",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @loom/engine-app dev",
+    "typecheck": "tsc --noEmit -p .",
+    "validate:m0": "node scripts/validate-m0.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.2",
+    "@types/three": "0.184.1",
+    "playwright": "^1.60.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.8.0",
+    "vite": "8.0.16"
+  },
+  "dependencies": {
+    "three": "0.184.0"
+  }
+}
