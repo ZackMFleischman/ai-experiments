@@ -27,3 +27,18 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - Screenshots of each state saved to `loom/artifacts/m0-*.png` for inspection.
 - Caveats: headless Chromium has no WebGPU adapter, so the automated run exercised three's WebGL2 fallback; desktop Chrome gets WebGPU. First pixel-sampling attempt via canvas `drawImage` read black (no `preserveDrawingBuffer`) — switched to decoding Playwright screenshots with pngjs.
 - Next: commit M0, cut a new branch, build M1 (Signals).
+
+## 2026-06-09 20:45 — M1 started on branch `claude/loom-m1-signals`
+
+- M0 committed (`1ffa145`). New branch cut per Zack's overnight instruction; M1 = type kernel + InputBus + TexNode graph + 6 stdlib modules + per-instance containment.
+- Kernel is pull-based and frame-memoized (`Signal.get(frame)` / `Events.poll(frame)`) so it unit-tests in Node with a fake clock. Wrote the tests first (TDD): 43 tests across signal/events/param/module/time/onset/control — red, then implementation, then green on the first full run.
+- Added a synthetic audio mode (`?audio=test`: scheduled WebAudio kick + offbeat hats through the same AnalyserNode path as the mic) so audio reactivity is validatable headlessly and demoable without mic permission.
+
+## 2026-06-09 21:00 — M1 SHIPPED: 19/19 browser checks + 43/43 unit tests + M0 regression 10/10
+
+- `packages/runtime` is now the real kernel: `Signal`/`Events` (gate/latch/divide/frame-quantize), `Param`+`Manifest` (zod-validated, clamped, serializable), `defineModule`/`defineScene` with zod metadata, `BuildCtx` (manifest collection + Signal→GPU-uniform bridging), `Instance` (NFR-2: render-time throws freeze the instance, engine keeps running), `TimeBus` (BPM set/tap, beatPhase, beatEvery), `AudioBus` (mic or test signal → FFT bands bass/mid/treble, RMS, threshold+refractory onset detection).
+- First 6 modules in `content/modules/`: `osc`, `noise`, `lag`, `lfo` (beat-synced), `feedback` (ping-pong render targets, the first stateful GPU pass), `levels`.
+- `content/scenes/pulse.scene.ts`: the "shipped when" scene — kick onsets punch ring brightness through an envelope, lagged bass rides gain, 16-beat LFO drifts palette, feedback drags trails. `live.scene.ts` re-exports the active scene (one-line switch).
+- `pnpm validate:m1` proves end-to-end: onsets ~2/s from synthetic kicks, luminance pulses with the kick (spread 33.6), HMR swap 102 ms, syntax error/build-throw/render-throw all keep pixels alive — the render-throw case freezes the instance while the engine loop keeps ticking (NFR-2), exactly per spec.
+- Stumbles worth knowing: (1) an aborted validation run left an orphaned Vite holding the port and the next run silently talked to the stale server — scripts now fail fast if Vite exits early; (2) `@types/three` wants `Node<"vec4">` discipline, so `TexNode.color` is typed vec4-only, which is honestly the right contract anyway.
+- Param manifest exists and collects (`punch`, `trail`, `drift` on pulse) but has no UI/MCP surface yet — that's M2/M3 per plan.

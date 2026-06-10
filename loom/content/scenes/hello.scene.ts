@@ -1,8 +1,9 @@
-import { defineScene } from "@loom/runtime";
+import { defineScene, texNode } from "@loom/runtime";
 import { mix, sin, time, uv, vec2, vec3, vec4 } from "three/tsl";
 
 export default defineScene({
   name: "hello",
+  description: "Animated rings — the M0 sanity scene.",
   build() {
     const p = uv().sub(vec2(0.5));
     const d = p.length();
@@ -12,6 +13,6 @@ export default defineScene({
     const glow = vec3(0.9, 0.45, 0.95);
     const color = mix(ink, glow, rings.mul(d.oneMinus()));
 
-    return { colorNode: vec4(color, 1) };
+    return texNode(vec4(color, 1));
   },
 });

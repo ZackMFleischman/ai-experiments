@@ -9,18 +9,18 @@ import { chromium } from "playwright";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const SCENE = join(ROOT, "content", "scenes", "hello.scene.ts");
+const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const ARTIFACTS = join(ROOT, "artifacts");
 const PORT = 5199;
 const URL = `http://localhost:${PORT}/`;
 
-const GREEN_SCENE = `import { defineScene } from "@loom/runtime";
+const GREEN_SCENE = `import { defineScene, texNode } from "@loom/runtime";
 import { vec4 } from "three/tsl";
 
 export default defineScene({
   name: "solid-green",
   build() {
-    return { colorNode: vec4(0, 1, 0, 1) };
+    return texNode(vec4(0, 1, 0, 1));
   },
 });
 `;
@@ -38,6 +38,7 @@ export default defineScene({
   },
 });
 `;
+// (build() throws before returning, so no TexNode is ever produced)
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -92,10 +93,20 @@ const vite = spawn("pnpm", ["exec", "vite", "--port", String(PORT), "--strictPor
 });
 vite.stdout.on("data", (d) => process.stdout.write(`[vite] ${d}`));
 vite.stderr.on("data", (d) => process.stderr.write(`[vite] ${d}`));
+let viteExit = null;
+vite.on("exit", (code) => {
+  viteExit = code ?? -1;
+});
 
 let browser;
 try {
-  await waitForServer(URL);
+  await Promise.race([
+    waitForServer(URL),
+    (async () => {
+      while (viteExit === null) await sleep(200);
+      throw new Error(`vite exited early (code ${viteExit}) — is port ${PORT} already in use?`);
+    })(),
+  ]);
 
   browser = await chromium.launch({
     headless: true,
