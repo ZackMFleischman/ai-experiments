@@ -1,6 +1,6 @@
 # Feature request: param modulators (attachable LFOs and friends)
 
-Status: proposed (post-v1 candidate) · Requested: 2026-06-10 · Owner: unassigned
+Status: implemented 2026-06-10 (branch `worktree-param-modulators`; acceptance: `pnpm validate:modulators`) · Requested: 2026-06-10
 
 ## Summary
 

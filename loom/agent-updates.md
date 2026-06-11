@@ -95,3 +95,28 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - Staging UX (R9.3): drag a tile onto the stage strip to stage; staged tile's button toggles to unstage; new `/staged.html` (BroadcastChannel sibling page, per-tab request-id prefix) shows the staged instance big with COMMIT/unstage — auditioning from a second tab/display works.
 - `pnpm validate:m4` 15/15 (fake-media-device flags exercise the real mic path headless; synthetic DragEvents exercise the drop target). Gates re-run green: typecheck, 75 unit tests, m0 10/10, m1 19/19, m2 14/14, m3 27/27.
 - Stumble worth knowing: Playwright's `waitForSelector` never resolves on `<option>`s inside a closed `<select>` (they're not "visible") — use `state: "attached"`.
+
+## 2026-06-10 — Param modulators SHIPPED (feature-requests/param-modulators.md)
+
+- Run-time attachable modulators on any param of any instance, zero code edits: sine,
+  triangle, ramp, square, random (S&H), drift (smoothed walk), cycle (forward/reverse/
+  pingpong/random over explicit values, int lattices, or bool toggles), audio
+  (band/rms follower). Rates in `periodSeconds` or `periodBeats` (BPM-tracking), `phase`
+  staggering, `[lo, hi]` clamped inside the declared param range (FR-6).
+- Kernel: `runtime/src/modulator.ts` (strict zod spec + compiled per-frame evaluators,
+  zero per-call allocation) and `modulator-host.ts` (per-instance attach/tick/reattach;
+  eval throws detach + flag, never reach the render loop). 26 new fake-clock unit tests.
+- Engine: hosts live on SessionStore entries (FR-3), tick before compositing, skipped on
+  `hold` so PANIC truly freezes and RESUME continues phase-exact (FR-10); HMR rebuilds
+  reattach and report orphans through `get_session` (FR-4); `set_param` on a modulated path
+  is rejected with the detach gesture named (FR-7); `get_manifest` carries per-param
+  modulator configs (FR-8); `window.__loom` exposes per-instance modulator state.
+- Surfaces: MCP tools `modulate_param` / `clear_modulation` (set_param trust tier — no
+  arming, live allowed); Console param rows gained a ∿ button + popover (type picker,
+  seconds⇄beats rate, two-thumb range, per-type extras from one descriptor table, attach/
+  update/retrigger/detach) and modulated sliders animate read-only with a tinted badge.
+- Gates: typecheck, 103 unit tests, validate m0 10/10 · m1 19/19 · m2 14/14 · m3 27/27 ·
+  m4 15/15 · **modulators 14/14** (new acceptance: `pnpm validate:modulators`; artifacts
+  `mod-hi-*.png`/`mod-lo-*.png` show a square wave on `trail` moving page luminance).
+- Stumble worth knowing: sampling a 2 s sine for 1.05 s "fails oscillation" — the window
+  must cover a full period before asserting a direction change.

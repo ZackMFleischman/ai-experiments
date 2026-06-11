@@ -7,7 +7,9 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 - `get_session` — what's running: all instances with status, LIVE/STAGED pointers, available scenes, audio mode, BPM, fps, frame.
 - `get_manifest` — every tweakable param of an instance: type, range, default, current value.
 - Instance ids: the boot instance (bound to `live.scene.ts`) is `"boot"`; created ones are `"<scene>-<n>"`. The id `"live"` is an **alias** that always resolves to whatever instance is currently routed to output — it's the default everywhere, so "tweak the live thing" needs no lookup.
-- `set_param` — change a param live (<100 ms, no recompile). Values clamp to range.
+- `set_param` — change a param live (<100 ms, no recompile). Values clamp to range. Errors if the param is currently modulated — `clear_modulation` first.
+- `modulate_param` — attach an LFO/stepper/audio-follower to a param: `{ type: sine|triangle|ramp|square|random|drift|cycle|audio, periodSeconds|periodBeats, lo?, hi?, ... }`. The engine animates it every frame inside the param's range. Same trust tier as `set_param` (no arming, live allowed); attaching replaces any existing modulator on that param. Use it to audition motion non-destructively before baking an `lfo` module into scene code.
+- `clear_modulation` — detach a param's modulator (no-op success if none); the param holds its last value.
 - `screenshot` — see an instance's actual pixels (live = the Output canvas, others = their preview target). Use it after every meaningful edit; never guess what's on screen.
 - `create_instance` — build a scene (by name from `availableScenes`) into a sandbox tile. This is how you build candidates without touching the audience.
 - `destroy_instance` — free a sandbox tile (the LIVE instance is protected).

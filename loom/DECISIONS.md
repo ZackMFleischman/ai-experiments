@@ -92,3 +92,26 @@ A design pass on "how the instrument is actually used" produced requirements R6�
 - **Cover scaling is CSS, not render-path code.** The Output renders at a fixed internal 1920×1080 (`?res=WxH` override; `renderer.setSize(w, h, false)` so CSS owns the on-screen size) and `#out` uses `object-fit: cover`. The browser compositor does the scaling, so all three never-go-black layers are untouched, `screenshot` returns a stable 1080p regardless of window shape, and render cost stops depending on window size. The previous resize-to-window behavior warped UV-space scenes at non-16:9 aspects.
 - **`set_audio` is human-only and not an MCP tool** — an agent must not silently swap the audio source mid-set. Enforcement is doubled: the tool simply doesn't exist on the MCP surface, and dispatch refuses agent-sourced `set_audio` (same `HUMAN_ONLY` set as panic/resume). Device labels populate after mic permission, so the handler refreshes the cached device list after a successful `startMic`; a failed mic always falls back to the test signal (the instrument never goes deaf).
 - **`/staged.html` rides the thumbs broadcast** rather than its own readback: the staged instance already renders to its 640×360 preview target every frame, so the page is pure consumer. Its request ids carry a per-tab random prefix — the Console shares the BroadcastChannel and plain sequential ids would resolve across tabs.
+
+## 2026-06-10 — Param modulators SHIPPED (design refinements vs the feature request)
+
+- **Phase is a dt-accumulator, not wall-clock or beat-count derived.** Each evaluator advances
+  `phase += f.dt / periodSec` only when evaluated; the engine simply skips the modulator pass
+  while the stage directive is `hold`. FR-10 (PANIC pauses, RESUME continues without a
+  catch-up jump) falls out structurally — no pause bookkeeping anywhere. Consequence:
+  `ModulatorBus` is `{ bpm(): number; audio? }` rather than the sketched beats Signal;
+  `periodBeats` converts to seconds from live BPM per frame, so tap-tempo retunes every
+  synced modulator at once (FR-5) and a PANIC'd beat clock can't replay into a jump.
+- **`ModulatorHost` lives in `@loom/runtime`, not the engine.** The per-instance state machine
+  (attach/replace/clear, per-frame tick with FR-9 containment, FR-4 reattach-after-rebuild
+  with orphan flagging and fix-forward recovery) is fake-clock unit-tested against a
+  `ManifestLike` slice; `SessionStore` just owns one host per entry and calls
+  `tickModulators(f)` before compositing. The engine only schedules and stores (NFR-2).
+- **Spec validation is engine-side** (the dispatch is the protocol boundary, matching every
+  other command): the wire carries the modulator as an opaque JSON object; the runtime's
+  strict zod `ModulatorSpec` rejects unknown keys/typos with real errors.
+- **`cycle` on ints accepts an explicit `values` list too** (the 4→8→16→32 slices case);
+  without one it steps the integer lattice of [lo, hi].
+- **Acceptance is `pnpm validate:modulators`** — the `validate:m*` numbering stays reserved
+  for roadmap milestones. m3/m4's expected MCP tool lists grew by the two new tools (their
+  intent — exactly-these-tools, no `set_audio` for agents — is preserved).
