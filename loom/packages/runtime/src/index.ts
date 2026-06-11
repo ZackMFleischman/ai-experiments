@@ -12,3 +12,12 @@ export { Stage, type StageDirective } from "./stage";
 export { TimeBus } from "./inputbus/time";
 export { AudioBus, type AudioBusLike, type AudioMode, type BandName } from "./inputbus/audio";
 export { OnsetDetector, bandEnergy, type OnsetOpts } from "./inputbus/analysis";
+export {
+  createModulator,
+  ModulatorSpec,
+  type ModulatorBus,
+  type ModulatorEval,
+  type ModulatorParamMeta,
+  type ModulatorType,
+} from "./modulator";
+export { ModulatorHost, type ManifestLike, type ModulatorInfo, type ParamLike } from "./modulator-host";

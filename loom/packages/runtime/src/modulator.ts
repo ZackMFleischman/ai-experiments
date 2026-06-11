@@ -64,16 +64,16 @@ export type ModulatorType = ModulatorSpec["type"];
 /** What a modulator needs to know about its target param. */
 export interface ModulatorParamMeta {
   type: ParamType;
-  min?: number;
-  max?: number;
+  min?: number | undefined;
+  max?: number | undefined;
   /** Current value — drift starts here so attaching never jumps. */
-  value?: number | boolean;
+  value?: number | boolean | undefined;
 }
 
 /** World hooks: live BPM for beat-synced rates, audio for the follower. */
 export interface ModulatorBus {
   bpm(): number;
-  audio?: AudioBusLike;
+  audio?: AudioBusLike | undefined;
 }
 
 export type ModulatorEval = (f: FrameCtx) => number | boolean;
