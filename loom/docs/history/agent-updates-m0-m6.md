@@ -1,6 +1,7 @@
-# Agent build log
+# Agent build log (archived 2026-06-11)
 
-Append-only progress log, newest entries at the bottom. Basic beats only; details live in commits and `DECISIONS.md`.
+Build diary for M0 through M6-palettes. **Retired:** milestone ship entries now go
+to `DECISIONS.md` as ≤6-line SHIPPED entries — one log, not two.
 
 ## 2026-06-09 20:10 — M0 started
 
