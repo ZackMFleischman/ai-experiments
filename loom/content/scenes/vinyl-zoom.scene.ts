@@ -50,7 +50,7 @@ export default defineScene({
     const hippoSize = ctx.float("hippoSize", { default: 0.16, min: 0, max: 0.6, description: "flying hippo size" });
     const hippoSpeed = ctx.float("hippoSpeed", { default: 0.6, min: 0, max: 3, description: "flying hippo flight speed" });
     const pixel = ctx.float("pixelate", { default: 0, min: 0, max: 1, description: "mosaic on the whole output (0 = off)" });
-    const pixelVinyl = ctx.float("pixelateVinyl", { default: 0, min: 0, max: 1, description: "mosaic on the kaleido vinyl dive only" });
+    const pixelVinyl = ctx.float("pixelateVinyl", { default: 0, min: 0, max: 1, description: "mosaic on the record image, before the kaleidoscope" });
     const pixelLogo = ctx.float("pixelateLogo", { default: 0, min: 0, max: 1, description: "mosaic on the DJ Hippo logo only" });
     const pixelHippos = ctx.float("pixelateHippos", { default: 0, min: 0, max: 1, description: "mosaic on the flying hippo flock only" });
 
@@ -69,14 +69,15 @@ export default defineScene({
     const depth = integrate(new Signal((f) => creepSig.get(f) + thrust.get(f) * punchSig.get(f)));
 
     const record = image(ctx, { url: IMG_URL, transform: { rotate: recordAngle, scale: size.signal() } });
+    // Pixelate the record itself — the kaleidoscope then folds the mosaic.
+    const recordPix = pixelate(ctx, { input: record, amount: pixelVinyl.signal() });
     const dive = kaleidoZoom(ctx, {
-      input: record,
+      input: recordPix,
       zoom: depth,
       segments: segments.signal(),
       twist: twist.signal(),
     });
     const graded = levels(ctx, { input: dive, gain: kick.map((k) => 1 + k * 0.2), gamma: 1.05 });
-    const divePix = pixelate(ctx, { input: graded, amount: pixelVinyl.signal() });
 
     // The logo rides on top, outside the zoom chain — static while the dive runs.
     const logoRpmSig = logoRpm.signal();
@@ -91,7 +92,7 @@ export default defineScene({
       },
     });
     const badgePix = pixelate(ctx, { input: badge, amount: pixelLogo.signal() });
-    const branded = over(ctx, { input: divePix, overlay: badgePix, opacity: logo.signal() });
+    const branded = over(ctx, { input: graded, overlay: badgePix, opacity: logo.signal() });
 
     // The flock builds on a transparent base so it can be pixelated as its
     // own layer (premultiplied `over` is associative), then rides on top.
