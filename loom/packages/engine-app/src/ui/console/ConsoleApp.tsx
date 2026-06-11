@@ -45,6 +45,7 @@ export function ConsoleApp() {
               solo={solo}
               onSelect={setSelected}
               onSolo={(id) => setSolo((cur) => (cur === id ? null : id))}
+              onCreated={setSelected}
             />
             <ParamPanel
               instance={selected}
