@@ -118,7 +118,9 @@ const pendingShots: Array<{
   reject: (e: Error) => void;
 }> = [];
 
-startBridge(`ws://localhost:${DEFAULT_WS_PORT}`, {
+// `?ws=` lets validation runs use an isolated sidecar port so they never
+// collide with (or silently talk to) a live performance session's sidecar.
+startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, {
   session: () => ({
     scene: instance?.sceneName ?? null,
     instance: instance ? "live" : null,

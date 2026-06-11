@@ -6,7 +6,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { execSync, spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -14,8 +14,11 @@ import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
+const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const PORT = 5199;
-const URL = `http://localhost:${PORT}/?audio=test&bpm=120`;
+// Isolated sidecar port: a live Claude Code session may hold the default 7341.
+const WS_PORT = 7342;
+const URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -64,6 +67,12 @@ async function avgScreenshotLum(client, n = 4, gapMs = 350) {
 
 mkdirSync(ARTIFACTS, { recursive: true });
 
+// Pin pulse as the live scene — the checks assert pulse's manifest (punch/
+// trail/drift, trail clamp 0.97) — and restore the real live scene afterwards.
+const PULSE_PIN = `export { default } from "./pulse.scene";\n`;
+const originalScene = readFileSync(SCENE, "utf8");
+writeFileSync(SCENE, PULSE_PIN);
+
 // ---- spawn vite (engine) ----
 const vite = spawn("pnpm", ["exec", "vite", "--port", String(PORT), "--strictPort"], {
   cwd: join(ROOT, "packages", "engine-app"),
@@ -96,6 +105,7 @@ try {
     command: process.execPath,
     args: ["--import", "tsx", "packages/sidecar/src/index.ts"],
     cwd: ROOT,
+    env: { ...process.env, LOOM_WS_PORT: String(WS_PORT) },
     stderr: "pipe",
   });
   await client.connect(transport);
@@ -232,6 +242,7 @@ try {
 } catch (err) {
   check("validation run completed", false, String(err));
 } finally {
+  writeFileSync(SCENE, originalScene);
   if (client) await client.close().catch(() => {});
   if (browser) await browser.close();
   if (process.platform === "win32") {

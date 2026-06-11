@@ -99,7 +99,11 @@ async function samplePixels(page, savePath) {
 
 const loomState = (page) => page.evaluate(() => ({ ...window.__loom }));
 
+// Pin pulse as the live scene for the duration of the run — the checks assert
+// pulse's params/ranges — and restore whatever was actually live afterwards.
+const PULSE_PIN = `export { default } from "./pulse.scene";\n`;
 const originalScene = readFileSync(SCENE, "utf8");
+writeFileSync(SCENE, PULSE_PIN);
 mkdirSync(ARTIFACTS, { recursive: true });
 
 const vite = spawn("pnpm", ["exec", "vite", "--port", String(PORT), "--strictPort"], {
@@ -245,7 +249,7 @@ try {
 
   // 7. Restore: pulse comes back clean.
   consoleLines.length = 0;
-  writeFileSync(SCENE, originalScene);
+  writeFileSync(SCENE, PULSE_PIN);
   const restored = await waitForConsole("scene hot-swapped");
   await sleep(500);
   state = await loomState(page);
