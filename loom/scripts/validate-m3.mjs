@@ -241,7 +241,8 @@ try {
   }, 5_000, "slider write to land");
   check("console slider writes through to the manifest", sizeVal !== null, `size=${sizeVal}`);
 
-  // 6. Stage via MCP; commit stays human-gated.
+  // 6. Stage via MCP; commit defaults ARMED for agents (redesign) but the
+  // gate still works when the human disarms it.
   const staged = toolJson(await callOk(client, "stage", { instance: cid }));
   check("agent staged the candidate", staged.staged === cid && staged.live === "boot");
   await waitFor(
@@ -250,9 +251,16 @@ try {
     "STAGED badge",
   );
   check("STAGED badge in the console", true);
+  const sessionArmed = toolJson(await callOk(client, "get_session"));
+  check("agent commit is armed by default", sessionArmed.agentCommitArmed === true);
+  await consolePage.click("#armagent"); // human disarms from the console
+  await waitFor(async () => {
+    const s = toolJson(await callOk(client, "get_session"));
+    return s.agentCommitArmed ? null : true;
+  }, 5_000, "console checkbox to disarm");
   const blockedCommit = await client.callTool({ name: "commit", arguments: {} });
   check(
-    "agent commit is blocked by default",
+    "agent commit is blocked when disarmed",
     blockedCommit.isError === true && /armed/i.test(blockedCommit.content[0].text),
     blockedCommit.content?.[0]?.text,
   );
@@ -313,9 +321,10 @@ try {
   check("destroyed instance's tile disappears", true);
 
   // 9b. The human can spawn library scenes from the Console (R4.5 — works
-  // with the agent absent): pick a scene, + instance, tile appears.
-  await consolePage.selectOption("#scenepick", "pulse");
-  await consolePage.click("#createbtn");
+  // with the agent absent): the "+" ghost tile opens the scene picker,
+  // clicking a scene row creates the instance.
+  await consolePage.click("#newinstance");
+  await consolePage.click('.scenerow[data-scene="pulse"]');
   await consolePage.waitForSelector('.tile[data-id^="pulse-"]', { timeout: 10_000 });
   const pickedSession = toolJson(await callOk(client, "get_session"));
   check(
@@ -324,8 +333,8 @@ try {
     pickedSession.instances.map((i) => i.id).join(", "),
   );
 
-  // 10. ?agentCommit=1 arms the agent path (boot override).
-  await output.goto(`${OUTPUT_URL}&agentCommit=1`);
+  // 10. ?agentCommit=0 restores the human gate (boot override)...
+  await output.goto(`${OUTPUT_URL}&agentCommit=0`);
   await output.waitForFunction(
     () => /\d+ fps/.test(document.querySelector("#fps")?.textContent ?? ""),
     null,
@@ -335,17 +344,40 @@ try {
     const res = await client.callTool({ name: "get_session", arguments: {} });
     if (res.isError) return null;
     const s = toolJson(res);
-    return s.agentCommitArmed ? s : null;
-  }, 15_000, "armed engine to reconnect");
-  check("?agentCommit=1 arms agent commit", session1.agentCommitArmed === true);
+    return s.agentCommitArmed === false ? s : null;
+  }, 15_000, "disarmed engine to reconnect");
+  check("?agentCommit=0 disarms agent commit", session1.agentCommitArmed === false);
   const c2 = toolJson(await callOk(client, "create_instance", { scene: "lava" }));
   await callOk(client, "stage", { instance: c2.instance });
+  const blocked2 = await client.callTool({ name: "commit", arguments: {} });
+  check(
+    "agent commit is blocked under ?agentCommit=0",
+    blocked2.isError === true && /armed/i.test(blocked2.content[0].text),
+    blocked2.content?.[0]?.text,
+  );
+
+  // ...and a plain boot is armed end-to-end: create → stage → agent commit lands.
+  await output.goto(OUTPUT_URL);
+  await output.waitForFunction(
+    () => /\d+ fps/.test(document.querySelector("#fps")?.textContent ?? ""),
+    null,
+    { timeout: 20_000 },
+  );
+  const session2 = await waitFor(async () => {
+    const res = await client.callTool({ name: "get_session", arguments: {} });
+    if (res.isError) return null;
+    const s = toolJson(res);
+    return s.agentCommitArmed === true ? s : null;
+  }, 15_000, "default-armed engine to reconnect");
+  check("plain boot arms agent commit by default", session2.agentCommitArmed === true);
+  const c3 = toolJson(await callOk(client, "create_instance", { scene: "lava" }));
+  await callOk(client, "stage", { instance: c3.instance });
   await callOk(client, "commit", { durationFrames: 10 });
   await waitFor(async () => {
     const s = await loomState(output);
-    return s.live === c2.instance ? true : null;
-  }, 10_000, "armed agent commit to land");
-  check("armed agent commit crossfades to LIVE", true);
+    return s.live === c3.instance ? true : null;
+  }, 10_000, "default-armed agent commit to land");
+  check("default-armed agent commit crossfades to LIVE", true);
 } catch (err) {
   check("validation run completed", false, String(err));
 } finally {
