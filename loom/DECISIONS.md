@@ -130,3 +130,20 @@ A design pass on "how the instrument is actually used" produced requirements R6�
 - **Acceptance is `pnpm validate:modulators`** — the `validate:m*` numbering stays reserved
   for roadmap milestones. m3/m4's expected MCP tool lists grew by the two new tools (their
   intent — exactly-these-tools, no `set_audio` for agents — is preserved).
+
+## 2026-06-11 — Feature request: Console screenshot for agents (post-v1 candidate)
+
+- **Want:** a `screenshot_console` MCP tool so the agent can see the Console cockpit
+  (`/console.html`) the way `screenshot` shows instance pixels — needed before an agent can
+  give feedback on (or iterate on) the Console UI itself.
+- **Why the existing tool can't do it:** `screenshot` reads render-target/canvas pixels inside
+  the Output page over the WS bridge. The Console is a sibling tab reachable only via
+  `BroadcastChannel` — its DOM is not capturable from page JS (and its preview canvases are
+  WebGL without `preserveDrawingBuffer`, so DOM-to-canvas hacks like html2canvas would read
+  black where it matters).
+- **Candidate approaches:** (a) sidecar attaches over CDP (`Page.captureScreenshot`) when
+  Chrome is launched with `--remote-debugging-port` — pixel-accurate, no in-page code, but
+  needs a launch flag and tab discovery; (b) a dev-only Playwright sidecar mode that owns a
+  headed browser for both pages — accurate and scriptable, heavyweight; (c) Console
+  self-capture via `getDisplayMedia` — permission-prompts the performer mid-set, rejected.
+  (a) is the likely winner; same trust tier as `screenshot` (read-only).
