@@ -165,3 +165,22 @@ A design pass on "how the instrument is actually used" produced requirements R6â
   as the FIRST arg builds a shader that silently fails to compile - the instance reports ok
   but its render target never gets written (screenshot errors with "reading 'format'").
   Wrap leading literals: `mix(float(1), ...)`.
+
+## 2026-06-11 - Unified Transform: 2D and 3D tilt in one concept (no Transform3D split)
+
+- **One interface, not two**: `Transform` (transform.ts, replacing transform2d.ts) adds
+  rotateX/rotateY/perspective to the 2D fields. A plane under rigid 3D transform +
+  pinhole projection is a homography - closed-form inverse - so sources still sample
+  through `localSpace()` with no render target; absent fields reduce exactly to the old
+  affine path. Every consumer keeps a single attachment point.
+- **Per-layer perspective** (anchored at the layer center, CSS-style) rather than one
+  global camera: tilt reads the same anywhere on screen, which is what compositing wants.
+- **Cramer instead of `inverse(mat3)`**: TSL's matrix inverse isn't guaranteed on the
+  WGSL backend; cross/dot are universal.
+- **Scope line**: this stays a 2.5D compositor transform. Real geometry/camera work
+  (the reserved `geo` module kind) should use three's scene graph, with the compositor
+  Transform moving that rendered layer like any other image.
+- **Derivative-poisoning gotcha**: guarding invalid uv regions with a huge sentinel
+  (mix to 1e6) or number-FIRST TSL args (step(0.0, node)) collapses texture sampling to
+  the lowest mip everywhere (giant mosaic). Guard by adding a SMALL node-first offset:
+  `local.add(behind.mul(10))`.

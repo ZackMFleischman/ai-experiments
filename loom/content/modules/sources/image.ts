@@ -1,13 +1,13 @@
 import { BuildCtx, defineModule, texNode, type Pass, type TexNode } from "@loom/runtime";
 import { abs, step, texture, uniform, uv, vec2, vec4 } from "three/tsl";
 import { SRGBColorSpace, TextureLoader } from "three/webgpu";
-import { localSpace, type Transform2D } from "../effects/transform2d";
+import { localSpace, type Transform } from "../effects/transform";
 
 export interface ImageOpts {
   /** Image URL — from a scene use `new URL("../assets/x.png", import.meta.url).href`. */
   url: string;
-  /** Optional live placement (position/rotation/scale/mirror); omit to center. */
-  transform?: Transform2D;
+  /** Optional live placement (position/rotation/3D tilt/scale/mirror); omit to center. */
+  transform?: Transform;
 }
 
 /**
@@ -20,7 +20,7 @@ export const image = defineModule(
   {
     name: "image",
     kind: "source",
-    description: "An image file drawn aspect-correct, placed by an attachable Transform2D.",
+    description: "An image file drawn aspect-correct, placed by an attachable Transform (2D/3D).",
     tags: ["image", "texture", "media", "base"],
     example: 'image(ctx, { url: imgUrl, transform: { rotate: angleSig, scale: 0.5 } })',
   },

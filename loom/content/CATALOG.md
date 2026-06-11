@@ -11,7 +11,7 @@
 ### source
 - **blobs** — Drifting metaball ink blobs that merge and split, lava-lamp style. r/b = ink mask, g = inner-core glow. `blobs(ctx, { count: 6, size: 0.14, speed: 0.5 })` _[organic, metaballs, lava-lamp, blobby]_
 - **fireflies** — A swarm of drifting glow-points, each twinkling at its own rate, color and intensity, with white-hot cores. `fireflies(ctx, { count: 28, size: 0.035, hueSpread: 0.4 })` _[particles, sparkle, organic, night, audio-reactive]_
-- **image** — An image file drawn aspect-correct, placed by an attachable Transform2D. `image(ctx, { url: imgUrl, transform: { rotate: angleSig, scale: 0.5 } })` _[image, texture, media, base]_
+- **image** — An image file drawn aspect-correct, placed by an attachable Transform (2D/3D). `image(ctx, { url: imgUrl, transform: { rotate: angleSig, scale: 0.5 } })` _[image, texture, media, base]_
 - **mandelbrot** — Smooth escape-time Mandelbrot set in grayscale (compose with colorize). `mandelbrot(ctx, { cx: -0.7436, cy: 0.1314, scale: zoomSig, iterations: 250 })` _[fractal, mandelbrot, zoom, math]_
 - **noise** — Animated FBM noise field (monochrome). `noise(ctx, { scale: 3, speed: 0.2 })` _[texture, organic]_
 - **osc** — Scrolling sinusoidal stripes with optional RGB phase offset. `osc(ctx, { freq: 10, sync: 0.25, offset: 0.1 })` _[pattern, stripes, classic]_
@@ -26,7 +26,7 @@
 - **kaleidoZoom** — Endless fractal-style dive into any input through a mirrored kaleido fold. `kaleidoZoom(ctx, { input: src, zoom: depthSig, segments: 6, twist: 0.5 })` _[kaleidoscope, zoom, infinite, fractal, stateful]_
 - **levels** — Gain, bias and gamma adjustment on an image. `levels(ctx, { input: src, gain: 1.2, gamma: 1.1 })` _[color, grade]_
 - **over** — Alpha-composites an overlay TexNode on top of an input (logo/still overlays). `over(ctx, { input: chain, overlay: imagePlate(ctx, { url: logoUrl }), opacity: 1 })` _[composite, overlay, blend, alpha]_
-- **transform2d** — Moves/rotates/scales/mirrors any input as a layer (live Transform2D). `transform2d(ctx, { input: src, x: 0.3, scale: 0.5, rotate: spinSig })` _[transform, layout, layer, stateful]_
+- **transform** — Moves/spins/3D-tilts/scales/mirrors any input as a layer (live Transform). `transform(ctx, { input: src, x: 0.3, scale: 0.5, rotateY: flipSig })` _[transform, 3d, layout, layer, stateful]_
 
 ## Scenes (`content/scenes/`)
 
@@ -37,4 +37,4 @@
 - **pulse** — Kick-reactive feedback rings with a slowly drifting palette. params: punch, trail, drift _[audio-reactive, feedback, demo]_
 - **pulse-glitch** **(live)** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_
 - **vinyl** — A vinyl record spinning at 33rpm that bumps on the kick, refracted through a slowly turning kaleidoscope. params: rpm, size, bump, segments, spin, kaleido, zoom, trail _[image, kaleidoscope, audio-reactive, vinyl]_
-- **vinyl-zoom** — DJ Hippo vinyl spinning at 33rpm, devoured by an infinite kaleidoscopic dive that lurches deeper on every kick. params: rpm, size, punch, creep, glide, segments, twist, logo, logoSize, logoRpm, hippos, hippoSize, hippoSpeed _[image, kaleidoscope, zoom, audio-reactive, vinyl]_
+- **vinyl-zoom** — DJ Hippo vinyl spinning at 33rpm, devoured by an infinite kaleidoscopic dive that lurches deeper on every kick. params: rpm, size, punch, creep, glide, segments, twist, logo, logoSize, logoRpm, logoTiltX, logoTiltY, hippos, hippoSize, hippoSpeed _[image, kaleidoscope, zoom, audio-reactive, vinyl]_

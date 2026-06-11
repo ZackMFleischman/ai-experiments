@@ -42,6 +42,8 @@ export default defineScene({
     const logo = ctx.float("logo", { default: 1, min: 0, max: 1, description: "DJ Hippo logo overlay opacity" });
     const logoSize = ctx.float("logoSize", { default: 1, min: 0, max: 8, description: "logo overlay scale (0 = gone, ~7 fills the screen)" });
     const logoRpm = ctx.float("logoRpm", { default: 0, min: -78, max: 78, description: "logo spin speed (rpm, negative = reverse)" });
+    const logoTiltX = ctx.float("logoTiltX", { default: 0, min: -1.5, max: 1.5, description: "logo 3D tilt, top leans away (radians)" });
+    const logoTiltY = ctx.float("logoTiltY", { default: 0, min: -1.5, max: 1.5, description: "logo 3D card-flip tilt (radians)" });
     const hippos = ctx.float("hippos", { default: 1, min: 0, max: 1, description: "flying hippo flock opacity" });
     const hippoSize = ctx.float("hippoSize", { default: 0.16, min: 0, max: 0.6, description: "flying hippo size" });
     const hippoSpeed = ctx.float("hippoSpeed", { default: 0.6, min: 0, max: 3, description: "flying hippo flight speed" });
@@ -71,7 +73,15 @@ export default defineScene({
     // The logo rides on top, outside the zoom chain — static while the dive runs.
     const logoRpmSig = logoRpm.signal();
     const logoAngle = integrate(new Signal((f) => (-logoRpmSig.get(f) * TAU) / 60));
-    const badge = image(ctx, { url: LOGO_URL, transform: { scale: logoSize.signal(), rotate: logoAngle } });
+    const badge = image(ctx, {
+      url: LOGO_URL,
+      transform: {
+        scale: logoSize.signal(),
+        rotate: logoAngle,
+        rotateX: logoTiltX.signal(),
+        rotateY: logoTiltY.signal(),
+      },
+    });
     const branded = over(ctx, { input: graded, overlay: badge, opacity: logo.signal() });
     // The flock rides above everything, untouched by the zoom.
     return flyby(ctx, {
