@@ -15,7 +15,13 @@
         display: block;
         width: 100%;
         height: 100%;
+        /* R9.2: fixed-resolution render scaled to fill — never warped, never
+           letterboxed; overflow on the smaller-aspect axis is cropped. */
+        object-fit: cover;
+        object-position: center;
       }
+      /* Pure output (R9.1): fps stays in the DOM (validators read its text)
+         but is invisible unless ?hud=1 adds .show. */
       #fps {
         position: fixed;
         top: 8px;
@@ -25,51 +31,16 @@
         opacity: 0.8;
         pointer-events: none;
         z-index: 10;
+        visibility: hidden;
       }
-      #status {
-        position: fixed;
-        left: 10px;
-        bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        color: #9ad;
-        font: 12px monospace;
-        opacity: 0.85;
-        z-index: 10;
-      }
-      #status .chip.ok {
-        color: #6f6;
-      }
-      #status .chip.err {
-        color: #f55;
-        font-weight: bold;
-      }
-      #status .meter {
-        display: inline-block;
-        width: 70px;
-        height: 8px;
-        border: 1px solid #345;
-        background: #0a0f14;
-      }
-      #status .meter span {
-        display: block;
-        height: 100%;
-        width: 0;
-        background: #4cf;
-      }
-      #status select {
-        background: #0a0f14;
-        color: #9ad;
-        border: 1px solid #345;
-        font: 11px monospace;
+      #fps.show {
+        visibility: visible;
       }
     </style>
   </head>
   <body>
     <canvas id="out"></canvas>
     <div id="fps"></div>
-    <div id="status"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -11,7 +11,8 @@
     "validate:m0": "node scripts/validate-m0.mjs",
     "validate:m1": "node scripts/validate-m1.mjs",
     "validate:m2": "node scripts/validate-m2.mjs",
-    "validate:m3": "node scripts/validate-m3.mjs"
+    "validate:m3": "node scripts/validate-m3.mjs",
+    "validate:m4": "node scripts/validate-m4.mjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",

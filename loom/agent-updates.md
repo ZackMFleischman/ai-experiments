@@ -86,3 +86,12 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - Skills updated (module-authoring, scene-composition): scenes-are-wiring policy, module-composing-modules, the RT-resampling effect pattern, `new Signal` combinator idiom, scene-discovery fallback. Verified by a fresh-agent planning probe (proposed a reusable `kaleido` module unprompted under time pressure).
 - Gates: typecheck, 75 unit tests, validate:m0 10/10, m1 19/19, m2 14/14, m3 27/27 — all green post-refactor.
 - Ops note: the Output window stopped painting mid-session (rAF throttled while occluded/minimized — frame counter froze, bridge stayed responsive). Content exonerated on both backends; window needs to be visible to resume.
+
+## 2026-06-10 — Roadmap v1.1 + M4 SHIPPED: Clean stage (15/15 e2e checks)
+
+- Design pass on Console/usage produced requirements R6–R9 (`requirements-v1.md` §11) and the v1.1 roadmap (`implementation-plan-v1.md`): **M4 Clean stage** (this ship), **M5 input rack** (absorbs old-M4 MIDI; named tunable channels on a `"globals"` pseudo-instance manifest), **M6 color & chains** (global palettes + per-instance post-effect chains via `set_chain`), **M7 library & panels** (old M5 + old-M4 panels/save-as), **M8 Geo** (old M6), **M9 gig hardening** (old M7, v1). Rationale logged in `DECISIONS.md`.
+- Pure Output (R9.1): `#status` overlay and `overlay.ts` deleted; `#fps` hidden but ticking (validators gate on it; `?hud=1` reveals). Audio source selection moved to a Console header picker via new human-only `set_audio` (not an MCP tool; mic failure falls back to test); snapshot gains `audioDevices`.
+- No more warp (R9.2): fixed 1920×1080 internal render (`?res=WxH`) + `object-fit: cover` — fills any window, crops instead of stretching, render path untouched, screenshots now stable 1080p.
+- Staging UX (R9.3): drag a tile onto the stage strip to stage; staged tile's button toggles to unstage; new `/staged.html` (BroadcastChannel sibling page, per-tab request-id prefix) shows the staged instance big with COMMIT/unstage — auditioning from a second tab/display works.
+- `pnpm validate:m4` 15/15 (fake-media-device flags exercise the real mic path headless; synthetic DragEvents exercise the drop target). Gates re-run green: typecheck, 75 unit tests, m0 10/10, m1 19/19, m2 14/14, m3 27/27.
+- Stumble worth knowing: Playwright's `waitForSelector` never resolves on `<option>`s inside a closed `<select>` (they're not "visible") — use `state: "attached"`.

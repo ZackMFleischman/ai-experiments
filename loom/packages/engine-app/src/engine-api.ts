@@ -10,8 +10,10 @@ import {
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
+  SetAudioArgs,
   SetParamArgs,
   TransportArgs,
+  type AudioDevice,
   type RequestMsg,
   type ScreenshotResult,
   type SessionSnapshot,
@@ -22,15 +24,24 @@ import { entryStatus, PREVIEW_H, PREVIEW_W, type Entry, type SessionStore } from
 /** Who issued a command: the MCP bridge ("agent") or the Console ("human"). */
 export type Source = "agent" | "human";
 
-const HUMAN_ONLY: ReadonlySet<string> = new Set(["panic", "resume", "arm_agent_commit"]);
+// set_audio is human-only: an agent must not silently swap the audio source
+// mid-set (it isn't an MCP tool either — this is the belt to that braces).
+const HUMAN_ONLY: ReadonlySet<string> = new Set(["panic", "resume", "set_audio", "arm_agent_commit"]);
 
 export interface EngineDeps {
   renderer: WebGPURenderer;
   canvas: HTMLCanvasElement;
   session: SessionStore;
   stage: Stage;
-  audio: AudioBusLike & { mode: string };
+  audio: AudioBusLike & {
+    mode: string;
+    startMic(deviceId?: string): Promise<void>;
+    startTest(bpm?: number): void;
+  };
   time: TimeBus;
+  /** Cached audio input devices (snapshot is sync; main.ts owns the refresh). */
+  audioDevices(): AudioDevice[];
+  refreshAudioDevices(): void;
   getScenes(): Map<string, SceneDef>;
   latestFrame(): FrameCtx;
   /** Same-task canvas capture, resolved by the render loop (live output only). */
@@ -178,6 +189,22 @@ export class EngineApi {
         if (tap) this.deps.time.tap(performance.now() / 1000);
         return { bpm: this.deps.time.bpm };
       }
+      case "set_audio": {
+        const { mode, deviceId } = SetAudioArgs.parse(req.args);
+        if (mode === "test") {
+          this.deps.audio.startTest(this.deps.time.bpm);
+        } else {
+          try {
+            await this.deps.audio.startMic(deviceId);
+          } catch (err) {
+            // Never leave the instrument deaf: fall back like boot does.
+            this.deps.audio.startTest(this.deps.time.bpm);
+            throw new Error(`mic unavailable (${String(err)}) — fell back to the test signal`);
+          }
+        }
+        this.deps.refreshAudioDevices(); // labels appear once mic permission is granted
+        return { audioMode: this.deps.audio.mode };
+      }
       case "arm_agent_commit": {
         const { armed } = ArmAgentCommitArgs.parse(req.args);
         this.agentCommitArmed = armed;
@@ -208,6 +235,7 @@ export class EngineApi {
       agentCommitArmed: this.agentCommitArmed,
       availableScenes: [...this.deps.getScenes().keys()],
       audioMode: this.deps.audio.mode,
+      audioDevices: this.deps.audioDevices(),
       bpm: this.deps.time.bpm,
       rms: this.deps.rms(),
       onsetCount: this.deps.onsetCount(),

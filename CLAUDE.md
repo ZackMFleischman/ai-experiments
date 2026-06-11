@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Read in this order before substantive work in `loom/`:
 1. `loom/requirements-v1.md` — what LOOM is (concepts, functional/non-functional requirements, the agent contract)
-2. `loom/implementation-plan-v1.md` — how it's built (stack, M0–M7 milestone roadmap, cross-cutting rules)
+2. `loom/implementation-plan-v1.md` — how it's built (stack, M0–M9 milestone roadmap, cross-cutting rules; v1.1 reshaped M4+ after M3 shipped)
 3. `loom/DECISIONS.md` — implementation decision log (newest at bottom); add an entry when you make a non-obvious decision
 4. `loom/agent-updates.md` — append-only progress log; append a dated entry when you ship milestone-level work
 
@@ -27,6 +27,7 @@ pnpm validate:m0        # M0 acceptance: Playwright + headless Chromium HMR chec
 pnpm validate:m1        # M1 acceptance: signals/audio-reactivity/containment checks
 pnpm validate:m2        # M2 acceptance: MCP client e2e (agent tools + latency)
 pnpm validate:m3        # M3 acceptance: stage/commit/PANIC loop via MCP + Console
+pnpm validate:m4        # M4 acceptance: pure output, cover scaling, set_audio, staging UX
 ```
 
 Validators pin `pulse` as their live scene (restoring the real one afterwards) and run their sidecars on isolated ports — safe to run while a live session is up.
@@ -44,7 +45,7 @@ Milestone work merges only with typecheck green, unit tests green, and all prior
 ### Layout
 
 - `loom/packages/runtime` (`@loom/runtime`) — the kernel: Signal, Events, Param/Manifest, Module/Scene definitions, TexNode, BuildCtx, Instance, InputBus (TimeBus/AudioBus). Unit-tested in Node with a fake clock. **Changes here get human review.**
-- `loom/packages/engine-app` — the Vite app, two pages: the Output window at `/` (render loop, multi-instance `SessionStore`, `Compositor` for crossfades, HMR via the eager scenes barrel `scenes.ts`, sidecar bridge) and the Console cockpit at `/console.html` (instance tiles, scene picker to spawn library instances, auto param panel, COMMIT/PANIC) talking to the engine over `BroadcastChannel("loom")`. One `EngineApi` dispatch serves agent (WS) and human (channel) commands, source-tagged: agent `commit` requires arming (Console toggle or `?agentCommit=1`), `panic`/`resume`/`arm_agent_commit` are human-only. Instance ids: boot instance is `"boot"`; `"live"` is an alias resolving to whatever the Stage routes to output.
+- `loom/packages/engine-app` — the Vite app, three pages: the Output window at `/` (render loop, multi-instance `SessionStore`, `Compositor` for crossfades, HMR via the eager scenes barrel `scenes.ts`, sidecar bridge), the Console cockpit at `/console.html` (instance tiles with drag-to-stage, scene picker to spawn library instances, audio-source picker, auto param panel, COMMIT/PANIC), and `/staged.html` (big preview of the staged instance with COMMIT/unstage) — both sibling pages talk to the engine over `BroadcastChannel("loom")`. The Output is a pure projector surface: no overlay (`?hud=1` reveals the fps readout — the element stays in the DOM, validators gate on its text), fixed 1920×1080 internal render (`?res=WxH`) scaled with CSS `object-fit: cover` (never warped). One `EngineApi` dispatch serves agent (WS) and human (channel) commands, source-tagged: agent `commit` requires arming (Console toggle or `?agentCommit=1`), `panic`/`resume`/`set_audio`/`arm_agent_commit` are human-only. Instance ids: boot instance is `"boot"`; `"live"` is an alias resolving to whatever the Stage routes to output.
 - `loom/packages/runtime`'s `Stage` is the audience-safety core: LIVE changes only via `commit()` (frame-boundary crossfade; PANIC holds the last frame and cancels fades). Instances render exactly once per frame to a directive-chosen destination (canvas, crossfade leg, or preview target).
 - `loom/packages/sidecar` — agent surface: MCP server over stdio (8 tools: `get_session`, `get_manifest`, `set_param`, `screenshot`, `create_instance`, `destroy_instance`, `stage`, `commit`) bridged to the engine over WebSocket (port 7341; `LOOM_WS_PORT` + `?ws=` override for isolation). The wire contract is `@loom/sidecar/protocol` (browser-safe, shared with the engine via tsconfig path + Vite alias). The sidecar's stdout belongs to MCP — log to stderr only. `loom/.mcp.json` registers it; `loom/.claude/` holds the in-engine agent rules and skills (start LOOM agent sessions from `loom/`).
 - `loom/content/` — scenes and modules. **This is agent territory.** `content/` lives outside any package; it imports `@loom/runtime` via tsconfig `paths` plus a matching Vite alias in `engine-app/vite.config.ts`. One root `tsconfig.json` drives typecheck for everything (no project references).

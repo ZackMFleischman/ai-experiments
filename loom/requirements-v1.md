@@ -143,3 +143,25 @@ If a step needs you to read engine code or babysit a compile error, that step ha
 1. Beat-accurate quantization (InputBus look-ahead clock) — revisit when frame-resolution cuts feel sloppy in practice.
 1. Catalog scaling — flat JSON until it measurably stops working; then embeddings.
 1. When the Geo path lands, do Hydra-style one-liner chains still earn a convenience wrapper, or is TSL ergonomic enough alone?
+
+## 11. v1.1 additions (post-M3)
+
+Adopted after the M3 design review; these extend v1 scope without touching §8 (everything below rides existing seams — InputBus, Param/Manifest, the MCP boundary, sibling pages on `BroadcastChannel`). Implementation plan v1.1 maps them to milestones M4–M6.
+
+- **R6 — The input rack.** Every input the instrument reacts to is a *named, tunable channel* in one global registry (audio-derived: `kick`, `hats`, named tuned variants like `kickTight`; MIDI CCs when hardware is present).
+  - **R6.1** Channels are code-defined in `content/inputs.ts` (typed, in git, agent-growable); the Console tunes existing channels but does not create them.
+  - **R6.2** Channel tunings (threshold, decay, gain, enable) live on a global manifest — same param machinery as instances, addressed as pseudo-instance `"globals"` — and persist across sessions.
+  - **R6.3** Modules consume channels by name (`ctx.input("kick")`); retuning a channel never rebuilds an instance. Each consumer gets a per-instance *trim* (gain) param; detection meaning is owned globally — a differently-detected kick is a new named channel, not a local override.
+  - **R6.4** The Console has a rack view (hotkey) showing every channel with a live meter and its tuning widgets — tune the inputs while the music plays.
+- **R7 — Global color palettes.** Two global palettes (*primary*, *secondary*), each five ordered color stops, adjustable live from the Console and the agent.
+  - **R7.1** Scenes consume stops by index or as a gradient ramp; index roles (bg/primary/accent) are documented convention, not kernel vocabulary.
+  - **R7.2** Each palette-consuming instance has a live `palette.source` param: primary / secondary / its own defaults. Switching is instant (no rebuild) and choosable from the stage strip when the instance is staged.
+- **R8 — Post-effect chains.** Any running instance can have a chain of post-effects attached, removed, and reordered at perform time, without code edits.
+  - **R8.1** Chain edits can never blank the instance: a failing edit leaves the previous pixels running (same containment as code rebuilds, NFR-5 semantics — feedback state resets on a successful edit).
+  - **R8.2** Each chain step exposes its params on the instance manifest (stable per-step paths; reordering preserves tuned values). The Console shows the chain for the selected instance: select a step, tweak, drag to reorder, collapse.
+  - **R8.3** Humans may edit the LIVE instance's chain directly; agents need the same arming gate as `commit` to touch the LIVE chain.
+  - **R8.4** Module outputs are explicitly typed (texture / signal / events, geo later); chainable effects are texture→texture and declare their chain-tunable params in metadata.
+- **R9 — Pure output & staging flow.**
+  - **R9.1** The Output window renders pixels only — no textual overlay (diagnostics opt-in via query flag). Controls that lived there (audio source selection) move to the Console.
+  - **R9.2** Output never warps: fixed internal render resolution, scaled to fill the window preserving aspect (cover: match the smaller dimension, center, crop overflow).
+  - **R9.3** Staging is direct: drag a tile to the stage strip to stage it; a staged tile's stage control becomes unstage; a dedicated `/staged` page (second tab/display) shows the staged visual large with its own COMMIT and unstage.

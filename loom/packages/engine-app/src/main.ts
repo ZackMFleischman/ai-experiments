@@ -14,7 +14,6 @@ import { Compositor } from "./compositor";
 import { startConsoleChannel } from "./console-channel";
 import { EngineApi } from "./engine-api";
 import { FpsMeter } from "./fps";
-import { Overlay } from "./overlay";
 import { getScenes } from "./scenes";
 import { entryStatus, SessionStore } from "./session";
 
@@ -43,21 +42,30 @@ const qs = new URLSearchParams(location.search);
 
 const canvas = document.querySelector<HTMLCanvasElement>("#out");
 const fpsEl = document.querySelector<HTMLElement>("#fps");
-const statusEl = document.querySelector<HTMLElement>("#status");
-if (!canvas || !fpsEl || !statusEl) {
-  throw new Error("index.html is missing #out, #fps or #status");
+if (!canvas || !fpsEl) {
+  throw new Error("index.html is missing #out or #fps");
 }
+// The Output window is a pure projector surface (R9.1): the fps readout is
+// kept in the DOM (validators gate readiness on its text) but stays invisible
+// unless diagnostics are asked for.
+if (qs.get("hud") === "1") fpsEl.classList.add("show");
+
+// R9.2: render at a fixed internal resolution; CSS object-fit: cover scales
+// the canvas to any window without warping (crop, never stretch). Render cost
+// and screenshot size stop depending on window/display size.
+const RES = /^(\d+)x(\d+)$/.exec(qs.get("res") ?? "");
+const RENDER_W = RES ? Number(RES[1]) : 1920;
+const RENDER_H = RES ? Number(RES[2]) : 1080;
 
 const renderer = new WebGPURenderer({ canvas, antialias: true });
 const clock = new Clock();
 const timeBus = new TimeBus(Number(qs.get("bpm")) || 120);
 const audio = new AudioBus();
 const fps = new FpsMeter(fpsEl);
-const overlay = new Overlay(statusEl);
 
 const session = new SessionStore({ audio, time: timeBus });
 const stage = new Stage();
-const compositor = new Compositor(window.innerWidth, window.innerHeight);
+const compositor = new Compositor(RENDER_W, RENDER_H);
 
 // The barrel binding goes stale when ./scenes hot-updates; HMR swaps it below.
 let currentScenes = getScenes;
@@ -84,16 +92,6 @@ function trySwapLive(def: SceneDef): boolean {
   }
 }
 
-function resize(): void {
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  compositor.resize(
-    Math.round(window.innerWidth * window.devicePixelRatio),
-    Math.round(window.innerHeight * window.devicePixelRatio),
-  );
-}
-window.addEventListener("resize", resize);
-
 async function startAudio(): Promise<void> {
   if (qs.get("audio") === "test") {
     audio.startTest(timeBus.bpm);
@@ -108,8 +106,18 @@ async function startAudio(): Promise<void> {
 }
 
 await renderer.init();
-resize();
+// updateStyle=false: CSS owns the canvas's on-screen size (object-fit: cover).
+renderer.setSize(RENDER_W, RENDER_H, false);
 await startAudio();
+
+// Audio input devices, cached for the (synchronous) session snapshot.
+let audioDevices: Array<{ id: string; label: string }> = [];
+async function refreshAudioDevices(): Promise<void> {
+  const devices = await audio.listInputDevices();
+  audioDevices = devices.map((d, i) => ({ id: d.deviceId, label: d.label || `input ${i + 1}` }));
+}
+void refreshAudioDevices();
+navigator.mediaDevices?.addEventListener("devicechange", () => void refreshAudioDevices());
 
 const debugOnsets = audio.onset({ band: "bass", threshold: 0.22 });
 let onsetCount = 0;
@@ -165,6 +173,8 @@ const api = new EngineApi(
     rms: () => window.__loom?.rms ?? 0,
     onsetCount: () => onsetCount,
     currentMix: () => currentMix,
+    audioDevices: () => audioDevices,
+    refreshAudioDevices: () => void refreshAudioDevices(),
   },
   { agentCommitArmed: qs.get("agentCommit") === "1" },
 );
@@ -212,14 +222,6 @@ renderer.setAnimationLoop((tMs) => {
   }
 
   const liveEntry = stage.live != null ? session.get(stage.live) : undefined;
-  const error = liveEntry?.instance.error != null;
-  overlay.update({
-    scene: liveEntry?.sceneName ?? null,
-    audioMode: audio.mode,
-    bpm: timeBus.bpm,
-    rms: audio.rms.get(f),
-    error,
-  });
   const dbg = window.__loom!;
   dbg.sceneName = liveEntry?.sceneName ?? null;
   dbg.audioMode = audio.mode;
@@ -246,21 +248,6 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "t") timeBus.tap(performance.now() / 1000);
 });
 window.addEventListener("pointerdown", () => audio.resume());
-
-void audio.listInputDevices().then((devices) => {
-  void overlay.populateDevices(devices, audio.mode === "test" ? "test" : "mic:");
-  overlay.deviceSelect.addEventListener("change", () => {
-    const v = overlay.deviceSelect.value;
-    if (v === "test") {
-      audio.startTest(timeBus.bpm);
-    } else {
-      void audio.startMic(v.slice(4) || undefined).catch((err) => {
-        console.warn("[loom] mic switch failed; test signal", err);
-        audio.startTest(timeBus.bpm);
-      });
-    }
-  });
-});
 
 if (import.meta.hot) {
   // Compile errors never reach these callbacks (Vite withholds the update);

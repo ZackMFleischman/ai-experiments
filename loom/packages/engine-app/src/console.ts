@@ -32,6 +32,8 @@ const panicBtn = $<HTMLButtonElement>("#panic");
 const armAgent = $<HTMLInputElement>("#armagent");
 const scenePick = $<HTMLSelectElement>("#scenepick");
 const createBtn = $<HTMLButtonElement>("#createbtn");
+const audioMode = $<HTMLSelectElement>("#audiomode");
+const stageStrip = $("#stagestrip");
 
 const ch = new BroadcastChannel("loom");
 
@@ -111,6 +113,27 @@ createBtn.addEventListener("click", () => {
     })
     .catch(fail);
 });
+audioMode.addEventListener("change", () => {
+  const v = audioMode.value;
+  void req(
+    "set_audio",
+    v === "test" ? { mode: "test" } : { mode: "mic", deviceId: v.slice(4) || undefined },
+  ).catch(fail);
+});
+
+// Drag a tile onto the stage strip to stage it (R9.3).
+stageStrip.addEventListener("dragover", (e) => {
+  if (!e.dataTransfer?.types.includes("text/loom-instance")) return;
+  e.preventDefault();
+  stageStrip.classList.add("dragover");
+});
+stageStrip.addEventListener("dragleave", () => stageStrip.classList.remove("dragover"));
+stageStrip.addEventListener("drop", (e) => {
+  e.preventDefault();
+  stageStrip.classList.remove("dragover");
+  const id = e.dataTransfer?.getData("text/loom-instance");
+  if (id) void req("stage", { instance: id }).catch(fail);
+});
 
 // ---- rendering ----
 function render(): void {
@@ -119,8 +142,25 @@ function render(): void {
 
   $("#bpm").textContent = s.bpm.toFixed(0);
   $("#fps").textContent = `${s.fps.toFixed(0)} fps · f${s.frame}`;
-  $("#audiomode").textContent = `audio: ${s.audioMode}`;
   $("#rmsfill").style.width = `${Math.min(100, s.rms * 220)}%`;
+
+  // Audio source picker: rebuild options only when the device list changes;
+  // reflect the engine's mode unless the user is mid-interaction.
+  const devKey = s.audioDevices.map((d) => d.id).join(",");
+  if (audioMode.dataset.devices !== devKey) {
+    audioMode.dataset.devices = devKey;
+    audioMode.replaceChildren(
+      new Option("test signal", "test"),
+      ...s.audioDevices.map((d) => new Option(d.label, `mic:${d.id}`)),
+    );
+  }
+  if (document.activeElement !== audioMode) {
+    if (s.audioMode === "test") audioMode.value = "test";
+    else if (s.audioMode === "mic" && !audioMode.value.startsWith("mic:")) {
+      const firstMic = audioMode.querySelector<HTMLOptionElement>('option[value^="mic:"]');
+      if (firstMic) audioMode.value = firstMic.value;
+    }
+  }
   panicBtn.classList.toggle("engaged", s.panicked);
   panicBtn.textContent = s.panicked ? "RESUME" : "PANIC";
   const withScene = (id: string | null) => {
@@ -169,7 +209,8 @@ function render(): void {
     tile.querySelector(".live-badge")!.classList.toggle("show", inst.id === s.live);
     tile.querySelector(".staged-badge")!.classList.toggle("show", inst.id === s.staged);
     const stageBtn = tile.querySelector<HTMLButtonElement>(".stagebtn")!;
-    stageBtn.disabled = inst.id === s.live || inst.id === s.staged;
+    stageBtn.textContent = inst.id === s.staged ? "unstage" : "stage";
+    stageBtn.disabled = inst.id === s.live;
     const destroyBtn = tile.querySelector<HTMLButtonElement>(".destroybtn")!;
     destroyBtn.disabled = inst.id === s.live;
     tile.classList.toggle("selected", inst.id === selected);
@@ -205,9 +246,14 @@ function makeTile(id: string): HTMLElement {
     solo = solo === id ? null : id;
     render();
   });
+  tile.draggable = true;
+  tile.addEventListener("dragstart", (e) => {
+    e.dataTransfer?.setData("text/loom-instance", id);
+  });
   tile.querySelector(".stagebtn")!.addEventListener("click", (e) => {
     e.stopPropagation();
-    void req("stage", { instance: id }).catch(fail);
+    const isStaged = state?.session.staged === id;
+    void req(isStaged ? "unstage" : "stage", isStaged ? {} : { instance: id }).catch(fail);
   });
   tile.querySelector(".destroybtn")!.addEventListener("click", (e) => {
     e.stopPropagation();

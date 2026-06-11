@@ -35,6 +35,10 @@
         border-bottom: 1px solid var(--edge);
         flex: 0 0 auto;
       }
+      #stagestrip.dragover {
+        outline: 2px dashed var(--warn);
+        outline-offset: -2px;
+      }
       header { font-size: 16px; }
       header .spacer, #stagestrip .spacer { flex: 1; }
       button {
@@ -140,7 +144,7 @@
       <span><b id="bpm">—</b> <span class="dimlabel">BPM</span></span>
       <button id="tap">TAP</button>
       <div id="rmswrap"><div id="rmsfill"></div></div>
-      <span id="audiomode" class="dimlabel"></span>
+      <select id="audiomode" title="audio input"></select>
       <span class="dimlabel">MIDI —</span>
       <span class="spacer"></span>
       <span id="fps" class="dimlabel"></span>

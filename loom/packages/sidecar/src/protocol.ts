@@ -28,6 +28,7 @@ export const RequestType = z.enum([
   "panic",
   "resume",
   "set_transport",
+  "set_audio",
   "arm_agent_commit",
 ]);
 export type RequestType = z.infer<typeof RequestType>;
@@ -78,10 +79,19 @@ export const TransportArgs = z.object({
 });
 export type TransportArgs = z.infer<typeof TransportArgs>;
 
+export const SetAudioArgs = z.object({
+  mode: z.enum(["mic", "test"]),
+  deviceId: z.string().optional(),
+});
+export type SetAudioArgs = z.infer<typeof SetAudioArgs>;
+
 // ---- results (produced by the engine, consumed by MCP clients) ----
 
 export const InstanceStatus = z.enum(["ok", "frozen", "rejected"]);
 export type InstanceStatus = z.infer<typeof InstanceStatus>;
+
+export const AudioDevice = z.object({ id: z.string(), label: z.string() });
+export type AudioDevice = z.infer<typeof AudioDevice>;
 
 export const InstanceInfo = z.object({
   id: z.string(),
@@ -109,6 +119,7 @@ export const SessionSnapshot = z.object({
   availableScenes: z.array(z.string()),
   // World
   audioMode: z.string(),
+  audioDevices: z.array(AudioDevice),
   bpm: z.number(),
   rms: z.number(),
   onsetCount: z.number(),
