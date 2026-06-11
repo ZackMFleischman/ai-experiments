@@ -28,6 +28,9 @@ export const myModule = defineModule(
 - **Effects** take `input: TexNode` and must propagate passes: a stateless effect returns `texNode(newColor, input.passes)`; a stateful one (render targets) returns `texNode(color, [...input.passes, ownPass])`. Order is composition order — no scheduler.
 - **Controls** return a `Signal<number>` and run on the CPU; they must be cheap (called every frame).
 - Modules never reach outside `ctx` — no globals, no direct bus access beyond `ctx.audio`/`ctx.time`.
+- Modules may compose other modules (`pulseRings` wraps `noise` for its grain) — just propagate the inner module's passes through your returned `texNode`.
+- **Effects that displace or warp their input** (glitch, blur, kaleido) cannot re-evaluate `input.color` at a shifted UV — the input is a node graph, not a function of UV. Render the input into an owned RenderTarget in your pass, then sample `texture(rt.texture, warpedUv)`. `content/modules/effects/glitch.ts` is the reference for this shape.
+- A look that two scenes want is a module, not copy-pasted TSL. Extract the shared identity (see `pulseRings` ← pulse/pulse-glitch) and let scenes differ in wiring and params.
 
 ## Golden example (source)
 

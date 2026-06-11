@@ -12,9 +12,11 @@
 - **blobs** — Drifting metaball ink blobs that merge and split, lava-lamp style. r/b = ink mask, g = inner-core glow. `blobs(ctx, { count: 6, size: 0.14, speed: 0.5 })` _[organic, metaballs, lava-lamp, blobby]_
 - **noise** — Animated FBM noise field (monochrome). `noise(ctx, { scale: 3, speed: 0.2 })` _[texture, organic]_
 - **osc** — Scrolling sinusoidal stripes with optional RGB phase offset. `osc(ctx, { freq: 10, sync: 0.25, offset: 0.1 })` _[pattern, stripes, classic]_
+- **pulseRings** — Concentric ink rings in a soft core with a teal-to-magenta glow palette. `pulseRings(ctx, { energy: kickEnv, hue: lfo(ctx, { periodBeats: 16 }) })` _[rings, radial, audio-reactive, ink]_
 
 ### effect
 - **feedback** — Ping-pong video feedback with zoomable trails. `feedback(ctx, { input: src, amount: 0.9, zoom: 1.01 })` _[stateful, trails, classic]_
+- **glitch** — Slice tearing, RGB split, scanlines and row dropouts over any input. `glitch(ctx, { input: src, amount: 0.6, burst: kickEnv, split: 0.5 })` _[glitch, datamosh, distortion, stateful]_
 - **levels** — Gain, bias and gamma adjustment on an image. `levels(ctx, { input: src, gain: 1.2, gamma: 1.1 })` _[color, grade]_
 
 ## Scenes (`content/scenes/`)
@@ -22,3 +24,4 @@
 - **hello** — Animated rings — the M0 sanity scene. params: none _[]_
 - **lava** **(live)** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
 - **pulse** — Kick-reactive feedback rings with a slowly drifting palette. params: punch, trail, drift _[audio-reactive, feedback, demo]_
+- **pulse-glitch** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_

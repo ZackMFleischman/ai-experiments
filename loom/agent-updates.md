@@ -78,3 +78,11 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - Live tile preview was black: canvas thumbnails were read outside the render task (the documented preserveDrawingBuffer pitfall, resurfaced through a new path). Render loop now mirrors the canvas into a 2D canvas same-task; validate:m3 decodes the LIVE tile thumbnail at boot and after promotion.
 - "LIVE live" confusion fixed: boot instance renamed to `boot`; `"live"` is now an alias resolved at dispatch to whatever the Stage routes to output (so default-instance commands always hit what the audience sees, even after commits). Stage strip shows `id · scene`.
 - Console gained a scene picker (+ instance) so the human can spawn library scenes without the agent — closes the R4.5 gap. validate:m3 now 27/27.
+
+## 2026-06-10 19:20 — Composable content library: pulseRings + glitch modules, scene-discovery watcher fix
+
+- New scene `pulse-glitch` shipped live (slice tearing, kick-driven RGB split, scanlines over the pulse look), then refactored with the catalog in mind: `pulseRings` (source) and `glitch` (effect, RT-resampling pattern) extracted; `pulse` and `pulse-glitch` are now thin wiring of shared modules. Catalog: 9 modules, 4 scenes.
+- `loom:watch-content` Vite plugin: brand-new `*.scene.ts` files now hot-register without touching the scenes barrel (content/ is outside the app root, so the watcher never saw file adds). Verified headless.
+- Skills updated (module-authoring, scene-composition): scenes-are-wiring policy, module-composing-modules, the RT-resampling effect pattern, `new Signal` combinator idiom, scene-discovery fallback. Verified by a fresh-agent planning probe (proposed a reusable `kaleido` module unprompted under time pressure).
+- Gates: typecheck, 75 unit tests, validate:m0 10/10, m1 19/19, m2 14/14, m3 27/27 — all green post-refactor.
+- Ops note: the Output window stopped painting mid-session (rAF throttled while occluded/minimized — frame counter froze, bridge stayed responsive). Content exonerated on both backends; window needs to be visible to resume.

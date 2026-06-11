@@ -1,9 +1,8 @@
-import { defineScene, envelopeSignal, lagSignal, texNode } from "@loom/runtime";
-import { length, mix, sin, smoothstep, time, uv, vec2, vec3, vec4 } from "three/tsl";
+import { Signal, defineScene, envelopeSignal, lagSignal } from "@loom/runtime";
 import { lfo } from "../modules/control/lfo";
 import { feedback } from "../modules/effects/feedback";
 import { levels } from "../modules/effects/levels";
-import { noise } from "../modules/sources/noise";
+import { pulseRings } from "../modules/sources/pulseRings";
 
 /**
  * M1 demo: kick-reactive ink feedback. Bass onsets punch ring brightness,
@@ -22,30 +21,13 @@ export default defineScene({
     const kick = ctx.audio.onset({ band: "bass", threshold: 0.22 });
     const kickEnv = envelopeSignal(kick, { decay: 0.22 });
     const bass = lagSignal(ctx.audio.band("bass"), 0.06);
-    const hue = lfo(ctx, { shape: "sine", periodBeats: 16 });
-
-    const kickU = ctx.uniformOf(kickEnv);
-    const bassU = ctx.uniformOf(bass);
-    const hueU = ctx.uniformOf(hue);
-    const punchU = ctx.uniformOf(punch.signal());
-
-    const p = uv().sub(vec2(0.5)).mul(vec2(16 / 9, 1));
-    const d = length(p);
-    const rings = sin(d.mul(26).sub(time.mul(3))).mul(0.5).add(0.5);
-    const core = smoothstep(0.55, 0.0, d);
-    const energy = kickU.mul(punchU).add(bassU.mul(0.6)).add(0.06);
-
-    const grain = noise(ctx, { scale: 2.5, speed: 0.15 });
-    const inkDark = vec3(0.02, 0.04, 0.09);
-    const inkGlow = mix(vec3(0.1, 0.9, 0.85), vec3(0.95, 0.2, 0.9), hueU);
-    const srcColor = mix(
-      inkDark,
-      inkGlow,
-      rings.mul(core).mul(energy).add(grain.color.x.mul(0.1)),
+    const punchSig = punch.signal();
+    const energy = new Signal(
+      (f) => kickEnv.get(f) * punchSig.get(f) + bass.get(f) * 0.6 + 0.06,
     );
-    const src = texNode(vec4(srcColor, 1), grain.passes);
 
-    const trails = feedback(ctx, { input: src, amount: trail.signal(), zoom: drift.signal() });
+    const rings = pulseRings(ctx, { energy, hue: lfo(ctx, { shape: "sine", periodBeats: 16 }) });
+    const trails = feedback(ctx, { input: rings, amount: trail.signal(), zoom: drift.signal() });
     return levels(ctx, {
       input: trails,
       gain: bass.map((b) => 1 + b * 0.7),

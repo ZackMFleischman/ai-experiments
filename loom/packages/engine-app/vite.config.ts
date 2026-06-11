@@ -1,7 +1,20 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+
+// content/ sits outside this package's root, so Vite's watcher never learns
+// about NEW files created there: import.meta.glob("../../../content/scenes/*")
+// then misses additions until something else invalidates the scenes barrel.
+// Watching the directory explicitly makes file add/unlink events reach Vite's
+// glob-importer invalidation, so a new *.scene.ts is hot-registered on save.
+const watchContent: Plugin = {
+  name: "loom:watch-content",
+  configureServer(server) {
+    server.watcher.add(fileURLToPath(new URL("../../content", import.meta.url)));
+  },
+};
 
 export default defineConfig({
+  plugins: [watchContent],
   resolve: {
     alias: {
       // Single source of truth for runtime resolution so content/ scenes
