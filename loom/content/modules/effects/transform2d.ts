@@ -7,19 +7,20 @@ import {
   type SignalLike,
   type TexNode,
 } from "@loom/runtime";
-import { abs, cos, sign, sin, step, texture, uv, vec2, vec4 } from "three/tsl";
+import { abs, cos, screenSize, sign, sin, step, texture, uv, vec2, vec4 } from "three/tsl";
 import {
   HalfFloatType,
   MeshBasicNodeMaterial,
   QuadMesh,
   RenderTarget,
+  Vector2,
   type Node,
   type WebGPURenderer,
 } from "three/webgpu";
 
-const WIDTH = 1280;
-const HEIGHT = 720;
-const SCREEN_ASPECT = 16 / 9;
+// The aspect of whatever surface is being rendered — canvas, preview target,
+// or an upstream effect's buffer — resolved on the GPU per draw, never assumed.
+const surfaceAspect = () => screenSize.x.div(screenSize.y);
 
 /** A live 2D placement: every field is a signal, so transforms animate for free. */
 export interface Transform2D {
@@ -48,7 +49,7 @@ export function localSpace(ctx: BuildCtx, t: Transform2D = {}): (p: Node<"vec2">
   const scale = ctx.uniformOf(t.scale ?? 1);
   const mirror = ctx.uniformOf(t.mirrorX ?? 1);
   return (p) => {
-    const c = p.sub(vec2(x, y)).mul(vec2(SCREEN_ASPECT, 1)).div(scale.max(0.001));
+    const c = p.sub(vec2(x, y)).mul(vec2(surfaceAspect(), 1)).div(scale.max(0.001));
     const cs = cos(rotate);
     const sn = sin(rotate);
     return vec2(c.x.mul(cs).add(c.y.mul(sn)).mul(sign(mirror)), c.y.mul(cs).sub(c.x.mul(sn)));
@@ -74,14 +75,16 @@ export const transform2d = defineModule(
     example: 'transform2d(ctx, { input: src, x: 0.3, scale: 0.5, rotate: spinSig })',
   },
   (ctx: BuildCtx, opts: Transform2dOpts): TexNode => {
-    const rt = new RenderTarget(WIDTH, HEIGHT, { type: HalfFloatType });
+    // Sized to match the live destination on first render — no assumed resolution.
+    const rt = new RenderTarget(1, 1, { type: HalfFloatType });
+    const destSize = new Vector2();
 
     const srcMaterial = new MeshBasicNodeMaterial();
     srcMaterial.colorNode = opts.input.color;
     const srcQuad = new QuadMesh(srcMaterial);
 
     const l = localSpace(ctx, opts)(uv());
-    const suv = l.div(vec2(SCREEN_ASPECT, 1)).add(0.5);
+    const suv = l.div(vec2(surfaceAspect(), 1)).add(0.5);
     const d = abs(suv.sub(0.5));
     const inside = step(d.x, 0.5).mul(step(d.y, 0.5));
     const s = texture(rt.texture, suv);
@@ -89,6 +92,10 @@ export const transform2d = defineModule(
     const pass: Pass = {
       render(renderer: WebGPURenderer, _f: FrameCtx) {
         const prev = renderer.getRenderTarget();
+        // Track the destination's actual resolution so the buffer is 1:1.
+        if (prev) destSize.set(prev.width, prev.height);
+        else renderer.getDrawingBufferSize(destSize);
+        if (rt.width !== destSize.x || rt.height !== destSize.y) rt.setSize(destSize.x, destSize.y);
         renderer.setRenderTarget(rt);
         srcQuad.render(renderer);
         renderer.setRenderTarget(prev);
