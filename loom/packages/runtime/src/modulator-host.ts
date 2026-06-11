@@ -44,6 +44,9 @@ export class ModulatorHost {
   attach(manifest: ManifestLike, path: string, raw: unknown): ModulatorSpec {
     const param = manifest.get(path);
     if (!param) throw new Error(`unknown param "${path}"`);
+    if ((param as { type?: string }).type === "color") {
+      throw new Error(`"${path}" is a color param — modulators drive numeric/bool params only`);
+    }
     const spec = ModulatorSpec.parse(raw);
     const evaluate = createModulator(spec, paramMeta(param), this.bus);
     this.slots.set(path, { spec, evaluate, error: null });
