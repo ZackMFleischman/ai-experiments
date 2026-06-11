@@ -543,7 +543,10 @@ function makeWidget(instance: string, path: string, p: ParamDesc, label?: string
   if (p.type === "bool") {
     input.type = "checkbox";
     input.checked = p.value === true;
-    input.addEventListener("change", () => sendParam(instance, path, input.checked));
+    input.addEventListener("change", () => {
+      sendParam(instance, path, input.checked);
+      value.textContent = String(input.checked); // live label — refresh skips while interacting
+    });
   } else {
     const min = p.min ?? 0;
     const max = p.max ?? 1;
@@ -554,7 +557,12 @@ function makeWidget(instance: string, path: string, p: ParamDesc, label?: string
     input.value = String(p.value);
     input.addEventListener("pointerdown", () => (draggingKey = `${instance}:${path}`));
     input.addEventListener("pointerup", () => (draggingKey = null));
-    input.addEventListener("input", () => sendParam(instance, path, Number(input.value)));
+    input.addEventListener("input", () => {
+      sendParam(instance, path, Number(input.value));
+      // Live label: the session refresh skips this widget mid-drag, so the
+      // dragged value must be painted here or it freezes until release.
+      value.textContent = Number(input.value).toFixed(p.type === "int" ? 0 : 3);
+    });
   }
   div.appendChild(input);
   if (p.description) {
