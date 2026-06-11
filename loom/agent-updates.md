@@ -42,3 +42,17 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - `pnpm validate:m1` proves end-to-end: onsets ~2/s from synthetic kicks, luminance pulses with the kick (spread 33.6), HMR swap 102 ms, syntax error/build-throw/render-throw all keep pixels alive — the render-throw case freezes the instance while the engine loop keeps ticking (NFR-2), exactly per spec.
 - Stumbles worth knowing: (1) an aborted validation run left an orphaned Vite holding the port and the next run silently talked to the stale server — scripts now fail fast if Vite exits early; (2) `@types/three` wants `Node<"vec4">` discipline, so `TexNode.color` is typed vec4-only, which is honestly the right contract anyway.
 - Param manifest exists and collects (`punch`, `trail`, `drift` on pulse) but has no UI/MCP surface yet — that's M2/M3 per plan.
+
+## 2026-06-10 16:45 — M0+M1 merged to main; M2 started on branch `claude/loom-m2-agent-eyes`
+
+- Cleaned up branches: all work now on `main` (GitHub default), old claude/* branches deleted. Root `CLAUDE.md` written for future sessions.
+- M2 scope: sidecar (WS bridge + MCP server over stdio), 4 agent tools (`get_session`, `get_manifest`, `set_param`, `screenshot`), `loom/.claude/` conventions + 2 skills, `validate:m2`.
+
+## 2026-06-10 17:00 — M2 SHIPPED: 14/14 MCP e2e checks, set_param median 1.3 ms (budget 100 ms)
+
+- New `packages/sidecar`: `protocol.ts` (zod wire contract, shared with the engine via alias), `Broker` (request/response correlation, timeouts, clean engine-not-connected errors — 17 unit tests, TDD), `index.ts` (MCP low-level Server on stdio + ws server on 7341, stderr-only logging).
+- Engine: `bridge.ts` WS client (2 s auto-reconnect, hooks pattern, a throwing hook becomes an ok:false response); screenshots captured same-task after render (`toDataURL`, no preserveDrawingBuffer needed); `FpsMeter.current` exposed; session formalizes the `window.__loom` debug surface.
+- Agent surface: `.mcp.json` (spawns sidecar via `node --import tsx`), `.claude/CLAUDE.md` (rules: params-before-rewrites, never touch packages/, signatures-first, trust-the-net-verify-with-eyes), skills `module-authoring` + `scene-composition` pointing at golden examples (`osc`, `feedback`, `pulse.scene`).
+- `pnpm validate:m2` proves the loop end-to-end as a real MCP client: 4 tools listed, clean error with no engine, session/manifest reflect pulse, set_param round-trip 1.3 ms median + clamps + visibly steers pixels (bright extreme lum 146 vs dark 102), screenshot returns the real canvas, defaults restored.
+- Kernel untouched: M1's Manifest/Param/uniformOf contract was already sufficient for live param writes — M2 is pure surface.
+- Not yet proven: the human-witnessed magic-moment session (ink-blob prompt in a live Claude Code session) — needs a desktop run with `pnpm dev` + this branch's `.mcp.json`.

@@ -7,6 +7,8 @@ export default defineConfig({
       // Single source of truth for runtime resolution so content/ scenes
       // (outside any package) resolve it too.
       "@loom/runtime": fileURLToPath(new URL("../runtime/src/index.ts", import.meta.url)),
+      // The WS wire contract shared with the sidecar (browser-safe module).
+      "@loom/sidecar/protocol": fileURLToPath(new URL("../sidecar/src/protocol.ts", import.meta.url)),
     },
   },
   server: {

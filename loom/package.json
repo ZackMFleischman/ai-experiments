@@ -4,13 +4,17 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @loom/engine-app dev",
+    "sidecar": "pnpm --filter @loom/sidecar dev",
     "typecheck": "tsc --noEmit -p .",
-    "test": "pnpm --filter @loom/runtime test",
+    "test": "pnpm -r --if-present test",
     "validate:m0": "node scripts/validate-m0.mjs",
-    "validate:m1": "node scripts/validate-m1.mjs"
+    "validate:m1": "node scripts/validate-m1.mjs",
+    "validate:m2": "node scripts/validate-m2.mjs"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
     "@types/node": "25.9.2",
+    "tsx": "^4.20.0",
     "@types/three": "0.184.1",
     "playwright": "^1.60.0",
     "pngjs": "^7.0.0",
@@ -21,5 +25,10 @@
   "dependencies": {
     "three": "0.184.0",
     "zod": "^4.4.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

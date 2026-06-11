@@ -3,7 +3,8 @@
   "compilerOptions": {
     "types": ["vite/client", "node"],
     "paths": {
-      "@loom/runtime": ["./packages/runtime/src/index.ts"]
+      "@loom/runtime": ["./packages/runtime/src/index.ts"],
+      "@loom/sidecar/protocol": ["./packages/sidecar/src/protocol.ts"]
     }
   },
   "include": [
@@ -11,6 +12,8 @@
     "packages/runtime/test",
     "packages/engine-app/src",
     "packages/engine-app/vite.config.ts",
+    "packages/sidecar/src",
+    "packages/sidecar/test",
     "content"
   ]
 }

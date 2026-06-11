@@ -6,8 +6,10 @@ import {
   type Instance,
   type SceneDef,
 } from "@loom/runtime";
+import { DEFAULT_WS_PORT, type ScreenshotResult } from "@loom/sidecar/protocol";
 import { WebGPURenderer } from "three/webgpu";
 import liveScene from "../../../content/scenes/live.scene";
+import { startBridge } from "./bridge";
 import { FpsMeter } from "./fps";
 import { Overlay } from "./overlay";
 
@@ -98,6 +100,61 @@ window.__loom = {
 
 trySwap(liveScene);
 
+// ---- sidecar bridge (agent eyes & hands, M2) ----
+
+function requireLive(id: string): Instance {
+  if (id !== "live") {
+    throw new Error(`unknown instance "${id}" — M2 has a single "live" instance`);
+  }
+  if (!instance) throw new Error("no live instance (scene never built?)");
+  return instance;
+}
+
+// Screenshot requests resolve inside the render loop: the WebGL drawing
+// buffer is only readable in the same task that rendered it (no
+// preserveDrawingBuffer), so toDataURL must happen right after renderFrame.
+const pendingShots: Array<{
+  resolve: (s: ScreenshotResult) => void;
+  reject: (e: Error) => void;
+}> = [];
+
+startBridge(`ws://localhost:${DEFAULT_WS_PORT}`, {
+  session: () => ({
+    scene: instance?.sceneName ?? null,
+    instance: instance ? "live" : null,
+    instanceError: instance?.error != null ? String(instance.error) : null,
+    audioMode: audio.mode,
+    bpm: timeBus.bpm,
+    rms: window.__loom?.rms ?? 0,
+    onsetCount,
+    fps: fps.current,
+    frame: window.__loom?.frame ?? 0,
+    paramPaths: instance?.manifest.paths() ?? [],
+  }),
+  manifest: (id) => {
+    const inst = requireLive(id);
+    return {
+      instance: "live",
+      params: inst.manifest.toJSON() as import("@loom/sidecar/protocol").ManifestResult["params"],
+    };
+  },
+  setParam: ({ instance: id, path, value }) => {
+    const inst = requireLive(id);
+    const param = inst.manifest.get(path);
+    if (!param) {
+      throw new Error(
+        `unknown param "${path}" — manifest has: ${inst.manifest.paths().join(", ") || "(none)"}`,
+      );
+    }
+    param.set(value);
+    return { instance: "live", path, value: param.value as number | boolean };
+  },
+  screenshot: (id) => {
+    requireLive(id);
+    return new Promise((resolve, reject) => pendingShots.push({ resolve, reject }));
+  },
+});
+
 renderer.setAnimationLoop((tMs) => {
   const f = clock.tick(tMs);
   timeBus.tick(f);
@@ -105,6 +162,24 @@ renderer.setAnimationLoop((tMs) => {
   onsetCount += debugOnsets.poll(f).length;
   instance?.renderFrame(renderer, f);
   fps.tick();
+
+  if (pendingShots.length > 0) {
+    const waiting = pendingShots.splice(0);
+    try {
+      const url = canvas.toDataURL("image/png");
+      const shot: ScreenshotResult = {
+        mime: "image/png",
+        base64: url.slice(url.indexOf(",") + 1),
+        width: canvas.width,
+        height: canvas.height,
+        frame: f.frame,
+      };
+      for (const w of waiting) w.resolve(shot);
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      for (const w of waiting) w.reject(e);
+    }
+  }
 
   const error = instance?.error != null;
   overlay.update({
