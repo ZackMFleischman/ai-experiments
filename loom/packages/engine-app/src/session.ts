@@ -5,6 +5,7 @@ import {
   type FrameCtx,
   type InputRegistry,
   type Instance,
+  type PaletteRegistry,
   type SceneDef,
   type TimeBus,
 } from "@loom/runtime";
@@ -27,6 +28,8 @@ export interface Entry {
   lastUpdateRejected: boolean;
   /** Run-time param modulators — per instance, surviving rebuilds (FR-3/FR-4). */
   readonly modulators: ModulatorHost;
+  /** Successful builds of this entry (1 on create) — validators assert "no rebuild" against this. */
+  builds: number;
 }
 
 export function entryStatus(e: Entry): InstanceStatus {
@@ -46,9 +49,9 @@ export class SessionStore {
   private counter = 0;
 
   constructor(
-    private readonly buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry },
+    private readonly buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry; palettes?: PaletteRegistry },
     /** Tuned per-scene values (NFR-5: params reapplied from tuned state). */
-    private readonly tunedValues?: (scene: string) => Record<string, number | boolean> | undefined,
+    private readonly tunedValues?: (scene: string) => Record<string, number | boolean | string> | undefined,
   ) {}
 
   create(def: SceneDef, id?: string): Entry {
@@ -64,6 +67,7 @@ export class SessionStore {
       target: new RenderTarget(PREVIEW_W, PREVIEW_H),
       lastUpdateRejected: false,
       modulators: new ModulatorHost({ bpm: () => this.buses.time.bpm, audio: this.buses.audio }),
+      builds: 1,
     };
     this.entries.set(finalId, entry);
     return entry;
@@ -81,6 +85,7 @@ export class SessionStore {
       e.sceneName = def.name;
       e.def = def;
       e.lastUpdateRejected = false;
+      e.builds += 1;
       e.modulators.reattach(e.instance.manifest); // FR-4: survive, orphan, or recover
       return true;
     } catch (err) {
@@ -100,7 +105,11 @@ export class SessionStore {
     const vals = this.tunedValues?.(scene);
     if (!vals) return;
     for (const [path, v] of Object.entries(vals)) {
-      instance.manifest.get(path)?.set(v);
+      try {
+        instance.manifest.get(path)?.set(v);
+      } catch {
+        // bad persisted value (e.g. malformed color) — keep the code default
+      }
     }
   }
 

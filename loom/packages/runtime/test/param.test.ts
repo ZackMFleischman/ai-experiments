@@ -102,8 +102,8 @@ describe("Param / Manifest", () => {
     const m = new Manifest();
     m.color("tint", { default: "#112233", description: "a tint" });
     const j = m.toJSON() as Record<string, Record<string, unknown>>;
-    expect(j.tint.type).toBe("color");
-    expect(j.tint.value).toBe("#112233");
+    expect(j.tint!.type).toBe("color");
+    expect(j.tint!.value).toBe("#112233");
     expect(m.values().tint).toBe("#112233");
   });
 
@@ -111,6 +111,6 @@ describe("Param / Manifest", () => {
     const m = new Manifest();
     m.int("source", { default: 0, min: 0, max: 2, step: 1, labels: ["primary", "secondary", "own"] });
     const j = m.toJSON() as Record<string, Record<string, unknown>>;
-    expect(j.source.labels).toEqual(["primary", "secondary", "own"]);
+    expect(j.source!.labels).toEqual(["primary", "secondary", "own"]);
   });
 });
