@@ -179,6 +179,7 @@ renderer.setAnimationLoop((tMs) => {
   currentMix = directive.mode === "crossfade" ? directive.mix : null;
   lastDirectiveHold = directive.mode === "hold";
   compositor.render(renderer, f, directive, session);
+  api.captureLiveMirror(directive.mode); // same-task canvas read for the live tile
   fps.tick();
 
   if (pendingShots.length > 0) {

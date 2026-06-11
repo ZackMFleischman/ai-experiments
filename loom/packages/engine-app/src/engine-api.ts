@@ -50,11 +50,39 @@ export interface EngineDeps {
 export class EngineApi {
   agentCommitArmed: boolean;
 
+  // The live output's thumbnail source. The WebGL canvas is only readable in
+  // the task that rendered it, so the render loop mirrors it in here (a 2D
+  // canvas keeps its bitmap) and thumbnails() reads the mirror at leisure.
+  private readonly liveMirror = document.createElement("canvas");
+  private readonly liveMirrorCtx: CanvasRenderingContext2D;
+  private liveMirrorAt = -Infinity;
+  private consoleSeenAt = -Infinity;
+
   constructor(
     private readonly deps: EngineDeps,
     opts: { agentCommitArmed?: boolean } = {},
   ) {
     this.agentCommitArmed = opts.agentCommitArmed ?? false;
+    this.liveMirror.width = 320;
+    this.liveMirror.height = 180;
+    this.liveMirrorCtx = this.liveMirror.getContext("2d")!;
+  }
+
+  markConsolePresent(): void {
+    this.consoleSeenAt = performance.now();
+  }
+
+  /**
+   * Call from the render loop right after compositing — same task as the
+   * render, the only place the canvas is readable. Throttled to thumbnail
+   * rate and skipped entirely when no Console is listening.
+   */
+  captureLiveMirror(mode: "single" | "crossfade" | "hold"): void {
+    if (mode === "hold" || this.deps.stage.live == null) return;
+    const now = performance.now();
+    if (now - this.consoleSeenAt > 5000 || now - this.liveMirrorAt < 140) return;
+    this.liveMirrorAt = now;
+    this.liveMirrorCtx.drawImage(this.deps.canvas, 0, 0, this.liveMirror.width, this.liveMirror.height);
   }
 
   async handleRequest(req: RequestMsg, source: Source): Promise<unknown> {
@@ -193,9 +221,12 @@ export class EngineApi {
     const out: Record<string, string> = {};
     for (const e of this.deps.session.entries.values()) {
       try {
-        out[e.id] = this.isOnCanvas(e)
-          ? scaleToJpeg(this.deps.canvas, width, height, false)
-          : await this.readTarget(e, width, height, "image/jpeg");
+        // The live entry shows what the audience sees (loop-mirrored canvas);
+        // everyone else reads back their offscreen preview target.
+        out[e.id] =
+          e.id === this.deps.stage.live
+            ? this.liveMirror.toDataURL("image/jpeg", 0.7)
+            : await this.readTarget(e, width, height, "image/jpeg");
       } catch {
         // skip a tile this round rather than break the loop
       }

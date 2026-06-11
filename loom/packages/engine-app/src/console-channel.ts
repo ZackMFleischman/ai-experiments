@@ -22,6 +22,7 @@ export function startConsoleChannel(api: EngineApi): void {
     const kind = (data as { kind?: string }).kind;
     if (kind === "hello") {
       lastHello = performance.now();
+      api.markConsolePresent(); // lets the render loop mirror the live canvas
       return;
     }
     if (kind === "req") {

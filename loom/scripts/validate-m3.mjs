@@ -168,6 +168,31 @@ try {
   const liveBadge = await consolePage.$eval('.tile[data-id="live"] .live-badge', (el) => el.className);
   check("LIVE badge on the boot tile", liveBadge.includes("show"));
 
+  // Decode a tile's thumbnail in-browser and return its average luminance.
+  const tileThumbLum = (id) =>
+    consolePage.evaluate(async (tileId) => {
+      const img = document.querySelector(`.tile[data-id="${CSS.escape(tileId)}"] img`);
+      if (!img?.src?.startsWith("data:image")) return null;
+      const bmp = await createImageBitmap(await (await fetch(img.src)).blob());
+      const c = document.createElement("canvas");
+      c.width = bmp.width;
+      c.height = bmp.height;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(bmp, 0, 0);
+      const d = ctx.getImageData(0, 0, c.width, c.height).data;
+      let l = 0;
+      for (let i = 0; i < d.length; i += 4) l += (d[i] + d[i + 1] + d[i + 2]) / 3;
+      return l / (c.width * c.height);
+    }, id);
+
+  // The LIVE tile's preview must show real pixels (regression: the canvas is
+  // only readable in the render task — a stale-task read shows black).
+  const liveLum = await waitFor(async () => {
+    const l = await tileThumbLum("live");
+    return l != null && l > 2 ? l : null;
+  }, 10_000, "live tile thumbnail to be non-black");
+  check("LIVE tile thumbnail shows real pixels", true, `lum ${liveLum.toFixed(1)}`);
+
   // 3. Agent creates a sandbox candidate.
   const created = toolJson(await callOk(client, "create_instance", { scene: "lava" }));
   check(
@@ -245,6 +270,11 @@ try {
   check("COMMIT promoted the candidate to LIVE", true);
   st = await loomState(output);
   check("live scene is now lava", st.sceneName === "lava", `scene=${st.sceneName}`);
+  const newLiveLum = await waitFor(async () => {
+    const l = await tileThumbLum(cid);
+    return l != null && l > 1 ? l : null;
+  }, 10_000, "promoted tile thumbnail to be non-black");
+  check("promoted LIVE tile thumbnail stays real", true, `lum ${newLiveLum.toFixed(1)}`);
 
   // 8. PANIC: pixels freeze, engine keeps ticking, RESUME recovers.
   await consolePage.click("#panic");
