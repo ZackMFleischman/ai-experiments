@@ -30,13 +30,18 @@ const loadOrder = (): string[] => {
  */
 export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreated }: Props) {
   const [order, setOrder] = useState<string[]>(loadOrder);
+  // The "+" tile's in-flight preview instance previews inside that tile —
+  // hide its own grid tile so it doesn't show twice.
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const dragId = useRef<string | null>(null);
 
   const pos = (id: string) => {
     const i = order.indexOf(id);
     return i < 0 ? order.length : i;
   };
-  const sorted = [...s.instances].sort((a, b) => pos(a.id) - pos(b.id));
+  const sorted = [...s.instances]
+    .filter((i) => i.id !== previewId)
+    .sort((a, b) => pos(a.id) - pos(b.id));
 
   const reorderOver = (overId: string) => {
     const from = dragId.current;
@@ -80,7 +85,7 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
           onReorderOver={reorderOver}
         />
       ))}
-      <NewInstanceTile scenes={s.availableScenes} onCreated={onCreated} />
+      <NewInstanceTile scenes={s.availableScenes} onCreated={onCreated} onPreview={setPreviewId} />
     </Box>
   );
 }
