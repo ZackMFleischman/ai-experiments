@@ -7,9 +7,11 @@ import type {
 } from "@loom/runtime";
 import {
   ArmAgentCommitArgs,
+  ClearModulationArgs,
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
+  ModulateParamArgs,
   SetAudioArgs,
   SetParamArgs,
   TransportArgs,
@@ -116,7 +118,7 @@ export class EngineApi {
       case "get_manifest": {
         const { instance } = InstanceArgs.parse(req.args);
         const e = session.require(this.resolveId(instance));
-        return { instance: e.id, params: e.instance.manifest.toJSON() };
+        return { instance: e.id, params: this.manifestJson(e) };
       }
       case "set_param": {
         const { instance, path, value } = SetParamArgs.parse(req.args);
@@ -126,8 +128,30 @@ export class EngineApi {
           const have = e.instance.manifest.paths().join(", ") || "(none)";
           throw new Error(`unknown param "${path}" on "${e.id}" — manifest has: ${have}`);
         }
+        const mod = e.modulators.get(path);
+        if (mod != null && mod.error == null) {
+          throw new Error(
+            `"${path}" on "${e.id}" is modulated (${mod.spec.type}) — call clear_modulation ` +
+              "(or hit ∿ Detach in the Console) to take manual control",
+          );
+        }
         param.set(value);
         return { instance: e.id, path, value: param.value as number | boolean };
+      }
+      case "modulate_param": {
+        const { instance, path, modulator } = ModulateParamArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        if (!e.instance.manifest.get(path)) {
+          const have = e.instance.manifest.paths().join(", ") || "(none)";
+          throw new Error(`unknown param "${path}" on "${e.id}" — manifest has: ${have}`);
+        }
+        const spec = e.modulators.attach(e.instance.manifest, path, modulator);
+        return { instance: e.id, path, modulator: spec };
+      }
+      case "clear_modulation": {
+        const { instance, path } = ClearModulationArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        return { instance: e.id, path, cleared: e.modulators.clear(path) };
       }
       case "screenshot": {
         const { instance } = InstanceArgs.parse(req.args);
@@ -227,6 +251,7 @@ export class EngineApi {
         status: entryStatus(e),
         error: e.instance.error != null ? String(e.instance.error) : null,
         paramPaths: e.instance.manifest.paths(),
+        modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
       })),
       live: stage.live,
       staged: stage.staged,
@@ -248,9 +273,19 @@ export class EngineApi {
   consoleState(): { session: SessionSnapshot; manifests: Record<string, unknown> } {
     const manifests: Record<string, unknown> = {};
     for (const e of this.deps.session.entries.values()) {
-      manifests[e.id] = e.instance.manifest.toJSON();
+      manifests[e.id] = this.manifestJson(e);
     }
     return { session: this.snapshot(), manifests };
+  }
+
+  /** Manifest JSON with each param's active modulator config (or null) — FR-8. */
+  private manifestJson(e: Entry): Record<string, unknown> {
+    const params = e.instance.manifest.toJSON() as Record<string, Record<string, unknown>>;
+    for (const path of Object.keys(params)) {
+      const m = e.modulators.get(path);
+      params[path]!.modulator = m != null && m.error == null ? m.spec : null;
+    }
+    return params;
   }
 
   /** Small JPEG thumbnails per instance for the Console tiles. */

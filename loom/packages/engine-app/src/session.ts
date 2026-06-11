@@ -1,6 +1,8 @@
 import {
   buildInstance,
+  ModulatorHost,
   type AudioBusLike,
+  type FrameCtx,
   type Instance,
   type SceneDef,
   type TimeBus,
@@ -22,6 +24,8 @@ export interface Entry {
   readonly target: RenderTarget;
   /** Last HMR rebuild for this instance was rejected (✗ chip). */
   lastUpdateRejected: boolean;
+  /** Run-time param modulators — per instance, surviving rebuilds (FR-3/FR-4). */
+  readonly modulators: ModulatorHost;
 }
 
 export function entryStatus(e: Entry): InstanceStatus {
@@ -53,6 +57,7 @@ export class SessionStore {
       def,
       target: new RenderTarget(PREVIEW_W, PREVIEW_H),
       lastUpdateRejected: false,
+      modulators: new ModulatorHost({ bpm: () => this.buses.time.bpm, audio: this.buses.audio }),
     };
     this.entries.set(finalId, entry);
     return entry;
@@ -69,12 +74,18 @@ export class SessionStore {
       e.sceneName = def.name;
       e.def = def;
       e.lastUpdateRejected = false;
+      e.modulators.reattach(e.instance.manifest); // FR-4: survive, orphan, or recover
       return true;
     } catch (err) {
       e.lastUpdateRejected = true;
       console.error(`[loom] rebuild of "${id}" (${def.name}) rejected; previous still running`, err);
       return false;
     }
+  }
+
+  /** Per-frame modulator write pass; the engine skips it while held (FR-10). */
+  tickModulators(f: FrameCtx): void {
+    for (const e of this.entries.values()) e.modulators.tick(e.instance.manifest, f);
   }
 
   destroy(id: string): boolean {
