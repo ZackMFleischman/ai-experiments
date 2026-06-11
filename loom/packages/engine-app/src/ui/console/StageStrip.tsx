@@ -3,17 +3,19 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
+import type { Manifests } from "../engine-link";
+import { PaletteSourceToggle } from "../PaletteSourceToggle";
 import { useEngine } from "../hooks";
 import { fail } from "../util";
 
-type Props = { session: SessionSnapshot; onCreated: (id: string) => void };
+type Props = { session: SessionSnapshot; manifests: Manifests; onCreated: (id: string) => void };
 
 /**
  * Scene picker + LIVE/STAGED pointers + unstage/arm/COMMIT, and the
  * drag-to-stage drop target (R9.3). DOM contract: #stagestrip, #scenepick
  * (native select), #createbtn, #unstage, #commit, #armagent.
  */
-export function StageStrip({ session: s, onCreated }: Props) {
+export function StageStrip({ session: s, manifests, onCreated }: Props) {
   const link = useEngine();
   const [dragOver, setDragOver] = useState(false);
   const [scene, setScene] = useState("");
@@ -82,6 +84,9 @@ export function StageStrip({ session: s, onCreated }: Props) {
       <Typography id="livename" sx={{ fontWeight: 700 }}>{withScene(s.live)}</Typography>
       <Typography variant="caption" color="text.secondary">STAGED</Typography>
       <Typography id="stagedname" sx={{ fontWeight: 700 }}>{withScene(s.staged)}</Typography>
+      {s.staged != null && manifests[s.staged]?.["palette.source"] != null && (
+        <PaletteSourceToggle instance={s.staged} p={manifests[s.staged]!["palette.source"]!} />
+      )}
       <Button id="unstage" disabled={s.staged == null} onClick={() => void link.req("unstage").catch(fail)}>
         unstage
       </Button>

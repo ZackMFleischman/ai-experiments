@@ -70,4 +70,47 @@ describe("Param / Manifest", () => {
       invert: { type: "bool", default: false, value: false },
     });
   });
+
+  it("declares a color param and normalizes hex on set", () => {
+    const m = new Manifest();
+    const p = m.color("tint", { default: "#FF8800" });
+    expect(p.value).toBe("#ff8800"); // defaults normalize too
+    p.set("#ABC"); // #rgb shorthand expands
+    expect(p.value).toBe("#aabbcc");
+  });
+
+  it("color set throws on a non-hex value", () => {
+    const m = new Manifest();
+    const p = m.color("tint", { default: "#ffffff" });
+    expect(() => p.set("red")).toThrow(/#rrggbb/);
+    expect(p.value).toBe("#ffffff"); // unchanged
+  });
+
+  it("color rejects an invalid default at declare time", () => {
+    const m = new Manifest();
+    expect(() => m.color("bad", { default: "blue" })).toThrow();
+  });
+
+  it("setNormalized is a no-op on color params", () => {
+    const m = new Manifest();
+    const p = m.color("tint", { default: "#112233" });
+    p.setNormalized(0.7);
+    expect(p.value).toBe("#112233");
+  });
+
+  it("color serializes with type and string value", () => {
+    const m = new Manifest();
+    m.color("tint", { default: "#112233", description: "a tint" });
+    const j = m.toJSON() as Record<string, Record<string, unknown>>;
+    expect(j.tint!.type).toBe("color");
+    expect(j.tint!.value).toBe("#112233");
+    expect(m.values().tint).toBe("#112233");
+  });
+
+  it("int params carry labels meta through to JSON", () => {
+    const m = new Manifest();
+    m.int("source", { default: 0, min: 0, max: 2, step: 1, labels: ["primary", "secondary", "own"] });
+    const j = m.toJSON() as Record<string, Record<string, unknown>>;
+    expect(j.source!.labels).toEqual(["primary", "secondary", "own"]);
+  });
 });

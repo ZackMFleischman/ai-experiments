@@ -1,5 +1,5 @@
 import { defineScene, envelopeSignal, lagSignal, Signal, texNode } from "@loom/runtime";
-import { mix, smoothstep, vec3, vec4 } from "three/tsl";
+import { mix, smoothstep, vec4 } from "three/tsl";
 import { lfo } from "../modules/control/lfo";
 import { feedback } from "../modules/effects/feedback";
 import { levels } from "../modules/effects/levels";
@@ -21,6 +21,11 @@ export default defineScene({
     const speed = ctx.float("speed", { default: 0.35, min: 0.05, max: 2, description: "blob drift speed" });
     const wobble = ctx.float("wobble", { default: 0.05, min: 0, max: 0.15, description: "ink edge wobble" });
     const trail = ctx.float("trail", { default: 0.72, min: 0.5, max: 0.93, description: "ink smear persistence" });
+
+    // Palette stops (documented roles: 0 bg · 1 edge · 2/3 core blend · 4 accent flash).
+    // own() reproduces the original ink/ember look; flip palette.source to retint live.
+    const pal = ctx.palette;
+    pal.own(["#161238", "#76102c", "#f37627", "#da3089", "#ffc15e"]);
 
     const kick = ctx.audio.onset({ band: "bass", threshold: 0.22 });
     const kickEnv = envelopeSignal(kick, { decay: 0.3 });
@@ -51,11 +56,11 @@ export default defineScene({
 
     const body = smoothstep(0.1, 0.9, field.color.x);
     const glow = field.color.y;
-    const inkDark = vec3(0.008, 0.006, 0.04);
-    const lavaEdge = vec3(0.18, 0.005, 0.025);
-    const lavaCore = mix(vec3(0.9, 0.18, 0.02), vec3(0.7, 0.03, 0.25), hueU);
+    const inkDark = pal.color(0);
+    const lavaEdge = pal.color(1);
+    const lavaCore = mix(pal.color(2), pal.color(3), hueU);
     const lava = mix(lavaEdge, lavaCore, glow);
-    const rgb = mix(inkDark, lava, body).add(lavaCore.mul(glow).mul(kickU.mul(0.9)));
+    const rgb = mix(inkDark, lava, body).add(pal.color(4).mul(glow).mul(kickU.mul(0.9)));
     const src = texNode(vec4(rgb, 1), field.passes);
 
     const trails = feedback(ctx, { input: src, amount: trail.signal(), zoom: 1.0 });

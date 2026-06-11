@@ -203,6 +203,16 @@ const TOOLS = [
     },
   },
   {
+    name: "unstage",
+    description:
+      "Clear the staged candidate (no instance is marked for commit). Like staging, this " +
+      "never changes what the audience sees — it only drops the pending candidate.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
     name: "commit",
     description:
       "Crossfade the staged instance to the live output. Normally HUMAN-GATED: unless the " +
@@ -275,6 +285,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       case "stage": {
         const result = await broker.request("stage", { ...InstanceArgs.parse(args) });
+        return textResult(result);
+      }
+      case "unstage": {
+        const result = await broker.request("unstage", {});
         return textResult(result);
       }
       case "commit": {

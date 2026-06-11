@@ -2,12 +2,14 @@ import type { SessionSnapshot } from "@loom/sidecar/protocol";
 
 /** One tweakable param as the engine describes it over the channel. */
 export type ParamDesc = {
-  type: "float" | "int" | "bool";
-  value: number | boolean;
-  default: number | boolean;
+  type: "float" | "int" | "bool" | "color";
+  value: number | boolean | string;
+  default: number | boolean | string;
   min?: number;
   max?: number;
   step?: number;
+  /** Value names for int selectors (palette.source) — UI renders a toggle. */
+  labels?: string[];
   description?: string;
   /** Active modulator config, or null when the param is hand-driven (FR-8). */
   modulator?: Record<string, unknown> | null;
@@ -75,7 +77,7 @@ export class EngineLink {
 
   private readonly queued = new Map<
     string,
-    { instance: string; path: string; value: number | boolean }
+    { instance: string; path: string; value: number | boolean | string }
   >();
   private flushScheduled = false;
 
@@ -132,7 +134,7 @@ export class EngineLink {
   }
 
   /** Frame-coalesced param writes: drags feel instant without flooding the channel. */
-  sendParam(instance: string, path: string, value: number | boolean): void {
+  sendParam(instance: string, path: string, value: number | boolean | string): void {
     this.queued.set(`${instance}:${path}`, { instance, path, value });
     if (this.flushScheduled) return;
     this.flushScheduled = true;

@@ -54,10 +54,11 @@ describe("ResponseMsg", () => {
 });
 
 describe("SetParamArgs", () => {
-  it("defaults instance to live and accepts number or bool values", () => {
+  it("defaults instance to live and accepts number, bool, or string (color) values", () => {
     const a = SetParamArgs.parse({ path: "trail", value: 0.5 });
     expect(a.instance).toBe("live");
     expect(SetParamArgs.parse({ path: "on", value: true }).value).toBe(true);
+    expect(SetParamArgs.parse({ path: "palette.primary.0", value: "#ff0000" }).value).toBe("#ff0000");
   });
 
   it("rejects a missing or empty path", () => {
@@ -66,8 +67,8 @@ describe("SetParamArgs", () => {
   });
 
   it("rejects non-scalar values", () => {
-    expect(() => SetParamArgs.parse({ path: "p", value: "high" })).toThrow();
     expect(() => SetParamArgs.parse({ path: "p", value: { v: 1 } })).toThrow();
+    expect(() => SetParamArgs.parse({ path: "p", value: [1, 2] })).toThrow();
   });
 });
 

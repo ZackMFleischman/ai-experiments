@@ -7,7 +7,7 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 - `get_session` — what's running: all instances with status, LIVE/STAGED pointers, available scenes, audio mode, BPM, fps, frame.
 - `get_manifest` — every tweakable param of an instance: type, range, default, current value.
 - Instance ids: the boot instance (bound to `live.scene.ts`) is `"boot"`; created ones are `"<scene>-<n>"`. The id `"live"` is an **alias** that always resolves to whatever instance is currently routed to output — it's the default everywhere, so "tweak the live thing" needs no lookup.
-- The pseudo-instance `"globals"` serves the **input rack**: `get_manifest {instance:"globals"}` lists every channel tuning (`inputs.kick.threshold`, `inputs.bass.gain`, …) and `set_param` retunes it live for every consumer at once. `get_session` carries the live channel values in `inputs` (your meters). Tunings persist across sessions (`content/state/`).
+- The pseudo-instance `"globals"` serves the **input rack** *and* the **global color palettes**: `get_manifest {instance:"globals"}` lists every channel tuning (`inputs.kick.threshold`, `inputs.bass.gain`, …) plus the two palettes' stops (`palette.primary.0`…`palette.secondary.4`, `color` params holding `"#rrggbb"`); `set_param` retunes either live for every consumer at once. `get_session` carries the live channel values in `inputs` (your meters). Tunings persist across sessions (`content/state/`).
 - `set_param` — change a param live (<100 ms, no recompile). Values clamp to range. Errors if the param is currently modulated — `clear_modulation` first.
 - `modulate_param` — attach an LFO/stepper/audio-follower to a param: `{ type: sine|triangle|ramp|square|random|drift|cycle|audio, periodSeconds|periodBeats, lo?, hi?, ... }`. The engine animates it every frame inside the param's range. Same trust tier as `set_param` (no arming, live allowed); attaching replaces any existing modulator on that param. Use it to audition motion non-destructively before baking an `lfo` module into scene code. (Instance params only — not `"globals"`.)
 - `clear_modulation` — detach a param's modulator (no-op success if none); the param holds its last value.
@@ -15,6 +15,7 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 - `create_instance` — build a scene (by name from `availableScenes`) into a sandbox tile. This is how you build candidates without touching the audience.
 - `destroy_instance` — free a sandbox tile (the LIVE instance is protected).
 - `stage` — mark your candidate for the live output. Staging is always safe — it changes nothing on screen.
+- `unstage` — clear the staged candidate (nothing is marked for commit). Also safe — changes nothing on screen.
 - `commit` — crossfade staged → LIVE. **Human-gated by default**: unless the human armed agent commit in the Console, this errors — that's by design. Stage, then *tell the human it's ready to audition and commit*.
 
 The engine must be running (`pnpm dev`) for tools to work. `?audio=test` on the URL gives synthetic kick/hats when no mic is around. The human's cockpit is `/console.html` — they see every instance as a tile, can spawn library scenes themselves (scene picker), drag your params, PANIC, and COMMIT there.
@@ -50,6 +51,7 @@ Key kernel facts:
 - `TexNode.color` is strictly a TSL `vec4` node. Sources normalize to vec4 once.
 - Stateful effects own pass ordering: return `[...input.passes, ownPass]`.
 - Params: `ctx.float("name", { default, min, max, description })` → `param.signal()` → `ctx.uniformOf(...)`. Declare ranges honestly; the manifest is the human's mixing board.
+- Palettes (R7): scenes consume the global palettes via `ctx.palette.color(i)` (stop `i` as a vec3), `ctx.palette.ramp(t)` (gradient across the 5 stops, `t` in 0..1 → vec4), and `ctx.palette.own([...5 "#rrggbb"])` (scene-default stops). Using any of them auto-declares a `palette.source` int param (0 primary · 1 secondary · 2 own) — flip it with a plain `set_param`, **never a rebuild**; default is `own` when the scene called `own()`, else `primary`. Stop roles (0 bg · 1 edge · 2/3 core · 4 accent) are convention, not enforced. Color params can't be modulated.
 
 ## Workflow for "make me a visual"
 

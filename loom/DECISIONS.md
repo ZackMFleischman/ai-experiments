@@ -203,3 +203,48 @@ under `packages/engine-app/src/ui/`, with a framework-free `EngineLink` class
   visually hidden).
 - The Output window (index.html + src/main.ts) stays vanilla on purpose: it is a
   pure projector surface; a React tree there buys nothing and risks the render loop.
+
+## 2026-06-11 — M6 global color palettes (palette half)
+
+Two global 5-stop palettes (`primary`/`secondary`) live on a `PaletteRegistry`
+in `@loom/runtime`, served through the existing `"globals"` pseudo-instance by
+merging the registry's manifest with the input rack's, routed by path prefix
+(`palette.*` → palettes, else rack). Scenes consume via `ctx.palette.color(i)`
+(vec3 stop uniform), `ctx.palette.ramp(t)` (256×1 `DataTexture` gradient), and
+`ctx.palette.own([...5])` (scene-default stops). Decisions:
+
+- **`color` is a kernel param type** (`Param<string>`, `"#rrggbb"`). Its clamp
+  **throws** on a non-hex value rather than silently coercing — `set_param`
+  surfaces a clean error to agents. Because a corrupt persisted value would then
+  throw at boot, all three state-restore paths (`main.ts` inputs + palettes
+  loops, `SessionStore.applyTuned`) wrap each `param.set` in try/catch and keep
+  the code default on failure.
+- **`setNormalized` is a no-op on color params** — a 0..1 CC has no honest color
+  mapping. A MIDI CC bound to a stop is a harmless no-op; binding `palette.source`
+  (an int) to a knob is the point.
+- **`labels` meta on ranged specs** (`int`/`float`): an array of value names that
+  the Console renders as a `ToggleButtonGroup` instead of a slider. Generic
+  int-selector affordance; first user is `palette.source`.
+- **`palette.source` is an int param 0..2** (primary/secondary/own), declared in
+  a new `BuildCtx.finalize()` hook that `buildInstance` calls after `build()` —
+  deferred so its default can honor whether the scene called `own()` (own→2,
+  else→0). Ints keep MIDI-learn, `cycle` modulators, and number-typed persistence
+  working for free. Switching source is a plain `set_param`, resolved per frame
+  by one updater that re-tints uniforms / re-uploads the ramp only when the
+  resolved stops actually change — **never a rebuild** (R7.2).
+- **"own" falls back to primary** live when a scene selected source=own but never
+  declared `own()` stops — keeps the 3-way switch total.
+- **Modulators reject color params** at attach (their evaluators produce numbers).
+- **`builds` counter per session entry** (1 on create, ++ per successful rebuild),
+  exposed in `get_session` instances and `window.__loom` — validators assert
+  "no rebuild" against it (M6 needs it twice; the chains half will reuse it).
+- Palette tunings persist to `content/state/palettes.json` via the `loom:state`
+  middleware. Stop roles (0 bg · 1 edge · 2/3 core · 4 accent) are documented
+  convention, not kernel vocabulary (R7.1).
+- **`gradient` scene** added as the minimal `ramp()` consumer (and the validator's
+  ramp target); `lava` converted to `ctx.palette` stops with an `own()` default
+  reproducing its original ink/ember look.
+- **`unstage` added as an MCP tool** (agent surface 10→11): clearing the staged
+  candidate is as safe as staging, and agents auditioning palette/source variants
+  need to drop a candidate without a human. The four tool-surface validator
+  assertions (m3/m4/m5/modulators) gained `"unstage"`.

@@ -1,7 +1,19 @@
 import { z } from "zod";
 import { Signal } from "./signal";
 
-export type ParamType = "float" | "int" | "bool";
+export type ParamType = "float" | "int" | "bool" | "color";
+
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Normalize a CSS hex color to lowercase "#rrggbb"; null if unparseable. */
+export function normalizeHex(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const m = HEX_RE.exec(v.trim());
+  if (!m) return null;
+  let hex = m[1]!.toLowerCase();
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  return `#${hex}`;
+}
 
 const RangedSpec = z
   .object({
@@ -9,6 +21,8 @@ const RangedSpec = z
     min: z.number(),
     max: z.number(),
     step: z.number().positive().optional(),
+    /** Optional value names for int selectors (index = value - min); UI renders a toggle. */
+    labels: z.array(z.string().min(1)).optional(),
     description: z.string().optional(),
   })
   .refine((s) => s.min <= s.max, { message: "min must be <= max" })
@@ -21,8 +35,16 @@ const BoolSpec = z.object({
   description: z.string().optional(),
 });
 
+const ColorSpec = z.object({
+  default: z
+    .string()
+    .refine((s) => normalizeHex(s) != null, { message: 'color default must be "#rrggbb"' }),
+  description: z.string().optional(),
+});
+
 export type RangedParamSpec = z.infer<typeof RangedSpec>;
 export type BoolParamSpec = z.infer<typeof BoolSpec>;
+export type ColorParamSpec = z.infer<typeof ColorSpec>;
 
 export class Param<T> {
   constructor(
@@ -56,6 +78,7 @@ export class Param<T> {
       this.set((v >= 0.5) as unknown as T);
       return;
     }
+    if (this.type === "color") return; // a 0..1 CC has no honest color mapping — ignore
     const min = this.meta.min as number;
     const max = this.meta.max as number;
     this.set((min + v * (max - min)) as unknown as T);
@@ -87,6 +110,19 @@ export class Manifest {
     return this.add(path, new Param<boolean>(path, "bool", (v) => v, specMeta(s), s.default));
   }
 
+  color(path: string, spec: z.input<typeof ColorSpec>): Param<string> {
+    const s = ColorSpec.parse(spec);
+    const def = normalizeHex(s.default)!;
+    const clamp = (v: string) => {
+      const hex = normalizeHex(v);
+      if (hex == null) {
+        throw new Error(`color param "${path}" expects "#rrggbb" (got ${JSON.stringify(v)})`);
+      }
+      return hex;
+    };
+    return this.add(path, new Param<string>(path, "color", clamp, specMeta({ ...s, default: def }), def));
+  }
+
   get(path: string): Param<unknown> | undefined {
     return this.params.get(path);
   }
@@ -96,9 +132,9 @@ export class Manifest {
   }
 
   /** Flat current values — the tuned-state shape persisted to state/. */
-  values(): Record<string, number | boolean> {
-    const out: Record<string, number | boolean> = {};
-    for (const [path, p] of this.params) out[path] = p.value as number | boolean;
+  values(): Record<string, number | boolean | string> {
+    const out: Record<string, number | boolean | string> = {};
+    for (const [path, p] of this.params) out[path] = p.value as number | boolean | string;
     return out;
   }
 

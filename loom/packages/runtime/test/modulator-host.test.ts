@@ -34,6 +34,13 @@ describe("ModulatorHost", () => {
     expect(() => host.attach(manifest(), "flash", { type: "sine", periodSeconds: 1 })).toThrow(/bool/);
   });
 
+  it("rejects attaching to a color param", () => {
+    const m = new Manifest();
+    m.color("tint", { default: "#ffffff" });
+    const host = new ModulatorHost(bus);
+    expect(() => host.attach(m, "tint", { type: "sine", periodSeconds: 1 })).toThrow(/color/);
+  });
+
   it("tick writes through the manifest (clamped set path, FR-2)", () => {
     const host = new ModulatorHost(bus);
     const m = manifest();

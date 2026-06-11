@@ -9,6 +9,7 @@ import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
 import type { InputRegistry } from "./inputs";
+import type { PaletteRegistry } from "./palette";
 import type { Manifest } from "./param";
 import type { SceneDef } from "./scene";
 import type { ColorNode, Pass } from "./texnode";
@@ -68,10 +69,11 @@ export class Instance {
 /** Build a scene into a running instance. Throws on a bad build — callers contain. */
 export function buildInstance(
   scene: SceneDef,
-  buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry },
+  buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry; palettes?: PaletteRegistry },
 ): Instance {
-  const ctx = new BuildCtx(buses.audio, buses.time, buses.inputs);
+  const ctx = new BuildCtx(buses.audio, buses.time, buses.inputs, buses.palettes);
   const out = scene.build(ctx);
+  ctx.finalize();
   if (out?.color == null) {
     throw new Error(`scene "${scene.name}": build() must return a TexNode`);
   }

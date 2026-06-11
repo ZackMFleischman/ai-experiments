@@ -59,7 +59,7 @@ export type InstanceArgs = z.infer<typeof InstanceArgs>;
 export const SetParamArgs = z.object({
   instance: z.string().default("live"),
   path: z.string().min(1),
-  value: z.union([z.number(), z.boolean()]),
+  value: z.union([z.number(), z.boolean(), z.string()]),
 });
 export type SetParamArgs = z.infer<typeof SetParamArgs>;
 
@@ -154,6 +154,8 @@ export const InstanceInfo = z.object({
   error: z.string().nullable(),
   paramPaths: z.array(z.string()),
   modulators: z.array(ModulatorSummary),
+  /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
+  builds: z.number().int(),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfo>;
 
@@ -195,9 +197,11 @@ export const CreateInstanceResult = z.object({
 export type CreateInstanceResult = z.infer<typeof CreateInstanceResult>;
 
 export const ParamDescriptor = z.looseObject({
-  type: z.enum(["float", "int", "bool"]),
-  value: z.union([z.number(), z.boolean()]),
-  default: z.union([z.number(), z.boolean()]),
+  type: z.enum(["float", "int", "bool", "color"]),
+  value: z.union([z.number(), z.boolean(), z.string()]),
+  default: z.union([z.number(), z.boolean(), z.string()]),
+  /** Value names for int selectors (palette.source) — UI renders a toggle. */
+  labels: z.array(z.string()).optional(),
   /** Active modulator config, or null when the param is hand-driven (FR-8). */
   modulator: z.record(z.string(), z.unknown()).nullable().optional(),
 });
@@ -210,7 +214,7 @@ export type ManifestResult = z.infer<typeof ManifestResult>;
 export const SetParamResult = z.object({
   instance: z.string(),
   path: z.string(),
-  value: z.union([z.number(), z.boolean()]),
+  value: z.union([z.number(), z.boolean(), z.string()]),
 });
 export type SetParamResult = z.infer<typeof SetParamResult>;
 
