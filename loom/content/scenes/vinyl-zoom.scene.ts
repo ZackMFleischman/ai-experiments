@@ -1,9 +1,11 @@
-import { Signal, defineScene } from "@loom/runtime";
+import { Signal, defineScene, texNode } from "@loom/runtime";
+import { vec4 } from "three/tsl";
 import { lag } from "../modules/control/lag";
 import { flyby } from "../modules/effects/flyby";
 import { kaleidoZoom } from "../modules/effects/kaleidoZoom";
 import { levels } from "../modules/effects/levels";
 import { over } from "../modules/effects/over";
+import { pixelate } from "../modules/effects/pixelate";
 import { image } from "../modules/sources/image";
 
 const IMG_URL = new URL("../assets/VinylDJHippo.png", import.meta.url).href;
@@ -47,6 +49,10 @@ export default defineScene({
     const hippos = ctx.float("hippos", { default: 1, min: 0, max: 1, description: "flying hippo flock opacity" });
     const hippoSize = ctx.float("hippoSize", { default: 0.16, min: 0, max: 0.6, description: "flying hippo size" });
     const hippoSpeed = ctx.float("hippoSpeed", { default: 0.6, min: 0, max: 3, description: "flying hippo flight speed" });
+    const pixel = ctx.float("pixelate", { default: 0, min: 0, max: 1, description: "mosaic on the whole output (0 = off)" });
+    const pixelVinyl = ctx.float("pixelateVinyl", { default: 0, min: 0, max: 1, description: "mosaic on the kaleido vinyl dive only" });
+    const pixelLogo = ctx.float("pixelateLogo", { default: 0, min: 0, max: 1, description: "mosaic on the DJ Hippo logo only" });
+    const pixelHippos = ctx.float("pixelateHippos", { default: 0, min: 0, max: 1, description: "mosaic on the flying hippo flock only" });
 
     const kick = ctx.input("kick"); // rack channel: bass onsets -> envelope
 
@@ -70,6 +76,8 @@ export default defineScene({
       twist: twist.signal(),
     });
     const graded = levels(ctx, { input: dive, gain: kick.map((k) => 1 + k * 0.2), gamma: 1.05 });
+    const divePix = pixelate(ctx, { input: graded, amount: pixelVinyl.signal() });
+
     // The logo rides on top, outside the zoom chain — static while the dive runs.
     const logoRpmSig = logoRpm.signal();
     const logoAngle = integrate(new Signal((f) => (-logoRpmSig.get(f) * TAU) / 60));
@@ -82,14 +90,22 @@ export default defineScene({
         rotateY: logoTiltY.signal(),
       },
     });
-    const branded = over(ctx, { input: graded, overlay: badge, opacity: logo.signal() });
-    // The flock rides above everything, untouched by the zoom.
-    return flyby(ctx, {
-      input: branded,
+    const badgePix = pixelate(ctx, { input: badge, amount: pixelLogo.signal() });
+    const branded = over(ctx, { input: divePix, overlay: badgePix, opacity: logo.signal() });
+
+    // The flock builds on a transparent base so it can be pixelated as its
+    // own layer (premultiplied `over` is associative), then rides on top.
+    const flock = flyby(ctx, {
+      input: texNode(vec4(0, 0, 0, 0)),
       urls: HIPPO_URLS,
       size: hippoSize.signal(),
       speed: hippoSpeed.signal(),
       opacity: hippos.signal(),
     });
+    const flockPix = pixelate(ctx, { input: flock, amount: pixelHippos.signal() });
+    const withFlock = over(ctx, { input: branded, overlay: flockPix });
+
+    // Whole-frame mosaic last; every pixelate is free while its slider is 0.
+    return pixelate(ctx, { input: withFlock, amount: pixel.signal() });
   },
 });

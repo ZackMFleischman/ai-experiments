@@ -26,6 +26,7 @@ import {
 import {
   HalfFloatType,
   MeshBasicNodeMaterial,
+  NoBlending,
   QuadMesh,
   RenderTarget,
   Vector2,
@@ -145,6 +146,9 @@ export const transform = defineModule(
 
     const srcMaterial = new MeshBasicNodeMaterial();
     srcMaterial.colorNode = opts.input.color;
+    // Raw RGBA write: transparent layers must keep their alpha in the buffer.
+    srcMaterial.transparent = true;
+    srcMaterial.blending = NoBlending;
     const srcQuad = new QuadMesh(srcMaterial);
 
     const l = localSpace(ctx, opts)(uv());
