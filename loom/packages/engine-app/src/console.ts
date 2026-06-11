@@ -75,6 +75,10 @@ const scenePick = $<HTMLSelectElement>("#scenepick");
 const createBtn = $<HTMLButtonElement>("#createbtn");
 const audioMode = $<HTMLSelectElement>("#audiomode");
 const stageStrip = $("#stagestrip");
+const rack = $("#rack");
+const rackRows = $("#rackrows");
+const rackToggle = $<HTMLButtonElement>("#racktoggle");
+const midiStat = $("#midistat");
 
 const ch = new BroadcastChannel("loom");
 
@@ -98,7 +102,8 @@ let state: StateMsg | null = null;
 let lastStateAt = -Infinity;
 let selected: string | null = null;
 let solo: string | null = null;
-let draggingPath: string | null = null;
+/** `${instance}:${path}` of the slider under the user's thumb, if any. */
+let draggingKey: string | null = null;
 
 ch.onmessage = (ev) => {
   const data = ev.data as { kind?: string } & Record<string, unknown>;
@@ -160,6 +165,36 @@ audioMode.addEventListener("change", () => {
     "set_audio",
     v === "test" ? { mode: "test" } : { mode: "mic", deviceId: v.slice(4) || undefined },
   ).catch(fail);
+});
+
+// Chrome gates WebMIDI behind a per-origin permission prompt, and the engine
+// (Output window) is a bare projector page nobody clicks. Requesting access
+// from HERE pops the prompt in the window the human is actually using; the
+// grant is origin-wide, and the engine re-attaches the moment it lands.
+function primeMidiPermission(): void {
+  const nav = navigator as Navigator & { requestMIDIAccess?: () => Promise<unknown> };
+  void nav.requestMIDIAccess?.().catch(() => {});
+}
+midiStat.addEventListener("click", primeMidiPermission);
+
+// The input rack drawer (R6.4): every channel with a live meter and its
+// global tuning widgets. Toggled on "i" (or the header button).
+function toggleRack(): void {
+  rack.classList.toggle("hidden");
+  render();
+}
+rackToggle.addEventListener("click", toggleRack);
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "i") return;
+  const t = e.target;
+  if (
+    t instanceof HTMLInputElement ||
+    t instanceof HTMLSelectElement ||
+    t instanceof HTMLTextAreaElement
+  ) {
+    return; // typing, not a hotkey
+  }
+  toggleRack();
 });
 
 // Drag a tile onto the stage strip to stage it (R9.3).
@@ -261,7 +296,21 @@ function render(): void {
     if (!seen.has(tile.dataset.id!)) tile.remove();
   }
 
+  if (s.midi.status !== "ready") {
+    midiStat.textContent = "MIDI: connect";
+    midiStat.title = "click to grant MIDI access (Chrome prompts once per site)";
+  } else if (s.midi.devices.length === 0) {
+    midiStat.textContent = "MIDI: no devices";
+    midiStat.title = "access granted — plug in a controller, it hot-plugs";
+  } else {
+    midiStat.textContent = `MIDI ${s.midi.devices.join(" · ")}`;
+    midiStat.title = "connected MIDI inputs";
+  }
+  midiStat.classList.toggle("dimlabel", s.midi.devices.length === 0);
+  midiStat.classList.toggle("midioff", s.midi.status !== "ready");
+
   renderPanel();
+  renderRack();
 }
 
 function makeTile(id: string): HTMLElement {
@@ -303,6 +352,26 @@ function makeTile(id: string): HTMLElement {
   return tile;
 }
 
+// ---- MIDI-learn helpers ----
+// Bindings are keyed by scene engine-side; the Console resolves an instance
+// to its scene to display bound/learning state on the right widgets.
+function sceneFor(instance: string): string | null {
+  if (instance === "globals") return "globals";
+  return state?.session.instances.find((i) => i.id === instance)?.scene ?? null;
+}
+
+function bindingFor(instance: string, path: string) {
+  const scene = sceneFor(instance);
+  if (!scene) return null;
+  return state?.session.bindings.find((b) => b.scene === scene && b.path === path) ?? null;
+}
+
+function isLearning(instance: string, path: string): boolean {
+  const l = state?.session.midi.learning;
+  const scene = sceneFor(instance);
+  return l != null && scene != null && l.scene === scene && l.path === path;
+}
+
 // Param panel: rebuild widgets only when the selected manifest's shape
 // changes; otherwise just refresh values (and never under the user's thumb).
 let panelKey = "";
@@ -320,58 +389,113 @@ function renderPanel(): void {
   const key = `${selected}:${Object.keys(manifest).join(",")}`;
   if (key !== panelKey) {
     panelKey = key;
-    widgetsEl.replaceChildren(...Object.entries(manifest).map(([path, p]) => makeWidget(path, p)));
+    widgetsEl.replaceChildren(
+      ...Object.entries(manifest).map(([path, p]) => makeWidget(selected!, path, p)),
+    );
   }
+  refreshWidgets(widgetsEl, selected, manifest);
+}
+
+/** Refresh values + learn-button states inside a widget container. */
+function refreshWidgets(
+  container: HTMLElement,
+  instance: string,
+  manifest: Record<string, ParamDesc>,
+): void {
   for (const [path, p] of Object.entries(manifest)) {
-    if (path === draggingPath) continue;
-    const input = widgetsEl.querySelector<HTMLInputElement>(`[data-path="${cssEscape(path)}"]`);
-    const valueEl = widgetsEl.querySelector<HTMLElement>(`[data-value="${cssEscape(path)}"]`);
+    const input = container.querySelector<HTMLInputElement>(`[data-path="${cssEscape(path)}"]`);
     if (!input) continue;
-    if (p.type === "bool") input.checked = p.value === true;
-    else input.value = String(p.value);
-    if (valueEl) valueEl.textContent = formatValue(p);
+    if (`${instance}:${path}` !== draggingKey) {
+      if (p.type === "bool") input.checked = p.value === true;
+      else input.value = String(p.value);
+      const valueEl = container.querySelector<HTMLElement>(`[data-value="${cssEscape(path)}"]`);
+      if (valueEl) valueEl.textContent = formatValue(p);
+    }
     // FR-8: visible indicator + live read-only thumb on modulated params.
     const active = p.modulator != null;
     input.closest(".widget")?.classList.toggle("modulated", active);
     input.disabled = active; // engine rejects writes anyway (FR-7); this kills the drag
     input.title = active ? "modulated — detach to take over" : "";
-    const modBtn = widgetsEl.querySelector<HTMLButtonElement>(`[data-modbtn="${cssEscape(path)}"]`);
+    const modBtn = container.querySelector<HTMLButtonElement>(`[data-modbtn="${cssEscape(path)}"]`);
     if (modBtn) {
       modBtn.classList.toggle("on", active);
       modBtn.title = active
         ? `modulated: ${String((p.modulator as { type?: string }).type)}`
         : "attach a modulator";
     }
+    const learn = container.querySelector<HTMLButtonElement>(`[data-learn="${cssEscape(path)}"]`);
+    if (learn) {
+      const bound = bindingFor(instance, path);
+      const learning = isLearning(instance, path);
+      learn.classList.toggle("bound", bound != null && !learning);
+      learn.classList.toggle("learning", learning);
+      learn.textContent = learning ? "···" : bound ? `cc${bound.cc}` : "M";
+      learn.title = learning
+        ? "move a controller… (click to cancel)"
+        : bound
+          ? `bound to cc${bound.cc} — click to unbind`
+          : "MIDI-learn: click, then move a knob";
+    }
   }
 }
 
-function makeWidget(path: string, p: ParamDesc): HTMLElement {
+function makeWidget(instance: string, path: string, p: ParamDesc, label?: string): HTMLElement {
   const div = document.createElement("div");
   div.className = "widget";
-  const label = document.createElement("label");
-  label.innerHTML =
-    `<span>${path}</span>` +
-    `<button type="button" class="modbtn" data-modbtn="${path}" title="attach a modulator">∿</button>` +
-    `<span class="pvalue" data-value="${path}">${formatValue(p)}</span>`;
-  div.appendChild(label);
-  const pop = makeModPopover(path, p);
-  label.querySelector(".modbtn")!.addEventListener("click", (e) => {
-    e.preventDefault();
+  const labelEl = document.createElement("label");
+  const name = document.createElement("span");
+  name.className = "pname";
+  name.textContent = label ?? path;
+  name.title = path;
+  const learn = document.createElement("button");
+  learn.className = "learnbtn";
+  learn.dataset.learn = path;
+  learn.textContent = "M";
+  learn.addEventListener("click", (e) => {
     e.stopPropagation();
-    const open = !pop.classList.contains("open");
-    widgetsEl.querySelectorAll(".modpop.open").forEach((el) => el.classList.remove("open"));
-    if (open) {
-      fillModPopover(pop, currentDesc(path) ?? p);
-      pop.classList.add("open");
-    }
+    // No MIDI access yet? This click IS the gesture — pop the prompt here.
+    if (state?.session.midi.status !== "ready") primeMidiPermission();
+    // bound → unbind; learning → cancel (engine toggles); unbound → arm
+    const action = bindingFor(instance, path) && !isLearning(instance, path) ? "midi_unbind" : "midi_learn";
+    void req(action, { instance, path }).catch(fail);
   });
+  const value = document.createElement("span");
+  value.className = "pvalue";
+  value.dataset.value = path;
+  value.textContent = formatValue(p);
+  // Modulators target instance params only — the globals rack gets no ∿.
+  let pop: HTMLElement | null = null;
+  if (instance !== "globals") {
+    const modBtn = document.createElement("button");
+    modBtn.type = "button";
+    modBtn.className = "modbtn";
+    modBtn.dataset.modbtn = path;
+    modBtn.title = "attach a modulator";
+    modBtn.textContent = "∿";
+    const popEl = makeModPopover(instance, path, p);
+    pop = popEl;
+    modBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const open = !popEl.classList.contains("open");
+      document.querySelectorAll(".modpop.open").forEach((el) => el.classList.remove("open"));
+      if (open) {
+        fillModPopover(popEl, currentDesc(instance, path) ?? p);
+        popEl.classList.add("open");
+      }
+    });
+    labelEl.append(name, modBtn, learn, value);
+  } else {
+    labelEl.append(name, learn, value);
+  }
+  div.appendChild(labelEl);
 
   const input = document.createElement("input");
   input.dataset.path = path;
   if (p.type === "bool") {
     input.type = "checkbox";
     input.checked = p.value === true;
-    input.addEventListener("change", () => sendParam(path, input.checked));
+    input.addEventListener("change", () => sendParam(instance, path, input.checked));
   } else {
     const min = p.min ?? 0;
     const max = p.max ?? 1;
@@ -380,9 +504,9 @@ function makeWidget(path: string, p: ParamDesc): HTMLElement {
     input.max = String(max);
     input.step = p.type === "int" ? "1" : String(p.step ?? (max - min) / 200);
     input.value = String(p.value);
-    input.addEventListener("pointerdown", () => (draggingPath = path));
-    input.addEventListener("pointerup", () => (draggingPath = null));
-    input.addEventListener("input", () => sendParam(path, Number(input.value)));
+    input.addEventListener("pointerdown", () => (draggingKey = `${instance}:${path}`));
+    input.addEventListener("pointerup", () => (draggingKey = null));
+    input.addEventListener("input", () => sendParam(instance, path, Number(input.value)));
   }
   div.appendChild(input);
   if (p.description) {
@@ -391,15 +515,15 @@ function makeWidget(path: string, p: ParamDesc): HTMLElement {
     d.textContent = p.description;
     div.appendChild(d);
   }
-  div.appendChild(pop);
+  if (pop) div.appendChild(pop);
   return div;
 }
 
-function currentDesc(path: string): ParamDesc | undefined {
-  return selected != null ? state?.manifests[selected]?.[path] : undefined;
+function currentDesc(instance: string, path: string): ParamDesc | undefined {
+  return state?.manifests[instance]?.[path];
 }
 
-function makeModPopover(path: string, p: ParamDesc): HTMLElement {
+function makeModPopover(instance: string, path: string, p: ParamDesc): HTMLElement {
   const pop = document.createElement("div");
   pop.className = "modpop";
   const isBool = p.type === "bool";
@@ -477,20 +601,18 @@ function makeModPopover(path: string, p: ParamDesc): HTMLElement {
   renderFields();
 
   const send = (spec: Record<string, unknown>) => {
-    if (!selected) return;
     pop.querySelector(".moderr")!.textContent = "";
-    void req("modulate_param", { instance: selected, path, modulator: spec }).catch((err: Error) => {
+    void req("modulate_param", { instance, path, modulator: spec }).catch((err: Error) => {
       pop.querySelector(".moderr")!.textContent = String(err.message ?? err);
     });
   };
   pop.querySelector(".modattach")!.addEventListener("click", () => send(buildModSpec(pop, p)));
   pop.querySelector(".modretrig")!.addEventListener("click", () => {
-    const active = currentDesc(path)?.modulator;
+    const active = currentDesc(instance, path)?.modulator;
     send((active as Record<string, unknown>) ?? buildModSpec(pop, p));
   });
   pop.querySelector(".moddetach")!.addEventListener("click", () => {
-    if (!selected) return;
-    void req("clear_modulation", { instance: selected, path }).catch(fail);
+    void req("clear_modulation", { instance, path }).catch(fail);
     pop.classList.remove("open");
   });
   return pop;
@@ -562,18 +684,75 @@ const formatValue = (p: ParamDesc) =>
   p.type === "bool" ? String(p.value) : Number(p.value).toFixed(p.type === "int" ? 0 : 3);
 
 // rAF-throttle param writes so drags feel instant without flooding the channel.
-const queued = new Map<string, number | boolean>();
+const queued = new Map<string, { instance: string; path: string; value: number | boolean }>();
 let flushScheduled = false;
-function sendParam(path: string, value: number | boolean): void {
-  if (!selected) return;
-  queued.set(path, value);
+function sendParam(instance: string, path: string, value: number | boolean): void {
+  queued.set(`${instance}:${path}`, { instance, path, value });
   if (flushScheduled) return;
   flushScheduled = true;
   requestAnimationFrame(() => {
     flushScheduled = false;
-    for (const [p, v] of queued) {
-      void req("set_param", { instance: selected, path: p, value: v }).catch(fail);
+    for (const w of queued.values()) {
+      void req("set_param", { instance: w.instance, path: w.path, value: w.value }).catch(fail);
     }
     queued.clear();
   });
+}
+
+// ---- the input rack drawer ----
+let rackKey = "";
+
+function renderRack(): void {
+  if (!state || rack.classList.contains("hidden")) return;
+  const s = state.session;
+  const globals = state.manifests.globals ?? {};
+  const names = Object.keys(s.inputs).sort();
+  const key = `${names.join(",")}|${Object.keys(globals).join(",")}`;
+  if (key !== rackKey) {
+    rackKey = key;
+    rackRows.replaceChildren(...names.map((name) => makeRackRow(name, globals)));
+  }
+  for (const name of names) {
+    const row = rackRows.querySelector<HTMLElement>(`.rackrow[data-name="${cssEscape(name)}"]`);
+    if (!row) continue;
+    const fill = row.querySelector<HTMLElement>(".rackfill")!;
+    fill.style.width = `${Math.min(100, (s.inputs[name] ?? 0) * 100)}%`;
+    row.classList.toggle("enabled", globals[`inputs.${name}.enabled`]?.value === true);
+    refreshWidgets(row, "globals", channelParams(globals, name));
+  }
+}
+
+/** The globals params belonging to one channel (enabled included). */
+function channelParams(
+  globals: Record<string, ParamDesc>,
+  name: string,
+): Record<string, ParamDesc> {
+  const out: Record<string, ParamDesc> = {};
+  for (const [path, p] of Object.entries(globals)) {
+    if (path.startsWith(`inputs.${name}.`)) out[path] = p;
+  }
+  return out;
+}
+
+function makeRackRow(name: string, globals: Record<string, ParamDesc>): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "rackrow";
+  row.dataset.name = name;
+
+  const meter = document.createElement("div");
+  meter.className = "rackmeter";
+  meter.innerHTML = `<div class="rackfill"></div>`;
+  const label = document.createElement("b");
+  label.className = "rackname";
+  label.textContent = name;
+  row.append(meter, label);
+
+  const knobs = document.createElement("div");
+  knobs.className = "rackknobs";
+  for (const [path, p] of Object.entries(channelParams(globals, name))) {
+    const knob = path.slice(`inputs.${name}.`.length);
+    knobs.appendChild(makeWidget("globals", path, p, knob));
+  }
+  row.appendChild(knobs);
+  return row;
 }

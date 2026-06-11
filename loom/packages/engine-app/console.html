@@ -77,6 +77,7 @@
         font-size: 16px;
         padding: 8px 22px;
       }
+      #midistat.midioff { cursor: pointer; text-decoration: underline dotted; color: var(--warn); }
       #rmswrap { width: 120px; height: 10px; background: #0006; border: 1px solid var(--edge); border-radius: 5px; overflow: hidden; }
       #rmsfill { height: 100%; width: 0%; background: var(--accent); transition: width 80ms linear; }
       .dimlabel { color: var(--dim); font-size: 12px; }
@@ -124,11 +125,12 @@
       }
       #panel h2 { margin: 0 0 12px; font-size: 15px; }
       .widget { margin-bottom: 14px; }
-      .widget label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+      .widget label { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 4px; align-items: center; }
+      .widget label .pname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .widget .pdesc { color: var(--dim); font-size: 12px; }
       .widget input[type="range"] { width: 100%; accent-color: var(--accent); }
       .modbtn {
-        margin-left: auto; margin-right: 8px; padding: 0 6px; font-size: 14px;
+        flex: 0 0 auto; padding: 0 6px; font-size: 14px;
         background: none; border: none; color: var(--dim); cursor: pointer;
       }
       .modbtn.on { color: var(--warn); text-shadow: 0 0 6px #f3c96966; }
@@ -160,6 +162,53 @@
         background: var(--warn); cursor: ew-resize;
       }
       .dvals { min-width: 70px; text-align: right; }
+      .learnbtn {
+        padding: 0 6px;
+        font-size: 11px;
+        line-height: 18px;
+        color: var(--dim);
+      }
+      .learnbtn.bound { color: var(--accent); border-color: var(--accent); }
+      .learnbtn.learning {
+        color: #000;
+        background: var(--warn);
+        border-color: var(--warn);
+        animation: learnpulse 0.9s infinite alternate;
+      }
+      @keyframes learnpulse { from { opacity: 1; } to { opacity: 0.45; } }
+      #rack {
+        flex: 0 0 auto;
+        max-height: 42vh;
+        overflow-y: auto;
+        background: var(--panel);
+        border-top: 1px solid var(--edge);
+        padding: 8px 14px 12px;
+      }
+      #rack.hidden { display: none; }
+      #rackhead { font-size: 12px; color: var(--dim); letter-spacing: 0.08em; margin-bottom: 8px; }
+      .rackrow {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--edge);
+      }
+      .rackrow:last-child { border-bottom: none; }
+      .rackname { width: 80px; flex: 0 0 auto; }
+      .rackmeter {
+        width: 90px;
+        height: 10px;
+        flex: 0 0 auto;
+        background: #0006;
+        border: 1px solid var(--edge);
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .rackfill { height: 100%; width: 0%; background: var(--warn); }
+      .rackrow.enabled .rackfill { background: var(--accent); }
+      .rackknobs { display: flex; gap: 14px; flex: 1; flex-wrap: wrap; }
+      .rackknobs .widget { margin-bottom: 0; width: 170px; }
+      .rackknobs .widget .pdesc { display: none; }
       #disconnected {
         position: fixed;
         inset: auto 0 0 0;
@@ -178,7 +227,8 @@
       <button id="tap">TAP</button>
       <div id="rmswrap"><div id="rmsfill"></div></div>
       <select id="audiomode" title="audio input"></select>
-      <span class="dimlabel">MIDI —</span>
+      <span id="midistat" class="dimlabel" title="connected MIDI inputs">MIDI —</span>
+      <button id="racktoggle" title="input rack (i)">rack</button>
       <span class="spacer"></span>
       <span id="fps" class="dimlabel"></span>
       <button id="panic">PANIC</button>
@@ -201,6 +251,10 @@
         <div id="widgets"></div>
       </aside>
     </main>
+    <div id="rack" class="hidden">
+      <div id="rackhead">INPUT RACK · tune channels globally · <kbd>i</kbd> toggles</div>
+      <div id="rackrows"></div>
+    </div>
     <div id="disconnected">engine not found — is the Output window (<code>/</code>) open?</div>
     <script type="module" src="/src/console.ts"></script>
   </body>

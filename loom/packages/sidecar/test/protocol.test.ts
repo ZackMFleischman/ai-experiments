@@ -5,6 +5,7 @@ import {
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
+  MidiTargetArgs,
   ModulateParamArgs,
   RequestMsg,
   ResponseMsg,
@@ -18,6 +19,7 @@ describe("RequestMsg", () => {
       "get_session", "get_manifest", "set_param", "modulate_param", "clear_modulation",
       "screenshot", "create_instance", "destroy_instance", "stage", "unstage", "commit",
       "panic", "resume", "set_transport", "arm_agent_commit",
+      "midi_learn", "midi_unbind",
     ];
     for (const type of types) {
       const msg = RequestMsg.parse({ id: "r1", kind: "req", type, args: {} });
@@ -101,6 +103,16 @@ describe("M3 args", () => {
     expect(TransportArgs.parse({ bpm: 128 }).bpm).toBe(128);
     expect(TransportArgs.parse({ tap: true }).tap).toBe(true);
     expect(() => TransportArgs.parse({ bpm: 0 })).toThrow();
+  });
+});
+
+describe("M5 args", () => {
+  it("midi targets default instance to live and require a path", () => {
+    const t = MidiTargetArgs.parse({ path: "punch" });
+    expect(t.instance).toBe("live");
+    expect(MidiTargetArgs.parse({ instance: "globals", path: "inputs.kick.threshold" }).instance).toBe("globals");
+    expect(() => MidiTargetArgs.parse({})).toThrow();
+    expect(() => MidiTargetArgs.parse({ path: "" })).toThrow();
   });
 });
 

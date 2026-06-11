@@ -12,7 +12,8 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const ARTIFACTS = join(ROOT, "artifacts");
 const PORT = 5198;
-const URL = `http://localhost:${PORT}/?audio=test&bpm=120`;
+// state=off: persisted tunings (M5) must never skew validation assertions.
+const URL = `http://localhost:${PORT}/?audio=test&bpm=120&state=off`;
 
 const GREEN_SCENE = `import { defineScene, texNode } from "@loom/runtime";
 import { vec4 } from "three/tsl";

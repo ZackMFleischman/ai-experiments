@@ -124,6 +124,10 @@ export class AudioBus implements AudioBusLike {
       src.start(t);
     };
     this.testTimer = setInterval(() => {
+      // After a main-thread stall, drop the missed beats instead of starting
+      // them all in the past at once — a kick pile-up saturates the analyser
+      // and reads as one giant (threshold-defying) onset.
+      if (next < ctx.currentTime) next = ctx.currentTime + 0.02;
       while (next < ctx.currentTime + 0.25) {
         scheduleKick(next);
         scheduleHat(next + beat / 2);

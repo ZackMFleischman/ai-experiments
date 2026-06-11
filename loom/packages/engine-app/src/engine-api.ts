@@ -1,6 +1,9 @@
 import type {
   AudioBusLike,
+  BindingStore,
   FrameCtx,
+  InputRegistry,
+  Manifest,
   SceneDef,
   Stage,
   TimeBus,
@@ -11,6 +14,7 @@ import {
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
+  MidiTargetArgs,
   ModulateParamArgs,
   SetAudioArgs,
   SetParamArgs,
@@ -28,7 +32,18 @@ export type Source = "agent" | "human";
 
 // set_audio is human-only: an agent must not silently swap the audio source
 // mid-set (it isn't an MCP tool either — this is the belt to that braces).
-const HUMAN_ONLY: ReadonlySet<string> = new Set(["panic", "resume", "set_audio", "arm_agent_commit"]);
+// MIDI-learn is a physical-controller gesture, so it's human-only too.
+const HUMAN_ONLY: ReadonlySet<string> = new Set([
+  "panic",
+  "resume",
+  "set_audio",
+  "arm_agent_commit",
+  "midi_learn",
+  "midi_unbind",
+]);
+
+/** Pseudo-instance id serving the global manifest (input rack tunings). */
+const GLOBALS = "globals";
 
 export interface EngineDeps {
   renderer: WebGPURenderer;
@@ -41,6 +56,18 @@ export interface EngineDeps {
     startTest(bpm?: number): void;
   };
   time: TimeBus;
+  /** The input rack: globals manifest + live channel values (R6). */
+  inputs: InputRegistry;
+  /** MIDI bindings + learn state; CC routing itself lives in main.ts. */
+  bindings: BindingStore;
+  midiStatus(): "off" | "ready";
+  midiDevices(): string[];
+  /** Tuned-state persistence triggers (debounced engine-side). */
+  persist: {
+    globals(): void;
+    scene(scene: string): void;
+    bindings(): void;
+  };
   /** Cached audio input devices (snapshot is sync; main.ts owns the refresh). */
   audioDevices(): AudioDevice[];
   refreshAudioDevices(): void;
@@ -117,17 +144,22 @@ export class EngineApi {
         return this.snapshot();
       case "get_manifest": {
         const { instance } = InstanceArgs.parse(req.args);
+        if (instance === GLOBALS) {
+          return { instance: GLOBALS, params: this.deps.inputs.manifest.toJSON() };
+        }
         const e = session.require(this.resolveId(instance));
         return { instance: e.id, params: this.manifestJson(e) };
       }
       case "set_param": {
         const { instance, path, value } = SetParamArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        const param = e.instance.manifest.get(path);
-        if (!param) {
-          const have = e.instance.manifest.paths().join(", ") || "(none)";
-          throw new Error(`unknown param "${path}" on "${e.id}" — manifest has: ${have}`);
+        if (instance === GLOBALS) {
+          const param = this.requireParam(this.deps.inputs.manifest, path, GLOBALS);
+          param.set(value);
+          this.deps.persist.globals();
+          return { instance: GLOBALS, path, value: param.value as number | boolean };
         }
+        const e = session.require(this.resolveId(instance));
+        const param = this.requireParam(e.instance.manifest, path, e.id);
         const mod = e.modulators.get(path);
         if (mod != null && mod.error == null) {
           throw new Error(
@@ -136,6 +168,7 @@ export class EngineApi {
           );
         }
         param.set(value);
+        this.deps.persist.scene(e.sceneName);
         return { instance: e.id, path, value: param.value as number | boolean };
       }
       case "modulate_param": {
@@ -234,7 +267,44 @@ export class EngineApi {
         this.agentCommitArmed = armed;
         return { agentCommitArmed: armed };
       }
+      case "midi_learn": {
+        const target = this.resolveMidiTarget(req.args);
+        this.deps.bindings.startLearn(target);
+        return { learning: this.deps.bindings.learning };
+      }
+      case "midi_unbind": {
+        const target = this.resolveMidiTarget(req.args);
+        const removed = this.deps.bindings.unbind(target);
+        if (removed) this.deps.persist.bindings();
+        return { removed };
+      }
     }
+  }
+
+  /**
+   * MIDI targets address a SCENE (durable across instance churn), so an
+   * instance arg resolves to its scene name; "globals" passes through. The
+   * path must exist on the target manifest right now — fail loud at learn
+   * time, not silently on the first knob twist.
+   */
+  private resolveMidiTarget(args: unknown): { scene: string; path: string } {
+    const { instance, path } = MidiTargetArgs.parse(args);
+    if (instance === GLOBALS) {
+      this.requireParam(this.deps.inputs.manifest, path, GLOBALS);
+      return { scene: GLOBALS, path };
+    }
+    const e = this.deps.session.require(this.resolveId(instance));
+    this.requireParam(e.instance.manifest, path, e.id);
+    return { scene: e.sceneName, path };
+  }
+
+  private requireParam(manifest: Manifest, path: string, owner: string) {
+    const param = manifest.get(path);
+    if (!param) {
+      const have = manifest.paths().join(", ") || "(none)";
+      throw new Error(`unknown param "${path}" on "${owner}" — manifest has: ${have}`);
+    }
+    return param;
   }
 
   snapshot(): SessionSnapshot {
@@ -261,6 +331,13 @@ export class EngineApi {
       availableScenes: [...this.deps.getScenes().keys()],
       audioMode: this.deps.audio.mode,
       audioDevices: this.deps.audioDevices(),
+      inputs: this.deps.inputs.values(),
+      midi: {
+        status: this.deps.midiStatus(),
+        devices: this.deps.midiDevices(),
+        learning: this.deps.bindings.learning,
+      },
+      bindings: this.deps.bindings.toJSON(),
       bpm: this.deps.time.bpm,
       rms: this.deps.rms(),
       onsetCount: this.deps.onsetCount(),
@@ -275,6 +352,7 @@ export class EngineApi {
     for (const e of this.deps.session.entries.values()) {
       manifests[e.id] = this.manifestJson(e);
     }
+    manifests[GLOBALS] = this.deps.inputs.manifest.toJSON(); // the rack's widgets
     return { session: this.snapshot(), manifests };
   }
 

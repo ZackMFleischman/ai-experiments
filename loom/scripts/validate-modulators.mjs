@@ -16,9 +16,10 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
 const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const SCRATCH = join(ROOT, "content", "scenes", "modtest.scene.ts");
-const PORT = 5202;
-const WS_PORT = 7345;
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
+const PORT = 5203;
+const WS_PORT = 7346;
+// state=off: persisted tunings (M5) must never skew validation assertions.
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];

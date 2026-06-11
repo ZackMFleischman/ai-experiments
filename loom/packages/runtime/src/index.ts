@@ -12,6 +12,18 @@ export { Stage, type StageDirective } from "./stage";
 export { TimeBus } from "./inputbus/time";
 export { AudioBus, type AudioBusLike, type AudioMode, type BandName } from "./inputbus/audio";
 export { OnsetDetector, bandEnergy, type OnsetOpts } from "./inputbus/analysis";
+export { MidiBus, type MidiBusLike, type MidiAccessLike, type MidiInputLike, type CcEvent } from "./inputbus/midi";
+export {
+  defineInputs,
+  InputRegistry,
+  type InputsDef,
+  type InputChannelDef,
+  type InputChannelKind,
+  type LevelChannelOpts,
+  type OnsetChannelOpts,
+  type CcChannelOpts,
+} from "./inputs";
+export { BindingStore, BindingSchema, type Binding, type LearnTarget } from "./bindings";
 export {
   createModulator,
   ModulatorSpec,

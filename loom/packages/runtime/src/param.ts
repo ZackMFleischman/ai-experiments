@@ -46,6 +46,21 @@ export class Param<T> {
     return new Signal(() => this.v);
   }
 
+  /**
+   * Set from a normalized 0..1 value (MIDI CC, faders): floats/ints map onto
+   * [min, max], bools flip at 0.5. The regular clamp still applies.
+   */
+  setNormalized(v01: number): void {
+    const v = Math.min(1, Math.max(0, v01));
+    if (this.type === "bool") {
+      this.set((v >= 0.5) as unknown as T);
+      return;
+    }
+    const min = this.meta.min as number;
+    const max = this.meta.max as number;
+    this.set((min + v * (max - min)) as unknown as T);
+  }
+
   toJSON(): Record<string, unknown> {
     return { type: this.type, ...this.meta, value: this.v };
   }
@@ -78,6 +93,13 @@ export class Manifest {
 
   paths(): string[] {
     return [...this.params.keys()];
+  }
+
+  /** Flat current values — the tuned-state shape persisted to state/. */
+  values(): Record<string, number | boolean> {
+    const out: Record<string, number | boolean> = {};
+    for (const [path, p] of this.params) out[path] = p.value as number | boolean;
+    return out;
   }
 
   toJSON(): Record<string, unknown> {

@@ -18,7 +18,8 @@ const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const PORT = 5199;
 // Isolated sidecar port: a live Claude Code session may hold the default 7341.
 const WS_PORT = 7342;
-const URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
+// state=off: persisted tunings (M5) must never skew validation assertions.
+const URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -162,9 +163,10 @@ try {
   // 3. get_session reflects reality.
   check("session: scene is pulse", session.scene === "pulse", `scene=${session.scene}`);
   check("session: test audio mode", session.audioMode === "test", `mode=${session.audioMode}`);
+  // Subset, not equality: M5's ctx.input() adds auto trim params to pulse.
   check(
     "session: manifest paths visible",
-    JSON.stringify([...session.paramPaths].sort()) === JSON.stringify(["drift", "punch", "trail"]),
+    ["drift", "punch", "trail"].every((p) => session.paramPaths.includes(p)),
     session.paramPaths.join(", "),
   );
   await sleep(500);

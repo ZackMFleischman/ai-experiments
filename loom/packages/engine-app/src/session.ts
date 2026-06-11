@@ -3,6 +3,7 @@ import {
   ModulatorHost,
   type AudioBusLike,
   type FrameCtx,
+  type InputRegistry,
   type Instance,
   type SceneDef,
   type TimeBus,
@@ -44,12 +45,17 @@ export class SessionStore {
   readonly entries = new Map<string, Entry>();
   private counter = 0;
 
-  constructor(private readonly buses: { audio: AudioBusLike; time: TimeBus }) {}
+  constructor(
+    private readonly buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry },
+    /** Tuned per-scene values (NFR-5: params reapplied from tuned state). */
+    private readonly tunedValues?: (scene: string) => Record<string, number | boolean> | undefined,
+  ) {}
 
   create(def: SceneDef, id?: string): Entry {
     const finalId = id ?? `${def.name}-${++this.counter}`;
     if (this.entries.has(finalId)) throw new Error(`instance "${finalId}" already exists`);
     const instance = buildInstance(def, this.buses);
+    this.applyTuned(instance, def.name);
     const entry: Entry = {
       id: finalId,
       sceneName: def.name,
@@ -69,6 +75,7 @@ export class SessionStore {
     if (!e) return false;
     try {
       const next = buildInstance(def, this.buses);
+      this.applyTuned(next, def.name);
       e.instance.dispose();
       e.instance = next;
       e.sceneName = def.name;
@@ -86,6 +93,15 @@ export class SessionStore {
   /** Per-frame modulator write pass; the engine skips it while held (FR-10). */
   tickModulators(f: FrameCtx): void {
     for (const e of this.entries.values()) e.modulators.tick(e.instance.manifest, f);
+  }
+
+  /** Re-apply tuned values over code defaults; unknown paths are skipped. */
+  private applyTuned(instance: Instance, scene: string): void {
+    const vals = this.tunedValues?.(scene);
+    if (!vals) return;
+    for (const [path, v] of Object.entries(vals)) {
+      instance.manifest.get(path)?.set(v);
+    }
   }
 
   destroy(id: string): boolean {
