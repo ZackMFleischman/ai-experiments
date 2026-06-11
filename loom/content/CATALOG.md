@@ -12,11 +12,13 @@
 - **blobs** — Drifting metaball ink blobs that merge and split, lava-lamp style. r/b = ink mask, g = inner-core glow. `blobs(ctx, { count: 6, size: 0.14, speed: 0.5 })` _[organic, metaballs, lava-lamp, blobby]_
 - **fireflies** — A swarm of drifting glow-points, each twinkling at its own rate, color and intensity, with white-hot cores. `fireflies(ctx, { count: 28, size: 0.035, hueSpread: 0.4 })` _[particles, sparkle, organic, night, audio-reactive]_
 - **imagePlate** — An image file drawn aspect-correct with live rotation and scale on black. `imagePlate(ctx, { url: imgUrl, rotate: angleSig, scale: 0.9 })` _[image, texture, media, rotate]_
+- **mandelbrot** — Smooth escape-time Mandelbrot set in grayscale (compose with colorize). `mandelbrot(ctx, { cx: -0.7436, cy: 0.1314, scale: zoomSig, iterations: 250 })` _[fractal, mandelbrot, zoom, math]_
 - **noise** — Animated FBM noise field (monochrome). `noise(ctx, { scale: 3, speed: 0.2 })` _[texture, organic]_
 - **osc** — Scrolling sinusoidal stripes with optional RGB phase offset. `osc(ctx, { freq: 10, sync: 0.25, offset: 0.1 })` _[pattern, stripes, classic]_
 - **pulseRings** — Concentric ink rings in a soft core with a teal-to-magenta glow palette. `pulseRings(ctx, { energy: kickEnv, hue: lfo(ctx, { periodBeats: 16 }) })` _[rings, radial, audio-reactive, ink]_
 
 ### effect
+- **colorize** — Luminance-to-color mapping through animatable cosine palettes (PALETTES presets). `colorize(ctx, { input: src, palette: driftSig, bands: 2, shift: 0.1 })` _[color, palette, gradient, grade]_
 - **feedback** — Ping-pong video feedback with zoomable trails. `feedback(ctx, { input: src, amount: 0.9, zoom: 1.01 })` _[stateful, trails, classic]_
 - **glitch** — Slice tearing, RGB split, scanlines and row dropouts over any input. `glitch(ctx, { input: src, amount: 0.6, burst: kickEnv, split: 0.5 })` _[glitch, datamosh, distortion, stateful]_
 - **kaleido** — Mirrored polar-fold kaleidoscope over any input, with rotation and zoom. `kaleido(ctx, { input: src, segments: 6, rotate: spinSig, amount: 0.9 })` _[kaleidoscope, mirror, symmetry, stateful]_
@@ -27,6 +29,7 @@
 - **fireflies** — Drifting multicolored fireflies that twinkle at their own rates and flare on the kick. params: glow, size, speed, twinkle, sparkle, variety, flare, glitch, count, trail _[particles, sparkle, audio-reactive, ambient]_
 - **hello** — Animated rings — the M0 sanity scene. params: none _[]_
 - **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
+- **mandelbrot** — Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll. params: point, dive, depth, iter, palette, drift, cycle, bands _[fractal, zoom, palette, generative]_
 - **pulse** — Kick-reactive feedback rings with a slowly drifting palette. params: punch, trail, drift _[audio-reactive, feedback, demo]_
 - **pulse-glitch** **(live)** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_
 - **vinyl** — A vinyl record spinning at 33rpm that bumps on the kick, refracted through a slowly turning kaleidoscope. params: rpm, size, bump, segments, spin, kaleido, zoom, trail _[image, kaleidoscope, audio-reactive, vinyl]_
