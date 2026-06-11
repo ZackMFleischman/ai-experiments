@@ -1,6 +1,7 @@
 import { Box } from "@mui/material";
 import { useRef, useState } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
+import { NewInstanceTile } from "./NewInstanceTile";
 import { Tile } from "./Tile";
 
 type Props = {
@@ -79,6 +80,7 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
           onReorderOver={reorderOver}
         />
       ))}
+      <NewInstanceTile scenes={s.availableScenes} onCreated={onCreated} />
     </Box>
   );
 }
