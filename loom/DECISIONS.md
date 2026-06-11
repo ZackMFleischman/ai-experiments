@@ -244,3 +244,38 @@ merging the registry's manifest with the input rack's, routed by path prefix
 - **`artifacts/` gitignored** — supersedes the M0 "validation artifacts committed as evidence" decision; the evidence is the validator's pass/fail output, screenshots are regenerable local scratch.
 - **`loom:catalog` Vite plugin**: the dev server regenerates `content/CATALOG.md` on every module/scene save (debounced, failures logged and swallowed), closing the gap where live sessions never run `pnpm typecheck` and the library's search surface went stale exactly when agents needed it.
 - Spec: `docs/superpowers/specs/2026-06-11-docs-refactor-design.md`. The in-flight `m6-color-chains` worktree predates this layout — on rebase, redirect its doc steps (ship entry → DECISIONS, guide edits → new paths).
+
+## 2026-06-11 — mandelbloom palette showcase SHIPPED
+
+- **The `mandelbrot` source module absorbed the dive animation** (optional `glide` lag on
+  cx/cy + `dive`/`depth`/`baseScale` ping-pong zoom integrator) instead of a separate
+  `mandelDive` module — one abstract source covers both the static renderer and the
+  self-diving case. The no-`dive`/`glide` path is byte-identical, so existing callers are
+  unaffected; `mandelbrot.scene.ts` was refactored onto it, deleting its duplicated integrator.
+- **New `paletteMap` effect** (`content/modules/effects/paletteMap.ts`): maps input luminance
+  through the **global** palette ramp (`ctx.palette.ramp`), the palette-native sibling of
+  `colorize` (which only knows the cosine PALETTES presets). Any scene using it auto-declares
+  `palette.source`.
+- **New `mandelbloom` scene** showcases R7 palettes: exterior filaments via the ramp, a
+  kick-blooming "garden" (warped noise + blobs, discrete stops) in the black interior, an
+  accent-stop boundary rim for contrast, then feedback → glitch → levels. One `palette.source`
+  flip (own/primary/secondary) retints the whole frame with no rebuild (verified `builds`=1).
+- Gates: `pnpm typecheck` + `pnpm test` green; `pnpm validate:m6` green; eyes-on via MCP
+  (retint with no rebuild; garden blooms on mic audio). Spec + plan under `docs/superpowers/`.
+
+## 2026-06-11 — Console UI redesign SHIPPED
+
+- **Console cockpit rebuilt for cohesion + density** (spec/plan under `docs/superpowers/`):
+  LOOM wordmark; BPM readout and TAP consolidated into one tappable chip; FPS promoted to a
+  first-class mono readout; output/staged open in new tabs; slim stage bar; tiles carry their
+  chrome as overlays (LIVE = red ring + chip, hover-only destroy ×); drag-reorder persists to
+  localStorage; param drawer resizable (240px–60vw, persisted); palettes are swatch-only with
+  hex tooltips; staged instance streams at 640×360 so /staged.html shows real detail.
+- **Scene picker is a ghost "+" tile**: hovering a scene builds a REAL sandbox instance after
+  300 ms and streams it as the preview (destroyed on close/move — never more than one alive).
+- **Agent commit defaults ARMED** ("let the agent commit by default for now" — Zack);
+  `?agentCommit=0` or the Console checkbox restores the gate. **Drop on the stage bar = stage
+  + commit** (human-sourced, never gated). validate-m3/m4 acceptance moved with the behavior:
+  the gate is now proven via disarm instead of via arm, drag-to-strip asserts go-live.
+- Gates: typecheck, unit tests, validate m0–m6 + modulators all green (m5 flaked once on the
+  envelope-drain window, clean on rerun). Eyes-on via validator + peek screenshots.
