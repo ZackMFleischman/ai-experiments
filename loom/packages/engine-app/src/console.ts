@@ -126,6 +126,16 @@ audioMode.addEventListener("change", () => {
   ).catch(fail);
 });
 
+// Chrome gates WebMIDI behind a per-origin permission prompt, and the engine
+// (Output window) is a bare projector page nobody clicks. Requesting access
+// from HERE pops the prompt in the window the human is actually using; the
+// grant is origin-wide, and the engine re-attaches the moment it lands.
+function primeMidiPermission(): void {
+  const nav = navigator as Navigator & { requestMIDIAccess?: () => Promise<unknown> };
+  void nav.requestMIDIAccess?.().catch(() => {});
+}
+midiStat.addEventListener("click", primeMidiPermission);
+
 // The input rack drawer (R6.4): every channel with a live meter and its
 // global tuning widgets. Toggled on "i" (or the header button).
 function toggleRack(): void {
@@ -245,8 +255,18 @@ function render(): void {
     if (!seen.has(tile.dataset.id!)) tile.remove();
   }
 
-  midiStat.textContent = s.midi.devices.length ? `MIDI ${s.midi.devices.join(" · ")}` : "MIDI —";
+  if (s.midi.status !== "ready") {
+    midiStat.textContent = "MIDI: connect";
+    midiStat.title = "click to grant MIDI access (Chrome prompts once per site)";
+  } else if (s.midi.devices.length === 0) {
+    midiStat.textContent = "MIDI: no devices";
+    midiStat.title = "access granted — plug in a controller, it hot-plugs";
+  } else {
+    midiStat.textContent = `MIDI ${s.midi.devices.join(" · ")}`;
+    midiStat.title = "connected MIDI inputs";
+  }
   midiStat.classList.toggle("dimlabel", s.midi.devices.length === 0);
+  midiStat.classList.toggle("midioff", s.midi.status !== "ready");
 
   renderPanel();
   renderRack();
@@ -380,6 +400,8 @@ function makeWidget(instance: string, path: string, p: ParamDesc, label?: string
   learn.textContent = "M";
   learn.addEventListener("click", (e) => {
     e.stopPropagation();
+    // No MIDI access yet? This click IS the gesture — pop the prompt here.
+    if (state?.session.midi.status !== "ready") primeMidiPermission();
     // bound → unbind; learning → cancel (engine toggles); unbound → arm
     const action = bindingFor(instance, path) && !isLearning(instance, path) ? "midi_unbind" : "midi_learn";
     void req(action, { instance, path }).catch(fail);

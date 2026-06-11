@@ -26,9 +26,49 @@ function fakeAccess(): MidiAccessLike & {
 describe("MidiBus", () => {
   it("is inert without WebMIDI (no devices, ccValue 0, no throw)", async () => {
     const bus = new MidiBus();
-    await bus.init(undefined);
+    const ok = await bus.init(undefined);
+    expect(ok).toBe(false);
+    expect(bus.status).toBe("off");
     expect(bus.devices).toEqual([]);
     expect(bus.ccValue(21)).toBe(0);
+  });
+
+  it("reports status off when the permission request rejects", async () => {
+    const bus = new MidiBus();
+    const ok = await bus.init(() => Promise.reject(new Error("denied")));
+    expect(ok).toBe(false);
+    expect(bus.status).toBe("off");
+  });
+
+  it("reports status ready on success and init becomes idempotent", async () => {
+    const access = fakeAccess();
+    let requests = 0;
+    const bus = new MidiBus();
+    expect(bus.status).toBe("off");
+    const ok = await bus.init(() => {
+      requests++;
+      return Promise.resolve(access);
+    });
+    expect(ok).toBe(true);
+    expect(bus.status).toBe("ready");
+    // a later retry (gesture/permission watcher) must not re-prompt
+    const again = await bus.init(() => {
+      requests++;
+      return Promise.resolve(access);
+    });
+    expect(again).toBe(true);
+    expect(requests).toBe(1);
+  });
+
+  it("can re-init successfully after a rejected attempt", async () => {
+    const access = fakeAccess();
+    access.plug("a", "Knobs");
+    const bus = new MidiBus();
+    await bus.init(() => Promise.reject(new Error("dismissed")));
+    expect(bus.status).toBe("off");
+    const ok = await bus.init(() => Promise.resolve(access));
+    expect(ok).toBe(true);
+    expect(bus.devices).toEqual(["Knobs"]);
   });
 
   it("normalizes CC messages from a device to 0..1", async () => {

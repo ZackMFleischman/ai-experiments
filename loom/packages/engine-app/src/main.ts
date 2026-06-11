@@ -77,7 +77,40 @@ const fps = new FpsMeter(fpsEl);
 // the globals manifest. defineInputs failures keep the previous rack —
 // never-go-black covers the rack too.
 const midi = new MidiBus();
-void midi.init();
+
+// Chrome ≥124 gates ALL WebMIDI behind a permission prompt — and this page
+// is a bare projector surface the human rarely interacts with, so the boot
+// request can be dismissed or never seen. Make init retryable: on pointer
+// gestures here, and the moment the permission flips to granted (the Console
+// primes the prompt in the window the human actually clicks; grants are
+// per-origin, so they unlock this page too).
+let midiInitInFlight = false;
+async function ensureMidi(): Promise<void> {
+  if (midi.status === "ready" || midiInitInFlight) return;
+  midiInitInFlight = true;
+  try {
+    const ok = await midi.init();
+    if (ok) {
+      console.info(`[loom] MIDI ready (${midi.devices.join(", ") || "no devices yet — hot-plug works"})`);
+    } else {
+      console.warn("[loom] MIDI unavailable (permission not granted yet?) — grant it from the Console header");
+    }
+  } finally {
+    midiInitInFlight = false;
+  }
+}
+void ensureMidi();
+void (async () => {
+  try {
+    const perm = await navigator.permissions.query({ name: "midi" as PermissionName });
+    perm.onchange = () => {
+      if (perm.state === "granted") void ensureMidi();
+    };
+    if (perm.state === "granted") void ensureMidi();
+  } catch {
+    // Permissions API has no "midi" here — gesture retry still covers us.
+  }
+})();
 const inputs = new InputRegistry({ audio, midi });
 function tryDefineInputs(def: InputsDef): boolean {
   try {
@@ -261,6 +294,7 @@ const api = new EngineApi(
     refreshAudioDevices: () => void refreshAudioDevices(),
     inputs,
     bindings,
+    midiStatus: () => midi.status,
     midiDevices: () => midi.devices,
     persist,
   },
@@ -337,7 +371,10 @@ renderer.setAnimationLoop((tMs) => {
 window.addEventListener("keydown", (e) => {
   if (e.key === "t") timeBus.tap(performance.now() / 1000);
 });
-window.addEventListener("pointerdown", () => audio.resume());
+window.addEventListener("pointerdown", () => {
+  audio.resume();
+  void ensureMidi(); // a real gesture can re-pop a dismissed MIDI prompt
+});
 
 if (import.meta.hot) {
   // Compile errors never reach these callbacks (Vite withholds the update);

@@ -58,6 +58,7 @@ export interface EngineDeps {
   inputs: InputRegistry;
   /** MIDI bindings + learn state; CC routing itself lives in main.ts. */
   bindings: BindingStore;
+  midiStatus(): "off" | "ready";
   midiDevices(): string[];
   /** Tuned-state persistence triggers (debounced engine-side). */
   persist: {
@@ -306,7 +307,11 @@ export class EngineApi {
       audioMode: this.deps.audio.mode,
       audioDevices: this.deps.audioDevices(),
       inputs: this.deps.inputs.values(),
-      midi: { devices: this.deps.midiDevices(), learning: this.deps.bindings.learning },
+      midi: {
+        status: this.deps.midiStatus(),
+        devices: this.deps.midiDevices(),
+        learning: this.deps.bindings.learning,
+      },
       bindings: this.deps.bindings.toJSON(),
       bpm: this.deps.time.bpm,
       rms: this.deps.rms(),

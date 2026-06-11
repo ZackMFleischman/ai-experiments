@@ -115,6 +115,8 @@ export const MidiBinding = z.object({
 export type MidiBinding = z.infer<typeof MidiBinding>;
 
 export const MidiStatus = z.object({
+  /** "off" = no WebMIDI access yet (Chrome gates it behind a permission). */
+  status: z.enum(["off", "ready"]),
   devices: z.array(z.string()),
   /** Armed MIDI-learn target, or null. */
   learning: z.object({ scene: z.string(), path: z.string() }).nullable(),
