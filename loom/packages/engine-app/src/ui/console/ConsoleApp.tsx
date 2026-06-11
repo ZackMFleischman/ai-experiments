@@ -37,7 +37,7 @@ export function ConsoleApp() {
       {session && (
         <>
           <Header session={session} onToggleRack={() => setRackOpen((o) => !o)} />
-          <StageStrip session={session} manifests={manifests} onCreated={setSelected} />
+          <StageStrip session={session} manifests={manifests} />
           <Box component="main" sx={{ flex: 1, display: "flex", minHeight: 0 }}>
             <TileGrid
               session={session}

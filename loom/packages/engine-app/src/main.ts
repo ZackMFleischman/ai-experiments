@@ -330,7 +330,10 @@ const api = new EngineApi(
     midiDevices: () => midi.devices,
     persist,
   },
-  { agentCommitArmed: qs.get("agentCommit") === "1" },
+  // Agent commit defaults ARMED (the stage→commit ceremony was getting in the
+  // way); ?agentCommit=0 restores the human gate, and the Console checkbox
+  // disarms live either way.
+  { agentCommitArmed: qs.get("agentCommit") !== "0" },
 );
 
 // `?ws=` lets validation runs use an isolated sidecar port so they never
