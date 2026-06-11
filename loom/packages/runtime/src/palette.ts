@@ -95,7 +95,7 @@ export class PaletteCtxImpl {
   ) {}
 
   /** Stop i of the active palette as a color uniform (vec3 in TSL expressions). */
-  color(i: number): ReturnType<typeof uniform> {
+  color(i: number): Node<"vec3"> {
     if (!Number.isInteger(i) || i < 0 || i >= PALETTE_STOPS) {
       throw new Error(`ctx.palette.color(${i}): stop index must be an int in 0..${PALETTE_STOPS - 1}`);
     }
@@ -105,11 +105,12 @@ export class PaletteCtxImpl {
       u = uniform(new Color("#000000"));
       this.colorUniforms.set(i, u);
     }
-    return u;
+    // uniform(Color) is a vec3 uniform; the loose ReturnType collapses overloads.
+    return u as unknown as Node<"vec3">;
   }
 
   /** Gradient lookup across the 5 stops; t in 0..1 (a TSL node or constant). Returns vec4. */
-  ramp(t: Node | number): ReturnType<typeof texture> {
+  ramp(t: Node<"float"> | number): Node<"vec4"> {
     this.used = true;
     if (!this.rampTex) {
       this.rampData = new Uint8Array(256 * 4);
@@ -119,7 +120,7 @@ export class PaletteCtxImpl {
       this.rampTex.colorSpace = SRGBColorSpace; // stops are sRGB hex; sampling converts
       this.rampTex.needsUpdate = true;
     }
-    return texture(this.rampTex, vec2(t, 0.5));
+    return texture(this.rampTex, vec2(t, 0.5)) as unknown as Node<"vec4">;
   }
 
   /** Scene-default stops — exactly 5 "#rrggbb" strings; the "own" source. Once per build. */

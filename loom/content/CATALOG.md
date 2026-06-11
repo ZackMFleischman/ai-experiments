@@ -34,6 +34,7 @@
 ## Scenes (`content/scenes/`)
 
 - **fireflies** — Drifting multicolored fireflies that twinkle at their own rates and flare on the kick. params: glow, size, speed, twinkle, sparkle, variety, flare, glitch, count, trail _[particles, sparkle, audio-reactive, ambient]_
+- **gradient** — Scrolling horizontal gradient across the active palette's five stops. params: speed _[palette, gradient, minimal]_
 - **hello** — Animated rings — the M0 sanity scene. params: none _[]_
 - **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
 - **mandelbrot** — Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll. params: point, dive, depth, iter, palette, drift, cycle, bands _[fractal, zoom, palette, generative]_
