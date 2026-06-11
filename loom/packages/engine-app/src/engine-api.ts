@@ -231,8 +231,8 @@ export class EngineApi {
         const { durationFrames } = CommitArgs.parse(req.args);
         if (source === "agent" && !this.agentCommitArmed) {
           throw new Error(
-            "agent commit is not armed — ask the human to press COMMIT in the Console " +
-              "(or to arm agent commit there; engines started with ?agentCommit=1 arm it by default)",
+            "agent commit is not armed — the human disarmed it (Console checkbox or " +
+              "?agentCommit=0); ask them to press COMMIT in the Console or re-arm agent commit",
           );
         }
         const from = stage.live;
