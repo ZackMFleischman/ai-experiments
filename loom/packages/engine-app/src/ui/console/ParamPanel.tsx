@@ -1,11 +1,12 @@
 import {
-  Accordion, AccordionDetails, AccordionSummary, Box, Typography,
+  Accordion, AccordionDetails, AccordionSummary, Box, Stack, Typography,
 } from "@mui/material";
-import { useState } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { ParamDesc } from "../engine-link";
 import { ParamWidget } from "./ParamWidget";
 
 const GROUP_OPEN_KEY = "loom.pgroups.open";
+const PANEL_W_KEY = "loom.panelw";
 
 function loadOpen(): Record<string, boolean> {
   try {
@@ -27,6 +28,32 @@ type Props = {
  */
 export function ParamPanel({ instance, manifest }: Props) {
   const [open, setOpen] = useState<Record<string, boolean>>(loadOpen);
+  const [w, setW] = useState(() => {
+    const n = Number(localStorage.getItem(PANEL_W_KEY));
+    return Number.isFinite(n) && n >= 240 ? n : 320;
+  });
+  const wRef = useRef(w);
+  wRef.current = w;
+
+  // The drawer resizes by its left edge; width persists across sessions.
+  const startResize = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = wRef.current;
+    const move = (ev: PointerEvent) =>
+      setW(Math.min(Math.max(240, startW + (startX - ev.clientX)), window.innerWidth * 0.6));
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      try {
+        localStorage.setItem(PANEL_W_KEY, String(wRef.current));
+      } catch {
+        // width just won't persist
+      }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const toggle = (group: string, isOpen: boolean) => {
     setOpen((o) => {
       const next = { ...o, [group]: isOpen };
@@ -54,18 +81,31 @@ export function ParamPanel({ instance, manifest }: Props) {
   const ready = instance != null && manifest != null;
 
   return (
-    <Box
-      component="aside"
-      id="panel"
-      sx={{
-        flex: "0 0 320px",
-        bgcolor: "background.paper",
-        borderLeft: 1,
-        borderColor: "divider",
-        p: 1.75,
-        overflowY: "auto",
-      }}
-    >
+    <Stack direction="row" sx={{ flex: "0 0 auto" }}>
+      <Box
+        onPointerDown={startResize}
+        title="drag to resize"
+        sx={{
+          width: 5,
+          cursor: "col-resize",
+          flex: "0 0 auto",
+          bgcolor: "transparent",
+          "&:hover": { bgcolor: "primary.main", opacity: 0.5 },
+        }}
+      />
+      <Box
+        component="aside"
+        id="panel"
+        sx={{
+          flex: `0 0 ${w}px`,
+          width: w,
+          bgcolor: "background.paper",
+          borderLeft: 1,
+          borderColor: "divider",
+          p: 1.25,
+          overflowY: "auto",
+        }}
+      >
       <Typography id="paneltitle" variant="subtitle2" sx={{ mb: 1.5 }}>
         {ready ? instance : "no instance selected"}
       </Typography>
@@ -111,6 +151,7 @@ export function ParamPanel({ instance, manifest }: Props) {
           </>
         )}
       </Box>
-    </Box>
+      </Box>
+    </Stack>
   );
 }
