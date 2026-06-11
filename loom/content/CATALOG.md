@@ -14,8 +14,10 @@
 - **image** — An image file drawn aspect-correct, placed by an attachable Transform (2D/3D). `image(ctx, { url: imgUrl, transform: { rotate: angleSig, scale: 0.5 } })` _[image, texture, media, base]_
 - **mandelbrot** — Smooth escape-time Mandelbrot set in grayscale (compose with colorize). `mandelbrot(ctx, { cx: -0.7436, cy: 0.1314, scale: zoomSig, iterations: 250 })` _[fractal, mandelbrot, zoom, math]_
 - **noise** — Animated FBM noise field (monochrome). `noise(ctx, { scale: 3, speed: 0.2 })` _[texture, organic]_
+- **noodles** — Wavy procedural noodle strands (premultiplied alpha) that undulate and slurp on an energy signal. `noodles(ctx, { count: 9, wiggle: 0.05, energy: kickEnv })` _[noodles, strands, organic, pho, audio-reactive, overlay]_
 - **osc** — Scrolling sinusoidal stripes with optional RGB phase offset. `osc(ctx, { freq: 10, sync: 0.25, offset: 0.1 })` _[pattern, stripes, classic]_
 - **pulseRings** — Concentric ink rings in a soft core with a teal-to-magenta glow palette. `pulseRings(ctx, { energy: kickEnv, hue: lfo(ctx, { periodBeats: 16 }) })` _[rings, radial, audio-reactive, ink]_
+- **spriteSwarm** — Many flying sprites from a single atlas texture (runtime count, one sampler). `spriteSwarm(ctx, { url: atlasUrl, cols: 3, rows: 2, maxCount: 18, count: amountSig })` _[sprites, atlas, particles, overlay, fun]_
 
 ### effect
 - **colorize** — Luminance-to-color mapping through animatable cosine palettes (PALETTES presets). `colorize(ctx, { input: src, palette: driftSig, bands: 2, shift: 0.1 })` _[color, palette, gradient, grade]_
@@ -35,7 +37,8 @@
 - **hello** — Animated rings — the M0 sanity scene. params: none _[]_
 - **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
 - **mandelbrot** — Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll. params: point, dive, depth, iter, palette, drift, cycle, bands _[fractal, zoom, palette, generative]_
+- **pho-nebula** **(live)** — An infinite bowl of cosmic phở: simmering golden broth folded through a slow mandala, steam blooming on the kick, garnish drifting by under a PHỞ marquee. params: broth.simmer, broth.chunk, broth.heat, broth.palette, broth.drift, swirl.segments, swirl.spin, swirl.fold, swirl.swell, steam.trail, steam.bloom, noodles.amount, noodles.wiggle, noodles.curl, noodles.width, noodles.flow, noodles.slurp, garnish.opacity, garnish.count, garnish.size, garnish.speed, badge.opacity, badge.size, badge.bump _[audio-reactive, kaleidoscope, feedback, pho, ambient]_
 - **pulse** — Kick-reactive feedback rings with a slowly drifting palette. params: punch, trail, drift _[audio-reactive, feedback, demo]_
-- **pulse-glitch** **(live)** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_
+- **pulse-glitch** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_
 - **vinyl** — A vinyl record spinning at 33rpm that bumps on the kick, refracted through a slowly turning kaleidoscope. params: rpm, size, bump, segments, spin, kaleido, zoom, trail _[image, kaleidoscope, audio-reactive, vinyl]_
 - **vinyl-zoom** — DJ Hippo vinyl spinning at 33rpm, devoured by an infinite kaleidoscopic dive that lurches deeper on every kick. params: vinyl.rpm, vinyl.size, vinyl.pixelate, dive.punch, dive.creep, dive.glide, dive.segments, dive.twist, logo.opacity, logo.size, logo.rpm, logo.tiltX, logo.tiltY, logo.pixelate, hippos.opacity, hippos.size, hippos.speed, hippos.pixelate, pixelate _[image, kaleidoscope, zoom, audio-reactive, vinyl]_

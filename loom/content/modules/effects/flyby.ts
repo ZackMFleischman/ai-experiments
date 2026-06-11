@@ -12,6 +12,8 @@ export interface FlybyOpts {
   speed?: SignalLike;
   /** Flock opacity 0..1 — fade them in for the drop. */
   opacity?: SignalLike;
+  /** How many sprites are visible (0..urls.length, fractional fades; default all). */
+  count?: SignalLike;
 }
 
 const get = (v: SignalLike, f: Parameters<Signal<number>["get"]>[0]) =>
@@ -37,6 +39,7 @@ export const flyby = defineModule(
     const size = opts.size ?? 0.16;
     const speed = opts.speed ?? 0.6;
     const opacity = opts.opacity ?? 1;
+    const count = opts.count ?? opts.urls.length;
 
     // Integrate speed into a phase so live speed changes never jump positions.
     let acc = 0;
@@ -63,7 +66,11 @@ export const flyby = defineModule(
           mirrorX: new Signal((f) => (Math.cos(phase.get(f) * s1 + o1) >= 0 ? 1 : -1)),
         },
       });
-      return over(ctx, { input: chain, overlay: sprite, opacity });
+      // Sprite i fades out as count drops below i+1 (fractional counts blend).
+      const visible = new Signal((f) =>
+        get(opacity, f) * Math.max(0, Math.min(1, get(count, f) - i)),
+      );
+      return over(ctx, { input: chain, overlay: sprite, opacity: visible });
     }, opts.input);
   },
 );
