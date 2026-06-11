@@ -378,7 +378,7 @@ try {
     JSON.stringify(tools) ===
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
-        "get_session", "modulate_param", "screenshot", "set_param", "stage",
+        "get_session", "modulate_param", "screenshot", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),
   );
