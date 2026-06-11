@@ -52,7 +52,9 @@ export const imagePlate = defineModule(
     const c = cos(rotate);
     const s = sin(rotate);
     const q = vec2(p.x.mul(c).add(p.y.mul(s)), p.y.mul(c).sub(p.x.mul(s)));
-    const iuv = q.div(vec2(aspect, 1)).add(0.5);
+    // Flip v: texture rows are top-down while screen uv is y-up. Flipping
+    // after the rotation keeps positive `rotate` = counter-clockwise.
+    const iuv = vec2(q.x.div(aspect), q.y.negate()).add(0.5);
 
     const d = abs(iuv.sub(0.5));
     const inside = step(d.x, 0.5).mul(step(d.y, 0.5));
@@ -65,6 +67,8 @@ export const imagePlate = defineModule(
       },
     };
 
-    return texNode(vec4(col.rgb.mul(col.a).mul(inside), 1), [pass]);
+    // Premultiplied alpha: rgb is already scaled by coverage, and the real
+    // alpha rides along so compositors (the `over` effect) can blend it.
+    return texNode(vec4(col.rgb.mul(col.a).mul(inside), col.a.mul(inside)), [pass]);
   },
 );
