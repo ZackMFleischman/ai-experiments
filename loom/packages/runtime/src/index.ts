@@ -24,3 +24,12 @@ export {
   type CcChannelOpts,
 } from "./inputs";
 export { BindingStore, BindingSchema, type Binding, type LearnTarget } from "./bindings";
+export {
+  createModulator,
+  ModulatorSpec,
+  type ModulatorBus,
+  type ModulatorEval,
+  type ModulatorParamMeta,
+  type ModulatorType,
+} from "./modulator";
+export { ModulatorHost, type ManifestLike, type ModulatorInfo, type ParamLike } from "./modulator-host";

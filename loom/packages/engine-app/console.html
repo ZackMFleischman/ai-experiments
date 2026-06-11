@@ -129,6 +129,39 @@
       .widget label .pname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .widget .pdesc { color: var(--dim); font-size: 12px; }
       .widget input[type="range"] { width: 100%; accent-color: var(--accent); }
+      .modbtn {
+        flex: 0 0 auto; padding: 0 6px; font-size: 14px;
+        background: none; border: none; color: var(--dim); cursor: pointer;
+      }
+      .modbtn.on { color: var(--warn); text-shadow: 0 0 6px #f3c96966; }
+      .widget.modulated input[type="range"] { accent-color: var(--warn); opacity: 1; }
+      .modpop {
+        display: none; margin-top: 6px; padding: 8px;
+        border: 1px solid var(--edge); border-radius: 6px; background: #11141c;
+      }
+      .modpop.open { display: block; }
+      .modrow { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 11px; color: var(--dim); }
+      .modrow input[type="number"] { width: 56px; }
+      .modrow input[type="text"] { flex: 1; }
+      .modrow select, .modrow input { font-size: 11px; padding: 3px 6px; }
+      .moderr { color: var(--danger); font-size: 11px; }
+      .modactions button { font-size: 11px; padding: 3px 10px; }
+      .dualrange { position: relative; flex: 1; height: 18px; }
+      .dualrange input[type="range"] {
+        position: absolute; inset: 0; width: 100%; margin: 0; background: none;
+        pointer-events: none; -webkit-appearance: none; appearance: none;
+      }
+      .dualrange input[type="range"]::-webkit-slider-runnable-track { height: 3px; background: var(--edge); border-radius: 2px; }
+      .dualrange input[type="range"]::-webkit-slider-thumb {
+        pointer-events: auto; -webkit-appearance: none; appearance: none; width: 11px; height: 11px;
+        border-radius: 50%; background: var(--warn); margin-top: -4px; cursor: ew-resize;
+      }
+      .dualrange input[type="range"]::-moz-range-track { height: 3px; background: var(--edge); }
+      .dualrange input[type="range"]::-moz-range-thumb {
+        pointer-events: auto; width: 11px; height: 11px; border: none; border-radius: 50%;
+        background: var(--warn); cursor: ew-resize;
+      }
+      .dvals { min-width: 70px; text-align: right; }
       .learnbtn {
         padding: 0 6px;
         font-size: 11px;

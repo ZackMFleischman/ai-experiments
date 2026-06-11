@@ -377,8 +377,8 @@ try {
     "MCP tool surface unchanged (no midi tools for agents)",
     JSON.stringify(tools) ===
       JSON.stringify([
-        "commit", "create_instance", "destroy_instance", "get_manifest",
-        "get_session", "screenshot", "set_param", "stage",
+        "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
+        "get_session", "modulate_param", "screenshot", "set_param", "stage",
       ]),
     tools.join(", "),
   );

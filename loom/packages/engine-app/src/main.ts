@@ -39,7 +39,12 @@ declare global {
       mix: number | null;
       panicked: boolean;
       agentCommitArmed: boolean;
-      instances: Array<{ id: string; scene: string; status: InstanceStatus }>;
+      instances: Array<{
+        id: string;
+        scene: string;
+        status: InstanceStatus;
+        modulators: Array<{ path: string; type: string; error: string | null }>;
+      }>;
       /** Input-rack channel values (rack meters / validation). */
       inputs: Record<string, number>;
       /** Mocked-hardware hook: feeds the same path as a real CC message. */
@@ -317,6 +322,8 @@ renderer.setAnimationLoop((tMs) => {
   const directive = stage.tick(f);
   currentMix = directive.mode === "crossfade" ? directive.mix : null;
   lastDirectiveHold = directive.mode === "hold";
+  // Modulators write CPU-side before any leg renders; PANIC holds them too (FR-10).
+  if (directive.mode !== "hold") session.tickModulators(f);
   compositor.render(renderer, f, directive, session);
   api.captureLiveMirror(directive.mode); // same-task canvas read for the live tile
   fps.tick();
@@ -364,6 +371,7 @@ renderer.setAnimationLoop((tMs) => {
     id: e.id,
     scene: e.sceneName,
     status: entryStatus(e),
+    modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
   }));
 });
 

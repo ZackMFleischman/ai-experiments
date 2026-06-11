@@ -108,3 +108,25 @@ A design pass on "how the instrument is actually used" produced requirements R6�
 ## 2026-06-10 — M5 follow-up: WebMIDI permission UX (first hardware run)
 
 - **Chrome ≥124 gates ALL WebMIDI behind a permission prompt, and the engine requests it from the Output window — a bare projector page nobody clicks.** First real-hardware run (nanoKONTROL2): the prompt was never granted, `requestMIDIAccess` rejected, and `MidiBus.init` swallowed it silently — "no access" and "no devices" were indistinguishable (`MIDI —`). Fixes: `MidiBus.status` ("off"/"ready") with idempotent, retryable `init()` (a ready bus never re-prompts); the engine retries on pointer gestures and watches `navigator.permissions` for the midi grant; the Console header shows "MIDI: connect" (clickable) when off, and clicking any M learn button without access primes `requestMIDIAccess()` **from the Console window** — the grant is per-origin, so the engine page inherits it and re-attaches via the permission watcher. Same shape as the audio autoplay escape hatch (resume on gesture + mode surfaced in the snapshot).
+## 2026-06-10 — Param modulators SHIPPED (design refinements vs the feature request)
+
+- **Phase is a dt-accumulator, not wall-clock or beat-count derived.** Each evaluator advances
+  `phase += f.dt / periodSec` only when evaluated; the engine simply skips the modulator pass
+  while the stage directive is `hold`. FR-10 (PANIC pauses, RESUME continues without a
+  catch-up jump) falls out structurally — no pause bookkeeping anywhere. Consequence:
+  `ModulatorBus` is `{ bpm(): number; audio? }` rather than the sketched beats Signal;
+  `periodBeats` converts to seconds from live BPM per frame, so tap-tempo retunes every
+  synced modulator at once (FR-5) and a PANIC'd beat clock can't replay into a jump.
+- **`ModulatorHost` lives in `@loom/runtime`, not the engine.** The per-instance state machine
+  (attach/replace/clear, per-frame tick with FR-9 containment, FR-4 reattach-after-rebuild
+  with orphan flagging and fix-forward recovery) is fake-clock unit-tested against a
+  `ManifestLike` slice; `SessionStore` just owns one host per entry and calls
+  `tickModulators(f)` before compositing. The engine only schedules and stores (NFR-2).
+- **Spec validation is engine-side** (the dispatch is the protocol boundary, matching every
+  other command): the wire carries the modulator as an opaque JSON object; the runtime's
+  strict zod `ModulatorSpec` rejects unknown keys/typos with real errors.
+- **`cycle` on ints accepts an explicit `values` list too** (the 4→8→16→32 slices case);
+  without one it steps the integer lattice of [lo, hi].
+- **Acceptance is `pnpm validate:modulators`** — the `validate:m*` numbering stays reserved
+  for roadmap milestones. m3/m4's expected MCP tool lists grew by the two new tools (their
+  intent — exactly-these-tools, no `set_audio` for agents — is preserved).

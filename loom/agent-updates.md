@@ -105,3 +105,27 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - `pnpm validate:m5` 24/24: globals manifest over MCP, snapshot meters move, rack drawer + animated meter, threshold 0.95 kills onsets in the consuming scene with **no rebuild** and recovery on restore, state files round-trip a full reload (tunings + per-scene values + bindings), mocked CC learns and rides `punch` across its range, `inputs.ts` hot-reload adds `kickTight` while keeping the tuned kick, MCP tool surface unchanged. Gates re-run green: typecheck, 110 unit tests, m0 10/10, m1 19/19, m2 14/14 (paramPaths check loosened to subset — auto-trims grew pulse's manifest legitimately), m3 27/27, m4 15/15.
 - Deviation worth knowing: m2 asserted pulse's manifest as an exact three-param list; converting pulse to rack channels adds trims, so the check now asserts the original three are present. Logged in DECISIONS.md with the rest of the M5 decisions.
 - Stumble worth knowing: the threshold-0.95 check flaked because the synthetic test audio scheduled all stall-missed kicks in the past at once (analyser saturation = one giant onset). The scheduler now drops missed beats; two consecutive 24/24 runs plus full m0–m4 re-runs confirm.
+## 2026-06-10 — Param modulators SHIPPED (feature-requests/param-modulators.md)
+
+- Run-time attachable modulators on any param of any instance, zero code edits: sine,
+  triangle, ramp, square, random (S&H), drift (smoothed walk), cycle (forward/reverse/
+  pingpong/random over explicit values, int lattices, or bool toggles), audio
+  (band/rms follower). Rates in `periodSeconds` or `periodBeats` (BPM-tracking), `phase`
+  staggering, `[lo, hi]` clamped inside the declared param range (FR-6).
+- Kernel: `runtime/src/modulator.ts` (strict zod spec + compiled per-frame evaluators,
+  zero per-call allocation) and `modulator-host.ts` (per-instance attach/tick/reattach;
+  eval throws detach + flag, never reach the render loop). 26 new fake-clock unit tests.
+- Engine: hosts live on SessionStore entries (FR-3), tick before compositing, skipped on
+  `hold` so PANIC truly freezes and RESUME continues phase-exact (FR-10); HMR rebuilds
+  reattach and report orphans through `get_session` (FR-4); `set_param` on a modulated path
+  is rejected with the detach gesture named (FR-7); `get_manifest` carries per-param
+  modulator configs (FR-8); `window.__loom` exposes per-instance modulator state.
+- Surfaces: MCP tools `modulate_param` / `clear_modulation` (set_param trust tier — no
+  arming, live allowed); Console param rows gained a ∿ button + popover (type picker,
+  seconds⇄beats rate, two-thumb range, per-type extras from one descriptor table, attach/
+  update/retrigger/detach) and modulated sliders animate read-only with a tinted badge.
+- Gates: typecheck, 103 unit tests, validate m0 10/10 · m1 19/19 · m2 14/14 · m3 27/27 ·
+  m4 15/15 · **modulators 14/14** (new acceptance: `pnpm validate:modulators`; artifacts
+  `mod-hi-*.png`/`mod-lo-*.png` show a square wave on `trail` moving page luminance).
+- Stumble worth knowing: sampling a 2 s sine for 1.05 s "fails oscillation" — the window
+  must cover a full period before asserting a direction change.
