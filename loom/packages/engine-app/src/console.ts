@@ -389,11 +389,59 @@ function renderPanel(): void {
   const key = `${selected}:${Object.keys(manifest).join(",")}`;
   if (key !== panelKey) {
     panelKey = key;
-    widgetsEl.replaceChildren(
-      ...Object.entries(manifest).map(([path, p]) => makeWidget(selected!, path, p)),
-    );
+    widgetsEl.replaceChildren(...buildPanelWidgets(selected, manifest));
   }
   refreshWidgets(widgetsEl, selected, manifest);
+}
+
+/**
+ * Dotted param paths form collapsible groups: "logo.tiltX" lands in a
+ * "logo" <details> section labeled "tiltX"; dotless params stay flat on
+ * top. Open state persists per group name so the cockpit layout sticks.
+ */
+function buildPanelWidgets(instance: string, manifest: Record<string, ParamDesc>): HTMLElement[] {
+  const flat: HTMLElement[] = [];
+  const groups = new Map<string, HTMLElement[]>();
+  for (const [path, p] of Object.entries(manifest)) {
+    const dot = path.indexOf(".");
+    if (dot < 0) {
+      flat.push(makeWidget(instance, path, p));
+      continue;
+    }
+    const group = path.slice(0, dot);
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group)!.push(makeWidget(instance, path, p, path.slice(dot + 1)));
+  }
+  for (const [group, widgets] of groups) {
+    const details = document.createElement("details");
+    details.className = "pgroup";
+    details.open = groupOpen(group);
+    details.addEventListener("toggle", () => setGroupOpen(group, details.open));
+    const summary = document.createElement("summary");
+    summary.textContent = group;
+    details.append(summary, ...widgets);
+    flat.push(details);
+  }
+  return flat;
+}
+
+const GROUP_OPEN_KEY = "loom.pgroups.open";
+function groupOpen(group: string): boolean {
+  try {
+    const open = JSON.parse(localStorage.getItem(GROUP_OPEN_KEY) ?? "{}") as Record<string, boolean>;
+    return open[group] ?? false; // collapsed until the human opens it
+  } catch {
+    return false;
+  }
+}
+function setGroupOpen(group: string, isOpen: boolean): void {
+  try {
+    const open = JSON.parse(localStorage.getItem(GROUP_OPEN_KEY) ?? "{}") as Record<string, boolean>;
+    open[group] = isOpen;
+    localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(open));
+  } catch {
+    // storage unavailable — groups just default closed each load
+  }
 }
 
 /** Refresh values + learn-button states inside a widget container. */

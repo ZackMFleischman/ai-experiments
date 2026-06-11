@@ -125,6 +125,18 @@
       }
       #panel h2 { margin: 0 0 12px; font-size: 15px; }
       .widget { margin-bottom: 14px; }
+      .pgroup {
+        margin-bottom: 12px; border: 1px solid var(--edge); border-radius: 6px;
+        padding: 0 10px;
+      }
+      .pgroup summary {
+        cursor: pointer; user-select: none; list-style: none;
+        padding: 8px 0; font-size: 12px; letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--dim);
+      }
+      .pgroup summary::before { content: "▸ "; }
+      .pgroup[open] summary::before { content: "▾ "; }
+      .pgroup[open] summary { border-bottom: 1px solid var(--edge); margin-bottom: 10px; }
       .widget label { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 4px; align-items: center; }
       .widget label .pname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .widget .pdesc { color: var(--dim); font-size: 12px; }

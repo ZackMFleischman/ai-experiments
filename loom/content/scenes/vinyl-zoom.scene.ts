@@ -34,25 +34,26 @@ export default defineScene({
     "DJ Hippo vinyl spinning at 33rpm, devoured by an infinite kaleidoscopic dive that lurches deeper on every kick.",
   tags: ["image", "kaleidoscope", "zoom", "audio-reactive", "vinyl"],
   build(ctx) {
-    const rpm = ctx.float("rpm", { default: 33.3, min: -78, max: 78, description: "record spin speed (rpm, negative = reverse)" });
-    const size = ctx.float("size", { default: 1.7, min: 0.2, max: 2, description: "record scale feeding the dive" });
-    const punch = ctx.float("punch", { default: 5, min: 0, max: 12, description: "dive thrust per kick (octaves, integrated)" });
-    const creep = ctx.float("creep", { default: 0.12, min: -1, max: 1, description: "baseline dive speed between beats (octaves/sec)" });
-    const glide = ctx.float("glide", { default: 0.4, min: 0.05, max: 2, description: "kick-thrust smoothing (seconds) — higher = silkier dive" });
-    const segments = ctx.int("segments", { default: 6, min: 2, max: 16, description: "kaleidoscope wedge count" });
-    const twist = ctx.float("twist", { default: 0.8, min: -3, max: 3, description: "spiral rotation per zoom octave (radians)" });
-    const logo = ctx.float("logo", { default: 1, min: 0, max: 1, description: "DJ Hippo logo overlay opacity" });
-    const logoSize = ctx.float("logoSize", { default: 1, min: 0, max: 8, description: "logo overlay scale (0 = gone, ~7 fills the screen)" });
-    const logoRpm = ctx.float("logoRpm", { default: 0, min: -78, max: 78, description: "logo spin speed (rpm, negative = reverse)" });
-    const logoTiltX = ctx.float("logoTiltX", { default: 0, min: -1.5, max: 1.5, description: "logo 3D tilt, top leans away (radians)" });
-    const logoTiltY = ctx.float("logoTiltY", { default: 0, min: -1.5, max: 1.5, description: "logo 3D card-flip tilt (radians)" });
-    const hippos = ctx.float("hippos", { default: 1, min: 0, max: 1, description: "flying hippo flock opacity" });
-    const hippoSize = ctx.float("hippoSize", { default: 0.16, min: 0, max: 0.6, description: "flying hippo size" });
-    const hippoSpeed = ctx.float("hippoSpeed", { default: 0.6, min: 0, max: 3, description: "flying hippo flight speed" });
+    // Dotted paths form collapsible Console groups: vinyl / dive / logo / hippos.
+    const rpm = ctx.float("vinyl.rpm", { default: 33.3, min: -78, max: 78, description: "record spin speed (rpm, negative = reverse)" });
+    const size = ctx.float("vinyl.size", { default: 1.7, min: 0.2, max: 2, description: "record scale feeding the dive" });
+    const pixelVinyl = ctx.float("vinyl.pixelate", { default: 0, min: 0, max: 1, description: "mosaic on the record image, before the kaleidoscope" });
+    const punch = ctx.float("dive.punch", { default: 5, min: 0, max: 12, description: "dive thrust per kick (octaves, integrated)" });
+    const creep = ctx.float("dive.creep", { default: 0.12, min: -1, max: 1, description: "baseline dive speed between beats (octaves/sec)" });
+    const glide = ctx.float("dive.glide", { default: 0.4, min: 0.05, max: 2, description: "kick-thrust smoothing (seconds) — higher = silkier dive" });
+    const segments = ctx.int("dive.segments", { default: 6, min: 2, max: 16, description: "kaleidoscope wedge count" });
+    const twist = ctx.float("dive.twist", { default: 0.8, min: -3, max: 3, description: "spiral rotation per zoom octave (radians)" });
+    const logo = ctx.float("logo.opacity", { default: 1, min: 0, max: 1, description: "DJ Hippo logo overlay opacity" });
+    const logoSize = ctx.float("logo.size", { default: 1, min: 0, max: 8, description: "logo overlay scale (0 = gone, ~7 fills the screen)" });
+    const logoRpm = ctx.float("logo.rpm", { default: 0, min: -78, max: 78, description: "logo spin speed (rpm, negative = reverse)" });
+    const logoTiltX = ctx.float("logo.tiltX", { default: 0, min: -1.5, max: 1.5, description: "logo 3D tilt, top leans away (radians)" });
+    const logoTiltY = ctx.float("logo.tiltY", { default: 0, min: -1.5, max: 1.5, description: "logo 3D card-flip tilt (radians)" });
+    const pixelLogo = ctx.float("logo.pixelate", { default: 0, min: 0, max: 1, description: "mosaic on the DJ Hippo logo only" });
+    const hippos = ctx.float("hippos.opacity", { default: 1, min: 0, max: 1, description: "flying hippo flock opacity" });
+    const hippoSize = ctx.float("hippos.size", { default: 0.16, min: 0, max: 0.6, description: "flying hippo size" });
+    const hippoSpeed = ctx.float("hippos.speed", { default: 0.6, min: 0, max: 3, description: "flying hippo flight speed" });
+    const pixelHippos = ctx.float("hippos.pixelate", { default: 0, min: 0, max: 1, description: "mosaic on the flying hippo flock only" });
     const pixel = ctx.float("pixelate", { default: 0, min: 0, max: 1, description: "mosaic on the whole output (0 = off)" });
-    const pixelVinyl = ctx.float("pixelateVinyl", { default: 0, min: 0, max: 1, description: "mosaic on the record image, before the kaleidoscope" });
-    const pixelLogo = ctx.float("pixelateLogo", { default: 0, min: 0, max: 1, description: "mosaic on the DJ Hippo logo only" });
-    const pixelHippos = ctx.float("pixelateHippos", { default: 0, min: 0, max: 1, description: "mosaic on the flying hippo flock only" });
 
     const kick = ctx.input("kick"); // rack channel: bass onsets -> envelope
 
