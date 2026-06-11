@@ -3,6 +3,7 @@ import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
 import type { InputRegistry } from "./inputs";
+import { PaletteCtxImpl, type PaletteRegistry } from "./palette";
 import { Manifest, type BoolParamSpec, type RangedParamSpec, type Param } from "./param";
 import { Signal, type SignalLike } from "./signal";
 
@@ -14,12 +15,29 @@ import { Signal, type SignalLike } from "./signal";
 export class BuildCtx {
   readonly manifest = new Manifest();
   readonly updaters: Array<(f: FrameCtx) => void> = [];
+  private paletteCtx: PaletteCtxImpl | null = null;
 
   constructor(
     readonly audio: AudioBusLike,
     readonly time: TimeBus,
     readonly inputs?: InputRegistry,
+    readonly palettes?: PaletteRegistry,
   ) {}
+
+  /**
+   * The global palettes (R7): color(i) stops, ramp(t) gradient, own(stops)
+   * scene defaults. Using it auto-declares a palette.source param resolved
+   * per frame by the uniform updaters — switching never rebuilds.
+   */
+  get palette(): PaletteCtxImpl {
+    this.paletteCtx ??= new PaletteCtxImpl(this.manifest, this.updaters, this.palettes);
+    return this.paletteCtx;
+  }
+
+  /** Declare deferred params (palette.source). buildInstance calls this after build(). */
+  finalize(): void {
+    this.paletteCtx?.finalize();
+  }
 
   /**
    * Consume a named input-rack channel (R6.3). Late-bound: the name resolves

@@ -1,3 +1,7 @@
+import { texture, uniform, vec2 } from "three/tsl";
+import { Color, DataTexture, LinearFilter, SRGBColorSpace } from "three/webgpu";
+import type { Node } from "three/webgpu";
+import type { FrameCtx } from "./frame";
 import { Manifest, normalizeHex, type Param } from "./param";
 
 /**
@@ -63,5 +67,106 @@ export function fillRamp(data: Uint8Array, stops: string[]): void {
       data[x * 4 + c] = Math.round(rgb[i]![c]! + (rgb[i + 1]![c]! - rgb[i]![c]!) * fr);
     }
     data[x * 4 + 3] = 255;
+  }
+}
+
+/** Neutral fallback when no registry is wired and the scene has no own stops (bare unit-test builds). */
+const GRAY: string[] = ["#000000", "#404040", "#808080", "#bfbfbf", "#ffffff"];
+
+/**
+ * The scene-side palette surface (ctx.palette). Collects color uniforms and
+ * at most one 256×1 ramp texture during build; finalize() (called by
+ * buildInstance after build()) declares the palette.source param — deferred
+ * so its default can honor own() — and registers ONE per-frame updater that
+ * resolves the active stops and re-tints/re-uploads only on change.
+ * Switching source or retuning a globals stop never rebuilds (R7.2).
+ */
+export class PaletteCtxImpl {
+  private readonly colorUniforms = new Map<number, ReturnType<typeof uniform>>();
+  private rampTex: DataTexture | null = null;
+  private rampData: Uint8Array | null = null;
+  private ownStops: string[] | null = null;
+  private used = false;
+
+  constructor(
+    private readonly manifest: Manifest,
+    private readonly updaters: Array<(f: FrameCtx) => void>,
+    private readonly registry?: PaletteRegistry,
+  ) {}
+
+  /** Stop i of the active palette as a color uniform (vec3 in TSL expressions). */
+  color(i: number): ReturnType<typeof uniform> {
+    if (!Number.isInteger(i) || i < 0 || i >= PALETTE_STOPS) {
+      throw new Error(`ctx.palette.color(${i}): stop index must be an int in 0..${PALETTE_STOPS - 1}`);
+    }
+    this.used = true;
+    let u = this.colorUniforms.get(i);
+    if (!u) {
+      u = uniform(new Color("#000000"));
+      this.colorUniforms.set(i, u);
+    }
+    return u;
+  }
+
+  /** Gradient lookup across the 5 stops; t in 0..1 (a TSL node or constant). Returns vec4. */
+  ramp(t: Node | number): ReturnType<typeof texture> {
+    this.used = true;
+    if (!this.rampTex) {
+      this.rampData = new Uint8Array(256 * 4);
+      this.rampTex = new DataTexture(this.rampData, 256, 1);
+      this.rampTex.minFilter = LinearFilter;
+      this.rampTex.magFilter = LinearFilter;
+      this.rampTex.colorSpace = SRGBColorSpace; // stops are sRGB hex; sampling converts
+      this.rampTex.needsUpdate = true;
+    }
+    return texture(this.rampTex, vec2(t, 0.5));
+  }
+
+  /** Scene-default stops — exactly 5 "#rrggbb" strings; the "own" source. Once per build. */
+  own(stops: string[]): void {
+    if (this.ownStops) throw new Error("ctx.palette.own() may only be called once per build");
+    if (stops.length !== PALETTE_STOPS) {
+      throw new Error(`ctx.palette.own() needs exactly ${PALETTE_STOPS} stops (got ${stops.length})`);
+    }
+    this.ownStops = stops.map((s) => {
+      const hex = normalizeHex(s);
+      if (hex == null) throw new Error(`ctx.palette.own(): bad stop ${JSON.stringify(s)} — expected "#rrggbb"`);
+      return hex;
+    });
+    this.used = true;
+  }
+
+  /** Engine/test accessor for the ramp's backing texture (null if ramp() unused). */
+  rampTexture(): DataTexture | null {
+    return this.rampTex;
+  }
+
+  /** Declare palette.source + the resolver updater. Called once, after build(). */
+  finalize(): void {
+    if (!this.used) return;
+    const source = this.manifest.int("palette.source", {
+      default: this.ownStops ? 2 : 0,
+      min: 0,
+      max: 2,
+      step: 1,
+      labels: [...PALETTE_SOURCES],
+      description: "active palette: primary / secondary / own (scene defaults)",
+    });
+    let lastKey = "";
+    this.updaters.push(() => {
+      const name = PALETTE_SOURCES[source.value] ?? "primary";
+      const stops =
+        name === "own"
+          ? (this.ownStops ?? this.registry?.stops("primary") ?? GRAY)
+          : (this.registry?.stops(name) ?? this.ownStops ?? GRAY);
+      const key = stops.join(",");
+      if (key === lastKey) return;
+      lastKey = key;
+      for (const [i, u] of this.colorUniforms) (u.value as Color).set(stops[i]!);
+      if (this.rampTex && this.rampData) {
+        fillRamp(this.rampData, stops);
+        this.rampTex.needsUpdate = true;
+      }
+    });
   }
 }
