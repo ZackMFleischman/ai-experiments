@@ -48,6 +48,14 @@
       }
       button:hover { border-color: var(--dim); }
       button:disabled { opacity: 0.35; cursor: default; }
+      select {
+        background: #1d212b;
+        color: var(--text);
+        border: 1px solid var(--edge);
+        border-radius: 6px;
+        padding: 6px 8px;
+        font: inherit;
+      }
       #panic {
         background: #2a1318;
         border-color: var(--danger);
@@ -139,6 +147,8 @@
       <button id="panic">PANIC</button>
     </header>
     <div id="stagestrip">
+      <select id="scenepick"></select>
+      <button id="createbtn">+ instance</button>
       <span class="dimlabel">LIVE</span> <b id="livename">—</b>
       <span class="dimlabel">STAGED</span> <b id="stagedname">—</b>
       <button id="unstage" disabled>unstage</button>

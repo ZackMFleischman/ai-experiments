@@ -63,14 +63,20 @@ const compositor = new Compositor(window.innerWidth, window.innerHeight);
 let currentScenes = getScenes;
 
 /**
- * NFR-5 for the boot "live" instance: build the new one first; a failed
+ * The instance that tracks live.scene.ts. Its id is "boot" — "live" is an
+ * alias for whatever the Stage currently routes to output, not an id.
+ */
+const BOOT_ID = "boot";
+
+/**
+ * NFR-5 for the boot instance: build the new one first; a failed
  * build/rebuild keeps whatever is running — never go black.
  */
 function trySwapLive(def: SceneDef): boolean {
-  if (session.get("live")) return session.rebuild("live", def);
+  if (session.get(BOOT_ID)) return session.rebuild(BOOT_ID, def);
   try {
-    session.create(def, "live");
-    if (stage.live === null) stage.adoptLive("live");
+    session.create(def, BOOT_ID);
+    if (stage.live === null) stage.adoptLive(BOOT_ID);
     return true;
   } catch (err) {
     console.error(`[loom] scene "${def?.name ?? "?"}" rejected; keeping previous`, err);
@@ -268,7 +274,7 @@ if (import.meta.hot) {
     const ok = trySwapLive(mod.default as SceneDef);
     console.info(
       ok
-        ? `[loom] scene hot-swapped: ${session.get("live")?.sceneName}`
+        ? `[loom] scene hot-swapped: ${session.get(BOOT_ID)?.sceneName}`
         : "[loom] scene rejected; previous still live",
     );
   });
@@ -281,7 +287,7 @@ if (import.meta.hot) {
     currentScenes = mod.getScenes as typeof getScenes;
     const map = currentScenes();
     for (const entry of [...session.entries.values()]) {
-      if (entry.id === "live") continue; // owned by the live.scene accept above
+      if (entry.id === BOOT_ID) continue; // owned by the live.scene accept above
       const def = map.get(entry.sceneName);
       if (!def) {
         console.warn(`[loom] scene "${entry.sceneName}" removed; destroying instance "${entry.id}"`);

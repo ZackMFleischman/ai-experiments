@@ -30,6 +30,8 @@ const commitBtn = $<HTMLButtonElement>("#commit");
 const unstageBtn = $<HTMLButtonElement>("#unstage");
 const panicBtn = $<HTMLButtonElement>("#panic");
 const armAgent = $<HTMLInputElement>("#armagent");
+const scenePick = $<HTMLSelectElement>("#scenepick");
+const createBtn = $<HTMLButtonElement>("#createbtn");
 
 const ch = new BroadcastChannel("loom");
 
@@ -100,6 +102,15 @@ unstageBtn.addEventListener("click", () => void req("unstage").catch(fail));
 armAgent.addEventListener("change", () =>
   void req("arm_agent_commit", { armed: armAgent.checked }).catch(fail),
 );
+createBtn.addEventListener("click", () => {
+  if (!scenePick.value) return;
+  void req("create_instance", { scene: scenePick.value })
+    .then((result) => {
+      selected = (result as { instance: string }).instance; // open its params
+      render();
+    })
+    .catch(fail);
+});
 
 // ---- rendering ----
 function render(): void {
@@ -112,12 +123,34 @@ function render(): void {
   $("#rmsfill").style.width = `${Math.min(100, s.rms * 220)}%`;
   panicBtn.classList.toggle("engaged", s.panicked);
   panicBtn.textContent = s.panicked ? "RESUME" : "PANIC";
-  $("#livename").textContent = s.live ?? "—";
-  $("#stagedname").textContent = s.staged ?? "—";
+  const withScene = (id: string | null) => {
+    if (id == null) return "—";
+    const scene = s.instances.find((i) => i.id === id)?.scene;
+    return scene && scene !== id ? `${id} · ${scene}` : id;
+  };
+  $("#livename").textContent = withScene(s.live);
+  $("#stagedname").textContent = withScene(s.staged);
   commitBtn.disabled = s.staged == null || s.panicked;
   unstageBtn.disabled = s.staged == null;
   $("#fadeinfo").textContent = s.mix != null ? `crossfading ${(s.mix * 100).toFixed(0)}%` : "";
   if (document.activeElement !== armAgent) armAgent.checked = s.agentCommitArmed;
+
+  // Scene picker: refresh options only when the library changes, keep the
+  // user's selection otherwise.
+  const sceneKey = s.availableScenes.join(",");
+  if (scenePick.dataset.scenes !== sceneKey) {
+    scenePick.dataset.scenes = sceneKey;
+    const prev = scenePick.value;
+    scenePick.replaceChildren(
+      ...s.availableScenes.map((name) => {
+        const o = document.createElement("option");
+        o.value = name;
+        o.textContent = name;
+        return o;
+      }),
+    );
+    if (s.availableScenes.includes(prev)) scenePick.value = prev;
+  }
 
   // tiles
   const seen = new Set<string>();

@@ -154,7 +154,7 @@ try {
     const res = await client.callTool({ name: "get_session", arguments: {} });
     return res.isError ? null : toolJson(res);
   }, 15_000, "engine to connect to sidecar");
-  check("session: boot instance is live", session0.live === "live" && session0.scene === "pulse",
+  check("session: boot instance is live", session0.live === "boot" && session0.scene === "pulse",
     `live=${session0.live} scene=${session0.scene}`);
   check(
     "session: catalog scenes available",
@@ -163,9 +163,9 @@ try {
   );
 
   // 2. Console sees the engine: boot tile present.
-  await consolePage.waitForSelector('.tile[data-id="live"]', { timeout: 10_000 });
+  await consolePage.waitForSelector('.tile[data-id="boot"]', { timeout: 10_000 });
   check("console shows the live tile", true);
-  const liveBadge = await consolePage.$eval('.tile[data-id="live"] .live-badge', (el) => el.className);
+  const liveBadge = await consolePage.$eval('.tile[data-id="boot"] .live-badge', (el) => el.className);
   check("LIVE badge on the boot tile", liveBadge.includes("show"));
 
   // Decode a tile's thumbnail in-browser and return its average luminance.
@@ -188,7 +188,7 @@ try {
   // The LIVE tile's preview must show real pixels (regression: the canvas is
   // only readable in the render task — a stale-task read shows black).
   const liveLum = await waitFor(async () => {
-    const l = await tileThumbLum("live");
+    const l = await tileThumbLum("boot");
     return l != null && l > 2 ? l : null;
   }, 10_000, "live tile thumbnail to be non-black");
   check("LIVE tile thumbnail shows real pixels", true, `lum ${liveLum.toFixed(1)}`);
@@ -238,7 +238,7 @@ try {
 
   // 6. Stage via MCP; commit stays human-gated.
   const staged = toolJson(await callOk(client, "stage", { instance: cid }));
-  check("agent staged the candidate", staged.staged === cid && staged.live === "live");
+  check("agent staged the candidate", staged.staged === cid && staged.live === "boot");
   await waitFor(
     () => consolePage.$(`.tile[data-id="${cid}"] .staged-badge.show`).then((h) => (h ? true : null)),
     5_000,
@@ -252,7 +252,7 @@ try {
     blockedCommit.content?.[0]?.text,
   );
   let st = await loomState(output);
-  check("LIVE untouched by blocked commit", st.live === "live" && st.staged === cid);
+  check("LIVE untouched by blocked commit", st.live === "boot" && st.staged === cid);
 
   // 7. Human COMMIT: crossfade, never black, live pointer swaps.
   await consolePage.screenshot({ path: join(ARTIFACTS, "m3-2-console.png") });
@@ -299,13 +299,25 @@ try {
     protectedRes.isError === true && /LIVE/i.test(protectedRes.content[0].text),
     protectedRes.content?.[0]?.text,
   );
-  await callOk(client, "destroy_instance", { instance: "live" });
+  await callOk(client, "destroy_instance", { instance: "boot" });
   await waitFor(
-    () => consolePage.$('.tile[data-id="live"]').then((h) => (h ? null : true)),
+    () => consolePage.$('.tile[data-id="boot"]').then((h) => (h ? null : true)),
     5_000,
     "old tile to disappear",
   );
   check("destroyed instance's tile disappears", true);
+
+  // 9b. The human can spawn library scenes from the Console (R4.5 — works
+  // with the agent absent): pick a scene, + instance, tile appears.
+  await consolePage.selectOption("#scenepick", "pulse");
+  await consolePage.click("#createbtn");
+  await consolePage.waitForSelector('.tile[data-id^="pulse-"]', { timeout: 10_000 });
+  const pickedSession = toolJson(await callOk(client, "get_session"));
+  check(
+    "console scene picker creates an instance",
+    pickedSession.instances.some((i) => i.id.startsWith("pulse-") && i.scene === "pulse"),
+    pickedSession.instances.map((i) => i.id).join(", "),
+  );
 
   // 10. ?agentCommit=1 arms the agent path (boot override).
   await output.goto(`${OUTPUT_URL}&agentCommit=1`);

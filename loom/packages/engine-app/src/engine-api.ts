@@ -85,6 +85,15 @@ export class EngineApi {
     this.liveMirrorCtx.drawImage(this.deps.canvas, 0, 0, this.liveMirror.width, this.liveMirror.height);
   }
 
+  /**
+   * "live" is an alias, not an id: it resolves to whatever instance is
+   * currently LIVE (the boot instance is id "boot"). Commands default to
+   * it so "tweak the live thing" needs no id lookup.
+   */
+  private resolveId(id: string): string {
+    return id === "live" ? (this.deps.stage.live ?? id) : id;
+  }
+
   async handleRequest(req: RequestMsg, source: Source): Promise<unknown> {
     if (source === "agent" && HUMAN_ONLY.has(req.type)) {
       throw new Error(`${req.type} is a human-only control (Console)`);
@@ -95,12 +104,12 @@ export class EngineApi {
         return this.snapshot();
       case "get_manifest": {
         const { instance } = InstanceArgs.parse(req.args);
-        const e = session.require(instance);
+        const e = session.require(this.resolveId(instance));
         return { instance: e.id, params: e.instance.manifest.toJSON() };
       }
       case "set_param": {
         const { instance, path, value } = SetParamArgs.parse(req.args);
-        const e = session.require(instance);
+        const e = session.require(this.resolveId(instance));
         const param = e.instance.manifest.get(path);
         if (!param) {
           const have = e.instance.manifest.paths().join(", ") || "(none)";
@@ -111,7 +120,7 @@ export class EngineApi {
       }
       case "screenshot": {
         const { instance } = InstanceArgs.parse(req.args);
-        const e = session.require(instance);
+        const e = session.require(this.resolveId(instance));
         if (this.isOnCanvas(e)) return this.deps.captureCanvas();
         return this.targetShot(e);
       }
@@ -127,7 +136,7 @@ export class EngineApi {
       }
       case "destroy_instance": {
         const { instance } = InstanceArgs.parse(req.args);
-        const e = session.require(instance);
+        const e = session.require(this.resolveId(instance));
         if (stage.live === e.id) {
           throw new Error(`"${e.id}" is LIVE — commit something else before destroying it`);
         }
@@ -137,7 +146,7 @@ export class EngineApi {
       }
       case "stage": {
         const { instance } = InstanceArgs.parse(req.args);
-        const e = session.require(instance);
+        const e = session.require(this.resolveId(instance));
         stage.stage(e.id);
         return { staged: e.id, live: stage.live };
       }

@@ -52,7 +52,9 @@ wss.on("listening", () => log(`listening for the engine on ws://localhost:${port
 const INSTANCE_PROP = {
   instance: {
     type: "string",
-    description: 'Instance id. M2 has a single live instance: "live" (the default).',
+    description:
+      'Instance id from get_session. The default "live" is an alias that resolves to ' +
+      "whatever instance is currently routed to the live output.",
   },
 } as const;
 

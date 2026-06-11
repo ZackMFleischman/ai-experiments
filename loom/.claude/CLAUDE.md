@@ -6,6 +6,7 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 
 - `get_session` — what's running: all instances with status, LIVE/STAGED pointers, available scenes, audio mode, BPM, fps, frame.
 - `get_manifest` — every tweakable param of an instance: type, range, default, current value.
+- Instance ids: the boot instance (bound to `live.scene.ts`) is `"boot"`; created ones are `"<scene>-<n>"`. The id `"live"` is an **alias** that always resolves to whatever instance is currently routed to output — it's the default everywhere, so "tweak the live thing" needs no lookup.
 - `set_param` — change a param live (<100 ms, no recompile). Values clamp to range.
 - `screenshot` — see an instance's actual pixels (live = the Output canvas, others = their preview target). Use it after every meaningful edit; never guess what's on screen.
 - `create_instance` — build a scene (by name from `availableScenes`) into a sandbox tile. This is how you build candidates without touching the audience.
@@ -13,7 +14,7 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 - `stage` — mark your candidate for the live output. Staging is always safe — it changes nothing on screen.
 - `commit` — crossfade staged → LIVE. **Human-gated by default**: unless the human armed agent commit in the Console, this errors — that's by design. Stage, then *tell the human it's ready to audition and commit*.
 
-The engine must be running (`pnpm dev`) for tools to work. `?audio=test` on the URL gives synthetic kick/hats when no mic is around. The human's cockpit is `/console.html` — they see every instance as a tile and can drag your params, PANIC, and COMMIT there.
+The engine must be running (`pnpm dev`) for tools to work. `?audio=test` on the URL gives synthetic kick/hats when no mic is around. The human's cockpit is `/console.html` — they see every instance as a tile, can spawn library scenes themselves (scene picker), drag your params, PANIC, and COMMIT there.
 
 ## Rules
 

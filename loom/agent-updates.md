@@ -72,3 +72,9 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - `pnpm validate:m3` (24/24): candidate created+staged via MCP, slider drag writes through, blocked agent commit leaves LIVE untouched, human COMMIT crossfades never-black (mid-fade lum 165) and promotes, PANIC holds pixels (rgb drift 0.00 over 500 ms) while frames tick 145→191, LIVE destroy refused, `?agentCommit=1` path commits end-to-end.
 - Stumble worth knowing: the first console render bug was a self-destroying selector (badge class toggled away then queried) — tiles now use stable `*-badge` classes with a `show` modifier.
 - Not yet proven manually: human auditioning in a real browser (drag sliders, watch the projector crossfade on a second display).
+
+## 2026-06-10 19:00 — Console polish from first human drive
+
+- Live tile preview was black: canvas thumbnails were read outside the render task (the documented preserveDrawingBuffer pitfall, resurfaced through a new path). Render loop now mirrors the canvas into a 2D canvas same-task; validate:m3 decodes the LIVE tile thumbnail at boot and after promotion.
+- "LIVE live" confusion fixed: boot instance renamed to `boot`; `"live"` is now an alias resolved at dispatch to whatever the Stage routes to output (so default-instance commands always hit what the audience sees, even after commits). Stage strip shows `id · scene`.
+- Console gained a scene picker (+ instance) so the human can spawn library scenes without the agent — closes the R4.5 gap. validate:m3 now 27/27.
