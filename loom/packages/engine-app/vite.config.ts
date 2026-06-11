@@ -1,5 +1,6 @@
+import { execFile } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, normalize } from "node:path";
+import { dirname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
@@ -12,6 +13,39 @@ const watchContent: Plugin = {
   name: "loom:watch-content",
   configureServer(server) {
     server.watcher.add(fileURLToPath(new URL("../../content", import.meta.url)));
+  },
+};
+
+// content/CATALOG.md is the library's search surface, but a live session edits
+// modules/scenes via HMR and never runs `pnpm typecheck` — so the dev server
+// regenerates the catalog itself. Failures are logged and swallowed: a
+// half-written module must never break the dev server (never-go-black's cousin).
+const catalogScript = fileURLToPath(new URL("../../scripts/build-catalog.mjs", import.meta.url));
+const buildCatalog: Plugin = {
+  name: "loom:catalog",
+  configureServer(server) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const isCatalogSource = (file: string) => {
+      const n = normalize(file);
+      return (
+        (n.includes(`${sep}content${sep}modules${sep}`) ||
+          n.includes(`${sep}content${sep}scenes${sep}`)) &&
+        n.endsWith(".ts")
+      );
+    };
+    const schedule = (file: string) => {
+      if (!isCatalogSource(file)) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        execFile(process.execPath, [catalogScript], (err) => {
+          if (err) server.config.logger.warn(`loom:catalog regen failed: ${err.message}`);
+          else server.config.logger.info("loom:catalog → content/CATALOG.md regenerated");
+        });
+      }, 300);
+    };
+    server.watcher.on("add", schedule);
+    server.watcher.on("change", schedule);
+    server.watcher.on("unlink", schedule);
   },
 };
 
@@ -70,7 +104,7 @@ const stateApi: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [watchContent, stateApi],
+  plugins: [watchContent, buildCatalog, stateApi],
   resolve: {
     alias: {
       // Single source of truth for runtime resolution so content/ scenes
