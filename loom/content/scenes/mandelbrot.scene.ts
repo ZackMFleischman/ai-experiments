@@ -1,5 +1,4 @@
 import { Signal, defineScene } from "@loom/runtime";
-import { lag } from "../modules/control/lag";
 import { colorize, PALETTES } from "../modules/effects/colorize";
 import { levels } from "../modules/effects/levels";
 import { mandelbrot } from "../modules/sources/mandelbrot";
@@ -45,20 +44,6 @@ export default defineScene({
     const driftSig = drift.signal();
     const cycleSig = cycle.signal();
 
-    // Glide between targets instead of jump-cutting.
-    const cx = lag(ctx, { input: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.x), seconds: 1.2 });
-    const cy = lag(ctx, { input: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.y), seconds: 1.2 });
-
-    // Integrate dive speed, fold into a 0..depth ping-pong, map to view scale.
-    let zoomAcc = 0;
-    const scale = new Signal((f) => {
-      zoomAcc += diveSig.get(f) * f.dt;
-      const d = Math.max(0.001, depthSig.get(f));
-      const m = ((zoomAcc % (2 * d)) + 2 * d) % (2 * d);
-      const octaves = m < d ? m : 2 * d - m;
-      return 1.25 * Math.pow(2, -octaves);
-    });
-
     // Palette index drifts on its own; phase scrolls the colors continuously.
     let palAcc = 0;
     const paletteIndex = new Signal((f) => {
@@ -71,7 +56,14 @@ export default defineScene({
       return phaseAcc;
     });
 
-    const fractal = mandelbrot(ctx, { cx, cy, scale, iterations: iter.signal() });
+    const fractal = mandelbrot(ctx, {
+      cx: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.x),
+      cy: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.y),
+      glide: 1.2,
+      dive: diveSig,
+      depth: depthSig,
+      iterations: iter.signal(),
+    });
     const colored = colorize(ctx, {
       input: fractal,
       palette: paletteIndex,
