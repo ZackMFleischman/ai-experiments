@@ -385,14 +385,21 @@ export class EngineApi {
   /** Small JPEG thumbnails per instance for the Console tiles. */
   async thumbnails(width = 320, height = 180): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
+    const staged = this.deps.stage.staged;
     for (const e of this.deps.session.entries.values()) {
       try {
         // The live entry shows what the audience sees (loop-mirrored canvas);
-        // everyone else reads back their offscreen preview target.
+        // everyone else reads back their offscreen preview target. The staged
+        // instance gets 2x pixels — /staged.html blows it up full-screen.
         out[e.id] =
           e.id === this.deps.stage.live
             ? this.liveMirror.toDataURL("image/jpeg", 0.7)
-            : await this.readTarget(e, width, height, "image/jpeg");
+            : await this.readTarget(
+                e,
+                e.id === staged ? width * 2 : width,
+                e.id === staged ? height * 2 : height,
+                "image/jpeg",
+              );
       } catch {
         // skip a tile this round rather than break the loop
       }
