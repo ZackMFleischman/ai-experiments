@@ -29,8 +29,13 @@ export const myModule = defineModule(
 - **Controls** return a `Signal<number>` and run on the CPU; they must be cheap (called every frame).
 - Modules never reach outside `ctx` — no globals, no direct bus access beyond `ctx.audio`/`ctx.time`.
 - Modules may compose other modules (`pulseRings` wraps `noise` for its grain) — just propagate the inner module's passes through your returned `texNode`.
-- **Effects that displace or warp their input** (glitch, blur, kaleido) cannot re-evaluate `input.color` at a shifted UV — the input is a node graph, not a function of UV. Render the input into an owned RenderTarget in your pass, then sample `texture(rt.texture, warpedUv)`. `content/modules/effects/glitch.ts` is the reference for this shape.
 - A look that two scenes want is a module, not copy-pasted TSL. Extract the shared identity (see `pulseRings` ← pulse/pulse-glitch) and let scenes differ in wiring and params.
+
+## Shader gotchas (hard-won — each of these cost a debugging session)
+
+- **Never put a plain JS number as the FIRST argument of TSL math.** `mix(1.0, node, node)` or `step(0.0, node)` builds a shader that silently fails to compile — the instance reports ok but its render target never gets written (`screenshot` errors with "reading 'format'"). Wrap leading literals: `mix(float(1), …)`.
+- **Derivative poisoning:** guarding invalid UV regions with a huge sentinel (mix to 1e6) collapses texture sampling to the lowest mip everywhere (giant mosaic). Guard by adding a SMALL node-first offset instead: `local.add(behind.mul(10))`.
+- **Warping effects can't re-evaluate `input.color` at a shifted UV** — the input is a node graph, not a function of UV. Render the input into an owned RenderTarget, then sample `texture(rt.texture, warpedUv)`; `content/modules/effects/glitch.ts` is the reference.
 
 ## Golden example (source)
 
@@ -38,7 +43,7 @@ export const myModule = defineModule(
 
 ## Checklist before you're done
 
-1. `pnpm typecheck` passes (it also regenerates `content/CATALOG.md` from module metadata).
-2. Metadata complete (name/kind/description/tags/example) — the generated catalog is the library's search surface.
+1. `pnpm typecheck` passes.
+2. Metadata complete (name/kind/description/tags/example) — the generated catalog (auto-rebuilt on save by the dev server) is the library's search surface.
 3. Exercise it from a scene (wire into `live.scene.ts`), `screenshot`, confirm it does what the description claims.
 4. If it has tunable feel, expose params in the *scene* that uses it (params live in scenes; modules take Signals/opts).

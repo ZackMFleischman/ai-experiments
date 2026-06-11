@@ -30,7 +30,7 @@ The engine must be running (`pnpm dev`) for tools to work. `?audio=test` on the 
 6. **One file is the boot scene**: `content/scenes/live.scene.ts` re-exports the scene the engine boots with. Don't delete it.
 7. **Audio reactivity consumes named rack channels**: `ctx.input("kick")` etc., defined in `content/inputs.ts` (yours to grow — hot-reloads like a scene). A channel's detection meaning is owned globally; consumers get a per-instance `input.<name>.amount` trim. A differently-tuned kick is a **new named channel** (`kickTight`), never a local re-detection. MIDI binding/learn is human-only (Console).
 
-## Architecture map
+## Architecture map (summary — full detail in `docs/architecture.md`)
 
 ```
 packages/runtime/    kernel: Signal/Events (pull-based, frame-memoized), Param/Manifest,
@@ -44,7 +44,7 @@ content/state/       tuned state (inputs/bindings/values) — engine-written JSO
 content/CATALOG.md   generated index of every module + scene — read this first
 ```
 
-`CATALOG.md` regenerates automatically on `pnpm typecheck` (or `pnpm catalog`); never edit it by hand.
+`CATALOG.md` regenerates automatically — the dev server rebuilds it on every module/scene save, and `pnpm typecheck` rebuilds it as the offline gate. Never edit it by hand; it is always current in a live session.
 
 Key kernel facts:
 - Signals are pulled per frame and memoized on `f.frame`. CPU signals reach the GPU only through `ctx.uniformOf(signal)` — that registration is also what keeps stateful signals (lag, envelope) ticking.

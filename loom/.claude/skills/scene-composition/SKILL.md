@@ -40,7 +40,7 @@ build(ctx) {
 - **Audio reactivity goes through the input rack**: `ctx.input("kick"|"hats"|"bass"|"energy")` — named channels defined in `content/inputs.ts`, tuned once globally (manifest instance `"globals"`: `inputs.kick.threshold`, …), consumed late-bound (retuning never rebuilds your scene). Each `ctx.input` auto-declares an `input.<name>.amount` trim param. **Trims, not overrides** — if you need a differently-detected kick, add a new named channel to `content/inputs.ts` (e.g. `d.onset("kickTight", …)`); don't retune `kick` to fit one scene.
 - Raw bus access (`ctx.audio.band/rms/onset` + `lagSignal`/`envelopeSignal`) still exists for experiments, but a detection idiom worth keeping belongs in the rack where the human can tune and meter it (Console drawer on `i`).
 - Time: `ctx.time.beatPhase`, `ctx.time.beatEvery(n)`, or `lfo(ctx, { periodBeats })` for beat-locked motion.
-- Check `content/CATALOG.md` (generated one-line index of every module + scene) before writing inline shader code — compose existing modules first; if the look you need isn't there, add a module rather than inlining it.
+- Check `content/CATALOG.md` (generated one-line index of every module + scene, auto-rebuilt on every save while the dev server runs) before writing inline shader code — compose existing modules first; if the look you need isn't there, add a module rather than inlining it.
 - Combining several signals (e.g. `energy = kickEnv * punch + bass * 0.6`)? Build one derived signal: `new Signal((f) => kickEnv.get(f) * punchSig.get(f) + bass.get(f) * 0.6)` and pass it to a module opt — pulling it through `uniformOf` keeps every stateful input ticking.
 - Scene throws at build are contained but waste an iteration: prefer typecheck-clean saves.
 
