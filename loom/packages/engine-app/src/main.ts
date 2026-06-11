@@ -4,6 +4,7 @@ import {
   Clock,
   InputRegistry,
   MidiBus,
+  PaletteRegistry,
   Stage,
   TimeBus,
   type FrameCtx,
@@ -43,10 +44,13 @@ declare global {
         id: string;
         scene: string;
         status: InstanceStatus;
+        builds: number;
         modulators: Array<{ path: string; type: string; error: string | null }>;
       }>;
       /** Input-rack channel values (rack meters / validation). */
       inputs: Record<string, number>;
+      /** Global palette tunings (R7) — palette.<source>.<i> → "#rrggbb". */
+      palettes: Record<string, number | boolean | string>;
       /** Mocked-hardware hook: feeds the same path as a real CC message. */
       midiInject: (cc: number, ch: number, value01: number) => void;
     };
@@ -128,13 +132,18 @@ function tryDefineInputs(def: InputsDef): boolean {
 }
 tryDefineInputs(inputsDef);
 
+// Global color palettes (R7): a second globals-side manifest, served through
+// the same "globals" pseudo-instance and persisted like the rack tunings.
+const palettes = new PaletteRegistry();
+
 const bindings = new BindingStore();
 // `?state=off` keeps validation runs from reading/writing tuned state.
 const state = new StateClient(qs.get("state") !== "off");
-const tunedValues = new Map<string, Record<string, number | boolean>>();
+const tunedValues = new Map<string, Record<string, number | boolean | string>>();
 
 const persist = {
   globals: () => state.save("inputs", () => inputs.manifest.values()),
+  palettes: () => state.save("palettes", () => palettes.manifest.values()),
   scene: (sceneName: string) => {
     const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
     if (entry) tunedValues.set(sceneName, entry.instance.manifest.values());
@@ -148,8 +157,10 @@ const persist = {
 midi.onCc((e) => {
   const { learned } = bindings.handleCc(e, (scene, path, v01) => {
     if (scene === "globals") {
-      inputs.manifest.get(path)?.setNormalized(v01);
-      persist.globals();
+      const isPalette = path.startsWith("palette.");
+      (isPalette ? palettes.manifest : inputs.manifest).get(path)?.setNormalized(v01);
+      if (isPalette) persist.palettes();
+      else persist.globals();
       return;
     }
     let touched = false;
@@ -163,7 +174,7 @@ midi.onCc((e) => {
   if (learned) persist.bindings();
 });
 
-const session = new SessionStore({ audio, time: timeBus, inputs }, (scene) =>
+const session = new SessionStore({ audio, time: timeBus, inputs, palettes }, (scene) =>
   tunedValues.get(scene),
 );
 const stage = new Stage();
@@ -218,14 +229,28 @@ if (state.enabled) {
   const savedGlobals = await state.load("inputs");
   if (savedGlobals && typeof savedGlobals === "object") {
     for (const [path, v] of Object.entries(savedGlobals as Record<string, number | boolean>)) {
-      inputs.manifest.get(path)?.set(v);
+      try {
+        inputs.manifest.get(path)?.set(v);
+      } catch {
+        // corrupt entry — keep the default
+      }
+    }
+  }
+  const savedPalettes = await state.load("palettes");
+  if (savedPalettes && typeof savedPalettes === "object") {
+    for (const [path, v] of Object.entries(savedPalettes as Record<string, unknown>)) {
+      try {
+        palettes.manifest.get(path)?.set(v as never);
+      } catch {
+        // corrupt entry — keep the default
+      }
     }
   }
   bindings.load(await state.load("bindings"));
   for (const scene of currentScenes().keys()) {
     const vals = await state.load(`values/${scene}`);
     if (vals && typeof vals === "object") {
-      tunedValues.set(scene, vals as Record<string, number | boolean>);
+      tunedValues.set(scene, vals as Record<string, number | boolean | string>);
     }
   }
 }
@@ -268,6 +293,7 @@ window.__loom = {
   agentCommitArmed: false,
   instances: [],
   inputs: {},
+  palettes: {},
   midiInject: (cc, ch, value01) => midi.inject(cc, ch, value01),
 };
 
@@ -298,6 +324,7 @@ const api = new EngineApi(
     audioDevices: () => audioDevices,
     refreshAudioDevices: () => void refreshAudioDevices(),
     inputs,
+    palettes,
     bindings,
     midiStatus: () => midi.status,
     midiDevices: () => midi.devices,
@@ -367,10 +394,12 @@ renderer.setAnimationLoop((tMs) => {
   dbg.panicked = stage.panicked;
   dbg.agentCommitArmed = api.agentCommitArmed;
   dbg.inputs = inputs.values();
+  dbg.palettes = palettes.manifest.values();
   dbg.instances = [...session.entries.values()].map((e) => ({
     id: e.id,
     scene: e.sceneName,
     status: entryStatus(e),
+    builds: e.builds,
     modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
   }));
 });

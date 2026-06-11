@@ -4,6 +4,7 @@ import type {
   FrameCtx,
   InputRegistry,
   Manifest,
+  PaletteRegistry,
   SceneDef,
   Stage,
   TimeBus,
@@ -58,6 +59,8 @@ export interface EngineDeps {
   time: TimeBus;
   /** The input rack: globals manifest + live channel values (R6). */
   inputs: InputRegistry;
+  /** Global color palettes (R7): second globals-side manifest, path prefix "palette.". */
+  palettes: PaletteRegistry;
   /** MIDI bindings + learn state; CC routing itself lives in main.ts. */
   bindings: BindingStore;
   midiStatus(): "off" | "ready";
@@ -65,6 +68,7 @@ export interface EngineDeps {
   /** Tuned-state persistence triggers (debounced engine-side). */
   persist: {
     globals(): void;
+    palettes(): void;
     scene(scene: string): void;
     bindings(): void;
   };
@@ -145,7 +149,7 @@ export class EngineApi {
       case "get_manifest": {
         const { instance } = InstanceArgs.parse(req.args);
         if (instance === GLOBALS) {
-          return { instance: GLOBALS, params: this.deps.inputs.manifest.toJSON() };
+          return { instance: GLOBALS, params: this.globalsJson() };
         }
         const e = session.require(this.resolveId(instance));
         return { instance: e.id, params: this.manifestJson(e) };
@@ -153,10 +157,12 @@ export class EngineApi {
       case "set_param": {
         const { instance, path, value } = SetParamArgs.parse(req.args);
         if (instance === GLOBALS) {
-          const param = this.requireParam(this.deps.inputs.manifest, path, GLOBALS);
+          const isPalette = path.startsWith("palette.");
+          const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
           param.set(value);
-          this.deps.persist.globals();
-          return { instance: GLOBALS, path, value: param.value as number | boolean };
+          if (isPalette) this.deps.persist.palettes();
+          else this.deps.persist.globals();
+          return { instance: GLOBALS, path, value: param.value as number | boolean | string };
         }
         const e = session.require(this.resolveId(instance));
         const param = this.requireParam(e.instance.manifest, path, e.id);
@@ -169,7 +175,7 @@ export class EngineApi {
         }
         param.set(value);
         this.deps.persist.scene(e.sceneName);
-        return { instance: e.id, path, value: param.value as number | boolean };
+        return { instance: e.id, path, value: param.value as number | boolean | string };
       }
       case "modulate_param": {
         const { instance, path, modulator } = ModulateParamArgs.parse(req.args);
@@ -290,12 +296,21 @@ export class EngineApi {
   private resolveMidiTarget(args: unknown): { scene: string; path: string } {
     const { instance, path } = MidiTargetArgs.parse(args);
     if (instance === GLOBALS) {
-      this.requireParam(this.deps.inputs.manifest, path, GLOBALS);
+      this.requireParam(this.globalsManifest(path), path, GLOBALS);
       return { scene: GLOBALS, path };
     }
     const e = this.deps.session.require(this.resolveId(instance));
     this.requireParam(e.instance.manifest, path, e.id);
     return { scene: e.sceneName, path };
+  }
+
+  /** "globals" = the input rack + the palettes, merged; routed by path prefix. */
+  private globalsManifest(path: string): Manifest {
+    return path.startsWith("palette.") ? this.deps.palettes.manifest : this.deps.inputs.manifest;
+  }
+
+  private globalsJson(): Record<string, unknown> {
+    return { ...this.deps.inputs.manifest.toJSON(), ...this.deps.palettes.manifest.toJSON() };
   }
 
   private requireParam(manifest: Manifest, path: string, owner: string) {
@@ -322,6 +337,7 @@ export class EngineApi {
         error: e.instance.error != null ? String(e.instance.error) : null,
         paramPaths: e.instance.manifest.paths(),
         modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
+        builds: e.builds,
       })),
       live: stage.live,
       staged: stage.staged,
@@ -352,7 +368,7 @@ export class EngineApi {
     for (const e of this.deps.session.entries.values()) {
       manifests[e.id] = this.manifestJson(e);
     }
-    manifests[GLOBALS] = this.deps.inputs.manifest.toJSON(); // the rack's widgets
+    manifests[GLOBALS] = this.globalsJson(); // the rack's widgets + palettes
     return { session: this.snapshot(), manifests };
   }
 
