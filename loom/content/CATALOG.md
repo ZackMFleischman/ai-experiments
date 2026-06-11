@@ -22,6 +22,6 @@
 ## Scenes (`content/scenes/`)
 
 - **hello** — Animated rings — the M0 sanity scene. params: none _[]_
-- **lava** **(live)** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
+- **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
 - **pulse** — Kick-reactive feedback rings with a slowly drifting palette. params: punch, trail, drift _[audio-reactive, feedback, demo]_
-- **pulse-glitch** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_
+- **pulse-glitch** **(live)** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_
