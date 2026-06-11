@@ -225,9 +225,13 @@ try {
 
   // 5. Param panel drives the candidate.
   await consolePage.click(`.tile[data-id="${cid}"]`);
-  await consolePage.waitForSelector('[data-path="size"]', { timeout: 5_000 });
+  // The param input is MUI Slider's hidden <input type="range"> — attached
+  // but not "visible" to Playwright, and React dedupes direct .value writes
+  // through its value tracker, so write through the prototype setter.
+  await consolePage.waitForSelector('[data-path="size"]', { state: "attached", timeout: 5_000 });
   await consolePage.$eval('[data-path="size"]', (el) => {
-    el.value = "0.25";
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    set.call(el, "0.25");
     el.dispatchEvent(new Event("input", { bubbles: true }));
   });
   // Range inputs snap to their step grid, so compare with tolerance.

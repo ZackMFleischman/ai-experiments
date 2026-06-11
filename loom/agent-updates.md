@@ -129,3 +129,12 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
   `mod-hi-*.png`/`mod-lo-*.png` show a square wave on `trail` moving page luminance).
 - Stumble worth knowing: sampling a 2 s sine for 1.05 s "fails oscillation" — the window
   must cover a full period before asserting a direction change.
+
+## 2026-06-11 — Console/Staged React + MUI refactor
+
+Rebuilt /console.html and /staged.html as React 19 + MUI 7 apps
+(packages/engine-app/src/ui/): EngineLink channel client with vitest coverage,
+ParamWidget/ModPopover/Rack/Tile components, dark theme matching the old
+palette. Engine, runtime, sidecar, and the Output window untouched; all
+validators (m0–m5, modulators) green; validate-m3's slider write updated to the
+React-safe native setter.

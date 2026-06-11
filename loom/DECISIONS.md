@@ -184,3 +184,22 @@ A design pass on "how the instrument is actually used" produced requirements R6�
   (mix to 1e6) or number-FIRST TSL args (step(0.0, node)) collapses texture sampling to
   the lowest mip everywhere (giant mosaic). Guard by adding a SMALL node-first offset:
   `local.add(behind.mul(10))`.
+
+## 2026-06-11 — Console + Staged pages rebuilt on React + MUI
+
+The cockpit pages outgrew hand-rolled DOM diffing (console.ts was ~800 lines of
+querySelector bookkeeping). Both pages are now React 19 + @mui/material 7 apps
+under `packages/engine-app/src/ui/`, with a framework-free `EngineLink` class
+(unit-tested) owning the BroadcastChannel protocol. Deliberate choices:
+- **No @vitejs/plugin-react.** Vite's esbuild compiles .tsx natively
+  (`"jsx": "react-jsx"` in tsconfig.base.json); vite.config.ts is unchanged, so
+  the scenes HMR path — never-go-black layer 1 — is provably untouched. Editing
+  a cockpit .tsx full-reloads the cockpit tab only; the Output window doesn't care.
+- **The validator DOM contract is preserved** (.tile[data-id], #commit, #panic,
+  data-path on the real input, data-learn text M/···/cc<N>, .rackfill inline
+  width, body.disconnected). One validator change: validate-m3 writes the slider
+  through HTMLInputElement's prototype value setter because React dedupes direct
+  .value writes (and waits with state:"attached" since MUI's range input is
+  visually hidden).
+- The Output window (index.html + src/main.ts) stays vanilla on purpose: it is a
+  pure projector surface; a React tree there buys nothing and risks the render loop.
