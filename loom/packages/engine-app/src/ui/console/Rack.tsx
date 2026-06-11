@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from "@mui/material";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
+import { Palettes } from "./Palettes";
 import { ParamWidget } from "./ParamWidget";
 
 type Props = { session: SessionSnapshot; globals: Record<string, ParamDesc> };
@@ -33,6 +34,7 @@ export function Rack({ session: s, globals }: Props) {
       {names.map((name) => (
         <RackRow key={name} name={name} level={s.inputs[name] ?? 0} globals={globals} />
       ))}
+      <Palettes globals={globals} />
     </Box>
   );
 }

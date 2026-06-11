@@ -1,5 +1,15 @@
-import { Box, Button, IconButton, Slider, Stack, Switch, Typography } from "@mui/material";
-import { useState, type InputHTMLAttributes, type MouseEvent } from "react";
+import {
+  Box,
+  Button,
+  IconButton,
+  Slider,
+  Stack,
+  Switch,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from "@mui/material";
+import { useState, type ChangeEvent, type InputHTMLAttributes, type MouseEvent } from "react";
 import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
 import { fail, primeMidiPermission } from "../util";
@@ -47,7 +57,7 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
     session.midi.learning.path === path;
 
   const valueText =
-    p.type === "bool"
+    p.type === "bool" || p.type === "color"
       ? String(p.value)
       : (drag ?? Number(p.value)).toFixed(p.type === "int" ? 0 : 3);
 
@@ -68,7 +78,7 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
         <Typography variant="body2" noWrap title={path} sx={{ flex: 1, minWidth: 0 }}>
           {label ?? path}
         </Typography>
-        {instance !== "globals" && (
+        {instance !== "globals" && p.type !== "color" && (
           <IconButton
             size="small"
             data-modbtn={path}
@@ -86,6 +96,7 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
             ∿
           </IconButton>
         )}
+        {p.type !== "color" && (
         <Button
           className="learnbtn"
           data-learn={path}
@@ -117,6 +128,7 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
         >
           {learning ? "···" : binding ? `cc${binding.cc}` : "M"}
         </Button>
+        )}
         <Typography variant="body2" data-value={path} sx={{ minWidth: 48, textAlign: "right" }}>
           {valueText}
         </Typography>
@@ -129,6 +141,42 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
           inputProps={inputAttrs}
           onChange={(e) => link.sendParam(instance, path, e.target.checked)}
         />
+      ) : p.type === "color" ? (
+        <Box
+          component="input"
+          type="color"
+          value={String(p.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            link.sendParam(instance, path, e.target.value)
+          }
+          {...inputAttrs}
+          sx={{
+            width: dense ? 44 : 64,
+            height: 26,
+            p: 0,
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 1,
+            bgcolor: "transparent",
+            cursor: "pointer",
+          }}
+        />
+      ) : p.labels != null ? (
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          data-path={path}
+          value={Number(drag ?? p.value)}
+          onChange={(_, v) => {
+            if (typeof v === "number") link.sendParam(instance, path, v);
+          }}
+        >
+          {p.labels.map((l, i) => (
+            <ToggleButton key={l} value={i + (p.min ?? 0)} sx={{ py: 0, px: 1, fontSize: 11 }}>
+              {l}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
       ) : (
         <Slider
           size="small"

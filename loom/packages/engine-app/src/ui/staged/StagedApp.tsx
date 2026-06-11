@@ -1,5 +1,6 @@
 import { Box, Button, Stack, Typography } from "@mui/material";
 import { Disconnected } from "../Disconnected";
+import { PaletteSourceToggle } from "../PaletteSourceToggle";
 import { useEngine, useEngineState, useThumb } from "../hooks";
 import { fail } from "../util";
 
@@ -10,7 +11,7 @@ import { fail } from "../util";
  * always rendered).
  */
 export function StagedApp() {
-  const { session: s, connected } = useEngineState();
+  const { session: s, manifests, connected } = useEngineState();
   const link = useEngine();
   const staged = s?.staged ?? null;
   const thumb = useThumb(staged);
@@ -32,6 +33,9 @@ export function StagedApp() {
         <Typography id="fadeinfo" variant="caption" color="text.secondary">
           {s?.mix != null ? `crossfading ${(s.mix * 100).toFixed(0)}%` : ""}
         </Typography>
+        {staged != null && manifests[staged]?.["palette.source"] != null && (
+          <PaletteSourceToggle instance={staged} p={manifests[staged]!["palette.source"]!} />
+        )}
         <Box sx={{ flex: 1 }} />
         <Button id="unstage" disabled={!has} onClick={() => void link.req("unstage").catch(fail)}>
           unstage
