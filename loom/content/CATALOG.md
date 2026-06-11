@@ -28,6 +28,7 @@
 - **kaleidoZoom** — Endless fractal-style dive into any input through a mirrored kaleido fold. `kaleidoZoom(ctx, { input: src, zoom: depthSig, segments: 6, twist: 0.5 })` _[kaleidoscope, zoom, infinite, fractal, stateful]_
 - **levels** — Gain, bias and gamma adjustment on an image. `levels(ctx, { input: src, gain: 1.2, gamma: 1.1 })` _[color, grade]_
 - **over** — Alpha-composites an overlay TexNode on top of an input (logo/still overlays). `over(ctx, { input: chain, overlay: imagePlate(ctx, { url: logoUrl }), opacity: 1 })` _[composite, overlay, blend, alpha]_
+- **paletteMap** — Recolors an input's luminance through the active global palette ramp. `paletteMap(ctx, { input: src, shift: scrollSig })` _[color, palette, ramp, grade]_
 - **pixelate** — Smooth slider-driven mosaic pixelation; free when amount is 0. `pixelate(ctx, { input: src, amount: 0.4 })` _[pixelate, mosaic, retro, stateful]_
 - **transform** — Moves/spins/3D-tilts/scales/mirrors any input as a layer (live Transform). `transform(ctx, { input: src, x: 0.3, scale: 0.5, rotateY: flipSig })` _[transform, 3d, layout, layer, stateful]_
 
