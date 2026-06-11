@@ -1,7 +1,8 @@
 export { Clock, type FrameCtx } from "./frame";
 export { Signal, asSignal, type SignalLike } from "./signal";
 export { Events } from "./events";
-export { Manifest, Param, type ParamType, type RangedParamSpec, type BoolParamSpec } from "./param";
+export { Manifest, Param, normalizeHex, type ParamType, type RangedParamSpec, type BoolParamSpec, type ColorParamSpec } from "./param";
+export { fillRamp, PALETTE_SOURCES, PALETTE_STOPS, PaletteRegistry, type PaletteSource } from "./palette";
 export { defineModule, ModuleMetaSchema, type ModuleMeta, type ModuleFactory } from "./module";
 export { lagSignal, lfoSignal, envelopeSignal, type LfoShape, type LfoOpts } from "./control";
 export { texNode, type TexNode, type Pass, type ColorNode } from "./texnode";
