@@ -14,7 +14,48 @@ type ParamDesc = {
   max?: number;
   step?: number;
   description?: string;
+  /** Active modulator config, or null when the param is hand-driven (FR-8). */
+  modulator?: Record<string, unknown> | null;
 };
+
+// One row per modulator type drives the popover (NFR-3: a new type is one
+// zod variant in the runtime + one entry here).
+type ModField =
+  | { key: string; label: string; kind: "number"; step: number; min?: number; max?: number }
+  | { key: string; label: string; kind: "select"; options: string[] }
+  | { key: string; label: string; kind: "values" };
+
+const MOD_TYPES: Array<{ type: string; bool: boolean; clocked: boolean; fields: ModField[] }> = [
+  { type: "sine", bool: false, clocked: true, fields: [] },
+  { type: "triangle", bool: false, clocked: true, fields: [] },
+  {
+    type: "ramp", bool: false, clocked: true,
+    fields: [{ key: "direction", label: "direction", kind: "select", options: ["up", "down"] }],
+  },
+  {
+    type: "square", bool: true, clocked: true,
+    fields: [{ key: "duty", label: "duty", kind: "number", step: 0.05, min: 0, max: 1 }],
+  },
+  { type: "random", bool: true, clocked: true, fields: [] },
+  {
+    type: "drift", bool: false, clocked: true,
+    fields: [{ key: "smooth", label: "smooth s", kind: "number", step: 0.1, min: 0 }],
+  },
+  {
+    type: "cycle", bool: true, clocked: true,
+    fields: [
+      { key: "order", label: "order", kind: "select", options: ["forward", "reverse", "pingpong", "random"] },
+      { key: "values", label: "values", kind: "values" },
+    ],
+  },
+  {
+    type: "audio", bool: false, clocked: false,
+    fields: [
+      { key: "band", label: "band", kind: "select", options: ["rms", "bass", "mid", "treble"] },
+      { key: "smooth", label: "smooth s", kind: "number", step: 0.01, min: 0 },
+    ],
+  },
+];
 type StateMsg = { kind: "state"; session: SessionSnapshot; manifests: Record<string, Record<string, ParamDesc>> };
 
 const $ = <T extends HTMLElement>(sel: string): T => {
@@ -289,6 +330,18 @@ function renderPanel(): void {
     if (p.type === "bool") input.checked = p.value === true;
     else input.value = String(p.value);
     if (valueEl) valueEl.textContent = formatValue(p);
+    // FR-8: visible indicator + live read-only thumb on modulated params.
+    const active = p.modulator != null;
+    input.closest(".widget")?.classList.toggle("modulated", active);
+    input.disabled = active; // engine rejects writes anyway (FR-7); this kills the drag
+    input.title = active ? "modulated — detach to take over" : "";
+    const modBtn = widgetsEl.querySelector<HTMLButtonElement>(`[data-modbtn="${cssEscape(path)}"]`);
+    if (modBtn) {
+      modBtn.classList.toggle("on", active);
+      modBtn.title = active
+        ? `modulated: ${String((p.modulator as { type?: string }).type)}`
+        : "attach a modulator";
+    }
   }
 }
 
@@ -296,8 +349,22 @@ function makeWidget(path: string, p: ParamDesc): HTMLElement {
   const div = document.createElement("div");
   div.className = "widget";
   const label = document.createElement("label");
-  label.innerHTML = `<span>${path}</span><span class="pvalue" data-value="${path}">${formatValue(p)}</span>`;
+  label.innerHTML =
+    `<span>${path}</span>` +
+    `<button type="button" class="modbtn" data-modbtn="${path}" title="attach a modulator">∿</button>` +
+    `<span class="pvalue" data-value="${path}">${formatValue(p)}</span>`;
   div.appendChild(label);
+  const pop = makeModPopover(path, p);
+  label.querySelector(".modbtn")!.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const open = !pop.classList.contains("open");
+    widgetsEl.querySelectorAll(".modpop.open").forEach((el) => el.classList.remove("open"));
+    if (open) {
+      fillModPopover(pop, currentDesc(path) ?? p);
+      pop.classList.add("open");
+    }
+  });
 
   const input = document.createElement("input");
   input.dataset.path = path;
@@ -324,7 +391,171 @@ function makeWidget(path: string, p: ParamDesc): HTMLElement {
     d.textContent = p.description;
     div.appendChild(d);
   }
+  div.appendChild(pop);
   return div;
+}
+
+function currentDesc(path: string): ParamDesc | undefined {
+  return selected != null ? state?.manifests[selected]?.[path] : undefined;
+}
+
+function makeModPopover(path: string, p: ParamDesc): HTMLElement {
+  const pop = document.createElement("div");
+  pop.className = "modpop";
+  const isBool = p.type === "bool";
+  const types = MOD_TYPES.filter((d) => !isBool || d.bool);
+  pop.innerHTML = `
+    <div class="modrow"><span>type</span><select class="modtype">${types
+      .map((d) => `<option value="${d.type}">${d.type}</option>`)
+      .join("")}</select></div>
+    <div class="modrow modrate-row"><span>every</span>
+      <input class="modrate" type="number" min="0.05" step="0.25" value="4">
+      <select class="modunit"><option value="beats">beats</option><option value="seconds">seconds</option></select>
+      <span>phase</span><input class="modphase" type="number" min="0" max="1" step="0.05" value="0">
+    </div>
+    ${isBool ? "" : `<div class="modrow modrange-row"><span>range</span>
+      <div class="dualrange"><input type="range" class="dlo"><input type="range" class="dhi"></div>
+      <span class="dvals"></span></div>`}
+    <div class="modfields"></div>
+    <div class="moderr"></div>
+    <div class="modrow modactions">
+      <button type="button" class="modattach">attach</button>
+      <button type="button" class="modretrig" title="restart the wave at lo">⟲ retrigger</button>
+      <button type="button" class="moddetach">detach</button>
+    </div>`;
+
+  if (!isBool) {
+    const min = p.min ?? 0;
+    const max = p.max ?? 1;
+    const step = p.type === "int" ? 1 : (max - min) / 200;
+    const dlo = pop.querySelector<HTMLInputElement>(".dlo")!;
+    const dhi = pop.querySelector<HTMLInputElement>(".dhi")!;
+    for (const r of [dlo, dhi]) {
+      r.min = String(min);
+      r.max = String(max);
+      r.step = String(step);
+    }
+    dlo.value = String(min);
+    dhi.value = String(max);
+    const sync = () => {
+      if (Number(dlo.value) > Number(dhi.value)) {
+        // the dragged thumb pushes the other
+        if (document.activeElement === dlo) dhi.value = dlo.value;
+        else dlo.value = dhi.value;
+      }
+      pop.querySelector(".dvals")!.textContent =
+        `${Number(dlo.value).toFixed(2)}–${Number(dhi.value).toFixed(2)}`;
+    };
+    dlo.addEventListener("input", sync);
+    dhi.addEventListener("input", sync);
+    sync();
+  }
+
+  const typeSel = pop.querySelector<HTMLSelectElement>(".modtype")!;
+  const renderFields = () => {
+    const desc = MOD_TYPES.find((d) => d.type === typeSel.value)!;
+    pop.querySelector<HTMLElement>(".modrate-row")!.style.display = desc.clocked ? "" : "none";
+    pop.querySelector(".modfields")!.replaceChildren(
+      ...desc.fields.map((fd) => {
+        const row = document.createElement("div");
+        row.className = "modrow";
+        if (fd.kind === "select") {
+          row.innerHTML = `<span>${fd.label}</span><select data-mf="${fd.key}">${fd.options
+            .map((o) => `<option>${o}</option>`)
+            .join("")}</select>`;
+        } else if (fd.kind === "values") {
+          row.innerHTML = `<span>${fd.label}</span><input data-mf="${fd.key}" type="text" placeholder="0.2, 0.5, 0.8">`;
+        } else {
+          row.innerHTML = `<span>${fd.label}</span><input data-mf="${fd.key}" type="number" step="${fd.step}"${
+            fd.min !== undefined ? ` min="${fd.min}"` : ""}${fd.max !== undefined ? ` max="${fd.max}"` : ""}>`;
+        }
+        return row;
+      }),
+    );
+  };
+  typeSel.addEventListener("change", renderFields);
+  renderFields();
+
+  const send = (spec: Record<string, unknown>) => {
+    if (!selected) return;
+    pop.querySelector(".moderr")!.textContent = "";
+    void req("modulate_param", { instance: selected, path, modulator: spec }).catch((err: Error) => {
+      pop.querySelector(".moderr")!.textContent = String(err.message ?? err);
+    });
+  };
+  pop.querySelector(".modattach")!.addEventListener("click", () => send(buildModSpec(pop, p)));
+  pop.querySelector(".modretrig")!.addEventListener("click", () => {
+    const active = currentDesc(path)?.modulator;
+    send((active as Record<string, unknown>) ?? buildModSpec(pop, p));
+  });
+  pop.querySelector(".moddetach")!.addEventListener("click", () => {
+    if (!selected) return;
+    void req("clear_modulation", { instance: selected, path }).catch(fail);
+    pop.classList.remove("open");
+  });
+  return pop;
+}
+
+function buildModSpec(pop: HTMLElement, p: ParamDesc): Record<string, unknown> {
+  const type = pop.querySelector<HTMLSelectElement>(".modtype")!.value;
+  const desc = MOD_TYPES.find((d) => d.type === type)!;
+  const spec: Record<string, unknown> = { type };
+  if (desc.clocked) {
+    const rate = Number(pop.querySelector<HTMLInputElement>(".modrate")!.value) || 4;
+    spec[
+      pop.querySelector<HTMLSelectElement>(".modunit")!.value === "beats" ? "periodBeats" : "periodSeconds"
+    ] = rate;
+    const phase = Number(pop.querySelector<HTMLInputElement>(".modphase")!.value);
+    if (phase > 0) spec.phase = Math.min(phase, 1);
+  }
+  if (p.type !== "bool") {
+    spec.lo = Number(pop.querySelector<HTMLInputElement>(".dlo")!.value);
+    spec.hi = Number(pop.querySelector<HTMLInputElement>(".dhi")!.value);
+  }
+  for (const fd of desc.fields) {
+    const el = pop.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-mf="${fd.key}"]`);
+    if (!el || el.value === "") continue;
+    if (fd.kind === "values") {
+      const nums = el.value.split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n));
+      if (nums.length > 0) spec[fd.key] = nums;
+    } else if (fd.kind === "number") spec[fd.key] = Number(el.value);
+    else spec[fd.key] = el.value;
+  }
+  return spec;
+}
+
+function fillModPopover(pop: HTMLElement, p: ParamDesc): void {
+  const mod = (p.modulator ?? null) as Record<string, unknown> | null;
+  pop.querySelector(".moderr")!.textContent = "";
+  pop.querySelector<HTMLButtonElement>(".modretrig")!.style.display = mod ? "" : "none";
+  pop.querySelector<HTMLButtonElement>(".moddetach")!.style.display = mod ? "" : "none";
+  pop.querySelector<HTMLButtonElement>(".modattach")!.textContent = mod ? "update" : "attach";
+  if (!mod) return;
+  const typeSel = pop.querySelector<HTMLSelectElement>(".modtype")!;
+  typeSel.value = String(mod.type);
+  typeSel.dispatchEvent(new Event("change"));
+  if (mod.periodBeats != null || mod.periodSeconds != null) {
+    pop.querySelector<HTMLInputElement>(".modrate")!.value = String(mod.periodBeats ?? mod.periodSeconds);
+    pop.querySelector<HTMLSelectElement>(".modunit")!.value = mod.periodBeats != null ? "beats" : "seconds";
+  }
+  if (typeof mod.phase === "number") {
+    pop.querySelector<HTMLInputElement>(".modphase")!.value = String(mod.phase);
+  }
+  const dlo = pop.querySelector<HTMLInputElement>(".dlo");
+  const dhi = pop.querySelector<HTMLInputElement>(".dhi");
+  if (dlo && mod.lo != null) {
+    dlo.value = String(mod.lo);
+    dlo.dispatchEvent(new Event("input"));
+  }
+  if (dhi && mod.hi != null) {
+    dhi.value = String(mod.hi);
+    dhi.dispatchEvent(new Event("input"));
+  }
+  for (const el of pop.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-mf]")) {
+    const v = mod[el.dataset.mf!];
+    if (v == null) continue;
+    el.value = Array.isArray(v) ? v.join(", ") : String(v);
+  }
 }
 
 const formatValue = (p: ParamDesc) =>
