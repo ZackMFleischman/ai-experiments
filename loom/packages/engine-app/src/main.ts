@@ -1,17 +1,22 @@
 import {
   AudioBus,
   Clock,
+  Stage,
   TimeBus,
-  buildInstance,
-  type Instance,
+  type FrameCtx,
   type SceneDef,
 } from "@loom/runtime";
-import { DEFAULT_WS_PORT, type ScreenshotResult } from "@loom/sidecar/protocol";
+import { DEFAULT_WS_PORT, type InstanceStatus, type ScreenshotResult } from "@loom/sidecar/protocol";
 import { WebGPURenderer } from "three/webgpu";
 import liveScene from "../../../content/scenes/live.scene";
 import { startBridge } from "./bridge";
+import { Compositor } from "./compositor";
+import { startConsoleChannel } from "./console-channel";
+import { EngineApi } from "./engine-api";
 import { FpsMeter } from "./fps";
 import { Overlay } from "./overlay";
+import { getScenes } from "./scenes";
+import { entryStatus, SessionStore } from "./session";
 
 declare global {
   interface Window {
@@ -23,6 +28,13 @@ declare global {
       onsetCount: number;
       instanceError: string | null;
       frame: number;
+      fps: number;
+      live: string | null;
+      staged: string | null;
+      mix: number | null;
+      panicked: boolean;
+      agentCommitArmed: boolean;
+      instances: Array<{ id: string; scene: string; status: InstanceStatus }>;
     };
   }
 }
@@ -43,18 +55,22 @@ const audio = new AudioBus();
 const fps = new FpsMeter(fpsEl);
 const overlay = new Overlay(statusEl);
 
-let instance: Instance | null = null;
+const session = new SessionStore({ audio, time: timeBus });
+const stage = new Stage();
+const compositor = new Compositor(window.innerWidth, window.innerHeight);
+
+// The barrel binding goes stale when ./scenes hot-updates; HMR swaps it below.
+let currentScenes = getScenes;
 
 /**
- * NFR-5 rebuild-on-change: build the new instance first; only when that
- * succeeds is the old one disposed. A failed build keeps the old instance
- * rendering — never go black.
+ * NFR-5 for the boot "live" instance: build the new one first; a failed
+ * build/rebuild keeps whatever is running — never go black.
  */
-function trySwap(def: SceneDef): boolean {
+function trySwapLive(def: SceneDef): boolean {
+  if (session.get("live")) return session.rebuild("live", def);
   try {
-    const next = buildInstance(def, { audio, time: timeBus });
-    instance?.dispose();
-    instance = next;
+    session.create(def, "live");
+    if (stage.live === null) stage.adoptLive("live");
     return true;
   } catch (err) {
     console.error(`[loom] scene "${def?.name ?? "?"}" rejected; keeping previous`, err);
@@ -65,6 +81,10 @@ function trySwap(def: SceneDef): boolean {
 function resize(): void {
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
+  compositor.resize(
+    Math.round(window.innerWidth * window.devicePixelRatio),
+    Math.round(window.innerHeight * window.devicePixelRatio),
+  );
 }
 window.addEventListener("resize", resize);
 
@@ -85,9 +105,19 @@ await renderer.init();
 resize();
 await startAudio();
 
-// Debug surface for validation scripts and agent eyes (pre-MCP).
 const debugOnsets = audio.onset({ band: "bass", threshold: 0.22 });
 let onsetCount = 0;
+let latestFrame: FrameCtx = { frame: 0, now: 0, dt: 0 };
+let currentMix: number | null = null;
+let lastDirectiveHold = false;
+
+// Screenshot requests for the canvas resolve inside the render loop: the
+// drawing buffer is only readable in the same task that rendered it.
+const pendingShots: Array<{
+  resolve: (s: ScreenshotResult) => void;
+  reject: (e: Error) => void;
+}> = [];
+
 window.__loom = {
   sceneName: null,
   audioMode: audio.mode,
@@ -96,109 +126,112 @@ window.__loom = {
   onsetCount: 0,
   instanceError: null,
   frame: 0,
+  fps: 0,
+  live: null,
+  staged: null,
+  mix: null,
+  panicked: false,
+  agentCommitArmed: false,
+  instances: [],
 };
 
-trySwap(liveScene);
+trySwapLive(liveScene);
 
-// ---- sidecar bridge (agent eyes & hands, M2) ----
-
-function requireLive(id: string): Instance {
-  if (id !== "live") {
-    throw new Error(`unknown instance "${id}" — M2 has a single "live" instance`);
-  }
-  if (!instance) throw new Error("no live instance (scene never built?)");
-  return instance;
-}
-
-// Screenshot requests resolve inside the render loop: the WebGL drawing
-// buffer is only readable in the same task that rendered it (no
-// preserveDrawingBuffer), so toDataURL must happen right after renderFrame.
-const pendingShots: Array<{
-  resolve: (s: ScreenshotResult) => void;
-  reject: (e: Error) => void;
-}> = [];
+const api = new EngineApi(
+  {
+    renderer,
+    canvas,
+    session,
+    stage,
+    audio,
+    time: timeBus,
+    getScenes: () => currentScenes(),
+    latestFrame: () => latestFrame,
+    captureCanvas: () =>
+      new Promise((resolve, reject) => {
+        if (lastDirectiveHold) {
+          reject(new Error("output is held (PANIC) — resume before taking a live screenshot"));
+          return;
+        }
+        pendingShots.push({ resolve, reject });
+      }),
+    fps: () => fps.current,
+    rms: () => window.__loom?.rms ?? 0,
+    onsetCount: () => onsetCount,
+    currentMix: () => currentMix,
+  },
+  { agentCommitArmed: qs.get("agentCommit") === "1" },
+);
 
 // `?ws=` lets validation runs use an isolated sidecar port so they never
 // collide with (or silently talk to) a live performance session's sidecar.
-startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, {
-  session: () => ({
-    scene: instance?.sceneName ?? null,
-    instance: instance ? "live" : null,
-    instanceError: instance?.error != null ? String(instance.error) : null,
-    audioMode: audio.mode,
-    bpm: timeBus.bpm,
-    rms: window.__loom?.rms ?? 0,
-    onsetCount,
-    fps: fps.current,
-    frame: window.__loom?.frame ?? 0,
-    paramPaths: instance?.manifest.paths() ?? [],
-  }),
-  manifest: (id) => {
-    const inst = requireLive(id);
-    return {
-      instance: "live",
-      params: inst.manifest.toJSON() as import("@loom/sidecar/protocol").ManifestResult["params"],
-    };
-  },
-  setParam: ({ instance: id, path, value }) => {
-    const inst = requireLive(id);
-    const param = inst.manifest.get(path);
-    if (!param) {
-      throw new Error(
-        `unknown param "${path}" — manifest has: ${inst.manifest.paths().join(", ") || "(none)"}`,
-      );
-    }
-    param.set(value);
-    return { instance: "live", path, value: param.value as number | boolean };
-  },
-  screenshot: (id) => {
-    requireLive(id);
-    return new Promise((resolve, reject) => pendingShots.push({ resolve, reject }));
-  },
-});
+startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, api);
+startConsoleChannel(api);
 
 renderer.setAnimationLoop((tMs) => {
   const f = clock.tick(tMs);
+  latestFrame = f;
   timeBus.tick(f);
   audio.update(f);
   onsetCount += debugOnsets.poll(f).length;
-  instance?.renderFrame(renderer, f);
+
+  const directive = stage.tick(f);
+  currentMix = directive.mode === "crossfade" ? directive.mix : null;
+  lastDirectiveHold = directive.mode === "hold";
+  compositor.render(renderer, f, directive, session);
   fps.tick();
 
   if (pendingShots.length > 0) {
     const waiting = pendingShots.splice(0);
-    try {
-      const url = canvas.toDataURL("image/png");
-      const shot: ScreenshotResult = {
-        mime: "image/png",
-        base64: url.slice(url.indexOf(",") + 1),
-        width: canvas.width,
-        height: canvas.height,
-        frame: f.frame,
-      };
-      for (const w of waiting) w.resolve(shot);
-    } catch (err) {
-      const e = err instanceof Error ? err : new Error(String(err));
+    if (directive.mode === "hold") {
+      const e = new Error("output is held (PANIC)");
       for (const w of waiting) w.reject(e);
+    } else {
+      try {
+        const url = canvas.toDataURL("image/png");
+        const shot: ScreenshotResult = {
+          mime: "image/png",
+          base64: url.slice(url.indexOf(",") + 1),
+          width: canvas.width,
+          height: canvas.height,
+          frame: f.frame,
+        };
+        for (const w of waiting) w.resolve(shot);
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        for (const w of waiting) w.reject(e);
+      }
     }
   }
 
-  const error = instance?.error != null;
+  const liveEntry = stage.live != null ? session.get(stage.live) : undefined;
+  const error = liveEntry?.instance.error != null;
   overlay.update({
-    scene: instance?.sceneName ?? null,
+    scene: liveEntry?.sceneName ?? null,
     audioMode: audio.mode,
     bpm: timeBus.bpm,
     rms: audio.rms.get(f),
     error,
   });
   const dbg = window.__loom!;
-  dbg.sceneName = instance?.sceneName ?? null;
+  dbg.sceneName = liveEntry?.sceneName ?? null;
   dbg.audioMode = audio.mode;
   dbg.bpm = timeBus.bpm;
   dbg.rms = audio.rms.get(f);
   dbg.onsetCount = onsetCount;
-  dbg.instanceError = error ? String(instance!.error) : null;
+  dbg.instanceError = liveEntry?.instance.error != null ? String(liveEntry.instance.error) : null;
   dbg.frame = f.frame;
+  dbg.fps = fps.current;
+  dbg.live = stage.live;
+  dbg.staged = stage.staged;
+  dbg.mix = currentMix;
+  dbg.panicked = stage.panicked;
+  dbg.agentCommitArmed = api.agentCommitArmed;
+  dbg.instances = [...session.entries.values()].map((e) => ({
+    id: e.id,
+    scene: e.sceneName,
+    status: entryStatus(e),
+  }));
 });
 
 // Tap tempo on "t"; any click also unblocks a suspended AudioContext.
@@ -223,17 +256,44 @@ void audio.listInputDevices().then((devices) => {
 });
 
 if (import.meta.hot) {
-  // Compile errors never reach this callback (Vite withholds the update);
-  // build()-time throws are caught in trySwap; render-time throws freeze
+  // Compile errors never reach these callbacks (Vite withholds the update);
+  // build()-time throws are caught per instance; render-time throws freeze
   // the instance (NFR-2). All three keep the previous pixels alive.
   import.meta.hot.accept("../../../content/scenes/live.scene", (mod) => {
     if (!mod?.default) {
       console.warn("[loom] hot update carried no scene default export; keeping previous");
       return;
     }
-    const ok = trySwap(mod.default as SceneDef);
+    const ok = trySwapLive(mod.default as SceneDef);
     console.info(
-      ok ? `[loom] scene hot-swapped: ${instance?.sceneName}` : "[loom] scene rejected; previous still live",
+      ok
+        ? `[loom] scene hot-swapped: ${session.get("live")?.sceneName}`
+        : "[loom] scene rejected; previous still live",
     );
+  });
+
+  // Any scene file edit bubbles through the barrel: rebuild only instances
+  // whose def identity actually changed (NFR-5), destroy ones whose scene
+  // file vanished.
+  import.meta.hot.accept("./scenes", (mod) => {
+    if (!mod?.getScenes) return;
+    currentScenes = mod.getScenes as typeof getScenes;
+    const map = currentScenes();
+    for (const entry of [...session.entries.values()]) {
+      if (entry.id === "live") continue; // owned by the live.scene accept above
+      const def = map.get(entry.sceneName);
+      if (!def) {
+        console.warn(`[loom] scene "${entry.sceneName}" removed; destroying instance "${entry.id}"`);
+        stage.onInstanceDestroyed(entry.id);
+        session.destroy(entry.id);
+      } else if (def !== entry.def) {
+        const ok = session.rebuild(entry.id, def);
+        console.info(
+          ok
+            ? `[loom] instance "${entry.id}" rebuilt (${def.name})`
+            : `[loom] instance "${entry.id}" rejected the update; previous still running`,
+        );
+      }
+    }
   });
 }

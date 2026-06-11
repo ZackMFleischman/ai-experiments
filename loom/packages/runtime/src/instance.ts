@@ -1,4 +1,9 @@
-import { MeshBasicNodeMaterial, QuadMesh, type WebGPURenderer } from "three/webgpu";
+import {
+  MeshBasicNodeMaterial,
+  QuadMesh,
+  type RenderTarget,
+  type WebGPURenderer,
+} from "three/webgpu";
 import { BuildCtx } from "./buildctx";
 import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
@@ -29,12 +34,20 @@ export class Instance {
     this.quad = new QuadMesh(this.material);
   }
 
-  renderFrame(renderer: WebGPURenderer, f: FrameCtx): void {
+  /**
+   * Render exactly once per frame (stateful passes advance per call).
+   * `target` null presents to the canvas; a RenderTarget renders offscreen
+   * (preview tiles, crossfade legs).
+   */
+  renderFrame(renderer: WebGPURenderer, f: FrameCtx, target: RenderTarget | null = null): void {
     if (this.error != null) return; // frozen: hold the last good frame
     try {
       for (const update of this.updaters) update(f);
       for (const pass of this.passes) pass.render(renderer, f);
+      const prev = renderer.getRenderTarget();
+      renderer.setRenderTarget(target);
       this.quad.render(renderer);
+      renderer.setRenderTarget(prev);
     } catch (err) {
       this.error = err;
       console.error(`[loom] instance "${this.sceneName}" froze (NFR-2 containment):`, err);

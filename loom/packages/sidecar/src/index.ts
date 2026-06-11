@@ -6,6 +6,8 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { WebSocketServer, type WebSocket } from "ws";
 import { Broker } from "./broker";
 import {
+  CommitArgs,
+  CreateInstanceArgs,
   DEFAULT_WS_PORT,
   InstanceArgs,
   ScreenshotResult,
@@ -91,9 +93,64 @@ const TOOLS = [
   {
     name: "screenshot",
     description:
-      "Capture the engine's Output canvas as a PNG — your eyes on what is actually rendering. " +
+      "Capture an instance's output as a PNG — your eyes on what is actually rendering. " +
+      "The live instance captures the Output canvas; others capture their preview target. " +
       "Returns the image plus width/height/frame metadata.",
     inputSchema: { type: "object", properties: { ...INSTANCE_PROP } },
+  },
+  {
+    name: "create_instance",
+    description:
+      "Build a sandbox instance of a scene (by catalog name) so it renders in a Console tile " +
+      "without touching the live output. Returns the new instance id and its param paths.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scene: { type: "string", description: "Scene name from get_session's availableScenes." },
+        id: { type: "string", description: "Optional explicit instance id." },
+      },
+      required: ["scene"],
+    },
+  },
+  {
+    name: "destroy_instance",
+    description: "Dispose a non-live instance and free its tile. The LIVE instance is protected.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        instance: { type: "string", description: "Instance id to destroy." },
+      },
+      required: ["instance"],
+    },
+  },
+  {
+    name: "stage",
+    description:
+      "Mark an instance as the staged candidate for the live output. Staging never changes " +
+      "what the audience sees — the human auditions it in the Console and presses COMMIT.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        instance: { type: "string", description: "Instance id to stage." },
+      },
+      required: ["instance"],
+    },
+  },
+  {
+    name: "commit",
+    description:
+      "Crossfade the staged instance to the live output. Normally HUMAN-GATED: unless the " +
+      "human has armed agent commit (Console toggle or ?agentCommit=1), this returns an " +
+      "error telling you to ask them — stage your candidate and hand over.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        durationFrames: {
+          type: "integer",
+          description: "Crossfade length in frames (0 = hard cut, default 60 ≈ 1 s).",
+        },
+      },
+    },
   },
 ] as const;
 
@@ -129,6 +186,26 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
             },
           ],
         };
+      }
+      case "create_instance": {
+        const result = await broker.request(
+          "create_instance",
+          { ...CreateInstanceArgs.parse(args) },
+          10_000, // first build of a heavy scene can outlast the default timeout
+        );
+        return textResult(result);
+      }
+      case "destroy_instance": {
+        const result = await broker.request("destroy_instance", { ...InstanceArgs.parse(args) });
+        return textResult(result);
+      }
+      case "stage": {
+        const result = await broker.request("stage", { ...InstanceArgs.parse(args) });
+        return textResult(result);
+      }
+      case "commit": {
+        const result = await broker.request("commit", { ...CommitArgs.parse(args) });
+        return textResult(result);
       }
       default:
         return errorResult(`unknown tool: ${name}`);

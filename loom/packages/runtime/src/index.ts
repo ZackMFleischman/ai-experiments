@@ -8,6 +8,7 @@ export { texNode, type TexNode, type Pass, type ColorNode } from "./texnode";
 export { BuildCtx } from "./buildctx";
 export { defineScene, type SceneDef, type SceneInput } from "./scene";
 export { Instance, buildInstance } from "./instance";
+export { Stage, type StageDirective } from "./stage";
 export { TimeBus } from "./inputbus/time";
 export { AudioBus, type AudioBusLike, type AudioMode, type BandName } from "./inputbus/audio";
 export { OnsetDetector, bandEnergy, type OnsetOpts } from "./inputbus/analysis";

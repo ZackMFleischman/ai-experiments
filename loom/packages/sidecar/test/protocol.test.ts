@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  ArmAgentCommitArgs,
+  CommitArgs,
+  CreateInstanceArgs,
   InstanceArgs,
   RequestMsg,
   ResponseMsg,
   SetParamArgs,
+  TransportArgs,
 } from "../src/protocol";
 
 describe("RequestMsg", () => {
   it("parses every request type", () => {
-    for (const type of ["get_session", "get_manifest", "set_param", "screenshot"]) {
+    const types = [
+      "get_session", "get_manifest", "set_param", "screenshot",
+      "create_instance", "destroy_instance", "stage", "unstage", "commit",
+      "panic", "resume", "set_transport", "arm_agent_commit",
+    ];
+    for (const type of types) {
       const msg = RequestMsg.parse({ id: "r1", kind: "req", type, args: {} });
       expect(msg.type).toBe(type);
     }
@@ -62,5 +71,33 @@ describe("InstanceArgs", () => {
   it("defaults instance to live", () => {
     expect(InstanceArgs.parse({}).instance).toBe("live");
     expect(InstanceArgs.parse({ instance: "other" }).instance).toBe("other");
+  });
+});
+
+describe("M3 args", () => {
+  it("create_instance requires a scene; id is optional", () => {
+    expect(CreateInstanceArgs.parse({ scene: "pulse" })).toEqual({ scene: "pulse" });
+    expect(CreateInstanceArgs.parse({ scene: "pulse", id: "x" }).id).toBe("x");
+    expect(() => CreateInstanceArgs.parse({})).toThrow();
+    expect(() => CreateInstanceArgs.parse({ scene: "" })).toThrow();
+  });
+
+  it("commit defaults to a 60-frame fade and bounds the duration", () => {
+    expect(CommitArgs.parse({}).durationFrames).toBe(60);
+    expect(CommitArgs.parse({ durationFrames: 0 }).durationFrames).toBe(0);
+    expect(() => CommitArgs.parse({ durationFrames: -1 })).toThrow();
+    expect(() => CommitArgs.parse({ durationFrames: 10_000 })).toThrow();
+    expect(() => CommitArgs.parse({ durationFrames: 1.5 })).toThrow();
+  });
+
+  it("arm_agent_commit requires an explicit boolean", () => {
+    expect(ArmAgentCommitArgs.parse({ armed: true }).armed).toBe(true);
+    expect(() => ArmAgentCommitArgs.parse({})).toThrow();
+  });
+
+  it("set_transport takes bpm and/or tap", () => {
+    expect(TransportArgs.parse({ bpm: 128 }).bpm).toBe(128);
+    expect(TransportArgs.parse({ tap: true }).tap).toBe(true);
+    expect(() => TransportArgs.parse({ bpm: 0 })).toThrow();
   });
 });

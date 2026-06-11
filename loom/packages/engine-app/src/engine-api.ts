@@ -1,0 +1,265 @@
+import type {
+  AudioBusLike,
+  FrameCtx,
+  SceneDef,
+  Stage,
+  TimeBus,
+} from "@loom/runtime";
+import {
+  ArmAgentCommitArgs,
+  CommitArgs,
+  CreateInstanceArgs,
+  InstanceArgs,
+  SetParamArgs,
+  TransportArgs,
+  type RequestMsg,
+  type ScreenshotResult,
+  type SessionSnapshot,
+} from "@loom/sidecar/protocol";
+import type { WebGPURenderer } from "three/webgpu";
+import { entryStatus, PREVIEW_H, PREVIEW_W, type Entry, type SessionStore } from "./session";
+
+/** Who issued a command: the MCP bridge ("agent") or the Console ("human"). */
+export type Source = "agent" | "human";
+
+const HUMAN_ONLY: ReadonlySet<string> = new Set(["panic", "resume", "arm_agent_commit"]);
+
+export interface EngineDeps {
+  renderer: WebGPURenderer;
+  canvas: HTMLCanvasElement;
+  session: SessionStore;
+  stage: Stage;
+  audio: AudioBusLike & { mode: string };
+  time: TimeBus;
+  getScenes(): Map<string, SceneDef>;
+  latestFrame(): FrameCtx;
+  /** Same-task canvas capture, resolved by the render loop (live output only). */
+  captureCanvas(): Promise<ScreenshotResult>;
+  fps(): number;
+  rms(): number;
+  onsetCount(): number;
+  /** Current crossfade mix from the last directive, or null. */
+  currentMix(): number | null;
+}
+
+/**
+ * One dispatch for every engine command, shared by the WS bridge (agent)
+ * and the Console BroadcastChannel (human). Throws become ok:false
+ * responses at the transport layer — never engine crashes.
+ */
+export class EngineApi {
+  agentCommitArmed: boolean;
+
+  constructor(
+    private readonly deps: EngineDeps,
+    opts: { agentCommitArmed?: boolean } = {},
+  ) {
+    this.agentCommitArmed = opts.agentCommitArmed ?? false;
+  }
+
+  async handleRequest(req: RequestMsg, source: Source): Promise<unknown> {
+    if (source === "agent" && HUMAN_ONLY.has(req.type)) {
+      throw new Error(`${req.type} is a human-only control (Console)`);
+    }
+    const { session, stage } = this.deps;
+    switch (req.type) {
+      case "get_session":
+        return this.snapshot();
+      case "get_manifest": {
+        const { instance } = InstanceArgs.parse(req.args);
+        const e = session.require(instance);
+        return { instance: e.id, params: e.instance.manifest.toJSON() };
+      }
+      case "set_param": {
+        const { instance, path, value } = SetParamArgs.parse(req.args);
+        const e = session.require(instance);
+        const param = e.instance.manifest.get(path);
+        if (!param) {
+          const have = e.instance.manifest.paths().join(", ") || "(none)";
+          throw new Error(`unknown param "${path}" on "${e.id}" — manifest has: ${have}`);
+        }
+        param.set(value);
+        return { instance: e.id, path, value: param.value as number | boolean };
+      }
+      case "screenshot": {
+        const { instance } = InstanceArgs.parse(req.args);
+        const e = session.require(instance);
+        if (this.isOnCanvas(e)) return this.deps.captureCanvas();
+        return this.targetShot(e);
+      }
+      case "create_instance": {
+        const { scene, id } = CreateInstanceArgs.parse(req.args);
+        const def = this.deps.getScenes().get(scene);
+        if (!def) {
+          const have = [...this.deps.getScenes().keys()].join(", ") || "(none)";
+          throw new Error(`unknown scene "${scene}" — available: ${have}`);
+        }
+        const e = session.create(def, id);
+        return { instance: e.id, scene: e.sceneName, paramPaths: e.instance.manifest.paths() };
+      }
+      case "destroy_instance": {
+        const { instance } = InstanceArgs.parse(req.args);
+        const e = session.require(instance);
+        if (stage.live === e.id) {
+          throw new Error(`"${e.id}" is LIVE — commit something else before destroying it`);
+        }
+        stage.onInstanceDestroyed(e.id);
+        session.destroy(e.id);
+        return { destroyed: e.id };
+      }
+      case "stage": {
+        const { instance } = InstanceArgs.parse(req.args);
+        const e = session.require(instance);
+        stage.stage(e.id);
+        return { staged: e.id, live: stage.live };
+      }
+      case "unstage":
+        stage.unstage();
+        return { staged: null };
+      case "commit": {
+        const { durationFrames } = CommitArgs.parse(req.args);
+        if (source === "agent" && !this.agentCommitArmed) {
+          throw new Error(
+            "agent commit is not armed — ask the human to press COMMIT in the Console " +
+              "(or to arm agent commit there; engines started with ?agentCommit=1 arm it by default)",
+          );
+        }
+        const from = stage.live;
+        const to = stage.staged;
+        stage.commit(this.deps.latestFrame(), durationFrames);
+        return { from, to, durationFrames };
+      }
+      case "panic":
+        stage.panic();
+        return { panicked: true };
+      case "resume":
+        stage.resume();
+        return { panicked: false };
+      case "set_transport": {
+        const { bpm, tap } = TransportArgs.parse(req.args);
+        if (bpm !== undefined) this.deps.time.setBpm(bpm);
+        if (tap) this.deps.time.tap(performance.now() / 1000);
+        return { bpm: this.deps.time.bpm };
+      }
+      case "arm_agent_commit": {
+        const { armed } = ArmAgentCommitArgs.parse(req.args);
+        this.agentCommitArmed = armed;
+        return { agentCommitArmed: armed };
+      }
+    }
+  }
+
+  snapshot(): SessionSnapshot {
+    const { session, stage } = this.deps;
+    const liveEntry = stage.live != null ? session.get(stage.live) : undefined;
+    return {
+      scene: liveEntry?.sceneName ?? null,
+      instance: liveEntry?.id ?? null,
+      instanceError: liveEntry?.instance.error != null ? String(liveEntry.instance.error) : null,
+      paramPaths: liveEntry?.instance.manifest.paths() ?? [],
+      instances: [...session.entries.values()].map((e) => ({
+        id: e.id,
+        scene: e.sceneName,
+        status: entryStatus(e),
+        error: e.instance.error != null ? String(e.instance.error) : null,
+        paramPaths: e.instance.manifest.paths(),
+      })),
+      live: stage.live,
+      staged: stage.staged,
+      mix: this.deps.currentMix(),
+      panicked: stage.panicked,
+      agentCommitArmed: this.agentCommitArmed,
+      availableScenes: [...this.deps.getScenes().keys()],
+      audioMode: this.deps.audio.mode,
+      bpm: this.deps.time.bpm,
+      rms: this.deps.rms(),
+      onsetCount: this.deps.onsetCount(),
+      fps: this.deps.fps(),
+      frame: this.deps.latestFrame().frame,
+    };
+  }
+
+  /** Console state payload: snapshot plus full manifests for param panels. */
+  consoleState(): { session: SessionSnapshot; manifests: Record<string, unknown> } {
+    const manifests: Record<string, unknown> = {};
+    for (const e of this.deps.session.entries.values()) {
+      manifests[e.id] = e.instance.manifest.toJSON();
+    }
+    return { session: this.snapshot(), manifests };
+  }
+
+  /** Small JPEG thumbnails per instance for the Console tiles. */
+  async thumbnails(width = 320, height = 180): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    for (const e of this.deps.session.entries.values()) {
+      try {
+        out[e.id] = this.isOnCanvas(e)
+          ? scaleToJpeg(this.deps.canvas, width, height, false)
+          : await this.readTarget(e, width, height, "image/jpeg");
+      } catch {
+        // skip a tile this round rather than break the loop
+      }
+    }
+    return out;
+  }
+
+  /** Live output renders straight to the canvas outside a crossfade. */
+  private isOnCanvas(e: Entry): boolean {
+    return this.deps.stage.live === e.id && !this.deps.stage.fading && !this.deps.stage.panicked;
+  }
+
+  private async targetShot(e: Entry): Promise<ScreenshotResult> {
+    const dataUrl = await this.readTarget(e, PREVIEW_W, PREVIEW_H, "image/png");
+    return {
+      mime: "image/png",
+      base64: dataUrl.slice(dataUrl.indexOf(",") + 1),
+      width: PREVIEW_W,
+      height: PREVIEW_H,
+      frame: this.deps.latestFrame().frame,
+    };
+  }
+
+  private async readTarget(
+    e: Entry,
+    outW: number,
+    outH: number,
+    mime: string,
+  ): Promise<string> {
+    const { renderer } = this.deps;
+    const buf = (await renderer.readRenderTargetPixelsAsync(
+      e.target,
+      0,
+      0,
+      PREVIEW_W,
+      PREVIEW_H,
+    )) as Uint8Array | Uint8ClampedArray;
+    const pixels = new Uint8ClampedArray(buf.buffer, buf.byteOffset, PREVIEW_W * PREVIEW_H * 4);
+    const img = new ImageData(pixels.slice(), PREVIEW_W, PREVIEW_H);
+    const full = document.createElement("canvas");
+    full.width = PREVIEW_W;
+    full.height = PREVIEW_H;
+    full.getContext("2d")!.putImageData(img, 0, 0);
+    // WebGL framebuffers read bottom-up; WebGPU reads top-down.
+    const flip = (this.deps.renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true;
+    return scaleToJpeg(full, outW, outH, flip, mime);
+  }
+}
+
+function scaleToJpeg(
+  source: HTMLCanvasElement,
+  width: number,
+  height: number,
+  flipY: boolean,
+  mime = "image/jpeg",
+): string {
+  const c = document.createElement("canvas");
+  c.width = width;
+  c.height = height;
+  const ctx = c.getContext("2d")!;
+  if (flipY) {
+    ctx.translate(0, height);
+    ctx.scale(1, -1);
+  }
+  ctx.drawImage(source, 0, 0, width, height);
+  return c.toDataURL(mime, 0.7);
+}

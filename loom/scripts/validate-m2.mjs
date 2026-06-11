@@ -111,12 +111,12 @@ try {
   await client.connect(transport);
   transport.stderr?.on("data", (d) => process.stderr.write(`[sidecar] ${d}`));
 
-  // 1. MCP surface: exactly the four M2 tools.
-  const tools = (await client.listTools()).tools.map((t) => t.name).sort();
+  // 1. MCP surface: the four M2 tools exist (later milestones add more).
+  const tools = (await client.listTools()).tools.map((t) => t.name);
   check(
-    "MCP exposes the 4 agent tools",
-    JSON.stringify(tools) === JSON.stringify(["get_manifest", "get_session", "screenshot", "set_param"]),
-    tools.join(", "),
+    "MCP exposes the 4 M2 agent tools",
+    ["get_manifest", "get_session", "screenshot", "set_param"].every((t) => tools.includes(t)),
+    tools.sort().join(", "),
   );
 
   // 2. Engine absent: clean error, not a hang or crash.

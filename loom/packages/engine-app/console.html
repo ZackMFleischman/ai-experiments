@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LOOM Console</title>
+    <style>
+      :root {
+        --bg: #0b0c10;
+        --panel: #14161c;
+        --edge: #262a33;
+        --text: #c8cdd8;
+        --dim: #6b7280;
+        --accent: #3ddc97;
+        --warn: #f3c969;
+        --danger: #e6455a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.4 system-ui, sans-serif;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      header, #stagestrip {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 8px 14px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--edge);
+        flex: 0 0 auto;
+      }
+      header { font-size: 16px; }
+      header .spacer, #stagestrip .spacer { flex: 1; }
+      button {
+        background: #1d212b;
+        color: var(--text);
+        border: 1px solid var(--edge);
+        border-radius: 6px;
+        padding: 6px 14px;
+        font: inherit;
+        cursor: pointer;
+      }
+      button:hover { border-color: var(--dim); }
+      button:disabled { opacity: 0.35; cursor: default; }
+      #panic {
+        background: #2a1318;
+        border-color: var(--danger);
+        color: var(--danger);
+        font-weight: 700;
+        font-size: 16px;
+        padding: 8px 22px;
+      }
+      #panic.engaged { background: var(--danger); color: #fff; }
+      #commit {
+        background: #11261d;
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 700;
+        font-size: 16px;
+        padding: 8px 22px;
+      }
+      #rmswrap { width: 120px; height: 10px; background: #0006; border: 1px solid var(--edge); border-radius: 5px; overflow: hidden; }
+      #rmsfill { height: 100%; width: 0%; background: var(--accent); transition: width 80ms linear; }
+      .dimlabel { color: var(--dim); font-size: 12px; }
+      main { flex: 1; display: flex; min-height: 0; }
+      #grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 12px;
+        padding: 12px;
+        align-content: start;
+        overflow-y: auto;
+      }
+      .tile {
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: pointer;
+      }
+      .tile.selected { border-color: var(--accent); }
+      .tile.solo { grid-column: 1 / -1; }
+      .tile img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; background: #000; }
+      .tile .bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+      .tile .chip { font-weight: 700; }
+      .tile .chip.ok { color: var(--accent); }
+      .tile .chip.frozen, .tile .chip.rejected { color: var(--danger); }
+      .tile .badge {
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 4px;
+        padding: 2px 6px;
+        display: none;
+      }
+      .tile .badge.show { display: inline; }
+      .tile .live-badge { background: var(--danger); color: #fff; }
+      .tile .staged-badge { background: var(--warn); color: #000; }
+      .tile .bar button { padding: 2px 8px; font-size: 12px; }
+      #panel {
+        flex: 0 0 320px;
+        background: var(--panel);
+        border-left: 1px solid var(--edge);
+        padding: 14px;
+        overflow-y: auto;
+      }
+      #panel h2 { margin: 0 0 12px; font-size: 15px; }
+      .widget { margin-bottom: 14px; }
+      .widget label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+      .widget .pdesc { color: var(--dim); font-size: 12px; }
+      .widget input[type="range"] { width: 100%; accent-color: var(--accent); }
+      #disconnected {
+        position: fixed;
+        inset: auto 0 0 0;
+        padding: 10px;
+        text-align: center;
+        background: var(--danger);
+        color: #fff;
+        display: none;
+      }
+      body.disconnected #disconnected { display: block; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span><b id="bpm">—</b> <span class="dimlabel">BPM</span></span>
+      <button id="tap">TAP</button>
+      <div id="rmswrap"><div id="rmsfill"></div></div>
+      <span id="audiomode" class="dimlabel"></span>
+      <span class="dimlabel">MIDI —</span>
+      <span class="spacer"></span>
+      <span id="fps" class="dimlabel"></span>
+      <button id="panic">PANIC</button>
+    </header>
+    <div id="stagestrip">
+      <span class="dimlabel">LIVE</span> <b id="livename">—</b>
+      <span class="dimlabel">STAGED</span> <b id="stagedname">—</b>
+      <button id="unstage" disabled>unstage</button>
+      <span id="fadeinfo" class="dimlabel"></span>
+      <span class="spacer"></span>
+      <label class="dimlabel"><input type="checkbox" id="armagent" /> agent commit</label>
+      <button id="commit" disabled>COMMIT</button>
+    </div>
+    <main>
+      <div id="grid"></div>
+      <aside id="panel">
+        <h2 id="paneltitle">no instance selected</h2>
+        <div id="widgets"></div>
+      </aside>
+    </main>
+    <div id="disconnected">engine not found — is the Output window (<code>/</code>) open?</div>
+    <script type="module" src="/src/console.ts"></script>
+  </body>
+</html>

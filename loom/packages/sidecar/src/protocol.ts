@@ -9,7 +9,27 @@ import { z } from "zod";
 
 export const DEFAULT_WS_PORT = 7341;
 
-export const RequestType = z.enum(["get_session", "get_manifest", "set_param", "screenshot"]);
+/**
+ * The full engine command vocabulary. The MCP sidecar exposes the agent
+ * subset; panic/resume/set_transport/arm_agent_commit are human-only and
+ * reachable only from the Console (BroadcastChannel uses these same
+ * envelopes — one dispatch in the engine serves both).
+ */
+export const RequestType = z.enum([
+  "get_session",
+  "get_manifest",
+  "set_param",
+  "screenshot",
+  "create_instance",
+  "destroy_instance",
+  "stage",
+  "unstage",
+  "commit",
+  "panic",
+  "resume",
+  "set_transport",
+  "arm_agent_commit",
+]);
 export type RequestType = z.infer<typeof RequestType>;
 
 export const RequestMsg = z.object({
@@ -38,21 +58,71 @@ export const SetParamArgs = z.object({
 });
 export type SetParamArgs = z.infer<typeof SetParamArgs>;
 
+export const CreateInstanceArgs = z.object({
+  scene: z.string().min(1),
+  id: z.string().min(1).optional(),
+});
+export type CreateInstanceArgs = z.infer<typeof CreateInstanceArgs>;
+
+export const CommitArgs = z.object({
+  durationFrames: z.number().int().min(0).max(600).default(60),
+});
+export type CommitArgs = z.infer<typeof CommitArgs>;
+
+export const ArmAgentCommitArgs = z.object({ armed: z.boolean() });
+export type ArmAgentCommitArgs = z.infer<typeof ArmAgentCommitArgs>;
+
+export const TransportArgs = z.object({
+  bpm: z.number().positive().optional(),
+  tap: z.boolean().optional(),
+});
+export type TransportArgs = z.infer<typeof TransportArgs>;
+
 // ---- results (produced by the engine, consumed by MCP clients) ----
 
+export const InstanceStatus = z.enum(["ok", "frozen", "rejected"]);
+export type InstanceStatus = z.infer<typeof InstanceStatus>;
+
+export const InstanceInfo = z.object({
+  id: z.string(),
+  scene: z.string(),
+  status: InstanceStatus,
+  error: z.string().nullable(),
+  paramPaths: z.array(z.string()),
+});
+export type InstanceInfo = z.infer<typeof InstanceInfo>;
+
 export const SessionSnapshot = z.object({
+  // Live-instance views (kept flat for M2 compatibility and quick reads).
   scene: z.string().nullable(),
   instance: z.string().nullable(),
   instanceError: z.string().nullable(),
+  paramPaths: z.array(z.string()),
+  // Stage (M3)
+  instances: z.array(InstanceInfo),
+  live: z.string().nullable(),
+  staged: z.string().nullable(),
+  /** Crossfade progress 0..1, or null when not fading. */
+  mix: z.number().nullable(),
+  panicked: z.boolean(),
+  agentCommitArmed: z.boolean(),
+  availableScenes: z.array(z.string()),
+  // World
   audioMode: z.string(),
   bpm: z.number(),
   rms: z.number(),
   onsetCount: z.number(),
   fps: z.number(),
   frame: z.number(),
-  paramPaths: z.array(z.string()),
 });
 export type SessionSnapshot = z.infer<typeof SessionSnapshot>;
+
+export const CreateInstanceResult = z.object({
+  instance: z.string(),
+  scene: z.string(),
+  paramPaths: z.array(z.string()),
+});
+export type CreateInstanceResult = z.infer<typeof CreateInstanceResult>;
 
 export const ParamDescriptor = z.looseObject({
   type: z.enum(["float", "int", "bool"]),

@@ -56,3 +56,19 @@ Append-only progress log, newest entries at the bottom. Basic beats only; detail
 - `pnpm validate:m2` proves the loop end-to-end as a real MCP client: 4 tools listed, clean error with no engine, session/manifest reflect pulse, set_param round-trip 1.3 ms median + clamps + visibly steers pixels (bright extreme lum 146 vs dark 102), screenshot returns the real canvas, defaults restored.
 - Kernel untouched: M1's Manifest/Param/uniformOf contract was already sufficient for live param writes — M2 is pure surface.
 - Not yet proven: the human-witnessed magic-moment session (ink-blob prompt in a live Claude Code session) — needs a desktop run with `pnpm dev` + this branch's `.mcp.json`.
+
+## 2026-06-10 18:00 — M2 magic moment witnessed; M3 started on branch `claude/loom-m3-stage-console`
+
+- Zack ran the live session: agent produced `blobs` + `lava.scene` (contract-clean) and pulled the M5 catalog forward (`build-catalog.mjs` riding `pnpm typecheck`). M2 shipped-when criterion is fully met.
+- Review caught: leaving `lava` live broke m1/m2 validators (they asserted pulse). Fixed first: validators pin pulse and restore the real scene; validation sidecars use an isolated WS port (`?ws=`/`LOOM_WS_PORT`) so a live Claude Code session can never collide with a validation run.
+- M3 scope: Stage state machine (runtime, TDD), multi-instance engine + crossfade compositor, `/console.html` cockpit over BroadcastChannel, 4 new MCP tools with human-gated commit, `validate:m3`.
+
+## 2026-06-10 18:25 — M3 SHIPPED: 24/24 e2e checks; stage/commit/PANIC loop proven
+
+- `Stage` in `@loom/runtime` (11 unit tests): frame-boundary crossfades with mix in (0,1) exclusive, duration-0 hard cuts, PANIC cancels in-flight fades, `adoptLive` for boot only.
+- Engine: `SessionStore` registry + per-instance 640×360 preview targets, `Compositor` (single/crossfade/hold; instances render exactly once per frame), eager-glob scenes barrel so HMR rebuilds only instances whose def identity changed, `EngineApi` as the single dispatch for bridge (agent) + Console channel (human).
+- Console (`/console.html`, vanilla DOM): tile grid with ~6.6 fps JPEG thumbnails (async GPU readback), ✓/✗ chips, LIVE/STAGED badges, click-select/dblclick-solo, auto param panel (rAF-throttled writes), BPM/tap/RMS/fps status bar, big PANIC, stage strip with COMMIT + agent-commit arm toggle.
+- MCP grows to 8 tools: create_instance/destroy_instance/stage/commit — commit refuses agents until armed (Console toggle or `?agentCommit=1`); destroying LIVE is refused for everyone; panic/resume/arm are human-only at dispatch.
+- `pnpm validate:m3` (24/24): candidate created+staged via MCP, slider drag writes through, blocked agent commit leaves LIVE untouched, human COMMIT crossfades never-black (mid-fade lum 165) and promotes, PANIC holds pixels (rgb drift 0.00 over 500 ms) while frames tick 145→191, LIVE destroy refused, `?agentCommit=1` path commits end-to-end.
+- Stumble worth knowing: the first console render bug was a self-destroying selector (badge class toggled away then queried) — tiles now use stable `*-badge` classes with a `show` modifier.
+- Not yet proven manually: human auditioning in a real browser (drag sliders, watch the projector crossfade on a second display).

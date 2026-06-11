@@ -25,8 +25,11 @@ pnpm catalog            # regenerate content/CATALOG.md alone (--check exits 1 i
 pnpm test               # unit tests in all packages (vitest: runtime + sidecar)
 pnpm validate:m0        # M0 acceptance: Playwright + headless Chromium HMR checks
 pnpm validate:m1        # M1 acceptance: signals/audio-reactivity/containment checks
-pnpm validate:m2        # M2 acceptance: MCP client e2e (4 agent tools + latency)
+pnpm validate:m2        # M2 acceptance: MCP client e2e (agent tools + latency)
+pnpm validate:m3        # M3 acceptance: stage/commit/PANIC loop via MCP + Console
 ```
+
+Validators pin `pulse` as their live scene (restoring the real one afterwards) and run their sidecars on isolated ports — safe to run while a live session is up.
 
 Run a single test file:
 
@@ -41,11 +44,12 @@ Milestone work merges only with typecheck green, unit tests green, and all prior
 ### Layout
 
 - `loom/packages/runtime` (`@loom/runtime`) — the kernel: Signal, Events, Param/Manifest, Module/Scene definitions, TexNode, BuildCtx, Instance, InputBus (TimeBus/AudioBus). Unit-tested in Node with a fake clock. **Changes here get human review.**
-- `loom/packages/engine-app` — the Vite app (Output window): WebGPURenderer, render loop, HMR wiring, status overlay, sidecar bridge (`bridge.ts`).
-- `loom/packages/sidecar` — agent surface: MCP server over stdio (tools: `get_session`, `get_manifest`, `set_param`, `screenshot`) bridged to the engine over WebSocket (port 7341). The wire contract is `@loom/sidecar/protocol` (browser-safe, shared with the engine via tsconfig path + Vite alias). The sidecar's stdout belongs to MCP — log to stderr only. `loom/.mcp.json` registers it; `loom/.claude/` holds the in-engine agent rules and skills (start LOOM agent sessions from `loom/`).
+- `loom/packages/engine-app` — the Vite app, two pages: the Output window at `/` (render loop, multi-instance `SessionStore`, `Compositor` for crossfades, HMR via the eager scenes barrel `scenes.ts`, sidecar bridge) and the Console cockpit at `/console.html` (instance tiles, auto param panel, COMMIT/PANIC) talking to the engine over `BroadcastChannel("loom")`. One `EngineApi` dispatch serves agent (WS) and human (channel) commands, source-tagged: agent `commit` requires arming (Console toggle or `?agentCommit=1`), `panic`/`resume`/`arm_agent_commit` are human-only.
+- `loom/packages/runtime`'s `Stage` is the audience-safety core: LIVE changes only via `commit()` (frame-boundary crossfade; PANIC holds the last frame and cancels fades). Instances render exactly once per frame to a directive-chosen destination (canvas, crossfade leg, or preview target).
+- `loom/packages/sidecar` — agent surface: MCP server over stdio (8 tools: `get_session`, `get_manifest`, `set_param`, `screenshot`, `create_instance`, `destroy_instance`, `stage`, `commit`) bridged to the engine over WebSocket (port 7341; `LOOM_WS_PORT` + `?ws=` override for isolation). The wire contract is `@loom/sidecar/protocol` (browser-safe, shared with the engine via tsconfig path + Vite alias). The sidecar's stdout belongs to MCP — log to stderr only. `loom/.mcp.json` registers it; `loom/.claude/` holds the in-engine agent rules and skills (start LOOM agent sessions from `loom/`).
 - `loom/content/` — scenes and modules. **This is agent territory.** `content/` lives outside any package; it imports `@loom/runtime` via tsconfig `paths` plus a matching Vite alias in `engine-app/vite.config.ts`. One root `tsconfig.json` drives typecheck for everything (no project references).
 - `loom/scripts/validate-m*.mjs` — screenshot-based acceptance checks; artifacts committed under `loom/artifacts/` as milestone evidence.
-- `loom/content/scenes/live.scene.ts` — one-line re-export of the active scene; the engine HMR-watches this file.
+- `loom/content/scenes/live.scene.ts` — one-line re-export of the boot scene (instance id `live`). Every scene file is HMR-watched through the barrel; instances rebuild only when their own scene's module identity changes.
 
 ### The kernel (pull-based, frame-memoized)
 
@@ -54,7 +58,7 @@ Milestone work merges only with typecheck green, unit tests green, and all prior
 - Modules: `defineModule(meta, factory)` with zod-validated metadata (`name`, `kind: control|source|effect|geo|output`, `description`, `tags`, `example`). Factory signature: `(ctx: BuildCtx, opts) => TexNode | Signal`. Stdlib bar: ≤ ~150 lines, fully typed, one-line description + usage example — written as much for agents as for humans.
 - `TexNode.color` is strictly TSL `Node<"vec4">` — sources normalize to vec4 once; looser unions fight `@types/three` overloads.
 - Effects own pass ordering: a stateful effect (e.g. `feedback`) returns `[...input.passes, ownPass]`; the Instance just runs the list. No graph scheduler.
-- `Param`/`Manifest`: zod-validated, clamped, serializable. Collected by `BuildCtx` at build time; no UI/MCP surface yet (that's M2/M3).
+- `Param`/`Manifest`: zod-validated, clamped, serializable. Collected by `BuildCtx` at build time; written live through `set_param` (MCP) and the Console's param panel — both go through `Manifest.get(path).set(value)`.
 - InputBus: `TimeBus` (BPM is manual — `?bpm=` or tap `t`; beat tracking is post-v1) and `AudioBus` (mic, or synthetic test audio via `?audio=test` — also the automatic fallback when getUserMedia fails; feeds the same AnalyserNode path as the mic).
 
 ### Never go black (the load-bearing invariant)
