@@ -6,10 +6,12 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { WebSocketServer, type WebSocket } from "ws";
 import { Broker } from "./broker";
 import {
+  ClearModulationArgs,
   CommitArgs,
   CreateInstanceArgs,
   DEFAULT_WS_PORT,
   InstanceArgs,
+  ModulateParamArgs,
   ScreenshotResult,
   SetParamArgs,
 } from "./protocol";
@@ -90,6 +92,68 @@ const TOOLS = [
         },
       },
       required: ["path", "value"],
+    },
+  },
+  {
+    name: "modulate_param",
+    description:
+      "Attach (or replace) a modulator on a param: the engine animates it every frame between " +
+      "lo..hi (defaults to the param's declared range; can never escape it). Same trust tier as " +
+      "set_param — no arming needed, allowed on live. While modulated, set_param on that path " +
+      "errors; clear_modulation takes back manual control. Clocked types need exactly one of " +
+      "periodSeconds | periodBeats (beats track BPM live; phase 0..1 staggers).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        path: { type: "string", description: "Param path as listed in the manifest." },
+        modulator: {
+          type: "object",
+          description:
+            "sine|triangle: smooth lo↔hi bounce. ramp: saw (direction up|down). square: lo/hi " +
+            "alternation (duty 0..1; works on bools). random: new value per interval (bools: coin " +
+            "flip). drift: smoothed random walk (smooth seconds). cycle: step through values per " +
+            "interval (order forward|reverse|pingpong|random; floats need values[]; ints default " +
+            "to lo..hi steps; bools toggle). audio: follow a band (band bass|mid|treble|rms, " +
+            "smooth seconds; takes no period).",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["sine", "triangle", "ramp", "square", "random", "drift", "cycle", "audio"],
+            },
+            periodSeconds: { type: "number", description: "Cycle/interval length in seconds." },
+            periodBeats: { type: "number", description: "Cycle/interval length in beats (tracks BPM)." },
+            phase: { type: "number", description: "0..1 start offset." },
+            lo: { type: "number", description: "Range low; defaults to the param's min." },
+            hi: { type: "number", description: "Range high; defaults to the param's max." },
+            direction: { type: "string", enum: ["up", "down"], description: "ramp only." },
+            duty: { type: "number", description: "square only: fraction of the period at hi." },
+            smooth: { type: "number", description: "drift/audio smoothing, seconds." },
+            order: {
+              type: "string",
+              enum: ["forward", "reverse", "pingpong", "random"],
+              description: "cycle only.",
+            },
+            values: { type: "array", items: { type: "number" }, description: "cycle: explicit step list." },
+            band: { type: "string", enum: ["bass", "mid", "treble", "rms"], description: "audio only." },
+          },
+          required: ["type"],
+        },
+      },
+      required: ["path", "modulator"],
+    },
+  },
+  {
+    name: "clear_modulation",
+    description:
+      "Detach the modulator from a param (no-op success if none). The param holds its last value.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        path: { type: "string", description: "Param path to release." },
+      },
+      required: ["path"],
     },
   },
   {
@@ -174,6 +238,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       case "set_param": {
         const result = await broker.request("set_param", { ...SetParamArgs.parse(args) });
+        return textResult(result);
+      }
+      case "modulate_param": {
+        const result = await broker.request("modulate_param", { ...ModulateParamArgs.parse(args) });
+        return textResult(result);
+      }
+      case "clear_modulation": {
+        const result = await broker.request("clear_modulation", { ...ClearModulationArgs.parse(args) });
         return textResult(result);
       }
       case "screenshot": {

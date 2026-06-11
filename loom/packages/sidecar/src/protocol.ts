@@ -19,6 +19,8 @@ export const RequestType = z.enum([
   "get_session",
   "get_manifest",
   "set_param",
+  "modulate_param",
+  "clear_modulation",
   "screenshot",
   "create_instance",
   "destroy_instance",
@@ -59,6 +61,20 @@ export const SetParamArgs = z.object({
 });
 export type SetParamArgs = z.infer<typeof SetParamArgs>;
 
+export const ModulateParamArgs = z.object({
+  instance: z.string().default("live"),
+  path: z.string().min(1),
+  /** Spec JSON — validated engine-side against @loom/runtime's ModulatorSpec (FR-11). */
+  modulator: z.record(z.string(), z.unknown()),
+});
+export type ModulateParamArgs = z.infer<typeof ModulateParamArgs>;
+
+export const ClearModulationArgs = z.object({
+  instance: z.string().default("live"),
+  path: z.string().min(1),
+});
+export type ClearModulationArgs = z.infer<typeof ClearModulationArgs>;
+
 export const CreateInstanceArgs = z.object({
   scene: z.string().min(1),
   id: z.string().min(1).optional(),
@@ -93,12 +109,21 @@ export type InstanceStatus = z.infer<typeof InstanceStatus>;
 export const AudioDevice = z.object({ id: z.string(), label: z.string() });
 export type AudioDevice = z.infer<typeof AudioDevice>;
 
+export const ModulatorSummary = z.object({
+  path: z.string(),
+  type: z.string(),
+  /** Non-null = detached: eval threw or the param vanished on rebuild. */
+  error: z.string().nullable(),
+});
+export type ModulatorSummary = z.infer<typeof ModulatorSummary>;
+
 export const InstanceInfo = z.object({
   id: z.string(),
   scene: z.string(),
   status: InstanceStatus,
   error: z.string().nullable(),
   paramPaths: z.array(z.string()),
+  modulators: z.array(ModulatorSummary),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfo>;
 
@@ -139,6 +164,8 @@ export const ParamDescriptor = z.looseObject({
   type: z.enum(["float", "int", "bool"]),
   value: z.union([z.number(), z.boolean()]),
   default: z.union([z.number(), z.boolean()]),
+  /** Active modulator config, or null when the param is hand-driven (FR-8). */
+  modulator: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export const ManifestResult = z.object({
   instance: z.string(),
@@ -152,6 +179,20 @@ export const SetParamResult = z.object({
   value: z.union([z.number(), z.boolean()]),
 });
 export type SetParamResult = z.infer<typeof SetParamResult>;
+
+export const ModulateParamResult = z.object({
+  instance: z.string(),
+  path: z.string(),
+  modulator: z.record(z.string(), z.unknown()),
+});
+export type ModulateParamResult = z.infer<typeof ModulateParamResult>;
+
+export const ClearModulationResult = z.object({
+  instance: z.string(),
+  path: z.string(),
+  cleared: z.boolean(),
+});
+export type ClearModulationResult = z.infer<typeof ClearModulationResult>;
 
 export const ScreenshotResult = z.object({
   mime: z.literal("image/png"),

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ArmAgentCommitArgs,
+  ClearModulationArgs,
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
+  ModulateParamArgs,
   RequestMsg,
   ResponseMsg,
   SetParamArgs,
@@ -13,8 +15,8 @@ import {
 describe("RequestMsg", () => {
   it("parses every request type", () => {
     const types = [
-      "get_session", "get_manifest", "set_param", "screenshot",
-      "create_instance", "destroy_instance", "stage", "unstage", "commit",
+      "get_session", "get_manifest", "set_param", "modulate_param", "clear_modulation",
+      "screenshot", "create_instance", "destroy_instance", "stage", "unstage", "commit",
       "panic", "resume", "set_transport", "arm_agent_commit",
     ];
     for (const type of types) {
@@ -99,5 +101,23 @@ describe("M3 args", () => {
     expect(TransportArgs.parse({ bpm: 128 }).bpm).toBe(128);
     expect(TransportArgs.parse({ tap: true }).tap).toBe(true);
     expect(() => TransportArgs.parse({ bpm: 0 })).toThrow();
+  });
+});
+
+describe("modulator args", () => {
+  it("ModulateParamArgs defaults instance to live and passes the spec through", () => {
+    const a = ModulateParamArgs.parse({
+      path: "trail",
+      modulator: { type: "sine", periodSeconds: 2 },
+    });
+    expect(a.instance).toBe("live");
+    expect(a.modulator.type).toBe("sine");
+    expect(() => ModulateParamArgs.parse({ path: "trail" })).toThrow();
+    expect(() => ModulateParamArgs.parse({ modulator: { type: "sine" } })).toThrow();
+  });
+
+  it("ClearModulationArgs requires a path", () => {
+    expect(ClearModulationArgs.parse({ path: "trail" }).instance).toBe("live");
+    expect(() => ClearModulationArgs.parse({})).toThrow();
   });
 });
