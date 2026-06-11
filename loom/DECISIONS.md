@@ -81,3 +81,7 @@ A design pass on "how the instrument is actually used" produced requirements R6�
 ## 2026-06-10 — post-v1 candidate: PANIC modes (safe scene)
 
 - **PANIC armed modes: HOLD (default, today's freeze) or SAFE SCENE** — cut to a pre-built, always-warm panic instance designated by a `panic.scene.ts` pointer (the `live.scene.ts` twin). Output override, not a commit: LIVE pointer unmoved, RESUME cuts back; broken safe scene degrades PANIC to hold, never worse than today. Full requirements + phased plan in `feature-requests/panic-scene.md`.
+
+## 2026-06-10 — post-v1 candidate: console screenshot tool
+
+- **`screenshot_console` MCP tool** — agent eyes on the cockpit UI itself (tiles, badges, param panels), not just instance pixels. Console self-captures its DOM in-page (SVG foreignObject) and replies over a new engine→Console reverse request/response envelope (the missing direction on the BroadcastChannel link); sidecar-side headless capture is impossible (BroadcastChannel is same-browser) and CDP attach was rejected for v1 (launch-flag friction). Full plan in `feature-requests/console-screenshot.md`.
