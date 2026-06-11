@@ -133,20 +133,7 @@ A design pass on "how the instrument is actually used" produced requirements R6�
 
 ## 2026-06-11 — Feature request: Console screenshot for agents (post-v1 candidate)
 
-- **Want:** a `screenshot_console` MCP tool so the agent can see the Console cockpit
-  (`/console.html`) the way `screenshot` shows instance pixels — needed before an agent can
-  give feedback on (or iterate on) the Console UI itself.
-- **Why the existing tool can't do it:** `screenshot` reads render-target/canvas pixels inside
-  the Output page over the WS bridge. The Console is a sibling tab reachable only via
-  `BroadcastChannel` — its DOM is not capturable from page JS (and its preview canvases are
-  WebGL without `preserveDrawingBuffer`, so DOM-to-canvas hacks like html2canvas would read
-  black where it matters).
-- **Candidate approaches:** (a) sidecar attaches over CDP (`Page.captureScreenshot`) when
-  Chrome is launched with `--remote-debugging-port` — pixel-accurate, no in-page code, but
-  needs a launch flag and tab discovery; (b) a dev-only Playwright sidecar mode that owns a
-  headed browser for both pages — accurate and scriptable, heavyweight; (c) Console
-  self-capture via `getDisplayMedia` — permission-prompts the performer mid-set, rejected.
-  (a) is the likely winner; same trust tier as `screenshot` (read-only).
+- **`screenshot_console` MCP tool** — agent eyes on the cockpit UI itself. Existing `screenshot` can't reach a sibling tab; CDP attach is the likely winner. Full analysis + candidate approaches in `feature-requests/console-screenshot.md`.
 
 ## 2026-06-11 - Image/transform building blocks (image, Transform2D, transform2d)
 
@@ -248,3 +235,12 @@ merging the registry's manifest with the input rack's, routed by path prefix
   candidate is as safe as staging, and agents auditioning palette/source variants
   need to drop a candidate without a human. The four tool-surface validator
   assertions (m3/m4/m5/modulators) gained `"unstage"`.
+
+## 2026-06-11 — Docs refactor: one source of truth per fact, one doc per audience
+
+- **`docs/architecture.md` is now THE architecture doc**; root `CLAUDE.md` slimmed to orientation + commands + the never-go-black paragraph + a doc map (the old "read 4 docs before work" list cost ~88KB of context per session). `loom/.claude/` stays the complete, self-sufficient surface for visuals agents.
+- **`implementation-plan-v1.md` → `docs/roadmap.md`** (shipped table + remaining milestones); original archived in `docs/history/`. `requirements-v1.md` moved to `docs/` unchanged.
+- **`agent-updates.md` retired** (archived as `docs/history/agent-updates-m0-m6.md`): milestone ships are now ≤6-line SHIPPED entries here — one log, not two. Durable gotchas distilled into the skills.
+- **`artifacts/` gitignored** — supersedes the M0 "validation artifacts committed as evidence" decision; the evidence is the validator's pass/fail output, screenshots are regenerable local scratch.
+- **`loom:catalog` Vite plugin**: the dev server regenerates `content/CATALOG.md` on every module/scene save (debounced, failures logged and swallowed), closing the gap where live sessions never run `pnpm typecheck` and the library's search surface went stale exactly when agents needed it.
+- Spec: `docs/superpowers/specs/2026-06-11-docs-refactor-design.md`. The in-flight `m6-color-chains` worktree predates this layout — on rebase, redirect its doc steps (ship entry → DECISIONS, guide edits → new paths).
