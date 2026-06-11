@@ -44,6 +44,44 @@ build(ctx) {
 - Combining several signals (e.g. `energy = kickEnv * punch + bass * 0.6`)? Build one derived signal: `new Signal((f) => kickEnv.get(f) * punchSig.get(f) + bass.get(f) * 0.6)` and pass it to a module opt — pulling it through `uniformOf` keeps every stateful input ticking.
 - Scene throws at build are contained but waste an iteration: prefer typecheck-clean saves.
 
+## Palettes (R7)
+
+Two global 5-stop palettes (`primary`/`secondary`) live on the `"globals"` manifest and retint every consuming scene at once. Consume them instead of hardcoding colors so the human can recolor a scene live:
+
+- `ctx.palette.color(i)` — stop `i` (0..4) as a vec3, usable directly in TSL math.
+- `ctx.palette.ramp(t)` — a gradient lookup across all 5 stops, `t` in 0..1 → vec4.
+- `ctx.palette.own([...5 "#rrggbb"])` — your scene's default stops (the `own` source). Call at most once per build.
+
+Using any of them auto-declares a `palette.source` int param (`0` primary · `1` secondary · `2` own) — flipping it is a plain `set_param`, resolved per frame, **never a rebuild**. Default is `own` if you called `own()`, else `primary`. Stop roles are convention: `0` bg · `1` edge · `2`/`3` core · `4` accent. Color params can't be modulated.
+
+The minimal ramp consumer — a scrolling gradient (`content/scenes/gradient.scene.ts`):
+
+```ts
+import { defineScene, Signal, texNode } from "@loom/runtime";
+import { fract, uv } from "three/tsl";
+
+export default defineScene({
+  name: "gradient",
+  description: "Scrolling horizontal gradient across the active palette's five stops.",
+  build(ctx) {
+    const speedS = ctx.float("speed", { default: 0.02, min: 0, max: 0.5 }).signal();
+    let phase = 0;
+    const phaseU = ctx.uniformOf(new Signal((f) => (phase = (phase + f.dt * speedS.get(f)) % 1)));
+    return texNode(ctx.palette.ramp(fract(uv().x.add(phaseU))));
+  },
+});
+```
+
+Stops as discrete colors — set scene defaults with `own()`, then build with `color(i)` (from `lava.scene.ts`):
+
+```ts
+const pal = ctx.palette;
+pal.own(["#161238", "#76102c", "#f37627", "#da3089", "#ffc15e"]); // bg · edge · core · core · accent
+const lavaCore = mix(pal.color(2), pal.color(3), hueU);
+const rgb = mix(pal.color(0), mix(pal.color(1), lavaCore, glow), body)
+  .add(pal.color(4).mul(glow).mul(kickU)); // accent flash on the kick
+```
+
 ## Going live
 
 `content/scenes/live.scene.ts` re-exports the active scene — switch with that one line. After saving: `get_session` (instanceError null? scene name right?) then `screenshot` to compare against intent. Iterate structure in code; converge feel with `set_param`; tell the human which knobs exist.

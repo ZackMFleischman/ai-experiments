@@ -138,3 +138,39 @@ ParamWidget/ModPopover/Rack/Tile components, dark theme matching the old
 palette. Engine, runtime, sidecar, and the Output window untouched; all
 validators (m0–m5, modulators) green; validate-m3's slider write updated to the
 React-safe native setter.
+
+## 2026-06-11 — M6 global color palettes (palette half)
+
+Shipped the palette half of M6 — global, agent/human-adjustable color that
+retints scenes live with zero rebuild (R7/R7.1/R7.2):
+- **Kernel** (human-reviewed): `color` param type (`Param<string>`, format-
+  validating clamp that throws on bad hex); `labels` meta on ranged specs
+  (int-selector affordance); `PaletteRegistry` + `fillRamp` (two 5-stop palettes
+  on a globals-side manifest); `ctx.palette` (`color(i)`/`ramp(t)`/`own(...)`) with
+  a `BuildCtx.finalize()` hook that declares `palette.source` (int 0..2) and one
+  per-frame updater resolving the active stops, re-tinting uniforms / re-uploading
+  a 256×1 ramp `DataTexture` only when the resolved stops change; modulators
+  reject color params; a `builds` counter per session entry.
+- **Engine**: `"globals"` now serves the rack + palettes merged (routed by
+  `palette.` prefix); palette tunings persist to `content/state/palettes.json`;
+  all three state-restore paths hardened with per-param try/catch (a corrupt color
+  can't break boot); `builds` surfaced in `get_session` + `window.__loom`.
+- **Console**: color-swatch widget + `labels` toggle in ParamWidget; a GLOBAL
+  PALETTES block in the rack drawer (`i`); a primary/secondary/own source selector
+  in the stage strip and `/staged` header.
+- **Content**: `lava` converted to `ctx.palette` (own() reproduces its ink/ember
+  look); new `gradient` scene as the minimal `ramp()` consumer.
+- **Also**: added `unstage` as an MCP tool (agent surface 10→11) so agents can
+  drop a staged candidate without a human; updated the four tool-surface validator
+  assertions accordingly.
+- Gates: typecheck, 167 unit tests, validate m0 10/10 · m1 19/19 · m2 14/14 ·
+  m3 27/27 · m4 15/15 · m5 24/24 · modulators 14/14 · **m6 13/13** (new acceptance:
+  `pnpm validate:m6`; artifacts `m6-*.png`). `packages/runtime` changes flagged for
+  human review in the PR.
+- Stumbles worth knowing: (1) a stale `node_modules/.vite` cache silently served an
+  old engine bundle mid-session — get_manifest read the new registry (red) while the
+  scenes/`__loom` rendered the old one (default); clearing the cache fixed it, and
+  it's the same stale-module-graph hazard the architecture notes warn about. (2) the
+  retint/source-flip screenshot checks needed to poll until the preview render +
+  async pixel readback flush, not a single shot — "within a frame" on the GPU still
+  needs a tick to reach a screenshot.
