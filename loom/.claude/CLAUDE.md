@@ -28,7 +28,10 @@ packages/engine-app/ Output window: render loop, HMR, sidecar bridge   } not you
 packages/sidecar/    MCP <-> WebSocket bridge                          } to edit
 content/modules/     {control,sources,effects}/  — composable typed modules   <- yours
 content/scenes/      *.scene.ts + live.scene.ts re-export                     <- yours
+content/CATALOG.md   generated index of every module + scene — read this first
 ```
+
+`CATALOG.md` regenerates automatically on `pnpm typecheck` (or `pnpm catalog`); never edit it by hand.
 
 Key kernel facts:
 - Signals are pulled per frame and memoized on `f.frame`. CPU signals reach the GPU only through `ctx.uniformOf(signal)` — that registration is also what keeps stateful signals (lag, envelope) ticking.

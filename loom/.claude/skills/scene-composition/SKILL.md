@@ -38,7 +38,7 @@ build(ctx) {
 - **Params are the contract with the human.** Anything they'll want to ride live (intensity, speed, color drift, persistence) is a `ctx.float/int/bool`, not a constant. Tune via `set_param` before touching code again.
 - Audio: `ctx.audio.band("bass"|"mid"|"treble")` (smooth with `lagSignal`), `ctx.audio.rms`, `ctx.audio.onset({ band, threshold })`. Onsets are events — convert with `envelopeSignal` for visual punch.
 - Time: `ctx.time.beatPhase`, `ctx.time.beatEvery(n)`, or `lfo(ctx, { periodBeats })` for beat-locked motion.
-- Search `content/modules/` before writing inline shader code — compose existing modules first.
+- Check `content/CATALOG.md` (generated one-line index of every module + scene) before writing inline shader code — compose existing modules first.
 - Scene throws at build are contained but waste an iteration: prefer typecheck-clean saves.
 
 ## Going live

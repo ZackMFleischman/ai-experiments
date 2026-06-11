@@ -35,7 +35,7 @@ export const myModule = defineModule(
 
 ## Checklist before you're done
 
-1. `pnpm typecheck` passes.
-2. Metadata complete (name/kind/description/tags/example) — this is the library's search surface.
+1. `pnpm typecheck` passes (it also regenerates `content/CATALOG.md` from module metadata).
+2. Metadata complete (name/kind/description/tags/example) — the generated catalog is the library's search surface.
 3. Exercise it from a scene (wire into `live.scene.ts`), `screenshot`, confirm it does what the description claims.
 4. If it has tunable feel, expose params in the *scene* that uses it (params live in scenes; modules take Signals/opts).

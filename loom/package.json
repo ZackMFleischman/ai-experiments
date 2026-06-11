@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "pnpm --filter @loom/engine-app dev",
     "sidecar": "pnpm --filter @loom/sidecar dev",
-    "typecheck": "tsc --noEmit -p .",
+    "typecheck": "node scripts/build-catalog.mjs && tsc --noEmit -p .",
+    "catalog": "node scripts/build-catalog.mjs",
     "test": "pnpm -r --if-present test",
     "validate:m0": "node scripts/validate-m0.mjs",
     "validate:m1": "node scripts/validate-m1.mjs",
