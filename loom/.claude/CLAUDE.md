@@ -7,6 +7,7 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 - `get_session` — what's running: all instances with status, LIVE/STAGED pointers, available scenes, audio mode, BPM, fps, frame.
 - `get_manifest` — every tweakable param of an instance: type, range, default, current value.
 - Instance ids: the boot instance (bound to `live.scene.ts`) is `"boot"`; created ones are `"<scene>-<n>"`. The id `"live"` is an **alias** that always resolves to whatever instance is currently routed to output — it's the default everywhere, so "tweak the live thing" needs no lookup.
+- The pseudo-instance `"globals"` serves the **input rack**: `get_manifest {instance:"globals"}` lists every channel tuning (`inputs.kick.threshold`, `inputs.bass.gain`, …) and `set_param` retunes it live for every consumer at once. `get_session` carries the live channel values in `inputs` (your meters). Tunings persist across sessions (`content/state/`).
 - `set_param` — change a param live (<100 ms, no recompile). Values clamp to range.
 - `screenshot` — see an instance's actual pixels (live = the Output canvas, others = their preview target). Use it after every meaningful edit; never guess what's on screen.
 - `create_instance` — build a scene (by name from `availableScenes`) into a sandbox tile. This is how you build candidates without touching the audience.
@@ -24,6 +25,7 @@ The engine must be running (`pnpm dev`) for tools to work. `?audio=test` on the 
 4. **Trust the safety net, verify with eyes.** A bad save never blanks the output (compile errors are withheld; build throws keep the previous scene; render throws freeze the instance). After a save, `get_session` tells you if your instance errored, and `screenshot` shows what's actually rendering.
 5. **Build in sandboxes, hand over for the audience.** New work goes through `create_instance` → iterate (screenshot/set_param/edit) → `stage` → ask the human to COMMIT. Editing `live.scene.ts` directly hot-swaps whatever is bound to the boot instance — fine in a solo dev session, rude mid-performance.
 6. **One file is the boot scene**: `content/scenes/live.scene.ts` re-exports the scene the engine boots with. Don't delete it.
+7. **Audio reactivity consumes named rack channels**: `ctx.input("kick")` etc., defined in `content/inputs.ts` (yours to grow — hot-reloads like a scene). A channel's detection meaning is owned globally; consumers get a per-instance `input.<name>.amount` trim. A differently-tuned kick is a **new named channel** (`kickTight`), never a local re-detection. MIDI binding/learn is human-only (Console).
 
 ## Architecture map
 
@@ -34,6 +36,8 @@ packages/engine-app/ Output window: render loop, HMR, sidecar bridge   } not you
 packages/sidecar/    MCP <-> WebSocket bridge                          } to edit
 content/modules/     {control,sources,effects}/  — composable typed modules   <- yours
 content/scenes/      *.scene.ts + live.scene.ts re-export                     <- yours
+content/inputs.ts    the input rack: named channels (defineInputs)            <- yours
+content/state/       tuned state (inputs/bindings/values) — engine-written JSON
 content/CATALOG.md   generated index of every module + scene — read this first
 ```
 

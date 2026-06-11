@@ -16,10 +16,9 @@ build(ctx) {
   // 1. Params — the human's knobs. Honest ranges, good defaults, descriptions.
   const punch = ctx.float("punch", { default: 1.2, min: 0, max: 3, description: "kick hit strength" });
 
-  // 2. World — pull from the InputBus, shape with control signals.
-  const kick = ctx.audio.onset({ band: "bass", threshold: 0.22 });
-  const kickEnv = envelopeSignal(kick, { decay: 0.22 });      // events -> signal
-  const bass = lagSignal(ctx.audio.band("bass"), 0.06);       // smooth the raw band
+  // 2. World — consume named input-rack channels (content/inputs.ts).
+  const kickEnv = ctx.input("kick");                          // bass onsets -> tuned envelope
+  const bass = ctx.input("bass");                             // lagged bass energy
   const beat = lfo(ctx, { shape: "sine", periodBeats: 16 });  // beat-synced drift
 
   // 3. Bridge CPU -> GPU once per value.
@@ -38,7 +37,8 @@ build(ctx) {
 ## Rules of thumb
 
 - **Params are the contract with the human.** Anything they'll want to ride live (intensity, speed, color drift, persistence) is a `ctx.float/int/bool`, not a constant. Tune via `set_param` before touching code again.
-- Audio: `ctx.audio.band("bass"|"mid"|"treble")` (smooth with `lagSignal`), `ctx.audio.rms`, `ctx.audio.onset({ band, threshold })`. Onsets are events — convert with `envelopeSignal` for visual punch.
+- **Audio reactivity goes through the input rack**: `ctx.input("kick"|"hats"|"bass"|"energy")` — named channels defined in `content/inputs.ts`, tuned once globally (manifest instance `"globals"`: `inputs.kick.threshold`, …), consumed late-bound (retuning never rebuilds your scene). Each `ctx.input` auto-declares an `input.<name>.amount` trim param. **Trims, not overrides** — if you need a differently-detected kick, add a new named channel to `content/inputs.ts` (e.g. `d.onset("kickTight", …)`); don't retune `kick` to fit one scene.
+- Raw bus access (`ctx.audio.band/rms/onset` + `lagSignal`/`envelopeSignal`) still exists for experiments, but a detection idiom worth keeping belongs in the rack where the human can tune and meter it (Console drawer on `i`).
 - Time: `ctx.time.beatPhase`, `ctx.time.beatEvery(n)`, or `lfo(ctx, { periodBeats })` for beat-locked motion.
 - Check `content/CATALOG.md` (generated one-line index of every module + scene) before writing inline shader code — compose existing modules first; if the look you need isn't there, add a module rather than inlining it.
 - Combining several signals (e.g. `energy = kickEnv * punch + bass * 0.6`)? Build one derived signal: `new Signal((f) => kickEnv.get(f) * punchSig.get(f) + bass.get(f) * 0.6)` and pass it to a module opt — pulling it through `uniformOf` keeps every stateful input ticking.

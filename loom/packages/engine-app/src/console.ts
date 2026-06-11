@@ -34,6 +34,10 @@ const scenePick = $<HTMLSelectElement>("#scenepick");
 const createBtn = $<HTMLButtonElement>("#createbtn");
 const audioMode = $<HTMLSelectElement>("#audiomode");
 const stageStrip = $("#stagestrip");
+const rack = $("#rack");
+const rackRows = $("#rackrows");
+const rackToggle = $<HTMLButtonElement>("#racktoggle");
+const midiStat = $("#midistat");
 
 const ch = new BroadcastChannel("loom");
 
@@ -57,7 +61,8 @@ let state: StateMsg | null = null;
 let lastStateAt = -Infinity;
 let selected: string | null = null;
 let solo: string | null = null;
-let draggingPath: string | null = null;
+/** `${instance}:${path}` of the slider under the user's thumb, if any. */
+let draggingKey: string | null = null;
 
 ch.onmessage = (ev) => {
   const data = ev.data as { kind?: string } & Record<string, unknown>;
@@ -119,6 +124,26 @@ audioMode.addEventListener("change", () => {
     "set_audio",
     v === "test" ? { mode: "test" } : { mode: "mic", deviceId: v.slice(4) || undefined },
   ).catch(fail);
+});
+
+// The input rack drawer (R6.4): every channel with a live meter and its
+// global tuning widgets. Toggled on "i" (or the header button).
+function toggleRack(): void {
+  rack.classList.toggle("hidden");
+  render();
+}
+rackToggle.addEventListener("click", toggleRack);
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "i") return;
+  const t = e.target;
+  if (
+    t instanceof HTMLInputElement ||
+    t instanceof HTMLSelectElement ||
+    t instanceof HTMLTextAreaElement
+  ) {
+    return; // typing, not a hotkey
+  }
+  toggleRack();
 });
 
 // Drag a tile onto the stage strip to stage it (R9.3).
@@ -220,7 +245,11 @@ function render(): void {
     if (!seen.has(tile.dataset.id!)) tile.remove();
   }
 
+  midiStat.textContent = s.midi.devices.length ? `MIDI ${s.midi.devices.join(" · ")}` : "MIDI —";
+  midiStat.classList.toggle("dimlabel", s.midi.devices.length === 0);
+
   renderPanel();
+  renderRack();
 }
 
 function makeTile(id: string): HTMLElement {
@@ -262,6 +291,26 @@ function makeTile(id: string): HTMLElement {
   return tile;
 }
 
+// ---- MIDI-learn helpers ----
+// Bindings are keyed by scene engine-side; the Console resolves an instance
+// to its scene to display bound/learning state on the right widgets.
+function sceneFor(instance: string): string | null {
+  if (instance === "globals") return "globals";
+  return state?.session.instances.find((i) => i.id === instance)?.scene ?? null;
+}
+
+function bindingFor(instance: string, path: string) {
+  const scene = sceneFor(instance);
+  if (!scene) return null;
+  return state?.session.bindings.find((b) => b.scene === scene && b.path === path) ?? null;
+}
+
+function isLearning(instance: string, path: string): boolean {
+  const l = state?.session.midi.learning;
+  const scene = sceneFor(instance);
+  return l != null && scene != null && l.scene === scene && l.path === path;
+}
+
 // Param panel: rebuild widgets only when the selected manifest's shape
 // changes; otherwise just refresh values (and never under the user's thumb).
 let panelKey = "";
@@ -279,32 +328,75 @@ function renderPanel(): void {
   const key = `${selected}:${Object.keys(manifest).join(",")}`;
   if (key !== panelKey) {
     panelKey = key;
-    widgetsEl.replaceChildren(...Object.entries(manifest).map(([path, p]) => makeWidget(path, p)));
+    widgetsEl.replaceChildren(
+      ...Object.entries(manifest).map(([path, p]) => makeWidget(selected!, path, p)),
+    );
   }
+  refreshWidgets(widgetsEl, selected, manifest);
+}
+
+/** Refresh values + learn-button states inside a widget container. */
+function refreshWidgets(
+  container: HTMLElement,
+  instance: string,
+  manifest: Record<string, ParamDesc>,
+): void {
   for (const [path, p] of Object.entries(manifest)) {
-    if (path === draggingPath) continue;
-    const input = widgetsEl.querySelector<HTMLInputElement>(`[data-path="${cssEscape(path)}"]`);
-    const valueEl = widgetsEl.querySelector<HTMLElement>(`[data-value="${cssEscape(path)}"]`);
+    const input = container.querySelector<HTMLInputElement>(`[data-path="${cssEscape(path)}"]`);
     if (!input) continue;
-    if (p.type === "bool") input.checked = p.value === true;
-    else input.value = String(p.value);
-    if (valueEl) valueEl.textContent = formatValue(p);
+    if (`${instance}:${path}` !== draggingKey) {
+      if (p.type === "bool") input.checked = p.value === true;
+      else input.value = String(p.value);
+      const valueEl = container.querySelector<HTMLElement>(`[data-value="${cssEscape(path)}"]`);
+      if (valueEl) valueEl.textContent = formatValue(p);
+    }
+    const learn = container.querySelector<HTMLButtonElement>(`[data-learn="${cssEscape(path)}"]`);
+    if (learn) {
+      const bound = bindingFor(instance, path);
+      const learning = isLearning(instance, path);
+      learn.classList.toggle("bound", bound != null && !learning);
+      learn.classList.toggle("learning", learning);
+      learn.textContent = learning ? "···" : bound ? `cc${bound.cc}` : "M";
+      learn.title = learning
+        ? "move a controller… (click to cancel)"
+        : bound
+          ? `bound to cc${bound.cc} — click to unbind`
+          : "MIDI-learn: click, then move a knob";
+    }
   }
 }
 
-function makeWidget(path: string, p: ParamDesc): HTMLElement {
+function makeWidget(instance: string, path: string, p: ParamDesc, label?: string): HTMLElement {
   const div = document.createElement("div");
   div.className = "widget";
-  const label = document.createElement("label");
-  label.innerHTML = `<span>${path}</span><span class="pvalue" data-value="${path}">${formatValue(p)}</span>`;
-  div.appendChild(label);
+  const labelEl = document.createElement("label");
+  const name = document.createElement("span");
+  name.className = "pname";
+  name.textContent = label ?? path;
+  name.title = path;
+  const learn = document.createElement("button");
+  learn.className = "learnbtn";
+  learn.dataset.learn = path;
+  learn.textContent = "M";
+  learn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // bound → unbind; learning → cancel (engine toggles); unbound → arm
+    const action = bindingFor(instance, path) && !isLearning(instance, path) ? "midi_unbind" : "midi_learn";
+    void req(action, { instance, path }).catch(fail);
+  });
+  const value = document.createElement("span");
+  value.className = "pvalue";
+  value.dataset.value = path;
+  value.textContent = formatValue(p);
+  labelEl.append(name, learn, value);
+  div.appendChild(labelEl);
 
   const input = document.createElement("input");
   input.dataset.path = path;
   if (p.type === "bool") {
     input.type = "checkbox";
     input.checked = p.value === true;
-    input.addEventListener("change", () => sendParam(path, input.checked));
+    input.addEventListener("change", () => sendParam(instance, path, input.checked));
   } else {
     const min = p.min ?? 0;
     const max = p.max ?? 1;
@@ -313,9 +405,9 @@ function makeWidget(path: string, p: ParamDesc): HTMLElement {
     input.max = String(max);
     input.step = p.type === "int" ? "1" : String(p.step ?? (max - min) / 200);
     input.value = String(p.value);
-    input.addEventListener("pointerdown", () => (draggingPath = path));
-    input.addEventListener("pointerup", () => (draggingPath = null));
-    input.addEventListener("input", () => sendParam(path, Number(input.value)));
+    input.addEventListener("pointerdown", () => (draggingKey = `${instance}:${path}`));
+    input.addEventListener("pointerup", () => (draggingKey = null));
+    input.addEventListener("input", () => sendParam(instance, path, Number(input.value)));
   }
   div.appendChild(input);
   if (p.description) {
@@ -331,18 +423,75 @@ const formatValue = (p: ParamDesc) =>
   p.type === "bool" ? String(p.value) : Number(p.value).toFixed(p.type === "int" ? 0 : 3);
 
 // rAF-throttle param writes so drags feel instant without flooding the channel.
-const queued = new Map<string, number | boolean>();
+const queued = new Map<string, { instance: string; path: string; value: number | boolean }>();
 let flushScheduled = false;
-function sendParam(path: string, value: number | boolean): void {
-  if (!selected) return;
-  queued.set(path, value);
+function sendParam(instance: string, path: string, value: number | boolean): void {
+  queued.set(`${instance}:${path}`, { instance, path, value });
   if (flushScheduled) return;
   flushScheduled = true;
   requestAnimationFrame(() => {
     flushScheduled = false;
-    for (const [p, v] of queued) {
-      void req("set_param", { instance: selected, path: p, value: v }).catch(fail);
+    for (const w of queued.values()) {
+      void req("set_param", { instance: w.instance, path: w.path, value: w.value }).catch(fail);
     }
     queued.clear();
   });
+}
+
+// ---- the input rack drawer ----
+let rackKey = "";
+
+function renderRack(): void {
+  if (!state || rack.classList.contains("hidden")) return;
+  const s = state.session;
+  const globals = state.manifests.globals ?? {};
+  const names = Object.keys(s.inputs).sort();
+  const key = `${names.join(",")}|${Object.keys(globals).join(",")}`;
+  if (key !== rackKey) {
+    rackKey = key;
+    rackRows.replaceChildren(...names.map((name) => makeRackRow(name, globals)));
+  }
+  for (const name of names) {
+    const row = rackRows.querySelector<HTMLElement>(`.rackrow[data-name="${cssEscape(name)}"]`);
+    if (!row) continue;
+    const fill = row.querySelector<HTMLElement>(".rackfill")!;
+    fill.style.width = `${Math.min(100, (s.inputs[name] ?? 0) * 100)}%`;
+    row.classList.toggle("enabled", globals[`inputs.${name}.enabled`]?.value === true);
+    refreshWidgets(row, "globals", channelParams(globals, name));
+  }
+}
+
+/** The globals params belonging to one channel (enabled included). */
+function channelParams(
+  globals: Record<string, ParamDesc>,
+  name: string,
+): Record<string, ParamDesc> {
+  const out: Record<string, ParamDesc> = {};
+  for (const [path, p] of Object.entries(globals)) {
+    if (path.startsWith(`inputs.${name}.`)) out[path] = p;
+  }
+  return out;
+}
+
+function makeRackRow(name: string, globals: Record<string, ParamDesc>): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "rackrow";
+  row.dataset.name = name;
+
+  const meter = document.createElement("div");
+  meter.className = "rackmeter";
+  meter.innerHTML = `<div class="rackfill"></div>`;
+  const label = document.createElement("b");
+  label.className = "rackname";
+  label.textContent = name;
+  row.append(meter, label);
+
+  const knobs = document.createElement("div");
+  knobs.className = "rackknobs";
+  for (const [path, p] of Object.entries(channelParams(globals, name))) {
+    const knob = path.slice(`inputs.${name}.`.length);
+    knobs.appendChild(makeWidget("globals", path, p, knob));
+  }
+  row.appendChild(knobs);
+  return row;
 }

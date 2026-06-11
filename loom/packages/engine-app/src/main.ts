@@ -1,13 +1,18 @@
 import {
   AudioBus,
+  BindingStore,
   Clock,
+  InputRegistry,
+  MidiBus,
   Stage,
   TimeBus,
   type FrameCtx,
+  type InputsDef,
   type SceneDef,
 } from "@loom/runtime";
 import { DEFAULT_WS_PORT, type InstanceStatus, type ScreenshotResult } from "@loom/sidecar/protocol";
 import { WebGPURenderer } from "three/webgpu";
+import inputsDef from "../../../content/inputs";
 import liveScene from "../../../content/scenes/live.scene";
 import { startBridge } from "./bridge";
 import { Compositor } from "./compositor";
@@ -16,6 +21,7 @@ import { EngineApi } from "./engine-api";
 import { FpsMeter } from "./fps";
 import { getScenes } from "./scenes";
 import { entryStatus, SessionStore } from "./session";
+import { StateClient } from "./state";
 
 declare global {
   interface Window {
@@ -34,6 +40,10 @@ declare global {
       panicked: boolean;
       agentCommitArmed: boolean;
       instances: Array<{ id: string; scene: string; status: InstanceStatus }>;
+      /** Input-rack channel values (rack meters / validation). */
+      inputs: Record<string, number>;
+      /** Mocked-hardware hook: feeds the same path as a real CC message. */
+      midiInject: (cc: number, ch: number, value01: number) => void;
     };
   }
 }
@@ -63,7 +73,61 @@ const timeBus = new TimeBus(Number(qs.get("bpm")) || 120);
 const audio = new AudioBus();
 const fps = new FpsMeter(fpsEl);
 
-const session = new SessionStore({ audio, time: timeBus });
+// The input rack (R6): named channels over the audio/MIDI buses, tuned via
+// the globals manifest. defineInputs failures keep the previous rack —
+// never-go-black covers the rack too.
+const midi = new MidiBus();
+void midi.init();
+const inputs = new InputRegistry({ audio, midi });
+function tryDefineInputs(def: InputsDef): boolean {
+  try {
+    inputs.define(def);
+    return true;
+  } catch (err) {
+    console.error("[loom] content/inputs.ts rejected; keeping previous rack", err);
+    return false;
+  }
+}
+tryDefineInputs(inputsDef);
+
+const bindings = new BindingStore();
+// `?state=off` keeps validation runs from reading/writing tuned state.
+const state = new StateClient(qs.get("state") !== "off");
+const tunedValues = new Map<string, Record<string, number | boolean>>();
+
+const persist = {
+  globals: () => state.save("inputs", () => inputs.manifest.values()),
+  scene: (sceneName: string) => {
+    const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
+    if (entry) tunedValues.set(sceneName, entry.instance.manifest.values());
+    state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
+  },
+  bindings: () => state.save("bindings", () => bindings.toJSON()),
+};
+
+// MIDI routing: a CC completes a pending learn, then drives its bindings
+// through the same Manifest write path as set_param and the Console.
+midi.onCc((e) => {
+  const { learned } = bindings.handleCc(e, (scene, path, v01) => {
+    if (scene === "globals") {
+      inputs.manifest.get(path)?.setNormalized(v01);
+      persist.globals();
+      return;
+    }
+    let touched = false;
+    for (const entry of session.entries.values()) {
+      if (entry.sceneName !== scene) continue;
+      entry.instance.manifest.get(path)?.setNormalized(v01);
+      touched = true;
+    }
+    if (touched) persist.scene(scene);
+  });
+  if (learned) persist.bindings();
+});
+
+const session = new SessionStore({ audio, time: timeBus, inputs }, (scene) =>
+  tunedValues.get(scene),
+);
 const stage = new Stage();
 const compositor = new Compositor(RENDER_W, RENDER_H);
 
@@ -110,6 +174,24 @@ await renderer.init();
 renderer.setSize(RENDER_W, RENDER_H, false);
 await startAudio();
 
+// Tuned state (R6.2): globals tunings, MIDI bindings, and per-scene values
+// load before the boot instance builds so it comes up already tuned.
+if (state.enabled) {
+  const savedGlobals = await state.load("inputs");
+  if (savedGlobals && typeof savedGlobals === "object") {
+    for (const [path, v] of Object.entries(savedGlobals as Record<string, number | boolean>)) {
+      inputs.manifest.get(path)?.set(v);
+    }
+  }
+  bindings.load(await state.load("bindings"));
+  for (const scene of currentScenes().keys()) {
+    const vals = await state.load(`values/${scene}`);
+    if (vals && typeof vals === "object") {
+      tunedValues.set(scene, vals as Record<string, number | boolean>);
+    }
+  }
+}
+
 // Audio input devices, cached for the (synchronous) session snapshot.
 let audioDevices: Array<{ id: string; label: string }> = [];
 async function refreshAudioDevices(): Promise<void> {
@@ -147,6 +229,8 @@ window.__loom = {
   panicked: false,
   agentCommitArmed: false,
   instances: [],
+  inputs: {},
+  midiInject: (cc, ch, value01) => midi.inject(cc, ch, value01),
 };
 
 trySwapLive(liveScene);
@@ -175,6 +259,10 @@ const api = new EngineApi(
     currentMix: () => currentMix,
     audioDevices: () => audioDevices,
     refreshAudioDevices: () => void refreshAudioDevices(),
+    inputs,
+    bindings,
+    midiDevices: () => midi.devices,
+    persist,
   },
   { agentCommitArmed: qs.get("agentCommit") === "1" },
 );
@@ -189,6 +277,7 @@ renderer.setAnimationLoop((tMs) => {
   latestFrame = f;
   timeBus.tick(f);
   audio.update(f);
+  inputs.update(f); // every channel advances even with zero consumers (R6.4)
   onsetCount += debugOnsets.poll(f).length;
 
   const directive = stage.tick(f);
@@ -236,6 +325,7 @@ renderer.setAnimationLoop((tMs) => {
   dbg.mix = currentMix;
   dbg.panicked = stage.panicked;
   dbg.agentCommitArmed = api.agentCommitArmed;
+  dbg.inputs = inputs.values();
   dbg.instances = [...session.entries.values()].map((e) => ({
     id: e.id,
     scene: e.sceneName,
@@ -264,6 +354,17 @@ if (import.meta.hot) {
         ? `[loom] scene hot-swapped: ${session.get(BOOT_ID)?.sceneName}`
         : "[loom] scene rejected; previous still live",
     );
+  });
+
+  // The input rack hot-reloads like scenes: a bad inputs.ts is rejected and
+  // the previous rack (with its tunings and detector state) keeps running.
+  import.meta.hot.accept("../../../content/inputs", (mod) => {
+    if (!mod?.default) {
+      console.warn("[loom] inputs hot update carried no default export; keeping previous rack");
+      return;
+    }
+    const ok = tryDefineInputs(mod.default as InputsDef);
+    console.info(ok ? "[loom] input rack redefined" : "[loom] inputs.ts rejected; previous rack still active");
   });
 
   // Any scene file edit bubbles through the barrel: rebuild only instances

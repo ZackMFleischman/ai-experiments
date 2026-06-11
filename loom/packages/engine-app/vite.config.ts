@@ -1,3 +1,5 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
@@ -13,8 +15,62 @@ const watchContent: Plugin = {
   },
 };
 
+// Tuned-state persistence (R6.2): GET/POST /loom/state/<name> reads/writes
+// content/state/<name>.json. Vite is LOOM's standing server, so the sidecar
+// stays optional (R4.5) and state files are plain text in git (NFR-4).
+const stateApi: Plugin = {
+  name: "loom:state",
+  configureServer(server) {
+    const stateDir = fileURLToPath(new URL("../../content/state", import.meta.url));
+    server.middlewares.use("/loom/state/", (req, res) => {
+      const name = decodeURIComponent((req.url ?? "").replace(/^\//, "").split("?")[0]!);
+      if (!/^[a-zA-Z0-9_\-/]+$/.test(name) || name.includes("..")) {
+        res.statusCode = 400;
+        res.end("bad state name");
+        return;
+      }
+      const file = normalize(join(stateDir, `${name}.json`));
+      if (!file.startsWith(normalize(stateDir))) {
+        res.statusCode = 400;
+        res.end("bad state name");
+        return;
+      }
+      if (req.method === "GET") {
+        try {
+          const body = readFileSync(file, "utf8");
+          res.setHeader("content-type", "application/json");
+          res.end(body);
+        } catch {
+          res.statusCode = 404;
+          res.end("{}");
+        }
+        return;
+      }
+      if (req.method === "POST") {
+        let raw = "";
+        req.on("data", (chunk) => (raw += chunk));
+        req.on("end", () => {
+          try {
+            JSON.parse(raw); // store JSON only — a corrupt write must never land
+            mkdirSync(dirname(file), { recursive: true });
+            writeFileSync(file, raw);
+            res.statusCode = 204;
+            res.end();
+          } catch {
+            res.statusCode = 400;
+            res.end("body must be JSON");
+          }
+        });
+        return;
+      }
+      res.statusCode = 405;
+      res.end();
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [watchContent],
+  plugins: [watchContent, stateApi],
   resolve: {
     alias: {
       // Single source of truth for runtime resolution so content/ scenes

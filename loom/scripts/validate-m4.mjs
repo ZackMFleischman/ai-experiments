@@ -18,7 +18,8 @@ const ARTIFACTS = join(ROOT, "artifacts");
 const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const PORT = 5201;
 const WS_PORT = 7344;
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
+// state=off: persisted tunings (M5) must never skew validation assertions.
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
 const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
 const STAGED_URL = `http://localhost:${PORT}/staged.html`;
 

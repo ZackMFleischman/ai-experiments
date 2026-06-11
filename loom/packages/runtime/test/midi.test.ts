@@ -1,0 +1,94 @@
+import { describe, expect, it } from "vitest";
+import { MidiBus, type MidiAccessLike, type MidiInputLike } from "../src/inputbus/midi";
+
+function fakeAccess(): MidiAccessLike & {
+  emit(id: string, data: number[]): void;
+  plug(id: string, name: string): void;
+  unplug(id: string): void;
+} {
+  const inputs = new Map<string, MidiInputLike>();
+  const access: MidiAccessLike = { inputs, onstatechange: null };
+  return Object.assign(access, {
+    emit(id: string, data: number[]) {
+      inputs.get(id)?.onmidimessage?.({ data: new Uint8Array(data) });
+    },
+    plug(id: string, name: string) {
+      inputs.set(id, { name, onmidimessage: null });
+      access.onstatechange?.();
+    },
+    unplug(id: string) {
+      inputs.delete(id);
+      access.onstatechange?.();
+    },
+  });
+}
+
+describe("MidiBus", () => {
+  it("is inert without WebMIDI (no devices, ccValue 0, no throw)", async () => {
+    const bus = new MidiBus();
+    await bus.init(undefined);
+    expect(bus.devices).toEqual([]);
+    expect(bus.ccValue(21)).toBe(0);
+  });
+
+  it("normalizes CC messages from a device to 0..1", async () => {
+    const access = fakeAccess();
+    access.plug("a", "Fake Knobs");
+    const bus = new MidiBus();
+    await bus.init(() => Promise.resolve(access));
+    expect(bus.devices).toEqual(["Fake Knobs"]);
+    access.emit("a", [0xb0, 21, 127]); // CC 21 on channel 0
+    expect(bus.ccValue(21, 0)).toBe(1);
+    expect(bus.ccValue(21)).toBe(1); // any-channel read
+    access.emit("a", [0xb2, 21, 0]); // same CC, channel 2
+    expect(bus.ccValue(21, 2)).toBe(0);
+    expect(bus.ccValue(21, 0)).toBe(1); // per-channel value untouched
+    expect(bus.ccValue(21)).toBe(0); // any-channel reads the latest
+  });
+
+  it("ignores non-CC messages", async () => {
+    const access = fakeAccess();
+    access.plug("a", "Pads");
+    const bus = new MidiBus();
+    await bus.init(() => Promise.resolve(access));
+    access.emit("a", [0x90, 60, 100]); // note on
+    expect(bus.ccValue(60)).toBe(0);
+  });
+
+  it("hot-plugs: statechange refreshes devices and attaches handlers", async () => {
+    const access = fakeAccess();
+    const bus = new MidiBus();
+    await bus.init(() => Promise.resolve(access));
+    expect(bus.devices).toEqual([]);
+    access.plug("late", "Late Controller");
+    expect(bus.devices).toEqual(["Late Controller"]);
+    access.emit("late", [0xb0, 7, 64]);
+    expect(bus.ccValue(7, 0)).toBeCloseTo(64 / 127);
+    access.unplug("late");
+    expect(bus.devices).toEqual([]);
+  });
+
+  it("notifies CC listeners and supports unsubscribe", async () => {
+    const access = fakeAccess();
+    access.plug("a", "K");
+    const bus = new MidiBus();
+    await bus.init(() => Promise.resolve(access));
+    const seen: Array<{ cc: number; ch: number; value: number }> = [];
+    const off = bus.onCc((e) => seen.push(e));
+    access.emit("a", [0xb0, 21, 127]);
+    expect(seen).toEqual([{ cc: 21, ch: 0, value: 1 }]);
+    off();
+    access.emit("a", [0xb0, 21, 0]);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("inject() feeds the same path as real messages (mocked hardware)", () => {
+    const bus = new MidiBus(); // no init at all
+    const seen: number[] = [];
+    bus.onCc((e) => seen.push(e.value));
+    bus.inject(21, 0, 0.5);
+    expect(bus.ccValue(21, 0)).toBeCloseTo(0.5);
+    expect(bus.ccValue(21)).toBeCloseTo(0.5);
+    expect(seen).toEqual([0.5]);
+  });
+});

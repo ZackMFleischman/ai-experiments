@@ -30,6 +30,8 @@ export const RequestType = z.enum([
   "set_transport",
   "set_audio",
   "arm_agent_commit",
+  "midi_learn",
+  "midi_unbind",
 ]);
 export type RequestType = z.infer<typeof RequestType>;
 
@@ -85,6 +87,16 @@ export const SetAudioArgs = z.object({
 });
 export type SetAudioArgs = z.infer<typeof SetAudioArgs>;
 
+/**
+ * MIDI-learn target: a param path on an instance (resolved to its scene
+ * engine-side — bindings are durable across instance churn) or on "globals".
+ */
+export const MidiTargetArgs = z.object({
+  instance: z.string().default("live"),
+  path: z.string().min(1),
+});
+export type MidiTargetArgs = z.infer<typeof MidiTargetArgs>;
+
 // ---- results (produced by the engine, consumed by MCP clients) ----
 
 export const InstanceStatus = z.enum(["ok", "frozen", "rejected"]);
@@ -92,6 +104,22 @@ export type InstanceStatus = z.infer<typeof InstanceStatus>;
 
 export const AudioDevice = z.object({ id: z.string(), label: z.string() });
 export type AudioDevice = z.infer<typeof AudioDevice>;
+
+/** A persisted MIDI binding (shape mirrors @loom/runtime's BindingSchema). */
+export const MidiBinding = z.object({
+  cc: z.number(),
+  ch: z.number().nullable(),
+  scene: z.string(),
+  path: z.string(),
+});
+export type MidiBinding = z.infer<typeof MidiBinding>;
+
+export const MidiStatus = z.object({
+  devices: z.array(z.string()),
+  /** Armed MIDI-learn target, or null. */
+  learning: z.object({ scene: z.string(), path: z.string() }).nullable(),
+});
+export type MidiStatus = z.infer<typeof MidiStatus>;
 
 export const InstanceInfo = z.object({
   id: z.string(),
@@ -120,6 +148,10 @@ export const SessionSnapshot = z.object({
   // World
   audioMode: z.string(),
   audioDevices: z.array(AudioDevice),
+  /** Input-rack channel values (live meters), tuned via instance "globals". */
+  inputs: z.record(z.string(), z.number()),
+  midi: MidiStatus,
+  bindings: z.array(MidiBinding),
   bpm: z.number(),
   rms: z.number(),
   onsetCount: z.number(),
