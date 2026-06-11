@@ -147,3 +147,21 @@ A design pass on "how the instrument is actually used" produced requirements R6�
   headed browser for both pages — accurate and scriptable, heavyweight; (c) Console
   self-capture via `getDisplayMedia` — permission-prompts the performer mid-set, rejected.
   (a) is the likely winner; same trust tier as `screenshot` (read-only).
+
+## 2026-06-11 - Image/transform building blocks (image, Transform2D, transform2d)
+
+- **`image` replaces `imagePlate`**: the base image source only loads/draws (aspect-correct,
+  upright, premultiplied alpha); placement is an attached `Transform2D`, not baked-in opts.
+- **`Transform2D` is a concept, not just a module**: a plain interface of live signals
+  (x/y/rotate/scale/mirrorX) plus the shared `localSpace()` mapper in
+  `content/modules/effects/transform2d.ts`. Sources sample through it directly (no render
+  target, no resolution loss); the `transform2d` effect module wraps the same mapper around
+  an owned RT for transforming arbitrary TexNode chains (glitch-shaped).
+- **Why two paths**: a generic TexNode transform must rasterize first (a node graph cannot be
+  re-evaluated at shifted UVs), but image sources can sample their texture anywhere - forcing
+  everything through RTs would cost a pass per sprite. `flyby` composes 5 sprites as
+  `image`+`Transform2D`+`over` with zero extra passes.
+- **Shader-build gotcha (repeat offender)**: TSL `mix(1.0, node, node)` with a plain JS number
+  as the FIRST arg builds a shader that silently fails to compile - the instance reports ok
+  but its render target never gets written (screenshot errors with "reading 'format'").
+  Wrap leading literals: `mix(float(1), ...)`.

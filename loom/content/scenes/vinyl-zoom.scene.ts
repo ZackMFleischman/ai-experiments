@@ -4,7 +4,7 @@ import { flyby } from "../modules/effects/flyby";
 import { kaleidoZoom } from "../modules/effects/kaleidoZoom";
 import { levels } from "../modules/effects/levels";
 import { over } from "../modules/effects/over";
-import { imagePlate } from "../modules/sources/imagePlate";
+import { image } from "../modules/sources/image";
 
 const IMG_URL = new URL("../assets/VinylDJHippo.png", import.meta.url).href;
 const LOGO_URL = new URL("../assets/DJHippoOverlay.png", import.meta.url).href;
@@ -60,7 +60,7 @@ export default defineScene({
     const thrust = lag(ctx, { input: kick, seconds: glide.signal() });
     const depth = integrate(new Signal((f) => creepSig.get(f) + thrust.get(f) * punchSig.get(f)));
 
-    const record = imagePlate(ctx, { url: IMG_URL, rotate: recordAngle, scale: size.signal() });
+    const record = image(ctx, { url: IMG_URL, transform: { rotate: recordAngle, scale: size.signal() } });
     const dive = kaleidoZoom(ctx, {
       input: record,
       zoom: depth,
@@ -71,7 +71,7 @@ export default defineScene({
     // The logo rides on top, outside the zoom chain — static while the dive runs.
     const logoRpmSig = logoRpm.signal();
     const logoAngle = integrate(new Signal((f) => (-logoRpmSig.get(f) * TAU) / 60));
-    const badge = imagePlate(ctx, { url: LOGO_URL, scale: logoSize.signal(), rotate: logoAngle });
+    const badge = image(ctx, { url: LOGO_URL, transform: { scale: logoSize.signal(), rotate: logoAngle } });
     const branded = over(ctx, { input: graded, overlay: badge, opacity: logo.signal() });
     // The flock rides above everything, untouched by the zoom.
     return flyby(ctx, {

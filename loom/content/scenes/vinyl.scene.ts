@@ -2,7 +2,7 @@ import { Signal, defineScene } from "@loom/runtime";
 import { feedback } from "../modules/effects/feedback";
 import { kaleido } from "../modules/effects/kaleido";
 import { levels } from "../modules/effects/levels";
-import { imagePlate } from "../modules/sources/imagePlate";
+import { image } from "../modules/sources/image";
 
 const IMG_URL = new URL("../assets/VinylDJHippo.png", import.meta.url).href;
 const TAU = Math.PI * 2;
@@ -44,7 +44,7 @@ export default defineScene({
     const kaleidoAngle = integrate(new Signal((f) => spinSig.get(f) * TAU));
     const scale = new Signal((f) => sizeSig.get(f) * (1 + kick.get(f) * bumpSig.get(f)));
 
-    const record = imagePlate(ctx, { url: IMG_URL, rotate: recordAngle, scale });
+    const record = image(ctx, { url: IMG_URL, transform: { rotate: recordAngle, scale } });
     const folded = kaleido(ctx, {
       input: record,
       segments: segments.signal(),
