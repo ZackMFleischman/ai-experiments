@@ -14,7 +14,8 @@ hosts a separate living visual ("garden") tinted with discrete palette *stops*.
 Flipping `palette.source` (own / primary / secondary) live-retints filaments,
 interior, and boundary rim together — the headline showcase moment.
 
-Two reusable modules are extracted/created along the way.
+Along the way: one new reusable module (`paletteMap`) and one existing module
+(`mandelbrot`) made abstract enough to self-dive.
 
 ## Why this showcases palettes well
 
@@ -33,27 +34,35 @@ All three consume the **same** global palette, so one `set_param` on
 
 ## Components
 
-### New module: `mandelDive` (source) — `content/modules/sources/mandelDive.ts`
+### Extend module: `mandelbrot` (source) — `content/modules/sources/mandelbrot.ts`
 
-Pulls the dive animation out of `mandelbrot.scene.ts` into a reusable source.
-Composes the existing `mandelbrot` module with: lag-glided view center, a
-ping-pong zoom integrator (octaves → view scale), and an iteration cap. Returns
-the grayscale fractal `TexNode`, animated.
+Rather than a second module, the dive mechanics fold into the **existing**
+`mandelbrot` module, making it abstract enough to be either a raw renderer or a
+self-diving fractal. The escape-time core is unchanged; new **optional** opts add
+center-glide and an internal ping-pong zoom integrator. Returns the grayscale
+fractal `TexNode`.
 
-**Opts (all `SignalLike`, sensible defaults):**
-- `cx`, `cy` — target view center (the module lags toward them so retargeting glides).
-- `dive` — zoom speed in octaves/sec (ping-pongs between 0 and `depth`).
-- `depth` — max zoom depth in octaves (f32 GPU limit ~18).
-- `iterations` — escape-time cap.
+**Opts (all `SignalLike` unless noted; back-compatible — existing callers unaffected):**
+- `cx`, `cy` — view-center target (existing).
+- `scale` — static half-extent, used when `dive` is absent (existing behavior).
+- `iterations` — escape-time cap (existing).
+- `glide?` — lag seconds for `cx`/`cy` (default `0` = snap; set >0 to glide between targets).
+- `dive?` — when provided, **overrides `scale`**: zoom speed in octaves/sec,
+  ping-ponging between `0` and `depth`. Absent ⇒ static `scale` (unchanged).
+- `depth?` — max zoom depth in octaves for the ping-pong (default ~14; f32 GPU limit ~18).
+- `baseScale?` — half-extent at the top of the dive (default 1.25).
 
-**Internals:** identical math to the current scene (lag centers, integrate
-`zoomAcc`, fold to a `0..depth` triangle wave, `scale = 1.25 * 2^-octaves`).
-Stateful signals are created inside the module via `ctx` (lag, integrators),
-which is legal — modules receive `BuildCtx`.
+**Internals (only active when `dive` is provided):** identical math to the current
+`mandelbrot.scene.ts` (optionally lag centers by `glide`, integrate `zoomAcc`, fold
+to a `0..depth` triangle wave, `scale = baseScale * 2^-octaves`). Stateful signals
+are created inside the module via `ctx` (lag, integrator) — legal; modules receive
+`BuildCtx`.
 
-**Why a module:** the dive mechanics are scene-agnostic and currently duplicated
-into exactly one scene; mandelbloom needs the same behavior. Extracting it is DRY
-and proves composability.
+**Why fold in (not a new module):** the dive is scene-agnostic and currently
+duplicated into exactly one scene; mandelbloom needs the same behavior. A single
+abstract `mandelbrot` (static *or* diving) keeps the stdlib surface small and the
+abstraction in one place. Default behavior (no `dive`) is byte-identical, so no
+existing consumer changes.
 
 ### New module: `paletteMap` (effect) — `content/modules/effects/paletteMap.ts`
 
@@ -75,7 +84,8 @@ and is live-retintable for free.
 
 Composes everything. Data flow:
 
-1. **Base** — `mandelDive` with a *shallow, slow* default dive so the set body
+1. **Base** — `mandelbrot` (dive mode: `dive`+`depth`+`glide`) with a *shallow,
+   slow* default dive so the set body
    (chunky black interior) stays on screen — the garden needs interior to live in.
    (Deep dives are available via params but shrink the interior off-screen; a
    documented tradeoff.)
@@ -105,17 +115,18 @@ bloom + a small zoom punch + the glitch burst amount.
 
 ### Refactor: `mandelbrot.scene.ts`
 
-Replace its inline dive math (POINTS glide + zoom integrator) with a `mandelDive`
-call. **Param surface stays byte-for-byte identical** (`point`, `dive`, `depth`,
-`iter`, `palette`, `drift`, `cycle`, `bands`) so nothing downstream changes; the
-POINTS table stays in the scene (scene-specific), feeding `cx`/`cy` into the
-module. This proves the extraction and removes duplication.
+Replace its inline dive math (POINTS glide + zoom integrator) with a single
+`mandelbrot(ctx, { cx, cy, glide: 1.2, dive, depth, iterations })` call now that
+the module owns that logic. **Param surface stays byte-for-byte identical**
+(`point`, `dive`, `depth`, `iter`, `palette`, `drift`, `cycle`, `bands`) so nothing
+downstream changes; the POINTS table stays in the scene (scene-specific), feeding
+`cx`/`cy` into the module. This proves the extraction and removes duplication.
 
 ## Data flow diagram
 
 ```
                          ┌── exterior: paletteMap(ramp) ──┐
-mandelDive (grayscale) ──┤                                ├─ mix(by inSet) ─┐
+mandelbrot (dive mode) ──┤                                ├─ mix(by inSet) ─┐
    │  b = color.r        └── interior: noise+blobs+stops ─┘                 │
    └─ inSet = 1-smoothstep(0, rim, b) ──────────────────────────────────── + rim(accent)
                                                                              │
@@ -163,8 +174,8 @@ mandelDive (grayscale) ──┤                                ├─ mix(by in
 
 ## Files
 
-- Create: `content/modules/sources/mandelDive.ts`
+- Modify: `content/modules/sources/mandelbrot.ts` (optional glide + dive mode)
 - Create: `content/modules/effects/paletteMap.ts`
 - Create: `content/scenes/mandelbloom.scene.ts`
-- Modify: `content/scenes/mandelbrot.scene.ts` (consume `mandelDive`)
+- Modify: `content/scenes/mandelbrot.scene.ts` (consume the diving `mandelbrot`)
 - Regenerate: `content/CATALOG.md` (via `pnpm typecheck`)
