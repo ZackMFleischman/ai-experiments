@@ -21,7 +21,8 @@ const PORT = 5201;
 const WS_PORT = 7344;
 // state=off: persisted tunings (M5) must never skew validation assertions.
 const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off${resQuery}`;
-const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
+// embed=0: validator consoles must never spawn an embedded engine (it would dial the default sidecar port).
+const CONSOLE_URL = `http://localhost:${PORT}/console.html?embed=0`;
 const STAGED_URL = `http://localhost:${PORT}/staged.html`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -210,7 +211,7 @@ try {
   await waitFor(async () => ((await loomState(output)).audioMode === "test" ? true : null), 10_000, "test mode");
   check("console picker switches audio back to test", true);
 
-  // 5. Drag a tile onto the stage strip to stage it (R9.3).
+  // 5. Drag a tile onto the stage bar: drop = stage + commit (R9.3 redesign).
   const created = toolJson(await callOk(client, "create_instance", { scene: "lava" }));
   const cid = created.instance;
   await consolePage.waitForSelector(`.tile[data-id="${cid}"]`, { timeout: 10_000 });
@@ -224,13 +225,18 @@ try {
     strip.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
     return dt.getData("text/loom-instance") !== "";
   }, cid);
-  await waitFor(async () => ((await loomState(output)).staged === cid ? true : null), 5_000, "drag to stage");
-  check("drag-to-stage stages the dragged tile", dragCarried === true);
+  await waitFor(async () => {
+    const s = await loomState(output);
+    return s.live === cid && s.staged === null && s.mix === null ? true : null;
+  }, 10_000, "drag to go live");
+  check("drag onto the stage bar stages and commits", dragCarried === true);
 
   // 6. The staged tile's stage button reads "unstage" and unstages.
-  const btnText = await consolePage.$eval(`.tile[data-id="${cid}"] .stagebtn`, (b) => b.textContent);
+  await callOk(client, "stage", { instance: "boot" });
+  await waitFor(async () => ((await loomState(output)).staged === "boot" ? true : null), 5_000, "boot staged");
+  const btnText = await consolePage.$eval('.tile[data-id="boot"] .stagebtn', (b) => b.textContent);
   check('staged tile button toggles to "unstage"', btnText === "unstage", `text="${btnText}"`);
-  await consolePage.click(`.tile[data-id="${cid}"] .stagebtn`);
+  await consolePage.click('.tile[data-id="boot"] .stagebtn');
   await waitFor(async () => ((await loomState(output)).staged === null ? true : null), 5_000, "unstage");
   check("tile unstage button clears the staged slot", true);
 
@@ -244,9 +250,10 @@ try {
   );
   const emptyVisible = await stagedPage.$eval("#empty", (el) => getComputedStyle(el).display !== "none");
   check("staged page shows the empty state when nothing is staged", emptyVisible);
-  await callOk(client, "stage", { instance: cid });
+  // cid went LIVE in step 5, so boot is the candidate now.
+  await callOk(client, "stage", { instance: "boot" });
   await waitFor(
-    () => stagedPage.$eval("#stagedname", (el) => el.textContent.includes("lava") || null).catch(() => null),
+    () => stagedPage.$eval("#stagedname", (el) => el.textContent.includes("boot") || null).catch(() => null),
     10_000,
     "staged name",
   );
@@ -264,16 +271,16 @@ try {
   }, 5_000, "crossfade from staged page");
   await waitFor(async () => {
     const s = await loomState(output);
-    return s.live === cid && s.staged === null && s.mix === null ? true : null;
+    return s.live === "boot" && s.staged === null && s.mix === null ? true : null;
   }, 10_000, "fade to finish and promote");
   check("staged page COMMIT crossfades to LIVE", true, `mid mix=${midMix.toFixed(2)}`);
 
   // 8. /staged unstage button.
-  await callOk(client, "stage", { instance: "boot" });
+  await callOk(client, "stage", { instance: cid });
   await waitFor(
-    () => stagedPage.$eval("#stagedname", (el) => el.textContent.includes("boot") || null).catch(() => null),
+    () => stagedPage.$eval("#stagedname", (el) => el.textContent.includes("lava") || null).catch(() => null),
     10_000,
-    "boot staged",
+    "lava staged",
   );
   await stagedPage.click("#unstage");
   await waitFor(async () => ((await loomState(output)).staged === null ? true : null), 5_000, "staged page unstage");

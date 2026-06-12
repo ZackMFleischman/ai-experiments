@@ -245,6 +245,132 @@ merging the registry's manifest with the input rack's, routed by path prefix
 - **`loom:catalog` Vite plugin**: the dev server regenerates `content/CATALOG.md` on every module/scene save (debounced, failures logged and swallowed), closing the gap where live sessions never run `pnpm typecheck` and the library's search surface went stale exactly when agents needed it.
 - Spec: `docs/superpowers/specs/2026-06-11-docs-refactor-design.md`. The in-flight `m6-color-chains` worktree predates this layout — on rebase, redirect its doc steps (ship entry → DECISIONS, guide edits → new paths).
 
+## 2026-06-11 — mandelbloom palette showcase SHIPPED
+
+- **The `mandelbrot` source module absorbed the dive animation** (optional `glide` lag on
+  cx/cy + `dive`/`depth`/`baseScale` ping-pong zoom integrator) instead of a separate
+  `mandelDive` module — one abstract source covers both the static renderer and the
+  self-diving case. The no-`dive`/`glide` path is byte-identical, so existing callers are
+  unaffected; `mandelbrot.scene.ts` was refactored onto it, deleting its duplicated integrator.
+- **New `paletteMap` effect** (`content/modules/effects/paletteMap.ts`): maps input luminance
+  through the **global** palette ramp (`ctx.palette.ramp`), the palette-native sibling of
+  `colorize` (which only knows the cosine PALETTES presets). Any scene using it auto-declares
+  `palette.source`.
+- **New `mandelbloom` scene** showcases R7 palettes: exterior filaments via the ramp, a
+  kick-blooming "garden" (warped noise + blobs, discrete stops) in the black interior, an
+  accent-stop boundary rim for contrast, then feedback → glitch → levels. One `palette.source`
+  flip (own/primary/secondary) retints the whole frame with no rebuild (verified `builds`=1).
+- Gates: `pnpm typecheck` + `pnpm test` green; `pnpm validate:m6` green; eyes-on via MCP
+  (retint with no rebuild; garden blooms on mic audio). Spec + plan under `docs/superpowers/`.
+
+## 2026-06-11 — Console UI redesign SHIPPED
+
+- **Console cockpit rebuilt for cohesion + density** (spec/plan under `docs/superpowers/`):
+  LOOM wordmark; BPM readout and TAP consolidated into one tappable chip; FPS promoted to a
+  first-class mono readout; output/staged open in new tabs; slim stage bar; tiles carry their
+  chrome as overlays (LIVE = red ring + chip, hover-only destroy ×); drag-reorder persists to
+  localStorage; param drawer resizable (240px–60vw, persisted); palettes are swatch-only with
+  hex tooltips; staged instance streams at 640×360 so /staged.html shows real detail.
+- **Scene picker is a ghost "+" tile**: a grid of scene cards showing each scene's *last-run
+  snapshot* (`loom.scenethumbs` in localStorage, fed by every rendering tile). Hovering a card
+  shows its snapshot in the tile instantly, builds a REAL sandbox instance after 250 ms, and
+  swaps in live pixels when they arrive — the tile never blanks mid-swap (the v1 list flickered:
+  destroy-then-create left a blank gap). Preview destroyed on close/move, never more than one
+  alive; the grid hides the preview's own tile until picked.
+- **Agent commit defaults ARMED** ("let the agent commit by default for now" — Zack);
+  `?agentCommit=0` or the Console checkbox restores the gate. **Drop on the stage bar = stage
+  + commit** (human-sourced, never gated). validate-m3/m4 acceptance moved with the behavior:
+  the gate is now proven via disarm instead of via arm, drag-to-strip asserts go-live.
+- Gates: typecheck, unit tests, validate m0–m6 + modulators all green (m5 flaked once on the
+  envelope-drain window, clean on rerun). Eyes-on via validator + peek screenshots.
+
+## 2026-06-11 — Console works without the Output tab visible (+ QoL batch)
+
+- **Worker clock for hidden tabs**: browsers freeze rAF and clamp main-thread timers to
+  >=1 s when a tab is backgrounded, so the Console went dead whenever the Output tab
+  wasn''t showing. A dedicated-worker interval (exempt from timer throttling) drives
+  `frameTick` at ~30 fps while `document.hidden`, and the console-channel state/thumb
+  broadcasts moved to the same worker clocks. `__loom.clockSource` reports which clock
+  drove the last frame (raf | worker).
+- **/staged.html presents like the Output window**: preview fills the viewport,
+  cover-scaled, under its slim header (was a small contain-fit image).
+- **palette.source moved to the param drawer** (Zack: belongs with the instance''s params,
+  not the sub-header). ParamPanel hoists it flat — never buried in an accordion; the
+  stage bar lost its toggle; /staged keeps one (no drawer there). m6 §9 now drives the
+  drawer toggle.
+- **Named palette presets**: per-row dropdown in the Rack applies curated built-ins or
+  user-saved palettes (5 stops, live retint via set_param); "save as…" names the current
+  stops (localStorage `loom.palettepresets`, user entries shadow built-ins).
+- Gates: typecheck, unit tests, full validate m0–m6 + modulators green; worker-clock
+  render path proven via forced-hidden probe (clockSource=worker, thumbs streaming).
+
+## 2026-06-11 — Roadmap restructure: depth before library, assets get milestones
+
+- Zack's call: split the old Geo-&-particles L into two milestones and move them **ahead of**
+  Library & parallel build — M7 Geo, M8 Particles (particles consume M7's `GeoNode`). New
+  milestones: M9 video sources (clips usable exactly like images, mirroring `sources/image.ts`),
+  M10 asset explorer (left Console pane: modules binned by kind, TouchDesigner-style, plus
+  user-registered external folders — e.g. a VJ Assets dir — with select/drag as the interaction
+  model). Library is M11, gig hardening M12.
+- New ordered Housekeeping block in the roadmap: cull `hello`/`pulse-glitch`/`vinyl` scenes
+  (`pulse` stays — every validator pins it as its live scene, so culling it would mean re-pinning
+  six validators; Zack chose to keep it as the test workhorse), then a param-group naming
+  pass over surviving scenes; Console mod-popover default becomes 20 s (was 4 beats; runtime
+  has no default to change); double-click-to-rename instance tiles; 2× tile thumbnails.
+
+## 2026-06-11 — The Output window is optional: embedded console engine
+
+- The previous worker-clock fix only covered "Output open but backgrounded" — Zack opens
+  the Console *alone*. The Console now boots an **embedded engine** in a hidden same-origin
+  iframe (`/?embedded=1&audio=test`) when no engine says hello within 2.5 s.
+- **Takeover protocol** (console-channel): state broadcasts carry `engineId`/`embedded`;
+  an embedded engine that hears another engine''s state **stands down completely** — stops
+  the render loop, the worker clocks, the WS bridge (no zombie reconnects racing
+  "latest connection wins" at the sidecar), and stops answering channel requests. The
+  Output window always wins; embedded peers tie-break on id. The Console follows the new
+  engine seamlessly.
+- Worker fallback clock now also fires on **rAF starvation** (>150 ms without a rAF tick),
+  which covers offscreen-iframe throttling, not just `document.hidden`.
+- Audio: AudioContexts need a user gesture the iframe never gets — the Console forwards
+  its pointerdown to `iframe.__loom.resumeAudio()` (activation is visible to same-origin
+  frames). Embedded boots on the test signal; switch to mic from the header picker.
+- Validator consoles pin `?embed=0` — an embedded engine would dial the DEFAULT sidecar
+  port and break run isolation.
+- Gates: typecheck, unit tests, full validate m0–m6 + modulators green. Solo probe:
+  console alone → boot tile + thumbs stream; real Output opened → embedded frame counter
+  freezes, console stays connected.
+
+## 2026-06-11 — Selection halo, name-only tiles, rename_instance, pnpm validate
+
+- **Selection and stage status get separate visual channels**: status stays the inner
+  ring (red LIVE / amber STAGED) + chip; selection is an OUTER green halo past a gap
+  (Figma-style) + tinted name row — a selected live tile reads "red ring inside a green
+  halo". Previously one ring served both and selection vanished on live/staged tiles.
+- **Tiles show just the instance name** (scene moved to the tooltip and the param-drawer
+  header, which also gained LIVE/STAGED chips). **Double-click renames inline** via a new
+  human-only `rename_instance` command: `SessionStore.rename` re-keys the entry (no
+  rebuild), `Stage.onInstanceRenamed` carries live/staged/fade pointers (unit-tested),
+  reserved names refused, `boot` exempt (bound to live.scene.ts hot-swaps). Not an MCP
+  tool — the agent tool surface is validator-pinned.
+- **`pnpm validate` runs every acceptance suite** in order, stopping on first failure.
+- **m5 de-flaked**: "threshold 0.95 zeroes kick onsets" raced the synthetic kick (any
+  threshold < 1 can be grazed; ~1-in-3 flake). The check now also sets the kick
+  envelope gain to 0 — deterministic silence, same late-binding semantics.
+- Gates: typecheck, unit tests (+ new stage rename test), full `pnpm validate` green
+  (139 checks). Eyes-on: selected-live halo, selected-staged halo, rename end-to-end
+  (tile id, stage pointer, drawer header all follow).
+
+## 2026-06-11 — SHIPPED: Housekeeping batch
+
+- Scene cull (hello/pulse-glitch/vinyl; pulse kept as validator workhorse), param groups for
+  fireflies/mandelbrot/mandelbloom with persisted-value key migration, 20 s modulator default
+  (ModPopover seed only — runtime requires an explicit period), 2× tiles (480px columns),
+  whole-top StageDropZone (strip alone was too thin; #stagestrip id kept, validator drags bubble).
+- Gates: typecheck, unit tests (137+24+7), full `pnpm validate` (m0–m6 + modulators) green.
+- Deviation: thumbnail capture stays 320×180 until the rename workstream's engine-api lands
+  (follow-up noted in roadmap). Stumble: a parallel session edited the same console files
+  mid-run — every commit used explicit path lists, no `git add -A`.
+
 ## 2026-06-12 — CI on GitHub Actions + Cloudflare Pages preview + PR screenshots
 
 - **First production build target.** The standing decision was "Vite dev server =

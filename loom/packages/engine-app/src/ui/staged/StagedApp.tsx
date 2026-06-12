@@ -60,9 +60,11 @@ export function StagedApp() {
           alt=""
           src={has ? thumb : undefined}
           sx={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
+            // Same presentation as the Output window: fill the viewport,
+            // cover-scaled (the stream is 16/9; edges crop on other ratios).
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
             display: has && thumb ? "block" : "none",
           }}
         />

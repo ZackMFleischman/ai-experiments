@@ -29,7 +29,7 @@ export const myModule = defineModule(
 - **Controls** return a `Signal<number>` and run on the CPU; they must be cheap (called every frame).
 - Modules never reach outside `ctx` — no globals, no direct bus access beyond `ctx.audio`/`ctx.time`.
 - Modules may compose other modules (`pulseRings` wraps `noise` for its grain) — just propagate the inner module's passes through your returned `texNode`.
-- A look that two scenes want is a module, not copy-pasted TSL. Extract the shared identity (see `pulseRings` ← pulse/pulse-glitch) and let scenes differ in wiring and params.
+- A look that two scenes want is a module, not copy-pasted TSL. Extract the shared identity (`pulseRings` and `glitch` were both born this way) and let scenes differ in wiring and params.
 
 ## Shader gotchas (hard-won — each of these cost a debugging session)
 

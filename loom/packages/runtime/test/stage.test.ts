@@ -177,6 +177,20 @@ describe("Stage", () => {
     expect(s.tick(F(0))).toEqual({ mode: "single", live: null });
   });
 
+  it("renaming an instance carries the live/staged pointers and an in-flight fade", () => {
+    const s = new Stage("live");
+    s.stage("a");
+    s.onInstanceRenamed("live", "main");
+    s.onInstanceRenamed("a", "candidate");
+    expect(s.live).toBe("main");
+    expect(s.staged).toBe("candidate");
+    s.commit(F(0), 10);
+    s.tick(F(2)); // mid-fade
+    s.onInstanceRenamed("candidate", "winner");
+    for (let f = 3; f < 12; f++) s.tick(F(f));
+    expect(s.tick(F(12))).toEqual({ mode: "single", live: "winner" });
+  });
+
   it("adoptLive fills an empty live slot but never replaces one", () => {
     const s = new Stage();
     expect(s.live).toBeNull();

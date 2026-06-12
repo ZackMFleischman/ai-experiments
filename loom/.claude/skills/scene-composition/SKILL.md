@@ -7,7 +7,7 @@ description: Use when writing or editing a LOOM scene (content/scenes/*.scene.ts
 
 A scene composes modules into the picture: `defineScene({ name, description, tags, build(ctx) => TexNode })` in `content/scenes/<name>.scene.ts`.
 
-**Scenes are wiring, not shaders.** A scene's job is params + InputBus signals routed into catalog modules. If a build() grows more than a few lines of inline TSL, the visual identity belongs in a module — extract it (see module-authoring) so other scenes can reuse it, then wire it here. `pulse` and `pulse-glitch` share the `pulseRings` source this way, and the glitch treatment is its own `glitch` effect rather than shader code baked into one scene. Duplicated TSL across scenes is the smell that a module is missing.
+**Scenes are wiring, not shaders.** A scene's job is params + InputBus signals routed into catalog modules. If a build() grows more than a few lines of inline TSL, the visual identity belongs in a module — extract it (see module-authoring) so other scenes can reuse it, then wire it here. The `pulseRings` source and the `glitch` effect were both extracted this way (two scenes wanted the same look) rather than staying baked into one scene. Duplicated TSL across scenes is the smell that a module is missing.
 
 ## Shape of a good build()
 

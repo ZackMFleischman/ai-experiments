@@ -1,5 +1,8 @@
 import { createTheme } from "@mui/material/styles";
 
+/** Numbers, wordmark, readouts — the instrument face is monospace. */
+export const mono = "ui-monospace, 'Cascadia Mono', Consolas, monospace";
+
 /** Dark cockpit theme — palette carried over from the old console.html CSS vars. */
 export const theme = createTheme({
   palette: {
@@ -13,14 +16,14 @@ export const theme = createTheme({
   },
   typography: {
     fontFamily: "system-ui, sans-serif",
-    fontSize: 13,
+    fontSize: 12,
   },
   components: {
     MuiButton: {
       defaultProps: { variant: "outlined", size: "small", color: "inherit" },
       // Validators compare button textContent ("stage"/"unstage"/"cc21") —
       // uppercase styling is CSS-only and harmless, but keep labels readable.
-      styleOverrides: { root: { textTransform: "none" } },
+      styleOverrides: { root: { textTransform: "none", padding: "1px 8px", minWidth: 0, lineHeight: 1.6 } },
     },
     MuiTextField: { defaultProps: { size: "small" } },
   },

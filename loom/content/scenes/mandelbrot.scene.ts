@@ -1,5 +1,4 @@
 import { Signal, defineScene } from "@loom/runtime";
-import { lag } from "../modules/control/lag";
 import { colorize, PALETTES } from "../modules/effects/colorize";
 import { levels } from "../modules/effects/levels";
 import { mandelbrot } from "../modules/sources/mandelbrot";
@@ -19,24 +18,25 @@ export default defineScene({
     "Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll.",
   tags: ["fractal", "zoom", "palette", "generative"],
   build(ctx) {
-    const point = ctx.int("point", {
+    // Dotted paths form collapsible Console groups: zoom / color. iter stays flat (quality knob).
+    const point = ctx.int("zoom.point", {
       default: 1,
       min: 0,
       max: POINTS.length - 1,
       description: `zoom target: ${POINTS.map((p, i) => `${i}=${p.name}`).join(", ")}`,
     });
-    const dive = ctx.float("dive", { default: 0.35, min: -2, max: 2, description: "zoom speed (octaves/sec, ping-pongs)" });
-    const depth = ctx.float("depth", { default: 14, min: 1, max: 18, description: "max zoom depth in octaves (f32 limit ~18)" });
+    const dive = ctx.float("zoom.dive", { default: 0.35, min: -2, max: 2, description: "zoom speed (octaves/sec, ping-pongs)" });
+    const depth = ctx.float("zoom.depth", { default: 14, min: 1, max: 18, description: "max zoom depth in octaves (f32 limit ~18)" });
     const iter = ctx.int("iter", { default: 250, min: 40, max: 500, description: "escape-time iteration cap (detail vs cost)" });
-    const palette = ctx.float("palette", {
+    const palette = ctx.float("color.palette", {
       default: 0,
       min: 0,
       max: PALETTES.length,
       description: `palette: ${PALETTES.map((p, i) => `${i}=${p.name}`).join(", ")} (fractional blends, wraps)`,
     });
-    const drift = ctx.float("drift", { default: 0.02, min: -0.3, max: 0.3, description: "auto palette morph speed (palettes/sec)" });
-    const cycle = ctx.float("cycle", { default: 0.05, min: -0.5, max: 0.5, description: "color scroll speed along the gradient" });
-    const bands = ctx.float("bands", { default: 2.5, min: 0.25, max: 8, description: "palette cycles across the brightness range" });
+    const drift = ctx.float("color.drift", { default: 0.02, min: -0.3, max: 0.3, description: "auto palette morph speed (palettes/sec)" });
+    const cycle = ctx.float("color.cycle", { default: 0.05, min: -0.5, max: 0.5, description: "color scroll speed along the gradient" });
+    const bands = ctx.float("color.bands", { default: 2.5, min: 0.25, max: 8, description: "palette cycles across the brightness range" });
 
     const pointSig = point.signal();
     const diveSig = dive.signal();
@@ -44,20 +44,6 @@ export default defineScene({
     const paletteSig = palette.signal();
     const driftSig = drift.signal();
     const cycleSig = cycle.signal();
-
-    // Glide between targets instead of jump-cutting.
-    const cx = lag(ctx, { input: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.x), seconds: 1.2 });
-    const cy = lag(ctx, { input: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.y), seconds: 1.2 });
-
-    // Integrate dive speed, fold into a 0..depth ping-pong, map to view scale.
-    let zoomAcc = 0;
-    const scale = new Signal((f) => {
-      zoomAcc += diveSig.get(f) * f.dt;
-      const d = Math.max(0.001, depthSig.get(f));
-      const m = ((zoomAcc % (2 * d)) + 2 * d) % (2 * d);
-      const octaves = m < d ? m : 2 * d - m;
-      return 1.25 * Math.pow(2, -octaves);
-    });
 
     // Palette index drifts on its own; phase scrolls the colors continuously.
     let palAcc = 0;
@@ -71,7 +57,14 @@ export default defineScene({
       return phaseAcc;
     });
 
-    const fractal = mandelbrot(ctx, { cx, cy, scale, iterations: iter.signal() });
+    const fractal = mandelbrot(ctx, {
+      cx: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.x),
+      cy: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.y),
+      glide: 1.2,
+      dive: diveSig,
+      depth: depthSig,
+      iterations: iter.signal(),
+    });
     const colored = colorize(ctx, {
       input: fractal,
       palette: paletteIndex,

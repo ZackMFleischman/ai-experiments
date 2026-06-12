@@ -147,6 +147,16 @@ export class Stage {
     }
   }
 
+  /** Keep slot pointers (and an in-flight fade) coherent across an id rename. */
+  onInstanceRenamed(from: string, to: string): void {
+    if (this.liveId === from) this.liveId = to;
+    if (this.stagedId === from) this.stagedId = to;
+    if (this.fade) {
+      if (this.fade.from === from) this.fade.from = to;
+      if (this.fade.to === from) this.fade.to = to;
+    }
+  }
+
   tick(f: FrameCtx): StageDirective {
     if (this.panicState === "scene" && this.panicId !== null) {
       // Output override only — the LIVE pointer is untouched (FR-4).

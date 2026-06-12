@@ -34,11 +34,39 @@ focused month of evenings.
 | Param modulators (2026-06-10) | runtime LFO/follower attach on any param | `validate:modulators` |
 | Console React+MUI rebuild (2026-06-11) | cockpit pages on React 19 + MUI 7, EngineLink | all validators |
 | M6 Color & palettes — palette half (2026-06-11) | color param type, global palettes, `ctx.palette`, source switch with no rebuild | `validate:m6` |
+| Console UI redesign (2026-06-11) | cohesive dense cockpit: brand, tap-BPM, "+" tile w/ live previews, drag-reorder, drop-to-commit, agent commit armed by default, resizable drawer, swatch palettes | `validate:m3`/`m4` (updated) |
+| Housekeeping (2026-06-11) | scene cull (hello/pulse-glitch/vinyl), param groups (fireflies/mandelbrot/mandelbloom + value-key migration), 20 s modulator default, double-click instance rename, 2× tiles, whole-top drop-to-go-live zone | `validate:m3`/`m4` (updated), full suite green |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
 
 ## Remaining
+
+### Stdlib tests & robustness (M) — unnumbered, can land incrementally
+
+Today `pnpm test` covers `runtime` and `sidecar` only; `content/modules/` ships
+with zero tests and is about to grow to ~20 modules (M11). Before that growth:
+
+- **A vitest root for `content/`** with a mock `BuildCtx` (params, `uniformOf`,
+  inputs, palette) so modules build headlessly without `three/webgpu` needing a
+  GPU.
+- **Per-module unit tests**, three tiers each: (1) metadata/contract — zod
+  metadata parses, declared params appear in the manifest with honest ranges,
+  effects return `[...input.passes, ownPass]`; (2) robustness — a param-extremes
+  sweep (min/max/default of every param, zero-size input) builds without throwing
+  or producing NaN in CPU-side signals; (3) smoke render — build each module in a
+  headless sandbox via the existing Playwright harness and assert non-black
+  pixels + no console errors.
+- **Golden patterns enforced**: audio-reactive modules consume named
+  `ctx.input(...)` channels (no local re-detection); sources normalize to vec4
+  once; stateful effects own pass ordering. Tests encode the conventions the
+  skills currently only describe.
+- New modules merge with their tier-1/2 tests from day one (cross-cutting rule);
+  the smoke-render harness rides the validator infrastructure, not a new one.
+
+**Shipped when:** every existing stdlib module has tier-1/2 coverage and the
+smoke-render sweep runs green in CI alongside `pnpm test`; a deliberately broken
+module (NaN param range, missing pass) is caught by tests, not by eyes.
 
 ### M6 — chains half (M)
 
@@ -62,30 +90,56 @@ makes `fx.glitch-1.*` appear in the manifest and visibly changes the preview; a
 throwing chain step leaves the instance running on previous pixels; reorder
 preserves knob positions. m0–m5 green.
 
-### M7 — Library & parallel build (M) *(old M5 + old-M4’s panels/save-as)*
+### M7 — Geo (M) *(first half of the old Geo-&-particles L; moved ahead of the library)*
+
+**Goal:** the 3D path opens. Meshes are first-class material.
+
+- `Geo` type — `GeoNode` joins `ModuleOutput`; `gltf` + primitive loaders; `render(world, cam)` bridge module (scene-in-scene render target → TexNode); `orbitCam` control module.
+- Harness additions for single-module sandboxes: `orbit-cam`, `chain:<scene>@<node>` (mount in situ).
+- Stdlib Geo entries cataloged; *module-authoring* skill extended for Geo kind.
+
+**Shipped when:** a gltf model loads into a sandbox tile, orbits under `orbitCam`, renders through the bridge into the TexNode chain, and commits through a post chain — all without touching the never-go-black layers. (`validate:m7`)
+
+### M8 — Particles (M) *(second half of the old Geo-&-particles L; depends on M7’s `GeoNode`)*
+
+**Goal:** your flagship prompt works.
+
+- `particleEmitter`: mesh-surface sampling (off M7 geometry), GPU-instanced pool via TSL compute, `rate`/`lifetime`/`turbulence` as Signals/Params; pool state under the rebuild-on-change policy.
+
+**Shipped when:** *“create a particle generator that spits out particles from the surface of a 3D skull, hats driving turbulence”* → agent builds it in a sandbox tile, you tweak on MIDI, and commit it through a `feedback`+`paletteMap` post chain — via M6’s real `set_chain` mechanism instead of hand-wiring. (`validate:m8`)
+
+### M9 — Video sources (S)
+
+**Goal:** video clips are usable exactly the way images are.
+
+- `video` source module mirroring `sources/image.ts`: file path in, `HTMLVideoElement` → texture out as a TexNode, with `loop`/`speed`/`scrub` (and mute-by-default audio) as params.
+- Accepted everywhere an image is: same cover/fit scaling, same param surface, same catalog entry shape — a scene swaps `image` for `video` and nothing else changes.
+
+**Shipped when:** a scene plays a looping clip as its source, `set_param` scrubs/retimes it live, and the M4 cover-scaling checks pass against a video source. (`validate:m9`)
+
+### M10 — Asset explorer (M)
+
+**Goal:** everything you can reach for is visible in one pane.
+
+- Left-hand explorer pane in the Console: all modules grouped by kind — control / sources / effects, TouchDesigner-style bins — fed from the generated catalog, so it’s always current.
+- **External asset folders:** register additional directories (e.g. a `VJ Assets` folder) that appear alongside the module bins, listing images, videos, 3D models — anything a scene can consume. Registered folders persist in `content/state/`; listings served through the existing Vite/sidecar middleware.
+- Selection/drag is the interaction model: anything in the explorer can be selected or dragged onto a tile/param wherever the engine can accept it (image/video paths into source params; scenes into the picker; models once M7 lands).
+
+**Shipped when:** the explorer shows every cataloged module by kind plus a registered external folder; dragging a video from that folder onto a source param plays it live; the folder registration survives restart. (`validate:m10`)
+
+### M11 — Library & parallel build (M) *(old M5 + old-M4’s panels/save-as)*
 
 **Goal:** the agent composes from vocabulary; subagents build in parallel; the library grows itself.
 
-- Stdlib buildout to ~20 modules (full Control/Source/Effect list from Requirements §6, minus Geo) — every effect `chainParams`-compliant, every audio-reactive module consuming named `ctx.input(...)` channels. The library is born compatible with the rack and chains.
+- Stdlib buildout to ~20 modules (full Control/Source/Effect list from Requirements §6 — Geo/particle entries already cataloged by M7/M8) — every effect `chainParams`-compliant, every audio-reactive module consuming named `ctx.input(...)` channels. The library is born compatible with the rack and chains.
 - `CATALOG.md` extended (chainable / inputs-consumed columns) — the AST generator already rides `pnpm typecheck`; this supersedes the old “catalog.json” line. *Library-use* skill: search catalog first, register after writing, tag conventions.
 - Fixtures: record/replay InputBus traces **including input-channel values**; `create_instance({inputs: "fixture:…"})`; `screenshot({frames:[…]})` deterministic against fixtures.
 - Parallel workflow proven: signatures-first convention + `tsc` gate; subagents each get a sandbox instance (own tile) with fixture input.
 - Panel files (R3.5): declarative `{paramPath → widget, midi}` subsets; Console renders open panels; opening activates bindings; *panel-authoring* skill. “Save as” flows (R3.4): persist tuned scene; factor selection into a custom module. Both land here because they compose the params + bindings M5 defined, and the library is what makes saving worth it.
 
-**Shipped when:** “build me three new scenes in parallel — glitchy, organic, geometric — using the library” lights up three tiles that converge concurrently; a brand-new custom module written today is found and reused by the agent tomorrow via the catalog; the R3.5 panel prompt produces a working bound panel; “save it as bass-tunnel” round-trips through restart. (`validate:m7`)
+**Shipped when:** “build me three new scenes in parallel — glitchy, organic, geometric — using the library” lights up three tiles that converge concurrently; a brand-new custom module written today is found and reused by the agent tomorrow via the catalog; the R3.5 panel prompt produces a working bound panel; “save it as bass-tunnel” round-trips through restart. (`validate:m11`)
 
-### M8 — Depth: Geo & particles (L) *(old M6, scope unchanged)*
-
-**Goal:** the 3D path. Your flagship prompt works.
-
-- `Geo` type — `GeoNode` joins `ModuleOutput`; `gltf` + primitive loaders; `render(world, cam)` bridge module (scene-in-scene render target → TexNode); `orbitCam` control module.
-- `particleEmitter`: mesh-surface sampling, GPU-instanced pool via TSL compute, `rate`/`lifetime`/`turbulence` as Signals/Params; pool state under the rebuild-on-change policy.
-- Harness additions for single-module sandboxes: `orbit-cam`, `chain:<scene>@<node>` (mount in situ).
-- Stdlib Geo entries cataloged; *module-authoring* skill extended for Geo kind.
-
-**Shipped when:** *“create a particle generator that spits out particles from the surface of a 3D skull, hats driving turbulence”* → agent builds it in a sandbox tile, you tweak on MIDI, and commit it through a `feedback`+`paletteMap` post chain — now via M6’s real `set_chain` mechanism instead of hand-wiring. (`validate:m8`)
-
-### M9 — Gig hardening (M) *(old M7)*
+### M12 — Gig hardening (M) *(old M7)*
 
 **Goal:** trust it in a dark room.
 

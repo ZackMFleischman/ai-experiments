@@ -19,6 +19,7 @@ import {
   MidiTargetArgs,
   ModulateParamArgs,
   PanicArgs,
+  RenameInstanceArgs,
   SetAudioArgs,
   SetPanicSceneArgs,
   SetParamArgs,
@@ -46,6 +47,7 @@ const HUMAN_ONLY: ReadonlySet<string> = new Set([
   "set_panic_scene",
   "set_audio",
   "arm_agent_commit",
+  "rename_instance",
   "midi_learn",
   "midi_unbind",
 ]);
@@ -97,6 +99,8 @@ export interface EngineDeps {
   panicScene(): PanicSceneInfo;
   /** Re-point the warm panic instance at a named scene; throws if unknown. */
   setPanicScene(scene: string): void;
+  /** Id bookkeeping outside the session (main.ts tracks the boot instance). */
+  onInstanceRenamed?(from: string, to: string): void;
 }
 
 /**
@@ -122,8 +126,8 @@ export class EngineApi {
     opts: { agentCommitArmed?: boolean } = {},
   ) {
     this.agentCommitArmed = opts.agentCommitArmed ?? false;
-    this.liveMirror.width = 320;
-    this.liveMirror.height = 180;
+    this.liveMirror.width = 640;
+    this.liveMirror.height = 360;
     this.liveMirrorCtx = this.liveMirror.getContext("2d")!;
   }
 
@@ -238,6 +242,22 @@ export class EngineApi {
         session.destroy(e.id);
         return { destroyed: e.id };
       }
+      case "rename_instance": {
+        const { instance, to } = RenameInstanceArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        const from = e.id;
+        if (to === from) return { instance: to, was: from };
+        if (e.pinned === "panic") {
+          throw new Error(`"${from}" is the pinned PANIC instance — its id is fixed`);
+        }
+        if (to === "live" || to === "globals") {
+          throw new Error(`"${to}" is a reserved name`);
+        }
+        session.rename(from, to);
+        stage.onInstanceRenamed(from, to);
+        this.deps.onInstanceRenamed?.(from, to);
+        return { instance: to, was: from };
+      }
       case "stage": {
         const { instance } = InstanceArgs.parse(req.args);
         const e = session.require(this.resolveId(instance));
@@ -251,8 +271,8 @@ export class EngineApi {
         const { durationFrames } = CommitArgs.parse(req.args);
         if (source === "agent" && !this.agentCommitArmed) {
           throw new Error(
-            "agent commit is not armed — ask the human to press COMMIT in the Console " +
-              "(or to arm agent commit there; engines started with ?agentCommit=1 arm it by default)",
+            "agent commit is not armed — the human disarmed it (Console checkbox or " +
+              "?agentCommit=0); ask them to press COMMIT in the Console or re-arm agent commit",
           );
         }
         const from = stage.live;
@@ -426,12 +446,14 @@ export class EngineApi {
   }
 
   /** Small JPEG thumbnails per instance for the Console tiles. */
-  async thumbnails(width = 320, height = 180): Promise<Record<string, string>> {
+  async thumbnails(width = 640, height = 360): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     for (const e of this.deps.session.entries.values()) {
       try {
         // The live entry shows what the audience sees (loop-mirrored canvas);
-        // everyone else reads back their offscreen preview target.
+        // everyone else reads back their offscreen preview target at its full
+        // 640×360 res — enough for the 2x tiles AND /staged.html full-screen
+        // (the old staged-only 2x special case is now just the default).
         out[e.id] =
           e.id === this.deps.stage.live
             ? this.liveMirror.toDataURL("image/jpeg", 0.7)

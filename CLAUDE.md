@@ -28,6 +28,7 @@ pnpm sidecar            # start the MCP/WS sidecar standalone (Claude Code spawn
 pnpm typecheck          # regenerates content/CATALOG.md, then tsc --noEmit over packages/* and content/ — the contract gate
 pnpm catalog            # regenerate content/CATALOG.md alone (--check exits 1 if stale)
 pnpm test               # unit tests in all packages (vitest: runtime + sidecar)
+pnpm validate           # ALL acceptance suites below in order (stops on first failure)
 pnpm validate:m0        # M0 acceptance: Playwright + headless Chromium HMR checks
 pnpm validate:m1        # M1 acceptance: signals/audio-reactivity/containment checks
 pnpm validate:m2        # M2 acceptance: MCP client e2e (agent tools + latency)

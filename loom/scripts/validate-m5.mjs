@@ -22,7 +22,8 @@ const PORT = 5202;
 const WS_PORT = 7345;
 // State persistence stays ON here (no state=off) — it's under test.
 const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}${resQuery}`;
-const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
+// embed=0: validator consoles must never spawn an embedded engine (it would dial the default sidecar port).
+const CONSOLE_URL = `http://localhost:${PORT}/console.html?embed=0`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -217,18 +218,23 @@ try {
     Object.keys(bootManifest.params).join(", "),
   );
   const msgMark = consoleMsgs.length;
+  // threshold proves the knob writes through; gain 0 (envelope peak) is what
+  // makes the silence deterministic — the synthetic kick occasionally grazes
+  // any threshold < 1 and a single onset mid-window flaked this check.
   await callOk(client, "set_param", { instance: "globals", path: "inputs.kick.threshold", value: 0.95 });
+  await callOk(client, "set_param", { instance: "globals", path: "inputs.kick.gain", value: 0 });
   await sleep(1500); // let the envelope drain
   const deadSamples = await sampleChannel(output, "kick", 2500);
   check(
-    "threshold 0.95 zeroes kick onsets in the consuming scene",
+    "retuned kick (threshold 0.95, gain 0) silences the consuming scene",
     Math.max(...deadSamples) < 0.05,
     `max=${Math.max(...deadSamples).toFixed(4)}`,
   );
   await callOk(client, "set_param", { instance: "globals", path: "inputs.kick.threshold", value: 0.22 });
+  await callOk(client, "set_param", { instance: "globals", path: "inputs.kick.gain", value: 1 });
   const recovered = await sampleChannel(output, "kick", 3000);
   check(
-    "restoring the threshold recovers onsets",
+    "restoring the tunings recovers onsets",
     Math.max(...recovered) > 0.5,
     `max=${Math.max(...recovered).toFixed(2)}`,
   );

@@ -122,6 +122,16 @@ export class SessionStore {
     }
   }
 
+  /** Re-key an entry — same instance/target/modulators, new id. No rebuild. */
+  rename(id: string, to: string): Entry {
+    const e = this.require(id);
+    if (this.entries.has(to)) throw new Error(`instance "${to}" already exists`);
+    const renamed: Entry = { ...e, id: to };
+    this.entries.delete(id);
+    this.entries.set(to, renamed);
+    return renamed;
+  }
+
   destroy(id: string): boolean {
     const e = this.entries.get(id);
     if (!e) return false;
