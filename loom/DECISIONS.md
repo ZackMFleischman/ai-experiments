@@ -447,3 +447,63 @@ staged candidate by design). Gates: typecheck, unit (154), validate-m5 34/34,
 full pnpm validate. Stumble: validator waitFor treats falsy as "not yet" —
 never return a flipped bool from a poll. Spec:
 docs/superpowers/specs/2026-06-11-midi-button-bindings-design.md.
+## 2026-06-11 — Stdlib tests & robustness SHIPPED
+
+- **Real BuildCtx, not a mock**: the roadmap asked for a mock BuildCtx, but the real one
+  is already GPU-free (its only three import is `uniform` from three/tsl) — so the
+  content/ test root (`loom/vitest.config.ts`, happy-dom for TextureLoader''s DOM Image)
+  builds modules with the REAL BuildCtx over mock/real buses (FakeAudioBus, real
+  TimeBus/InputRegistry-with-the-actual-rack/PaletteRegistry). `ProbeCtx` records every
+  uniform a module registers; finiteness over those probes is total NaN detection for
+  CPU-side signals.
+- **Coverage is automatic**: `import.meta.glob` discovery sweeps every module file;
+  tier-1 (kind↔folder, metadata, output shape, `[...input.passes, own]` via a marker
+  pass, honest ranges incl. no degenerate min==max) and tier-2 (param-extremes sweep,
+  60 frames per setting, black-input builds for effects) run per discovered module. A
+  module without a `cases.ts` entry fails the completeness test — "new modules merge
+  with their tests" is mechanical, not policy.
+- **Golden patterns as tests**: no `audio.onset(` in modules OR scenes (named rack
+  channels only, R6.4). The scan immediately caught `lava` and `mandelbloom` re-detecting
+  kick locally — both converted to `ctx.input("kick")`.
+- **Ship-gate self-test**: deliberately broken modules (NaN at a param extreme, dropped/
+  reordered input passes, malformed metadata, dishonest ranges) are provably caught.
+- **Tier-3 smoke render** (`validate:stdlib`): every module hot-swaps into the live
+  engine in a generated sandbox scene (effects over osc, controls driving osc) and must
+  render non-black with a clean console; appended to `pnpm validate`.
+- Gates: typecheck; `pnpm test` = 312 tests (168 package + 144 content); full
+  `pnpm validate` = 162 checks across 9 suites, all green. Spec + plan under
+  `docs/superpowers/`.
+
+## 2026-06-12 — Better panic button (PANIC modes: hold | safe scene)
+
+Implements `feature-requests/panic-scene.md`. PANIC gains an armed mode: **hold**
+(freeze the last frame, unchanged default) or **scene** (hard-cut to a warm,
+always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
+144, sidecar 24, engine-app 7), `validate:panic`.
+
+- **Runtime stays minimal (NFR-2).** Stage adds one directive mode
+  (`panic-scene`, carrying the panic instance id + the untouched live id) and a
+  `panic(mode, panicId?)` signature; `held: boolean` became `panicState: "hold"
+  |"scene"|null`. Scene-panic is an output override — the LIVE pointer never
+  moves (FR-4), so RESUME is just "clear panic" with no bookkeeping. Re-press
+  only escalates hold→scene; scene→hold is a no-op (FR-6). Everything else
+  (warm-instance lifecycle, compositor leg, fallback) lives in engine-app.
+- **Worst case = today.** A broken/absent safe scene routes to hold (FR-7); a
+  render-throw in the panic instance freezes it → the compositor skips it →
+  hold (FR-8). Never worse than the pre-feature behavior.
+- **Deviation from the spec's resolved-decision #1 (designation via
+  `panic.scene.ts` pointer, *not* a Console picker), at the user's request:**
+  the SAFE target is now a **movable designation over existing instances** — the
+  ⛑ SAFE marker and scene-panic routing point at whichever instance the human
+  picks from the Console (`set_panic_instance`, human-only), exactly like LIVE /
+  STAGED are instance pointers. `panic.scene.ts` builds the boot-default safe
+  instance (id `"panic"`, the initial designation + guaranteed fallback);
+  picking any other instance moves the designation (and destroy/rename
+  protection) to it with no rebuild. Persisting the designated instance's scene
+  name lets the boot default reflect it across a restart (instance ids are
+  ephemeral). The "pick any instance / multiple named safe scenes" item moves
+  from out-of-scope to shipped.
+- **Trust tiers unchanged.** `panic`/`resume`/`arm_panic_mode`/`set_panic_instance`
+  are human-only (Console); agents only observe via `get_session`
+  (`panicMode`/`panicActive`/`panicScene` + the `pinned:"panic"` instance) and
+  are told to stop touching the live path while `panicActive` is non-null.

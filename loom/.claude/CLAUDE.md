@@ -4,7 +4,7 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 
 ## Your eyes and hands (MCP tools)
 
-- `get_session` — what's running: all instances with status, LIVE/STAGED pointers, available scenes, audio mode, BPM, fps, frame.
+- `get_session` — what's running: all instances with status, LIVE/STAGED pointers, available scenes, audio mode, BPM, fps, frame. Also carries PANIC state: `panicMode` (armed `hold`|`scene`), `panicActive` (`null` when calm), and `panicScene` (the safe scene's name + build health). **If `panicActive` is non-null, the human has hit the emergency hatch — stop touching the live path and wait for them.** The pinned panic instance appears in `instances` with `pinned: "panic"` (always warm; you can't trigger, clear, re-arm, or destroy it — those are human-only).
 - `get_manifest` — every tweakable param of an instance: type, range, default, current value.
 - Instance ids: the boot instance (bound to `live.scene.ts`) is `"boot"`; created ones are `"<scene>-<n>"`. The id `"live"` is an **alias** that always resolves to whatever instance is currently routed to output — it's the default everywhere, so "tweak the live thing" needs no lookup.
 - The pseudo-instance `"globals"` serves the **input rack** *and* the **global color palettes**: `get_manifest {instance:"globals"}` lists every channel tuning (`inputs.kick.threshold`, `inputs.bass.gain`, …) plus the two palettes' stops (`palette.primary.0`…`palette.secondary.4`, `color` params holding `"#rrggbb"`); `set_param` retunes either live for every consumer at once. `get_session` carries the live channel values in `inputs` (your meters). Tunings persist across sessions (`content/state/`).
@@ -45,6 +45,8 @@ content/CATALOG.md   generated index of every module + scene — read this first
 ```
 
 `CATALOG.md` regenerates automatically — the dev server rebuilds it on every module/scene save, and `pnpm typecheck` rebuilds it as the offline gate. Never edit it by hand; it is always current in a live session.
+
+**A new module ships with its test case**: add a minimal-opts entry to `content/test/cases.ts` — `pnpm test:content` sweeps every module on disk (tier-1 contract: shape, pass ordering, honest ranges; tier-2: param-extremes NaN sweep) and its completeness test fails if your module has no case. Scenes and modules must consume `ctx.input(<channel>)`, never `ctx.audio.onset(...)` — a source scan enforces it. `pnpm validate:stdlib` smoke-renders every module for eyes-on proof (full doc: "Testing & validation" in `docs/architecture.md`).
 
 Key kernel facts:
 - Signals are pulled per frame and memoized on `f.frame`. CPU signals reach the GPU only through `ctx.uniformOf(signal)` — that registration is also what keeps stateful signals (lag, envelope) ticking.
