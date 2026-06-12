@@ -355,13 +355,26 @@ export class EngineApi {
       }
       return { scene: ACTIONS, path, mode: "set" };
     }
+    let scene: string;
+    let param: { type: string };
     if (instance === GLOBALS) {
-      this.requireParam(this.globalsManifest(path), path, GLOBALS);
-      return { scene: GLOBALS, path, ...rest };
+      scene = GLOBALS;
+      param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
+    } else {
+      const e = this.deps.session.require(this.resolveId(instance));
+      scene = e.sceneName;
+      param = this.requireParam(e.instance.manifest, path, e.id);
     }
-    const e = this.deps.session.require(this.resolveId(instance));
-    this.requireParam(e.instance.manifest, path, e.id);
-    return { scene: e.sceneName, path, ...rest };
+    if (mode === "set") {
+      if (value === undefined) throw new Error(`a set binding needs a value ("${path}")`);
+      if (param.type === "bool" || param.type === "color") {
+        throw new Error(
+          `set targets numeric params — "${path}" is ${param.type}` +
+            (param.type === "bool" ? " (use cycle to toggle it)" : ""),
+        );
+      }
+    }
+    return { scene, path, ...rest };
   }
 
   /** "globals" = the input rack + the palettes, merged; routed by path prefix. */

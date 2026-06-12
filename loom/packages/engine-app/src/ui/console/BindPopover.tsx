@@ -8,6 +8,8 @@ type Mode = "absolute" | "set" | "cycle";
 
 type Props = {
   instance: string;
+  /** The instance's scene (bindings are scene-keyed; null until resolved). */
+  scene: string | null;
   path: string;
   p: ParamDesc;
   /** This param's bindings (scene-resolved by the caller). */
@@ -23,14 +25,17 @@ type Props = {
  * group (one button per option — S/M/R rows). Existing bindings list with
  * per-binding unbind, which radio groups need.
  */
-export function BindPopover({ instance, path, p, bindings, learning, anchorEl, onClose }: Props) {
+export function BindPopover({ instance, scene, path, p, bindings, learning, anchorEl, onClose }: Props) {
   const link = useEngine();
   const isBool = p.type === "bool";
   const min = typeof p.min === "number" ? p.min : 0;
   const labels = Array.isArray(p.labels) ? p.labels : null;
 
+  // Scene must match too: the same path (palette.source) exists on many
+  // scenes, and pulsing the wrong tile's row invites a misbind.
   const armed = (mode: Mode, value?: number) =>
     learning != null &&
+    learning.scene === scene &&
     learning.path === path &&
     (learning.mode ?? "absolute") === mode &&
     learning.value === value;

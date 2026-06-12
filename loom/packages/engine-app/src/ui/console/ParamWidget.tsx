@@ -226,6 +226,7 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
       {hasModes && (
         <BindPopover
           instance={instance}
+          scene={scene}
           path={path}
           p={p}
           bindings={bindingsFor}
