@@ -54,7 +54,10 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
   const [bindAnchor, setBindAnchor] = useState<HTMLElement | null>(null);
   const [rangeAnchor, setRangeAnchor] = useState<HTMLElement | null>(null);
 
+  // A modulator can be attached-but-paused (enabled:false): the param is
+  // hand-drivable again while the wave waits to resume.
   const modulated = p.modulator != null;
+  const modOn = modulated && (p.modulator as { enabled?: boolean }).enabled !== false;
   const min = typeof p.min === "number" ? p.min : 0;
   const max = typeof p.max === "number" ? p.max : 1;
   // A plain slider (float or unlabelled int) has an editable range; toggles,
@@ -158,14 +161,18 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
             data-modbtn={path}
             title={
               modulated
-                ? `modulated: ${String((p.modulator as { type?: unknown }).type)}`
+                ? `modulated: ${String((p.modulator as { type?: unknown }).type)}${modOn ? "" : " (paused)"}`
                 : "attach a modulator"
             }
             onClick={(e) => {
               e.stopPropagation();
               setModAnchor((a) => (a ? null : e.currentTarget));
             }}
-            sx={{ color: modulated ? "warning.main" : "text.secondary", fontSize: 14, p: 0.25 }}
+            sx={{
+              color: modOn ? "warning.main" : modulated ? "#8a702fcc" : "text.secondary",
+              fontSize: 14,
+              p: 0.25,
+            }}
           >
             ∿
           </IconButton>
@@ -227,7 +234,7 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
             size="small"
             value="on"
             selected={p.value === true}
-            disabled={modulated}
+            disabled={modOn}
             data-path={path}
             onChange={() => link.sendParam(instance, path, !(p.value === true))}
             sx={{ py: 0, px: 1.25, fontSize: 11, lineHeight: "18px", textTransform: "none" }}
@@ -277,8 +284,8 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
             max={max}
             step={p.type === "int" ? 1 : (p.step ?? (max - min) / 200)}
             value={drag ?? Number(p.value)}
-            disabled={modulated}
-            color={modulated ? "warning" : "primary"}
+            disabled={modOn}
+            color={modOn ? "warning" : "primary"}
             onChange={(_, v) => {
               const n = v as number;
               setDrag(n); // local value wins over the 10 Hz broadcast mid-drag

@@ -69,6 +69,47 @@ describe("ModulatorHost", () => {
     expect(calls).toBe(1);
   });
 
+  it("setEnabled pauses writes without detaching; re-enable resumes", () => {
+    const host = new ModulatorHost(bus);
+    const m = manifest();
+    host.attach(m, "trail", { type: "ramp", periodSeconds: 1 });
+    host.tick(m, F(0));
+    const held = m.get("trail")!.value;
+    expect(host.setEnabled("trail", false).enabled).toBe(false);
+    expect(host.get("trail")?.enabled).toBe(false);
+    expect(host.list()[0]!.enabled).toBe(false);
+    expect(host.active("trail")).toBe(false); // manual control allowed while paused
+    host.tick(m, F(1));
+    host.tick(m, F(2));
+    expect(m.get("trail")!.value).toBe(held); // param held, not written
+    m.get("trail")!.set(0.9); // manual set sticks while paused
+    host.tick(m, F(3));
+    expect(m.get("trail")!.value).toBe(0.9);
+    host.setEnabled("trail", true);
+    expect(host.active("trail")).toBe(true);
+    host.tick(m, F(4));
+    expect(m.get("trail")!.value).not.toBe(0.9); // writing again
+  });
+
+  it("setEnabled throws on a path with no modulator; toggleEnabled flips", () => {
+    const host = new ModulatorHost(bus);
+    expect(() => host.setEnabled("trail", false)).toThrow(/no modulator/);
+    expect(host.toggleEnabled("trail")).toBeNull();
+    host.attach(manifest(), "trail", { type: "sine", periodSeconds: 1 });
+    expect(host.toggleEnabled("trail")?.enabled).toBe(false);
+    expect(host.toggleEnabled("trail")?.enabled).toBe(true);
+  });
+
+  it("reattach preserves the paused state; attach (replace) resets it", () => {
+    const host = new ModulatorHost(bus);
+    host.attach(manifest(), "trail", { type: "sine", periodSeconds: 1 });
+    host.setEnabled("trail", false);
+    host.reattach(manifest());
+    expect(host.get("trail")?.enabled).toBe(false);
+    host.attach(manifest(), "trail", { type: "sine", periodSeconds: 2 });
+    expect(host.get("trail")?.enabled).toBe(true);
+  });
+
   it("reattach survives rebuilds, orphans vanished params, recovers fixed ones (FR-4)", () => {
     const host = new ModulatorHost(bus);
     host.attach(manifest(), "trail", { type: "sine", periodSeconds: 1 });

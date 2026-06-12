@@ -22,12 +22,15 @@ export interface ModulatorInfo {
   spec: ModulatorSpec;
   /** Non-null = detached: evaluation threw, or the param vanished on rebuild. */
   error: string | null;
+  /** False = paused: attached but not writing; the param is hand-drivable. */
+  enabled: boolean;
 }
 
 interface Slot {
   spec: ModulatorSpec;
   evaluate: ModulatorEval;
   error: string | null;
+  enabled: boolean;
 }
 
 /**
@@ -49,7 +52,7 @@ export class ModulatorHost {
     }
     const spec = ModulatorSpec.parse(raw);
     const evaluate = createModulator(spec, paramMeta(param), this.bus);
-    this.slots.set(path, { spec, evaluate, error: null });
+    this.slots.set(path, { spec, evaluate, error: null, enabled: true });
     return spec;
   }
 
@@ -60,17 +63,40 @@ export class ModulatorHost {
 
   get(path: string): ModulatorInfo | undefined {
     const s = this.slots.get(path);
-    return s && { path, spec: s.spec, error: s.error };
+    return s && { path, spec: s.spec, error: s.error, enabled: s.enabled };
   }
 
-  /** True when the param is owned by a live (non-errored) modulator (FR-7). */
+  /**
+   * Pause/resume without detaching: a paused modulator keeps its spec but
+   * stops writing — the param holds its last value and is hand-drivable.
+   * Throws on a path with no modulator (callers learn the real state).
+   */
+  setEnabled(path: string, enabled: boolean): ModulatorInfo {
+    const s = this.slots.get(path);
+    if (!s) throw new Error(`no modulator on "${path}"`);
+    s.enabled = enabled;
+    return { path, spec: s.spec, error: s.error, enabled: s.enabled };
+  }
+
+  /** Flip a modulator's enabled state; null when the path has no modulator. */
+  toggleEnabled(path: string): ModulatorInfo | null {
+    const s = this.slots.get(path);
+    return s ? this.setEnabled(path, !s.enabled) : null;
+  }
+
+  /** True when the param is owned by a live (non-errored, running) modulator (FR-7). */
   active(path: string): boolean {
     const s = this.slots.get(path);
-    return s != null && s.error == null;
+    return s != null && s.error == null && s.enabled;
   }
 
   list(): ModulatorInfo[] {
-    return [...this.slots.entries()].map(([path, s]) => ({ path, spec: s.spec, error: s.error }));
+    return [...this.slots.entries()].map(([path, s]) => ({
+      path,
+      spec: s.spec,
+      error: s.error,
+      enabled: s.enabled,
+    }));
   }
 
   /**
@@ -80,7 +106,7 @@ export class ModulatorHost {
    */
   tick(manifest: ManifestLike, f: FrameCtx): void {
     for (const [path, s] of this.slots) {
-      if (s.error != null) continue;
+      if (s.error != null || !s.enabled) continue;
       try {
         const param = manifest.get(path);
         if (!param) throw new Error(`param "${path}" disappeared`);

@@ -73,8 +73,8 @@ declare global {
         status: InstanceStatus;
         builds: number;
         pinned: "panic" | null;
-        modulators: Array<{ path: string; type: string; error: string | null }>;
-        chain: Array<{ id: string; effect: string; kind: string; mix: number }>;
+        modulators: Array<{ path: string; type: string; error: string | null; enabled: boolean }>;
+        chain: Array<{ id: string; effect: string; kind: string; mix: number; enabled: boolean }>;
       }>;
       /** Input-rack channel values (rack meters / validation). */
       inputs: Record<string, number>;
@@ -230,16 +230,28 @@ function writeParam(scene: string, path: string, apply: (p: Param<unknown>) => v
   if (touched) persist.scene(scene);
 }
 
+// "mod:<paramPath>" bindings pause/resume that param's modulator on every
+// instance of the scene (toggleEnabled is a safe no-op when none is attached).
+function setModEnabled(scene: string, paramPath: string, to: "toggle" | boolean): void {
+  for (const entry of session.entries.values()) {
+    if (entry.sceneName !== scene) continue;
+    if (to === "toggle") entry.modulators.toggleEnabled(paramPath);
+    else if (entry.modulators.get(paramPath) != null) entry.modulators.setEnabled(paramPath, to);
+  }
+}
+
 midi.onCc((e) => {
   const { learned } = bindings.handleCc(e, {
     write: (scene, path, v01) => writeParam(scene, path, (p) => p.setNormalized(v01)),
     setValue: (scene, path, value) => {
       if (scene === ACTIONS) return onAction(path);
       if (value === undefined) return; // a set binding without a target is inert
+      if (path.startsWith("mod:")) return setModEnabled(scene, path.slice(4), value >= 0.5);
       writeParam(scene, path, (p) => p.set(value));
     },
     cycle: (scene, path) => {
       if (scene === ACTIONS) return onAction(path);
+      if (path.startsWith("mod:")) return setModEnabled(scene, path.slice(4), "toggle");
       writeParam(scene, path, (p) => p.cycle());
     },
   });
@@ -914,7 +926,9 @@ const frameTick = (tMs: number): void => {
     status: entryStatus(e),
     builds: e.builds,
     pinned: e.pinned ?? null,
-    modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
+    modulators: e.modulators
+      .list()
+      .map((m) => ({ path: m.path, type: m.spec.type, error: m.error, enabled: m.enabled })),
     chain: e.chain.list(),
   }));
 };
