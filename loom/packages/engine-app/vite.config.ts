@@ -123,35 +123,18 @@ const mediaApi: Plugin = {
   name: "loom:media",
   configureServer(server) {
     const rootsFile = fileURLToPath(new URL("../../content/state/media-roots.json", import.meta.url));
-    server.middlewares.use("/loom/media", (req, res) => {
-      if (req.method !== "GET") {
-        res.statusCode = 405;
-        res.end();
-        return;
-      }
-      const p = new URL(req.url ?? "", "http://x").searchParams.get("p");
-      if (!p) {
-        res.statusCode = 400;
-        res.end("missing ?p=<absolute path>");
-        return;
-      }
-      const file = normalize(p);
-      let roots: string[] = [];
+    const loadRoots = (): string[] => {
       try {
-        roots = (JSON.parse(readFileSync(rootsFile, "utf8")) as { roots?: string[] }).roots ?? [];
+        return (JSON.parse(readFileSync(rootsFile, "utf8")) as { roots?: string[] }).roots ?? [];
       } catch {
-        // no registration file -> nothing is served
+        return []; // no registration file -> nothing is served
       }
-      const fl = file.toLowerCase();
-      const allowed = roots.some((r) => {
-        const n = normalize(r).toLowerCase().replace(/[\\/]+$/, "");
-        return fl === n || fl.startsWith(n + sep);
-      });
-      if (!allowed) {
-        res.statusCode = 403;
-        res.end("path is not under a registered media root (content/state/media-roots.json)");
-        return;
-      }
+    };
+    const streamFile = (
+      req: { headers: { range?: string | undefined } },
+      res: import("node:http").ServerResponse,
+      file: string,
+    ) => {
       let st;
       try {
         st = statSync(file);
@@ -184,6 +167,67 @@ const mediaApi: Plugin = {
       }
       res.setHeader("content-length", String(st.size));
       createReadStream(file).pipe(res);
+    };
+
+    // Query style: /loom/media?p=<absolute path> (videos, single files).
+    server.middlewares.use("/loom/media", (req, res, next) => {
+      // Connect prefix-matching would also catch /loom/mediafs — hand that off.
+      if ((req.originalUrl ?? req.url ?? "").includes("/loom/mediafs/")) return next();
+      if (req.method !== "GET") {
+        res.statusCode = 405;
+        res.end();
+        return;
+      }
+      const p = new URL(req.url ?? "", "http://x").searchParams.get("p");
+      if (!p) {
+        res.statusCode = 400;
+        res.end("missing ?p=<absolute path>");
+        return;
+      }
+      const file = normalize(p);
+      const fl = file.toLowerCase();
+      const allowed = loadRoots().some((r) => {
+        const n = normalize(r).toLowerCase().replace(/[\\/]+$/, "");
+        return fl === n || fl.startsWith(n + sep);
+      });
+      if (!allowed) {
+        res.statusCode = 403;
+        res.end("path is not under a registered media root (content/state/media-roots.json)");
+        return;
+      }
+      streamFile(req, res, file);
+    });
+
+    // Path style: /loom/mediafs/<rootIndex>/<relative path> (models — relative
+    // texture references resolve naturally against the URL base).
+    server.middlewares.use("/loom/mediafs/", (req, res) => {
+      if (req.method !== "GET") {
+        res.statusCode = 405;
+        res.end();
+        return;
+      }
+      const path = decodeURIComponent((req.url ?? "").replace(/^\//, "").split("?")[0]!);
+      const m = /^(\d+)\/(.+)$/.exec(path);
+      if (!m) {
+        res.statusCode = 400;
+        res.end("expected /loom/mediafs/<rootIndex>/<relative path>");
+        return;
+      }
+      const roots = loadRoots();
+      const root = roots[Number(m[1])];
+      if (root == null) {
+        res.statusCode = 403;
+        res.end(`no media root #${m[1]} (content/state/media-roots.json has ${roots.length})`);
+        return;
+      }
+      const base = normalize(root).replace(/[\\/]+$/, "");
+      const file = normalize(join(base, m[2]!));
+      if (!file.toLowerCase().startsWith(base.toLowerCase() + sep)) {
+        res.statusCode = 400;
+        res.end("path escapes the media root");
+        return;
+      }
+      streamFile(req, res, file);
     });
   },
 };

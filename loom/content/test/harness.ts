@@ -119,7 +119,7 @@ export function preservesInputPasses(out: TexNode, inputPasses: readonly Pass[])
 
 // ---- module discovery -------------------------------------------------------
 
-export type ModuleFolder = "control" | "sources" | "effects";
+export type ModuleFolder = "control" | "sources" | "effects" | "geo";
 
 export interface DiscoveredModule {
   name: string;
@@ -129,11 +129,11 @@ export interface DiscoveredModule {
   factory: ModuleFactory<unknown, never, unknown>;
 }
 
-const moduleFiles = import.meta.glob("../modules/{control,sources,effects}/*.ts", {
+const moduleFiles = import.meta.glob("../modules/{control,sources,effects,geo}/*.ts", {
   eager: true,
 }) as Record<string, Record<string, unknown>>;
 
-const moduleSources = import.meta.glob("../modules/{control,sources,effects}/*.ts", {
+const moduleSources = import.meta.glob("../modules/{control,sources,effects,geo}/*.ts", {
   eager: true,
   query: "?raw",
   import: "default",
@@ -156,7 +156,7 @@ function isFactory(v: unknown): v is ModuleFactory<unknown, never, unknown> {
 export function discoverModules(): DiscoveredModule[] {
   const out: DiscoveredModule[] = [];
   for (const [file, mod] of Object.entries(moduleFiles)) {
-    const folder = /\/modules\/(control|sources|effects)\//.exec(file)?.[1] as
+    const folder = /\/modules\/(control|sources|effects|geo)\//.exec(file)?.[1] as
       | ModuleFolder
       | undefined;
     if (!folder) continue;

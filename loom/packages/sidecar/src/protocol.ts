@@ -386,6 +386,8 @@ export const InstanceInfo = z.object({
   nodes: z.array(LayerNode).default([]),
   /** The input-trace name this instance replays, or null for the live rack (Fixtures). */
   fixture: z.string().nullable().default(null),
+  /** Smoothed per-frame render cost in ms (M7 frame-time HUD). */
+  frameMs: z.number().default(0),
   /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
   builds: z.number().int(),
   /** Pinned role, if any: "panic" = the always-warm safe-scene instance. */
@@ -518,5 +520,7 @@ export const ScreenshotResult = z.object({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   frame: z.number(),
+  /** Engine render rate at capture time — agents self-police perf (M7). */
+  fps: z.number().default(0),
 });
 export type ScreenshotResult = z.infer<typeof ScreenshotResult>;

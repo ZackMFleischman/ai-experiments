@@ -22,6 +22,8 @@ import type { ColorNode, Pass, TexNode } from "./texnode";
  */
 export class Instance {
   error: unknown = null;
+  /** Smoothed renderFrame cost in ms — the per-instance frame-time HUD (M7). */
+  frameMs = 0;
 
   private readonly material = new MeshBasicNodeMaterial();
   private readonly quad: QuadMesh;
@@ -46,6 +48,7 @@ export class Instance {
    */
   renderFrame(renderer: WebGPURenderer, f: FrameCtx, target: RenderTarget | null = null): void {
     if (this.error != null) return; // frozen: hold the last good frame
+    const t0 = performance.now();
     try {
       for (const update of this.updaters) update(f);
       for (const pass of this.passes) pass.render(renderer, f);
@@ -57,6 +60,9 @@ export class Instance {
       this.error = err;
       console.error(`[loom] instance "${this.sceneName}" froze (NFR-2 containment):`, err);
     }
+    // CPU-side submit cost (GPU time is opaque here) — still the early-warning
+    // meter for heavy scenes: stacked chains, geo worlds, particle pools.
+    this.frameMs = this.frameMs * 0.9 + (performance.now() - t0) * 0.1;
   }
 
   dispose(): void {

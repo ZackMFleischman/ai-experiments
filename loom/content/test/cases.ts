@@ -22,6 +22,12 @@ import { osc } from "../modules/sources/osc";
 import { pulseRings } from "../modules/sources/pulseRings";
 import { spriteSwarm } from "../modules/sources/spriteSwarm";
 import { video } from "../modules/sources/video";
+import { box } from "../modules/geo/box";
+import { model } from "../modules/geo/model";
+import { orbitCam } from "../modules/geo/orbitCam";
+import { sphere } from "../modules/geo/sphere";
+import { torus } from "../modules/geo/torus";
+import { render3d } from "../modules/sources/render3d";
 import { blackInput, makeCtx, markerInput, type DiscoveredModule, type Harness } from "./harness";
 
 /**
@@ -35,6 +41,7 @@ export type ModuleCase = (ctx: BuildCtx, input: TexNode) => unknown;
 
 const ASSET = new URL("../assets/hippos/hippo1.png", import.meta.url).href;
 const CLIP = new URL("../assets/test/clip.mp4", import.meta.url).href;
+const CUBE = new URL("../assets/test/cube.glb", import.meta.url).href;
 
 export const CASES: Record<string, ModuleCase> = {
   // control
@@ -51,6 +58,13 @@ export const CASES: Record<string, ModuleCase> = {
   pulseRings: (ctx) => pulseRings(ctx, { energy: ctx.input("kick") }),
   spriteSwarm: (ctx) => spriteSwarm(ctx, { url: ASSET, cols: 3, rows: 2 }),
   video: (ctx) => video(ctx, { url: CLIP }),
+  render3d: (ctx) => render3d(ctx, { world: box(ctx, { spin: 0.5 }), cam: orbitCam(ctx, {}) }),
+  // geo
+  box: (ctx) => box(ctx, { spin: 0.5 }),
+  sphere: (ctx) => sphere(ctx, { glow: ctx.input("kick") }),
+  torus: (ctx) => torus(ctx, { tumble: 0.4 }),
+  orbitCam: (ctx) => orbitCam(ctx, { speed: 0.5 }),
+  model: (ctx) => model(ctx, { url: CUBE, spin: 0.3 }),
   // effects
   colorize: (ctx, input) => colorize(ctx, { input }),
   feedback: (ctx, input) => feedback(ctx, { input }),

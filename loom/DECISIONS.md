@@ -648,3 +648,40 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   fixture entries (rebuild-safe), record/replay/shots in main.ts, MCP
   `record_fixture` + extended `create_instance`/`screenshot`,
   `validate:fixtures` 11/11. Tool-surface assertions moved (m3/m4/m5/modulators).
+
+## M7 — Geo (2026-06-11)
+
+- **GeoNode/CamNode join ModuleOutput** (`{object: Object3D}` / `{camera}`,
+  runtime geo.ts): geo modules return scene-graph fragments, never pixels.
+  The `render3d` bridge (a SOURCE) owns a Scene + default hemi/key lights +
+  an MSAA HalfFloat RT sized to the destination, renders world+cam per frame,
+  returns a TexNode — so meshes flow through chains, layers and 2D effects
+  unchanged. Transparent clear by default (composites over anything).
+- **Primitives** (box/sphere/torus over a shared `_primitive` helper) carry
+  live spin/tumble/glow/scale via ctx.updaters (frame-clock — deterministic
+  under fixtures). `orbitCam` integrates speed (rad/s) the same way.
+- **`model` loads glTF AND FBX** (the user's hippo is FBX; three's loaders,
+  fflate bundled). Loaded materials are NORMALIZED to MeshStandardMaterial
+  (color + diffuse map): FBX phong with layered textures threw inside the
+  WebGL backend and froze the instance (NFR-2 caught it; the readback of the
+  never-written preview target was the visible symptom). Async load into a
+  placeholder group, bbox recenter + height-normalize; missing files stay
+  empty, never throw. Path-style `/loom/mediafs/<rootIdx>/<rel>` route added
+  so FBX relative textures resolve (query-style ?p= URLs can't).
+- **Per-instance frame-time HUD** (pulled forward): Instance.frameMs (EMA of
+  CPU submit cost) in get_session + Console tiles; screenshot metadata gains
+  fps. The perf early-warning meter before M8 particle pools.
+- Harness: stdlib smoke mounts geo modules through render3d + orbitCam; a
+  committed 1.5 KB cube.glb (scripts/make-test-glb.mjs) keeps model checks
+  machine-independent; validate-m7's FBX checks run only where the local
+  hippo exists. The roadmap's `chain:<scene>@<node>` mount idea is covered by
+  validate-layers' per-node chain checks — not built separately.
+- **M8 validation strategy (decided up front, per the roadmap risk)**: the
+  particle pool ships with a CPU-sim + instanced-rendering base path that
+  runs (and validates) on the WebGL2 fallback; TSL-compute is the WebGPU
+  upgrade path, verified manually in desktop Chrome. Headless SwiftShader
+  WebGPU stays off the table (_browser.mjs hides navigator.gpu for known
+  blank-render reasons).
+- **SHIPPED:** 6 geo modules + render3d, mediafs route, frameMs/fps HUD,
+  geo-rave + hippo3d scenes (eyes-on stills verified), `validate:m7` 11/11
+  incl. FBX hippo render, contract tests grown a geo branch.

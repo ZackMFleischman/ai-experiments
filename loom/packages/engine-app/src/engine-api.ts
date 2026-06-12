@@ -576,6 +576,7 @@ export class EngineApi {
         chain: e.chain.list(),
         nodes: this.nodesJson(e),
         fixture: e.fixture?.name ?? null,
+        frameMs: Math.round(e.instance.frameMs * 100) / 100,
         builds: e.builds,
         pinned: e.pinned ?? null,
       })),
@@ -670,6 +671,7 @@ export class EngineApi {
       width: PREVIEW_W,
       height: PREVIEW_H,
       frame: this.deps.latestFrame().frame,
+      fps: this.deps.fps(),
     };
   }
 

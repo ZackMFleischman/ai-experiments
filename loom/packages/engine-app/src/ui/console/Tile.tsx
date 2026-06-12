@@ -239,6 +239,20 @@ export function Tile({
             {inst.id}
           </Typography>
         )}
+        <Typography
+          className="framems"
+          data-ms={inst.frameMs}
+          variant="caption"
+          title="per-frame render cost (CPU submit, smoothed) — the perf early-warning meter"
+          sx={{
+            fontSize: 10,
+            color: inst.frameMs > 8 ? "warning.main" : "text.secondary",
+            opacity: 0.85,
+            flex: "0 0 auto",
+          }}
+        >
+          {inst.frameMs.toFixed(1)}ms
+        </Typography>
         <Button
           className="stagebtn"
           disabled={isLive}

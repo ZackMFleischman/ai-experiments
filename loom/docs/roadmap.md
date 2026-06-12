@@ -42,6 +42,7 @@ focused month of evenings.
 | Projects (2026-06-11) | set lists: save/load named instance sets (values, modulators, root + node chains, tile order) to `content/state/projects/`; audience-safe load (sandboxes, deferred cull after commit); MCP list/save/load (agent save arming-gated); Console switcher + save dialog | `validate:projects` |
 | M9 Video sources (2026-06-11) | `video` module (speed/scrub/loop as Signals, muted, image-parity placement), `loom:media` middleware (Range/206, registered roots in `media-roots.json`), `beeple-wall` scene on real VJ clips | `validate:m9` |
 | Fixtures (2026-06-11) | deterministic input traces: `record_fixture` → `content/state/fixtures/`, `create_instance({inputs:"fixture:…"})` replay, byte-identical `screenshot({frames})` offline pass; TSL `time` banned from content (frame clock only) | `validate:fixtures` |
+| M7 Geo (2026-06-11) | GeoNode/CamNode, box/sphere/torus/orbitCam/`model` (glTF + FBX, hippo verified), `render3d` bridge into the TexNode chain, `mediafs` path-style serving, per-instance frame-time HUD + screenshot fps, geo-rave + hippo3d scenes | `validate:m7` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
@@ -72,19 +73,6 @@ declare a default `chain` and `restoreDefault` resets to it. Output types formal
 (`ModuleOutput`, `ChainableEffect`); `glitch`/`feedback`/`levels` carry `chainParams`.
 M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
 snapshot/restore across reload stays M9.
-
-### M7 — Geo (M) *(first half of the old Geo-&-particles L; moved ahead of the library)*
-
-**Goal:** the 3D path opens. Meshes are first-class material.
-
-- `Geo` type — `GeoNode` joins `ModuleOutput`; `gltf` + primitive loaders; `render(world, cam)` bridge module (scene-in-scene render target → TexNode); `orbitCam` control module.
-- Harness additions for single-module sandboxes: `orbit-cam`, `chain:<scene>@<node>` (mount in situ).
-- Stdlib Geo entries cataloged; *module-authoring* skill extended for Geo kind.
-- **Per-instance frame-time HUD** *(pulled forward from gig hardening)*: M7/M8 and
-  stacked chains are where the perf hazards get created — build the meter before
-  the load, not after. `screenshot` metadata gains fps so agents self-police.
-
-**Shipped when:** a gltf model loads into a sandbox tile, orbits under `orbitCam`, renders through the bridge into the TexNode chain, and commits through a post chain — all without touching the never-go-black layers. (`validate:m7`)
 
 ### M8 — Particles (M) *(second half of the old Geo-&-particles L; depends on M7’s `GeoNode`)*
 
