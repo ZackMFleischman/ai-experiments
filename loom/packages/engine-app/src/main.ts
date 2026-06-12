@@ -9,6 +9,7 @@ import {
   TimeBus,
   type FrameCtx,
   type InputsDef,
+  type Param,
   type SceneDef,
 } from "@loom/runtime";
 import { DEFAULT_WS_PORT, type InstanceStatus, type ScreenshotResult } from "@loom/sidecar/protocol";
@@ -157,24 +158,48 @@ const persist = {
   bindings: () => state.save("bindings", () => bindings.toJSON()),
 };
 
-// MIDI routing: a CC completes a pending learn, then drives its bindings
-// through the same Manifest write path as set_param and the Console.
-midi.onCc((e) => {
-  const { learned } = bindings.handleCc(e, (scene, path, v01) => {
-    if (scene === "globals") {
-      const isPalette = path.startsWith("palette.");
-      (isPalette ? palettes.manifest : inputs.manifest).get(path)?.setNormalized(v01);
-      if (isPalette) persist.palettes();
-      else persist.globals();
-      return;
-    }
-    let touched = false;
-    for (const entry of session.entries.values()) {
-      if (entry.sceneName !== scene) continue;
-      entry.instance.manifest.get(path)?.setNormalized(v01);
+// MIDI routing: a CC completes a pending learn, then drives its bindings.
+// Absolute writes ride the same Manifest path as set_param; button modes
+// (set/cycle) fire per press; the "actions" pseudo-scene steps LIVE through
+// the tiles (wired to the EngineApi below once it exists — CCs can arrive
+// during the boot awaits, hence the late-bound holder).
+const ACTIONS = "actions";
+let onAction: (path: string) => void = () => {};
+
+function writeParam(scene: string, path: string, apply: (p: Param<unknown>) => void): void {
+  if (scene === "globals") {
+    const isPalette = path.startsWith("palette.");
+    const param = (isPalette ? palettes.manifest : inputs.manifest).get(path);
+    if (!param) return;
+    apply(param);
+    if (isPalette) persist.palettes();
+    else persist.globals();
+    return;
+  }
+  let touched = false;
+  for (const entry of session.entries.values()) {
+    if (entry.sceneName !== scene) continue;
+    const param = entry.instance.manifest.get(path);
+    if (param) {
+      apply(param);
       touched = true;
     }
-    if (touched) persist.scene(scene);
+  }
+  if (touched) persist.scene(scene);
+}
+
+midi.onCc((e) => {
+  const { learned } = bindings.handleCc(e, {
+    write: (scene, path, v01) => writeParam(scene, path, (p) => p.setNormalized(v01)),
+    setValue: (scene, path, value) => {
+      if (scene === ACTIONS) return onAction(path);
+      if (value === undefined) return; // a set binding without a target is inert
+      writeParam(scene, path, (p) => p.set(value));
+    },
+    cycle: (scene, path) => {
+      if (scene === ACTIONS) return onAction(path);
+      writeParam(scene, path, (p) => p.cycle());
+    },
   });
   if (learned) persist.bindings();
 });
@@ -348,6 +373,13 @@ const api = new EngineApi(
   // disarms live either way.
   { agentCommitArmed: qs.get("agentCommit") !== "0" },
 );
+
+// MIDI action bindings step LIVE through the tiles — a physical button press
+// is a human gesture, so this rides the human trust tier (no agent arming).
+onAction = (path) => {
+  if (path === "live.next") api.liveStep(1);
+  else if (path === "live.prev") api.liveStep(-1);
+};
 
 // `?ws=` lets validation runs use an isolated sidecar port so they never
 // collide with (or silently talk to) a live performance session's sidecar.

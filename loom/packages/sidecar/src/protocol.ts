@@ -114,13 +114,20 @@ export const SetAudioArgs = z.object({
 });
 export type SetAudioArgs = z.infer<typeof SetAudioArgs>;
 
+export const BindingModeZ = z.enum(["absolute", "set", "cycle"]);
+export type BindingModeZ = z.infer<typeof BindingModeZ>;
+
 /**
  * MIDI-learn target: a param path on an instance (resolved to its scene
- * engine-side — bindings are durable across instance churn) or on "globals".
+ * engine-side — bindings are durable across instance churn), on "globals",
+ * or on the "actions" pseudo-instance (live.next / live.prev). mode/value
+ * choose the binding semantics; omitted = absolute.
  */
 export const MidiTargetArgs = z.object({
   instance: z.string().default("live"),
   path: z.string().min(1),
+  mode: BindingModeZ.optional(),
+  value: z.number().optional(),
 });
 export type MidiTargetArgs = z.infer<typeof MidiTargetArgs>;
 
@@ -138,6 +145,8 @@ export const MidiBinding = z.object({
   ch: z.number().nullable(),
   scene: z.string(),
   path: z.string(),
+  mode: BindingModeZ.default("absolute"),
+  value: z.number().optional(),
 });
 export type MidiBinding = z.infer<typeof MidiBinding>;
 
@@ -154,7 +163,14 @@ export const MidiStatus = z.object({
   status: z.enum(["off", "ready"]),
   devices: z.array(z.string()),
   /** Armed MIDI-learn target, or null. */
-  learning: z.object({ scene: z.string(), path: z.string() }).nullable(),
+  learning: z
+    .object({
+      scene: z.string(),
+      path: z.string(),
+      mode: BindingModeZ.optional(),
+      value: z.number().optional(),
+    })
+    .nullable(),
   /**
    * Raw-message monitor (newest last), including non-CC traffic the engine
    * ignores — the eyes for "this control does nothing" (default [] so an

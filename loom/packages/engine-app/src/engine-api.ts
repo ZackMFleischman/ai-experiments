@@ -49,6 +49,10 @@ const HUMAN_ONLY: ReadonlySet<string> = new Set([
 /** Pseudo-instance id serving the global manifest (input rack tunings). */
 const GLOBALS = "globals";
 
+/** Pseudo-instance for MIDI action bindings (stage navigation). */
+const ACTIONS = "actions";
+const ACTION_PATHS: ReadonlySet<string> = new Set(["live.next", "live.prev"]);
+
 export interface EngineDeps {
   renderer: WebGPURenderer;
   canvas: HTMLCanvasElement;
@@ -230,7 +234,7 @@ export class EngineApi {
         const e = session.require(this.resolveId(instance));
         const from = e.id;
         if (to === from) return { instance: to, was: from };
-        if (to === "live" || to === "globals") {
+        if (to === "live" || to === "globals" || to === "actions") {
           throw new Error(`"${to}" is a reserved name`);
         }
         session.rename(from, to);
@@ -308,20 +312,56 @@ export class EngineApi {
   }
 
   /**
-   * MIDI targets address a SCENE (durable across instance churn), so an
-   * instance arg resolves to its scene name; "globals" passes through. The
-   * path must exist on the target manifest right now — fail loud at learn
-   * time, not silently on the first knob twist.
+   * MIDI action: crossfade LIVE to the next/prev ok-status tile, wrapping in
+   * tile (insertion) order. Mash-safe: ignored mid-fade, under PANIC, or with
+   * fewer than two healthy tiles — a stuck button can never throw.
    */
-  private resolveMidiTarget(args: unknown): { scene: string; path: string } {
-    const { instance, path } = MidiTargetArgs.parse(args);
+  liveStep(dir: 1 | -1): void {
+    const { session, stage } = this.deps;
+    if (stage.panicked || stage.fading) return;
+    const ids = [...session.entries.values()]
+      .filter((e) => entryStatus(e) === "ok")
+      .map((e) => e.id);
+    const live = stage.live;
+    if (live == null || ids.length < 2) return;
+    const cur = ids.indexOf(live); // -1 (live not ok) still lands on a valid neighbor
+    const next = ids[(cur + dir + ids.length) % ids.length]!;
+    if (next === live) return;
+    stage.stage(next); // deliberately clobbers a pending staged candidate — performer wins
+    stage.commit(this.deps.latestFrame(), 60);
+  }
+
+  /**
+   * MIDI targets address a SCENE (durable across instance churn): an instance
+   * arg resolves to its scene name; "globals" and "actions" pass through.
+   * Param paths must exist on the target manifest right now — fail loud at
+   * learn time, not silently on the first knob twist. Action bindings are
+   * always edge-triggered ("set" semantics, no value).
+   */
+  private resolveMidiTarget(args: unknown): {
+    scene: string;
+    path: string;
+    mode?: "absolute" | "set" | "cycle";
+    value?: number;
+  } {
+    const { instance, path, mode, value } = MidiTargetArgs.parse(args);
+    const rest = {
+      ...(mode !== undefined ? { mode } : {}),
+      ...(value !== undefined ? { value } : {}),
+    };
+    if (instance === ACTIONS) {
+      if (!ACTION_PATHS.has(path)) {
+        throw new Error(`unknown action "${path}" — actions: ${[...ACTION_PATHS].join(", ")}`);
+      }
+      return { scene: ACTIONS, path, mode: "set" };
+    }
     if (instance === GLOBALS) {
       this.requireParam(this.globalsManifest(path), path, GLOBALS);
-      return { scene: GLOBALS, path };
+      return { scene: GLOBALS, path, ...rest };
     }
     const e = this.deps.session.require(this.resolveId(instance));
     this.requireParam(e.instance.manifest, path, e.id);
-    return { scene: e.sceneName, path };
+    return { scene: e.sceneName, path, ...rest };
   }
 
   /** "globals" = the input rack + the palettes, merged; routed by path prefix. */
