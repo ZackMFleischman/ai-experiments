@@ -13,6 +13,7 @@ import { useState, type ChangeEvent, type InputHTMLAttributes, type MouseEvent }
 import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
 import { fail, primeMidiPermission } from "../util";
+import { BindPopover } from "./BindPopover";
 import { ModPopover } from "./ModPopover";
 
 type Props = {
@@ -36,6 +37,7 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
   const { session } = useEngineState();
   const [drag, setDrag] = useState<number | null>(null);
   const [modAnchor, setModAnchor] = useState<HTMLElement | null>(null);
+  const [bindAnchor, setBindAnchor] = useState<HTMLElement | null>(null);
 
   const modulated = p.modulator != null;
   const min = typeof p.min === "number" ? p.min : 0;
@@ -46,10 +48,14 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
     instance === "globals"
       ? "globals"
       : (session?.instances.find((i) => i.id === instance)?.scene ?? null);
-  const binding =
+  const bindingsFor =
     scene != null
-      ? (session?.bindings.find((b) => b.scene === scene && b.path === path) ?? null)
-      : null;
+      ? (session?.bindings.filter((b) => b.scene === scene && b.path === path) ?? [])
+      : [];
+  const binding = bindingsFor[0] ?? null;
+  // Bools and ints have button semantics (toggle/cycle/radio) — M opens the
+  // mode popover. Floats keep the one-click absolute learn.
+  const hasModes = p.type === "bool" || p.type === "int";
   const learning =
     scene != null &&
     session?.midi.learning != null &&
@@ -65,6 +71,10 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
     e.stopPropagation();
     // No MIDI access yet? This click IS the user gesture — pop the prompt here.
     if (session?.midi.status !== "ready") primeMidiPermission();
+    if (hasModes) {
+      setBindAnchor((a) => (a ? null : (e.currentTarget as HTMLElement)));
+      return;
+    }
     // bound → unbind; learning → cancel (engine toggles); unbound → arm
     const action = binding != null && !learning ? "midi_unbind" : "midi_learn";
     void link.req(action, { instance, path }).catch(fail);
@@ -104,9 +114,13 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
           title={
             learning
               ? "move a controller… (click to cancel)"
-              : binding
-                ? `bound to cc${binding.cc} — click to unbind`
-                : "MIDI-learn: click, then move a knob"
+              : bindingsFor.length > 0
+                ? `${bindingsFor
+                    .map((b) => `cc${b.cc} ${b.mode}${b.mode === "set" ? ` ${b.value}` : ""}`)
+                    .join(" · ")}${hasModes ? " — click to edit" : " — click to unbind"}`
+                : hasModes
+                  ? "MIDI-learn: click to choose absolute / cycle / set"
+                  : "MIDI-learn: click, then move a knob"
           }
           sx={{
             minWidth: 0,
@@ -126,7 +140,7 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
                 : { color: "text.secondary" }),
           }}
         >
-          {learning ? "···" : binding ? `cc${binding.cc}` : "M"}
+          {learning ? "···" : bindingsFor.length > 1 ? `cc×${bindingsFor.length}` : binding ? `cc${binding.cc}` : "M"}
         </Button>
         )}
         <Typography variant="body2" data-value={path} sx={{ minWidth: 48, textAlign: "right" }}>
@@ -207,6 +221,17 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
           p={p}
           anchorEl={modAnchor}
           onClose={() => setModAnchor(null)}
+        />
+      )}
+      {hasModes && (
+        <BindPopover
+          instance={instance}
+          path={path}
+          p={p}
+          bindings={bindingsFor}
+          learning={session?.midi.learning ?? null}
+          anchorEl={bindAnchor}
+          onClose={() => setBindAnchor(null)}
         />
       )}
     </Box>
