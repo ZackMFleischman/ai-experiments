@@ -33,6 +33,7 @@ import panicScene from "../../../content/scenes/panic.scene";
 import { startBridge } from "./bridge";
 import { Compositor } from "./compositor";
 import { assertProjectName, ProjectStore, type ProjectData } from "./projects";
+import { readTargetToDataUrl } from "./readback";
 import { startConsoleChannel } from "./console-channel";
 import { EngineApi } from "./engine-api";
 import { FpsMeter } from "./fps";
@@ -298,24 +299,8 @@ async function previewEffect(instanceId: string, effect: string): Promise<string
   }
 }
 
-async function readTargetToJpeg(rt: RenderTarget, w: number, h: number): Promise<string> {
-  const buf = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, w, h)) as Uint8Array | Uint8ClampedArray;
-  const pixels = new Uint8ClampedArray(buf.buffer, buf.byteOffset, w * h * 4);
-  const src = document.createElement("canvas");
-  src.width = w;
-  src.height = h;
-  src.getContext("2d")!.putImageData(new ImageData(pixels.slice(), w, h), 0, 0);
-  const out = document.createElement("canvas");
-  out.width = w;
-  out.height = h;
-  const octx = out.getContext("2d")!;
-  if ((renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true) {
-    octx.translate(0, h); // WebGL framebuffers read bottom-up
-    octx.scale(1, -1);
-  }
-  octx.drawImage(src, 0, 0);
-  return out.toDataURL("image/jpeg", 0.72);
-}
+const readTargetToJpeg = (rt: RenderTarget, w: number, h: number): Promise<string> =>
+  readTargetToDataUrl(renderer, rt, w, h);
 const stage = new Stage();
 const compositor = new Compositor(RENDER_W, RENDER_H);
 
@@ -439,28 +424,9 @@ const fixturesApi = {
         renderer.setRenderTarget(liveTarget);
         const shots = [];
         for (const i of want) {
-          const buf = (await renderer.readRenderTargetPixelsAsync(
-            rts.get(i)!,
-            0,
-            0,
-            PREVIEW_W,
-            PREVIEW_H,
-          )) as Uint8Array | Uint8ClampedArray;
-          const pixels = new Uint8ClampedArray(buf.buffer, buf.byteOffset, PREVIEW_W * PREVIEW_H * 4);
-          const c = document.createElement("canvas");
-          c.width = PREVIEW_W;
-          c.height = PREVIEW_H;
-          c.getContext("2d")!.putImageData(new ImageData(pixels.slice(), PREVIEW_W, PREVIEW_H), 0, 0);
-          const out = document.createElement("canvas");
-          out.width = PREVIEW_W;
-          out.height = PREVIEW_H;
-          const octx = out.getContext("2d")!;
-          if ((renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true) {
-            octx.translate(0, PREVIEW_H); // WebGL framebuffers read bottom-up
-            octx.scale(1, -1);
-          }
-          octx.drawImage(c, 0, 0);
-          const url = out.toDataURL("image/png");
+          const url = await readTargetToDataUrl(renderer, rts.get(i)!, PREVIEW_W, PREVIEW_H, {
+            mime: "image/png",
+          });
           shots.push({
             frame: i,
             mime: "image/png" as const,

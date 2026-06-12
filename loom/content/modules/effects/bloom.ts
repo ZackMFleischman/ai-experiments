@@ -1,6 +1,7 @@
-import { BuildCtx, defineModule, texNode, type Pass, type SignalLike, type TexNode } from "@loom/runtime";
+import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { add, dot, screenSize, smoothstep, texture, uv, vec2, vec3, vec4 } from "three/tsl";
-import { HalfFloatType, MeshBasicNodeMaterial, NoBlending, QuadMesh, RenderTarget, Vector2, type WebGPURenderer } from "three/webgpu";
+import { HalfFloatType, MeshBasicNodeMaterial, NoBlending, QuadMesh, RenderTarget } from "three/webgpu";
+import { bufferPass } from "../_shared";
 
 export interface BloomOpts {
   input: TexNode;
@@ -45,48 +46,33 @@ export const bloom = defineModule(
     const level = ctx.uniformOf(opts.level ?? 0.6);
     const intensity = ctx.uniformOf(opts.intensity ?? 0.8);
     const radius = ctx.uniformOf(opts.radius ?? 14);
-    const rtBright = new RenderTarget(1, 1, { type: HalfFloatType });
-    const rtH = new RenderTarget(1, 1, { type: HalfFloatType });
-    const destSize = new Vector2();
 
-    // Bright pass: input over threshold, written to a buffer.
+    // Bright pass: the buffer holds the THRESHOLDED input (colorNode override).
     const c = opts.input.color;
     const luma = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
     const m = smoothstep(level.sub(0.0001), level.add(0.25), luma);
-    const brightMaterial = new MeshBasicNodeMaterial();
-    brightMaterial.colorNode = vec4(c.rgb.mul(m), 1);
-    brightMaterial.transparent = true;
-    brightMaterial.blending = NoBlending;
-    const brightQuad = new QuadMesh(brightMaterial);
 
+    const rtH = new RenderTarget(1, 1, { type: HalfFloatType });
     const hMaterial = new MeshBasicNodeMaterial();
-    hMaterial.colorNode = vec4(taps(rtBright, [1, 0], radius));
     hMaterial.transparent = true;
     hMaterial.blending = NoBlending;
     const hQuad = new QuadMesh(hMaterial);
 
-    const pass: Pass = {
-      render(renderer: WebGPURenderer) {
+    const { rt: rtBright, pass } = bufferPass(opts.input, {
+      colorNode: vec4(c.rgb.mul(m), 1),
+      onResize: (w, h) => rtH.setSize(w, h),
+      afterRender: (renderer) => {
         const prev = renderer.getRenderTarget();
-        if (prev) destSize.set(prev.width, prev.height);
-        else renderer.getDrawingBufferSize(destSize);
-        if (rtBright.width !== destSize.x || rtBright.height !== destSize.y) {
-          rtBright.setSize(destSize.x, destSize.y);
-          rtH.setSize(destSize.x, destSize.y);
-        }
-        renderer.setRenderTarget(rtBright);
-        brightQuad.render(renderer);
         renderer.setRenderTarget(rtH);
         hQuad.render(renderer);
         renderer.setRenderTarget(prev);
       },
-      dispose() {
-        rtBright.dispose();
+      onDispose: () => {
         rtH.dispose();
-        brightMaterial.dispose();
         hMaterial.dispose();
       },
-    };
+    });
+    hMaterial.colorNode = vec4(taps(rtBright, [1, 0], radius));
 
     const glow = taps(rtH, [0, 1], radius).rgb.mul(intensity.max(0));
     return texNode(vec4(c.rgb.add(glow), c.a), [...opts.input.passes, pass]);

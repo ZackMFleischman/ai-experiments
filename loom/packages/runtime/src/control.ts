@@ -22,6 +22,24 @@ export function lagSignal(target: SignalLike, tau: SignalLike): Signal<number> {
   });
 }
 
+/**
+ * Integrate a rate signal (units/sec) into a running total on the frame
+ * clock — rate changes never jump the accumulated phase. The shared form of
+ * the `integrate()` helper that kept getting copy-pasted into scenes (spin
+ * angles, dive depths, scroll phases). `wrap` keeps long-running phases
+ * inside [0, wrap) so float precision never degrades hours into a set.
+ */
+export function integrateSignal(rate: SignalLike, opts: { wrap?: number } = {}): Signal<number> {
+  const rateS = asSignal(rate);
+  const wrap = opts.wrap;
+  let acc = 0;
+  return new Signal((f) => {
+    acc += rateS.get(f) * f.dt;
+    if (wrap != null && wrap > 0) acc = ((acc % wrap) + wrap) % wrap;
+    return acc;
+  });
+}
+
 export type LfoShape = "sine" | "saw" | "square";
 
 export interface LfoOpts {

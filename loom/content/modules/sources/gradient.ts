@@ -1,5 +1,6 @@
-import { asSignal, BuildCtx, defineModule, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
+import { BuildCtx, defineModule, integrateSignal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { atan, cos, float, fract, length, sin, uv, vec2 } from "three/tsl";
+import { surfaceAspect } from "../_shared";
 
 export interface GradientOpts {
   /** Ramp shape (compile-time): linear sweep, radial rings, or angular fan. */
@@ -28,13 +29,11 @@ export const gradient = defineModule(
   (ctx: BuildCtx, opts: GradientOpts = {}): TexNode => {
     const angle = ctx.uniformOf(opts.angle ?? 0);
     const repeat = ctx.uniformOf(opts.repeat ?? 1);
-    // Frame-clock scroll phase (never TSL time): integrate CPU-side so speed
-    // changes never jump phase and fixture replays stay deterministic.
-    const scrollSig = asSignal(opts.scroll ?? 0);
-    let phase = 0;
-    const phaseU = ctx.uniformOf(new Signal((f) => (phase = (phase + scrollSig.get(f) * f.dt) % 1)));
+    // Frame-clock scroll phase (never TSL time), wrapped so float precision
+    // never degrades hours into a set.
+    const phaseU = ctx.uniformOf(integrateSignal(opts.scroll ?? 0, { wrap: 1 }));
 
-    const p = uv().sub(0.5).mul(vec2(16 / 9, 1));
+    const p = uv().sub(0.5).mul(vec2(surfaceAspect(), 1));
     const mode = opts.mode ?? "linear";
     const t =
       mode === "radial"

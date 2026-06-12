@@ -44,6 +44,10 @@ build(ctx) {
 - Combining several signals (e.g. `energy = kickEnv * punch + bass * 0.6`)? Build one derived signal: `new Signal((f) => kickEnv.get(f) * punchSig.get(f) + bass.get(f) * 0.6)` and pass it to a module opt — pulling it through `uniformOf` keeps every stateful input ticking.
 - Scene throws at build are contained but waste an iteration: prefer typecheck-clean saves.
 
+## Deterministic iteration with fixtures
+
+When you're iterating on an audio-reactive scene and the test signal's timing luck keeps moving the goalposts: `record_fixture { name, frames }` captures the rack once, `create_instance { scene, inputs: "fixture:<name>" }` replays it identically forever, and `screenshot { instance, frames: [30, 90] }` renders byte-identical frames offline — so "did my edit improve frame 90" is answerable. The same trick isolates parallel subagents from each other's audio.
+
 ## Video decks
 
 `video(ctx, { url, speed, scrubbing, scrub, loop })` plays a clip exactly where an `image` would sit (same placement, muted). The media controls are SignalLike — wire them to scene params so the human retimes/scrubs on faders with no rebuild. Clips OUTSIDE the repo go through `mediaUrl("C:\\abs\\path.mp4")` (served by the `loom:media` middleware; the path must live under a root registered in `content/state/media-roots.json`). A missing/undecodable file stays transparent — Chrome plays H.264/VP9 mp4/webm, NOT MJPEG `.mov`. Wrap every video in `ctx.layer(...)`.

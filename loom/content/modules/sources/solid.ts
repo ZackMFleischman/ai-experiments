@@ -1,5 +1,6 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { vec3, vec4 } from "three/tsl";
+import { parseHex } from "../_shared";
 
 export interface SolidOpts {
   /** Flat color "#rrggbb" (ignored when paletteStop is set). */
@@ -10,12 +11,6 @@ export interface SolidOpts {
   level?: SignalLike;
 }
 
-/** Parse "#rrggbb" to 0..1 rgb (build-time constant). */
-function hex(c: string): [number, number, number] {
-  const m = /^#?([0-9a-f]{6})$/i.exec(c.trim());
-  const n = m ? parseInt(m[1]!, 16) : 0xffffff;
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-}
 
 /**
  * A flat color field (the TD Constant TOP). Degenerate but load-bearing: test
@@ -32,7 +27,7 @@ export const solid = defineModule(
   (ctx: BuildCtx, opts: SolidOpts = {}): TexNode => {
     const level = ctx.uniformOf(opts.level ?? 1);
     const rgb =
-      opts.paletteStop != null ? ctx.palette.color(Math.max(0, Math.min(4, Math.round(opts.paletteStop)))) : vec3(...hex(opts.color ?? "#ffffff"));
+      opts.paletteStop != null ? ctx.palette.color(Math.max(0, Math.min(4, Math.round(opts.paletteStop)))) : vec3(...parseHex(opts.color ?? "#ffffff"));
     return texNode(vec4(rgb.mul(level.max(0)), 1));
   },
 );

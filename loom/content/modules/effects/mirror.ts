@@ -1,6 +1,6 @@
-import { BuildCtx, defineModule, texNode, type Pass, type SignalLike, type TexNode } from "@loom/runtime";
+import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { abs, cos, sin, texture, uv, vec2, vec4 } from "three/tsl";
-import { HalfFloatType, MeshBasicNodeMaterial, NoBlending, QuadMesh, RenderTarget, Vector2, type WebGPURenderer } from "three/webgpu";
+import { bufferPass } from "../_shared";
 
 export interface MirrorOpts {
   input: TexNode;
@@ -30,14 +30,7 @@ export const mirror = defineModule(
   (ctx: BuildCtx, opts: MirrorOpts): TexNode => {
     const angle = ctx.uniformOf(opts.angle ?? 0);
     const offset = ctx.uniformOf(opts.offset ?? 0);
-    const rt = new RenderTarget(1, 1, { type: HalfFloatType });
-    const destSize = new Vector2();
-
-    const srcMaterial = new MeshBasicNodeMaterial();
-    srcMaterial.colorNode = opts.input.color;
-    srcMaterial.transparent = true;
-    srcMaterial.blending = NoBlending;
-    const srcQuad = new QuadMesh(srcMaterial);
+    const { rt, pass } = bufferPass(opts.input);
 
     // Rotate into fold space, reflect onto the line's left side, rotate back:
     // x' = offset − |x − offset| always reads left-of-line content.
@@ -48,23 +41,6 @@ export const mirror = defineModule(
     const folded = vec2(offset.sub(abs(local.x.sub(offset))), local.y);
     const back = vec2(c.mul(folded.x).sub(s.mul(folded.y)), s.mul(folded.x).add(c.mul(folded.y))).add(0.5);
     const sam = texture(rt.texture, back);
-
-    const pass: Pass = {
-      render(renderer: WebGPURenderer) {
-        const prev = renderer.getRenderTarget();
-        if (prev) destSize.set(prev.width, prev.height);
-        else renderer.getDrawingBufferSize(destSize);
-        if (rt.width !== destSize.x || rt.height !== destSize.y) rt.setSize(destSize.x, destSize.y);
-        renderer.setRenderTarget(rt);
-        srcQuad.render(renderer);
-        renderer.setRenderTarget(prev);
-      },
-      dispose() {
-        rt.dispose();
-        srcMaterial.dispose();
-      },
-    };
-
     return texNode(vec4(sam.rgb, sam.a), [...opts.input.passes, pass]);
   },
 );

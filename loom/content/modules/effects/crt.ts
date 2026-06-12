@@ -1,6 +1,6 @@
-import { BuildCtx, defineModule, texNode, type Pass, type SignalLike, type TexNode } from "@loom/runtime";
+import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { abs, length, sin, smoothstep, step, texture, uv, vec2, vec3, vec4 } from "three/tsl";
-import { HalfFloatType, MeshBasicNodeMaterial, NoBlending, QuadMesh, RenderTarget, Vector2, type WebGPURenderer } from "three/webgpu";
+import { bufferPass } from "../_shared";
 
 export interface CrtOpts {
   input: TexNode;
@@ -33,14 +33,7 @@ export const crt = defineModule(
     const scan = ctx.uniformOf(opts.scan ?? 0.3).clamp(0, 1);
     const curve = ctx.uniformOf(opts.curve ?? 0.12);
     const aberration = ctx.uniformOf(opts.aberration ?? 0.4);
-    const rt = new RenderTarget(1, 1, { type: HalfFloatType });
-    const destSize = new Vector2();
-
-    const srcMaterial = new MeshBasicNodeMaterial();
-    srcMaterial.colorNode = opts.input.color;
-    srcMaterial.transparent = true;
-    srcMaterial.blending = NoBlending;
-    const srcQuad = new QuadMesh(srcMaterial);
+    const { rt, pass } = bufferPass(opts.input);
 
     // Barrel: push UVs outward by radial distance squared.
     const q = uv().sub(0.5);
@@ -59,22 +52,6 @@ export const crt = defineModule(
     const dim = lines.mul(scan).oneMinus();
     // Soft tube-corner falloff.
     const corner = smoothstep(0.62, 0.45, length(q));
-
-    const pass: Pass = {
-      render(renderer: WebGPURenderer) {
-        const prev = renderer.getRenderTarget();
-        if (prev) destSize.set(prev.width, prev.height);
-        else renderer.getDrawingBufferSize(destSize);
-        if (rt.width !== destSize.x || rt.height !== destSize.y) rt.setSize(destSize.x, destSize.y);
-        renderer.setRenderTarget(rt);
-        srcQuad.render(renderer);
-        renderer.setRenderTarget(prev);
-      },
-      dispose() {
-        rt.dispose();
-        srcMaterial.dispose();
-      },
-    };
 
     const shade = dim.mul(inside).mul(corner.mul(0.6).add(0.4));
     return texNode(vec4(vec3(rC, gC.g, bC).mul(shade), gC.a), [...opts.input.passes, pass]);

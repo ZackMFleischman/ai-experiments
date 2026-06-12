@@ -1,5 +1,6 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { abs, atan, cos, float, length, max, sin, smoothstep, uv, vec2, vec4 } from "three/tsl";
+import { surfaceAspect } from "../_shared";
 
 export interface ShapeOpts {
   /** Outline (compile-time): filled circle, ring, rect, or regular polygon. */
@@ -42,7 +43,7 @@ export const shape = defineModule(
     const cy = ctx.uniformOf(opts.y ?? 0.5);
     const rot = ctx.uniformOf(opts.rotate ?? 0);
 
-    const q = uv().sub(vec2(cx, cy)).mul(vec2(16 / 9, 1));
+    const q = uv().sub(vec2(cx, cy)).mul(vec2(surfaceAspect(), 1));
     const c = cos(rot);
     const s = sin(rot);
     const p = vec2(c.mul(q.x).add(s.mul(q.y)), c.mul(q.y).sub(s.mul(q.x)));

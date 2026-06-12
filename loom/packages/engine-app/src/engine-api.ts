@@ -44,6 +44,7 @@ import {
   type SessionSnapshot,
 } from "@loom/sidecar/protocol";
 import type { WebGPURenderer } from "three/webgpu";
+import { readTargetToDataUrl } from "./readback";
 import { entryStatus, PREVIEW_H, PREVIEW_W, type Entry, type SessionStore } from "./session";
 
 /** Who issued a command: the MCP bridge ("agent") or the Console ("human"). */
@@ -675,47 +676,12 @@ export class EngineApi {
     };
   }
 
-  private async readTarget(
-    e: Entry,
-    outW: number,
-    outH: number,
-    mime: string,
-  ): Promise<string> {
-    const { renderer } = this.deps;
-    const buf = (await renderer.readRenderTargetPixelsAsync(
-      e.target,
-      0,
-      0,
-      PREVIEW_W,
-      PREVIEW_H,
-    )) as Uint8Array | Uint8ClampedArray;
-    const pixels = new Uint8ClampedArray(buf.buffer, buf.byteOffset, PREVIEW_W * PREVIEW_H * 4);
-    const img = new ImageData(pixels.slice(), PREVIEW_W, PREVIEW_H);
-    const full = document.createElement("canvas");
-    full.width = PREVIEW_W;
-    full.height = PREVIEW_H;
-    full.getContext("2d")!.putImageData(img, 0, 0);
-    // WebGL framebuffers read bottom-up; WebGPU reads top-down.
-    const flip = (this.deps.renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true;
-    return scaleToJpeg(full, outW, outH, flip, mime);
+  private readTarget(e: Entry, outW: number, outH: number, mime: string): Promise<string> {
+    return readTargetToDataUrl(this.deps.renderer, e.target, PREVIEW_W, PREVIEW_H, {
+      outW,
+      outH,
+      mime,
+      quality: 0.7,
+    });
   }
-}
-
-function scaleToJpeg(
-  source: HTMLCanvasElement,
-  width: number,
-  height: number,
-  flipY: boolean,
-  mime = "image/jpeg",
-): string {
-  const c = document.createElement("canvas");
-  c.width = width;
-  c.height = height;
-  const ctx = c.getContext("2d")!;
-  if (flipY) {
-    ctx.translate(0, height);
-    ctx.scale(1, -1);
-  }
-  ctx.drawImage(source, 0, 0, width, height);
-  return c.toDataURL(mime, 0.7);
 }

@@ -1,5 +1,6 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { dot, length, smoothstep, vec3, vec4 } from "three/tsl";
+import { parseHex } from "../_shared";
 
 export interface KeyOpts {
   input: TexNode;
@@ -13,11 +14,6 @@ export interface KeyOpts {
   softness?: SignalLike;
 }
 
-function hex(c: string): [number, number, number] {
-  const m = /^#?([0-9a-f]{6})$/i.exec(c.trim());
-  const n = m ? parseInt(m[1]!, 16) : 0x00ff00;
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-}
 
 /**
  * Chroma/luma keyer (the TD Chroma Key TOP): keys a color (or dark lumas) to
@@ -45,7 +41,7 @@ export const key = defineModule(
     const keep =
       (opts.mode ?? "chroma") === "luma"
         ? smoothstep(tolerance, tolerance.add(softness.max(0.001)), dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)))
-        : smoothstep(tolerance, tolerance.add(softness.max(0.001)), length(c.rgb.sub(vec3(...hex(opts.keyColor ?? "#00ff00")))));
+        : smoothstep(tolerance, tolerance.add(softness.max(0.001)), length(c.rgb.sub(vec3(...parseHex(opts.keyColor ?? "#00ff00")))));
 
     return texNode(vec4(c.rgb.mul(keep), c.a.mul(keep)), opts.input.passes);
   },

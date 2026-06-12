@@ -107,9 +107,7 @@ export class SessionStore {
       (ctx, tex) => chain.fold(ctx, tex),
       { foldNode: (ctx, node, tex) => nodeChains.get(node)?.fold(ctx, tex) ?? tex },
     );
-    this.applyTuned(instance, def.name);
-    chain.applyValues(instance.manifest);
-    for (const host of nodeChains.values()) host.applyValues(instance.manifest);
+    this.reapplyValues(instance, def.name, chain, nodeChains);
     // Per-instance values (Projects) override the per-scene tuned defaults.
     for (const [path, v] of Object.entries(init?.values ?? {})) {
       try {
@@ -194,9 +192,7 @@ export class SessionStore {
         (ctx, tex) => e.chain.fold(ctx, tex),
         { foldNode: (ctx, node, tex) => e.nodeChains.get(node)?.fold(ctx, tex) ?? tex },
       );
-      this.applyTuned(next, def.name);
-      e.chain.applyValues(next.manifest);
-      for (const host of e.nodeChains.values()) host.applyValues(next.manifest);
+      this.reapplyValues(next, def.name, e.chain, e.nodeChains);
       e.instance.dispose();
       e.instance = next;
       e.sceneName = def.name;
@@ -222,6 +218,19 @@ export class SessionStore {
       if (e.id === skipId) continue;
       e.modulators.tick(e.instance.manifest, f);
     }
+  }
+
+  /** The fresh-manifest ritual shared by create() and swap(): per-scene tuned
+   * values, then root + node chain knob values (NFR-5's "params reapplied"). */
+  private reapplyValues(
+    instance: Instance,
+    sceneName: string,
+    chain: ChainHost,
+    nodeChains: Map<string, ChainHost>,
+  ): void {
+    this.applyTuned(instance, sceneName);
+    chain.applyValues(instance.manifest);
+    for (const host of nodeChains.values()) host.applyValues(instance.manifest);
   }
 
   /** Re-apply tuned values over code defaults; unknown paths are skipped. */

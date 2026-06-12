@@ -1,4 +1,4 @@
-import { Signal, defineScene, texNode } from "@loom/runtime";
+import { Signal, defineScene, integrateSignal, texNode } from "@loom/runtime";
 import { vec4 } from "three/tsl";
 import { lag } from "../modules/control/lag";
 import { flyby } from "../modules/effects/flyby";
@@ -18,15 +18,6 @@ const HIPPO_URLS = [
   new URL("../assets/hippos/hippo5.png", import.meta.url).href,
 ];
 const TAU = Math.PI * 2;
-
-/** Accumulate a rate signal (units/sec) into a running total — rate changes never jump phase. */
-function integrate(rate: Signal<number>): Signal<number> {
-  let acc = 0;
-  return new Signal((f) => {
-    acc += rate.get(f) * f.dt;
-    return acc;
-  });
-}
 
 export default defineScene({
   name: "vinyl-zoom",
@@ -62,12 +53,12 @@ export default defineScene({
     const creepSig = creep.signal();
 
     // Records turn clockwise: negative angle in CCW-positive math.
-    const recordAngle = integrate(new Signal((f) => (-rpmSig.get(f) * TAU) / 60));
+    const recordAngle = integrateSignal(new Signal((f) => (-rpmSig.get(f) * TAU) / 60));
     // The dive only moves forward: baseline creep plus a thrust on each kick.
     // The thrust is lagged so the zoom VELOCITY stays continuous — same
     // octaves per kick, spread into a smooth surge instead of a lurch.
     const thrust = lag(ctx, { input: kick, seconds: glide.signal() });
-    const depth = integrate(new Signal((f) => creepSig.get(f) + thrust.get(f) * punchSig.get(f)));
+    const depth = integrateSignal(new Signal((f) => creepSig.get(f) + thrust.get(f) * punchSig.get(f)));
 
     const record = image(ctx, { url: IMG_URL, transform: { rotate: recordAngle, scale: size.signal() } });
     // Pixelate the record itself — the kaleidoscope then folds the mosaic.
@@ -87,7 +78,7 @@ export default defineScene({
 
     // The logo rides on top, outside the zoom chain — static while the dive runs.
     const logoRpmSig = logoRpm.signal();
-    const logoAngle = integrate(new Signal((f) => (-logoRpmSig.get(f) * TAU) / 60));
+    const logoAngle = integrateSignal(new Signal((f) => (-logoRpmSig.get(f) * TAU) / 60));
     const badge = image(ctx, {
       url: LOGO_URL,
       transform: {
