@@ -24,7 +24,7 @@ export {
   type OnsetChannelOpts,
   type CcChannelOpts,
 } from "./inputs";
-export { BindingStore, BindingSchema, type Binding, type LearnTarget } from "./bindings";
+export { BindingStore, BindingSchema, BindingMode, type Binding, type BindingOps, type LearnTarget } from "./bindings";
 export {
   createModulator,
   ModulatorSpec,
