@@ -26,6 +26,7 @@ export const RequestType = z.enum([
   "screenshot",
   "create_instance",
   "destroy_instance",
+  "rename_instance",
   "stage",
   "unstage",
   "commit",
@@ -84,6 +85,16 @@ export const CreateInstanceArgs = z.object({
   id: z.string().min(1).optional(),
 });
 export type CreateInstanceArgs = z.infer<typeof CreateInstanceArgs>;
+
+export const RenameInstanceArgs = z.object({
+  instance: z.string().default("live"),
+  to: z
+    .string()
+    .min(1)
+    .max(40)
+    .regex(/^[a-z0-9][a-z0-9_-]*$/i, "letters, digits, - and _ (must start alphanumeric)"),
+});
+export type RenameInstanceArgs = z.infer<typeof RenameInstanceArgs>;
 
 /** One desired chain step. `id` is omitted for a new step, kept for a surviving one. */
 export const ChainStepInputSchema = z.object({

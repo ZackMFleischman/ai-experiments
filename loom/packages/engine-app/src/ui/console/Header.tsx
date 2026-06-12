@@ -2,6 +2,7 @@ import { Box, Button, NativeSelect, Stack, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import { useEngine } from "../hooks";
+import { mono } from "../theme";
 import { fail, primeMidiPermission } from "../util";
 
 type Props = { session: SessionSnapshot; onToggleRack: () => void };
@@ -11,19 +12,39 @@ export function Header({ session: s, onToggleRack }: Props) {
   return (
     <Stack
       direction="row"
-      spacing={2}
+      spacing={1.25}
       alignItems="center"
       component="header"
-      sx={{ px: 1.75, py: 1, bgcolor: "background.paper", borderBottom: 1, borderColor: "divider", flex: "0 0 auto" }}
+      sx={{ px: 1.25, py: 0.5, bgcolor: "background.paper", borderBottom: 1, borderColor: "divider", flex: "0 0 auto" }}
     >
-      <Typography>
-        <Box component="b" id="bpm">{s.bpm.toFixed(0)}</Box>{" "}
-        <Typography component="span" variant="caption" color="text.secondary">BPM</Typography>
+      <Typography
+        sx={{
+          fontFamily: mono,
+          fontWeight: 800,
+          letterSpacing: ".28em",
+          color: "primary.main",
+          fontSize: 14,
+          userSelect: "none",
+          mr: 0.25,
+        }}
+      >
+        LOOM
       </Typography>
-      <Button id="tap" onClick={() => void link.req("set_transport", { tap: true }).catch(fail)}>
-        TAP
+      <Button
+        id="tap"
+        title="tap tempo — click on the beat"
+        onClick={() => void link.req("set_transport", { tap: true }).catch(fail)}
+        sx={{ fontFamily: mono, px: 1 }}
+      >
+        <Box component="b" id="bpm" sx={{ fontSize: 13 }}>{s.bpm.toFixed(0)}</Box>
+        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+          BPM
+        </Typography>
       </Button>
-      <Box sx={{ width: 120, height: 10, bgcolor: "#0006", border: 1, borderColor: "divider", borderRadius: "5px", overflow: "hidden" }}>
+      <Box
+        title="audio level"
+        sx={{ width: 80, height: 8, bgcolor: "#0006", border: 1, borderColor: "divider", borderRadius: "4px", overflow: "hidden" }}
+      >
         <Box
           id="rmsfill"
           sx={{ height: "100%", bgcolor: "primary.main", transition: "width 80ms linear" }}
@@ -32,17 +53,26 @@ export function Header({ session: s, onToggleRack }: Props) {
       </Box>
       <AudioPicker session={s} />
       <MidiStatus midi={s.midi} />
-      <Button onClick={onToggleRack} title="input rack (i)">rack</Button>
+      <Button onClick={onToggleRack} title="input rack (i)">RACK</Button>
       <Box sx={{ flex: 1 }} />
-      <Typography id="fps" variant="caption" color="text.secondary">
-        {`${s.fps.toFixed(0)} fps · f${s.frame}`}
+      <Typography id="fps" title="render rate · frame counter" sx={{ fontFamily: mono, fontSize: 14, fontWeight: 700 }}>
+        {s.fps.toFixed(0)}
+        <Box component="span" sx={{ color: "text.secondary", fontSize: 11, fontWeight: 400 }}>
+          {` fps · f${s.frame}`}
+        </Box>
       </Typography>
+      <Button component="a" href="/" target="_blank" rel="noopener" title="open the Output window in a new tab">
+        output ⧉
+      </Button>
+      <Button component="a" href="/staged.html" target="_blank" rel="noopener" title="open the staged preview in a new tab">
+        staged ⧉
+      </Button>
       <Button
         id="panic"
         color="error"
         variant={s.panicked ? "contained" : "outlined"}
         onClick={() => void link.req(s.panicked ? "resume" : "panic").catch(fail)}
-        sx={{ fontWeight: 700, fontSize: 15, px: 2.5 }}
+        sx={{ fontWeight: 700, fontSize: 14, px: 2 }}
       >
         {s.panicked ? "RESUME" : "PANIC"}
       </Button>

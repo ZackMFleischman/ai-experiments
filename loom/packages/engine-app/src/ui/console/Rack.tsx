@@ -23,9 +23,9 @@ export function Rack({ session: s, globals }: Props) {
         bgcolor: "background.paper",
         borderTop: 1,
         borderColor: "divider",
-        px: 1.75,
-        pt: 1,
-        pb: 1.5,
+        px: 1.25,
+        pt: 0.75,
+        pb: 1,
       }}
     >
       <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: "0.08em" }}>
@@ -55,15 +55,15 @@ function RackRow({
       direction="row"
       className={`rackrow${enabled ? " enabled" : ""}`}
       data-name={name}
-      spacing={1.75}
+      spacing={1.25}
       alignItems="center"
-      sx={{ py: 0.75, borderBottom: 1, borderColor: "divider", "&:last-child": { borderBottom: 0 } }}
+      sx={{ py: 0.5, borderBottom: 1, borderColor: "divider", "&:last-child": { borderBottom: 0 } }}
     >
       <Box
         className="rackmeter"
         sx={{
-          width: 90,
-          height: 10,
+          width: 70,
+          height: 8,
           flex: "0 0 auto",
           bgcolor: "#0006",
           border: 1,
@@ -78,10 +78,10 @@ function RackRow({
           style={{ width: `${Math.min(100, level * 100)}%` }}
         />
       </Box>
-      <Typography className="rackname" sx={{ width: 80, flex: "0 0 auto", fontWeight: 700 }}>
+      <Typography className="rackname" sx={{ width: 70, flex: "0 0 auto", fontWeight: 700 }}>
         {name}
       </Typography>
-      <Box sx={{ display: "flex", gap: 1.75, flex: 1, flexWrap: "wrap" }}>
+      <Box sx={{ display: "flex", gap: 1.25, flex: 1, flexWrap: "wrap" }}>
         {params.map(([path, p]) => (
           <ParamWidget
             key={path}

@@ -28,18 +28,17 @@
 - **kaleidoZoom** — Endless fractal-style dive into any input through a mirrored kaleido fold. `kaleidoZoom(ctx, { input: src, zoom: depthSig, segments: 6, twist: 0.5 })` _[kaleidoscope, zoom, infinite, fractal, stateful]_
 - **levels** — Gain, bias and gamma adjustment on an image. `levels(ctx, { input: src, gain: 1.2, gamma: 1.1 })` _[color, grade]_
 - **over** — Alpha-composites an overlay TexNode on top of an input (logo/still overlays). `over(ctx, { input: chain, overlay: imagePlate(ctx, { url: logoUrl }), opacity: 1 })` _[composite, overlay, blend, alpha]_
+- **paletteMap** — Recolors an input's luminance through the active global palette ramp. `paletteMap(ctx, { input: src, shift: scrollSig })` _[color, palette, ramp, grade]_
 - **pixelate** — Smooth slider-driven mosaic pixelation; free when amount is 0. `pixelate(ctx, { input: src, amount: 0.4 })` _[pixelate, mosaic, retro, stateful]_
 - **transform** — Moves/spins/3D-tilts/scales/mirrors any input as a layer (live Transform). `transform(ctx, { input: src, x: 0.3, scale: 0.5, rotateY: flipSig })` _[transform, 3d, layout, layer, stateful]_
 
 ## Scenes (`content/scenes/`)
 
-- **fireflies** — Drifting multicolored fireflies that twinkle at their own rates and flare on the kick. params: glow, size, speed, twinkle, sparkle, variety, flare, glitch, count, trail _[particles, sparkle, audio-reactive, ambient]_
+- **fireflies** — Drifting multicolored fireflies that twinkle at their own rates and flare on the kick. params: glow, swarm.size, swarm.speed, blink.twinkle, blink.sparkle, swarm.variety, flare, fx.glitch, swarm.count, fx.trail _[particles, sparkle, audio-reactive, ambient]_
 - **gradient** — Scrolling horizontal gradient across the active palette's five stops. params: speed _[palette, gradient, minimal]_
-- **hello** — Animated rings — the M0 sanity scene. params: none _[]_
 - **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
-- **mandelbrot** — Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll. params: point, dive, depth, iter, palette, drift, cycle, bands _[fractal, zoom, palette, generative]_
+- **mandelbloom** — Mandelbrot with a palette-ramped exterior and a kick-blooming garden inside the black interior; flip palette.source to retint everything. params: zoom.dive, zoom.depth, iter, scroll, garden.warp, garden.amount, garden.bloom, rim, fx.trail, fx.glitch _[fractal, palette, audio-reactive, showcase]_
+- **mandelbrot** — Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll. params: zoom.point, zoom.dive, zoom.depth, iter, color.palette, color.drift, color.cycle, color.bands _[fractal, zoom, palette, generative]_
 - **pho-nebula** **(live)** — An infinite bowl of cosmic phở: simmering golden broth folded through a slow mandala, steam blooming on the kick, garnish drifting by under a PHỞ marquee. params: broth.simmer, broth.chunk, broth.heat, broth.palette, broth.drift, swirl.segments, swirl.spin, swirl.fold, swirl.swell, steam.trail, steam.bloom, noodles.amount, noodles.wiggle, noodles.curl, noodles.width, noodles.flow, noodles.slurp, garnish.opacity, garnish.count, garnish.size, garnish.speed, badge.opacity, badge.size, badge.bump _[audio-reactive, kaleidoscope, feedback, pho, ambient]_
 - **pulse** — Kick-reactive feedback rings with a slowly drifting palette. params: punch, trail, drift _[audio-reactive, feedback, demo]_
-- **pulse-glitch** — Pulse's kick-reactive rings, datamoshed: slice tearing, kick-driven RGB split, scanline flicker. params: punch, trail, drift, glitch, slices, split _[audio-reactive, feedback, glitch]_
-- **vinyl** — A vinyl record spinning at 33rpm that bumps on the kick, refracted through a slowly turning kaleidoscope. params: rpm, size, bump, segments, spin, kaleido, zoom, trail _[image, kaleidoscope, audio-reactive, vinyl]_
 - **vinyl-zoom** — DJ Hippo vinyl spinning at 33rpm, devoured by an infinite kaleidoscopic dive that lurches deeper on every kick. params: vinyl.rpm, vinyl.size, vinyl.pixelate, dive.punch, dive.creep, dive.glide, dive.segments, dive.twist, logo.opacity, logo.size, logo.rpm, logo.tiltX, logo.tiltY, logo.pixelate, hippos.opacity, hippos.size, hippos.speed, hippos.pixelate, pixelate _[image, kaleidoscope, zoom, audio-reactive, vinyl]_

@@ -37,8 +37,8 @@ export function ModPopover({ instance, path, p, anchorEl, onClose }: Props) {
   const active = (p.modulator ?? null) as Record<string, unknown> | null;
 
   const [type, setType] = useState(types[0]?.type ?? "sine");
-  const [rate, setRate] = useState("4");
-  const [unit, setUnit] = useState<"beats" | "seconds">("beats");
+  const [rate, setRate] = useState("20");
+  const [unit, setUnit] = useState<"beats" | "seconds">("seconds");
   const [phase, setPhase] = useState("0");
   const [range, setRange] = useState<[number, number]>([min, max]);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -75,7 +75,7 @@ export function ModPopover({ instance, path, p, anchorEl, onClose }: Props) {
   const buildSpec = (): Record<string, unknown> => {
     const spec: Record<string, unknown> = { type };
     if (desc.clocked) {
-      spec[unit === "beats" ? "periodBeats" : "periodSeconds"] = Number(rate) || 4;
+      spec[unit === "beats" ? "periodBeats" : "periodSeconds"] = Number(rate) || 20;
       const ph = Number(phase);
       if (ph > 0) spec.phase = Math.min(ph, 1);
     }

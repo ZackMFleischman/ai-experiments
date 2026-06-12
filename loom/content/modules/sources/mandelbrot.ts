@@ -1,4 +1,13 @@
-import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
+import {
+  asSignal,
+  BuildCtx,
+  defineModule,
+  lagSignal,
+  Signal,
+  texNode,
+  type SignalLike,
+  type TexNode,
+} from "@loom/runtime";
 import { Break, Fn, If, Loop, float, log2, max, uv, vec2, vec3, vec4 } from "three/tsl";
 
 // The Output renders 16:9 internally; mandelbrot coords are half-height extent.
@@ -13,10 +22,18 @@ export interface MandelbrotOpts {
   cx?: SignalLike;
   /** View center, imaginary axis. */
   cy?: SignalLike;
-  /** Half the vertical extent of the view in set coordinates (smaller = deeper). */
+  /** Half the vertical extent of the view in set coordinates (smaller = deeper). Ignored when `dive` is set. */
   scale?: SignalLike;
   /** Escape-time iteration cap (10..500) — raise it as you zoom deeper. */
   iterations?: SignalLike;
+  /** Lag seconds applied to cx/cy so retargeting glides instead of jump-cutting (default 0 = snap). */
+  glide?: SignalLike;
+  /** Zoom speed in octaves/sec; when set, drives an internal ping-pong zoom and overrides `scale`. */
+  dive?: SignalLike;
+  /** Max zoom depth in octaves for the ping-pong (default 14; f32 GPU limit ~18). */
+  depth?: SignalLike;
+  /** Half-extent at the top of the dive (default 1.25). */
+  baseScale?: SignalLike;
 }
 
 /**
@@ -34,9 +51,31 @@ export const mandelbrot = defineModule(
     example: 'mandelbrot(ctx, { cx: -0.7436, cy: 0.1314, scale: zoomSig, iterations: 250 })',
   },
   (ctx: BuildCtx, opts: MandelbrotOpts = {}): TexNode => {
-    const cx = ctx.uniformOf(opts.cx ?? -0.6);
-    const cy = ctx.uniformOf(opts.cy ?? 0);
-    const scale = ctx.uniformOf(opts.scale ?? 1.25);
+    // Optional center glide: lag cx/cy toward their targets (glide = seconds).
+    const cxIn: SignalLike = opts.glide !== undefined ? lagSignal(opts.cx ?? -0.6, opts.glide) : (opts.cx ?? -0.6);
+    const cyIn: SignalLike = opts.glide !== undefined ? lagSignal(opts.cy ?? 0, opts.glide) : (opts.cy ?? 0);
+    const cx = ctx.uniformOf(cxIn);
+    const cy = ctx.uniformOf(cyIn);
+
+    // Optional self-dive: integrate a ping-pong zoom into the view scale.
+    // Identical math to the old mandelbrot.scene.ts integrator.
+    let scaleLike: SignalLike;
+    if (opts.dive !== undefined) {
+      const diveS = asSignal(opts.dive);
+      const depthS = asSignal(opts.depth ?? 14);
+      const baseS = asSignal(opts.baseScale ?? 1.25);
+      let zoomAcc = 0;
+      scaleLike = new Signal((f) => {
+        zoomAcc += diveS.get(f) * f.dt;
+        const d = Math.max(0.001, depthS.get(f));
+        const m = ((zoomAcc % (2 * d)) + 2 * d) % (2 * d);
+        const octaves = m < d ? m : 2 * d - m;
+        return baseS.get(f) * Math.pow(2, -octaves);
+      });
+    } else {
+      scaleLike = opts.scale ?? 1.25;
+    }
+    const scale = ctx.uniformOf(scaleLike);
     const iterations = ctx.uniformOf(opts.iterations ?? 200);
 
     const shade = Fn(() => {

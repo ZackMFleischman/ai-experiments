@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `ai-experiments` is an umbrella repo. The active project is **`loom/`** — LOOM, an AI-driven live-visuals instrument: you describe visuals in natural language, agents write typed TypeScript, and the engine hot-renders it the moment the file is saved.
 
 Doc map (pull on demand, don't pre-read):
-- `loom/docs/architecture.md` — how it's built: layout, kernel contracts, validation approach. **Read before changing `packages/`.**
+- `loom/docs/architecture.md` — how it's built: layout, kernel contracts, the "Testing & validation" section (all four test layers: when/why/how). **Read before changing `packages/`.**
 - `loom/docs/requirements-v1.md` — what LOOM is; its §8 out-of-scope list is load-bearing.
 - `loom/docs/roadmap.md` — what's shipped, what's next.
 - `loom/DECISIONS.md` — append-only decision log. Grep it when touching an unfamiliar subsystem; add an entry for non-obvious decisions; when milestone-level work ships, append a ≤6-line SHIPPED entry (date, gates run, deviations, stumbles).
@@ -27,7 +27,9 @@ pnpm dev                # start the engine app (Vite dev server, Output window)
 pnpm sidecar            # start the MCP/WS sidecar standalone (Claude Code spawns it via .mcp.json)
 pnpm typecheck          # regenerates content/CATALOG.md, then tsc --noEmit over packages/* and content/ — the contract gate
 pnpm catalog            # regenerate content/CATALOG.md alone (--check exits 1 if stale)
-pnpm test               # unit tests in all packages (vitest: runtime + sidecar)
+pnpm test               # package unit tests (runtime/sidecar/engine-app) + content stdlib tests
+pnpm test:content       # stdlib module tests alone: tier-1 contract, tier-2 extremes, golden patterns
+pnpm validate           # ALL acceptance suites below in order (stops on first failure)
 pnpm validate:m0        # M0 acceptance: Playwright + headless Chromium HMR checks
 pnpm validate:m1        # M1 acceptance: signals/audio-reactivity/containment checks
 pnpm validate:m2        # M2 acceptance: MCP client e2e (agent tools + latency)
@@ -36,11 +38,12 @@ pnpm validate:m4        # M4 acceptance: pure output, cover scaling, set_audio, 
 pnpm validate:m5        # M5 acceptance: input rack, globals manifest, persistence, MIDI-learn
 pnpm validate:m6        # M6 acceptance: palettes retint live, source switch with no rebuild
 pnpm validate:modulators # param-modulator acceptance: attach/clear via MCP, FR-4/5/7/10 behavior
+pnpm validate:stdlib    # tier-3 smoke render: every module hot-swapped in, non-black + clean console
 ```
 
 Validators pin `pulse` as their live scene (restoring the real one afterwards) and run their sidecars on isolated ports — safe to run while a live session is up. Single test file: `pnpm --filter @loom/runtime exec vitest run test/signal.test.ts`.
 
-Milestone work merges only with typecheck green, unit tests green, and all prior `validate:m*` scripts still passing.
+Milestone work merges only with typecheck green, `pnpm test` green, and `pnpm validate` still passing. Full picture of the four test layers (what each can and can't see, when to run what): the "Testing & validation" section of `loom/docs/architecture.md`. New modules merge with a `content/test/cases.ts` entry — the completeness test enforces it.
 
 ## Conventions
 

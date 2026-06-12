@@ -24,6 +24,7 @@ import { getEffectLibrary } from "./effects";
 import { getScenes } from "./scenes";
 import { entryStatus, SessionStore } from "./session";
 import { StateClient } from "./state";
+import { workerInterval } from "./worker-clock";
 
 declare global {
   interface Window {
@@ -36,6 +37,8 @@ declare global {
       instanceError: string | null;
       frame: number;
       fps: number;
+      /** Which clock drove the last frame: rAF (visible) or the worker fallback (hidden tab). */
+      clockSource?: "raf" | "worker";
       live: string | null;
       staged: string | null;
       mix: number | null;
@@ -55,6 +58,8 @@ declare global {
       palettes: Record<string, number | boolean | string>;
       /** Mocked-hardware hook: feeds the same path as a real CC message. */
       midiInject: (cc: number, ch: number, value01: number) => void;
+      /** Console (parent frame) forwards its click gesture here to unsuspend audio. */
+      resumeAudio: () => void;
     };
   }
 }
@@ -210,20 +215,21 @@ const compositor = new Compositor(RENDER_W, RENDER_H);
 let currentScenes = getScenes;
 
 /**
- * The instance that tracks live.scene.ts. Its id is "boot" — "live" is an
- * alias for whatever the Stage currently routes to output, not an id.
+ * The instance that tracks live.scene.ts. It boots as "boot" but the human
+ * can rename it (the engine-api rename hook keeps this pointer current) —
+ * "live" is an alias for whatever the Stage routes to output, not an id.
  */
-const BOOT_ID = "boot";
+let bootId = "boot";
 
 /**
  * NFR-5 for the boot instance: build the new one first; a failed
  * build/rebuild keeps whatever is running — never go black.
  */
 function trySwapLive(def: SceneDef): boolean {
-  if (session.get(BOOT_ID)) return session.rebuild(BOOT_ID, def);
+  if (session.get(bootId)) return session.rebuild(bootId, def);
   try {
-    session.create(def, BOOT_ID);
-    if (stage.live === null) stage.adoptLive(BOOT_ID);
+    session.create(def, bootId);
+    if (stage.live === null) stage.adoptLive(bootId);
     return true;
   } catch (err) {
     console.error(`[loom] scene "${def?.name ?? "?"}" rejected; keeping previous`, err);
@@ -321,6 +327,7 @@ window.__loom = {
   inputs: {},
   palettes: {},
   midiInject: (cc, ch, value01) => midi.inject(cc, ch, value01),
+  resumeAudio: () => audio.resume(),
 };
 
 trySwapLive(liveScene);
@@ -357,16 +364,38 @@ const api = new EngineApi(
     midiStatus: () => midi.status,
     midiDevices: () => midi.devices,
     persist,
+    // live.scene.ts hot-swaps must keep landing on the boot instance even
+    // after the human renames its tile.
+    onInstanceRenamed: (from, to) => {
+      if (bootId === from) bootId = to;
+    },
   },
-  { agentCommitArmed: qs.get("agentCommit") === "1" },
+  // Agent commit defaults ARMED (the stage→commit ceremony was getting in the
+  // way); ?agentCommit=0 restores the human gate, and the Console checkbox
+  // disarms live either way.
+  { agentCommitArmed: qs.get("agentCommit") !== "0" },
 );
 
 // `?ws=` lets validation runs use an isolated sidecar port so they never
 // collide with (or silently talk to) a live performance session's sidecar.
-startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, api);
-startConsoleChannel(api);
+const stopBridge = startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, api);
 
-renderer.setAnimationLoop((tMs) => {
+// ?embedded=1 marks the Console's hidden-iframe engine (solo mode, no Output
+// window). It stands down completely if a real Output engine appears.
+const embedded = qs.get("embedded") === "1";
+let yielded = false;
+startConsoleChannel(api, {
+  embedded,
+  onYield: () => {
+    yielded = true;
+    renderer.setAnimationLoop(null);
+    stopHiddenClock();
+    stopBridge();
+  },
+});
+
+const frameTick = (tMs: number): void => {
+  if (yielded) return;
   const f = clock.tick(tMs);
   latestFrame = f;
   timeBus.tick(f);
@@ -416,6 +445,7 @@ renderer.setAnimationLoop((tMs) => {
   dbg.instanceError = liveEntry?.instance.error != null ? String(liveEntry.instance.error) : null;
   dbg.frame = f.frame;
   dbg.fps = fps.current;
+  dbg.clockSource = document.hidden ? "worker" : "raf"; // which clock drove this frame
   dbg.live = stage.live;
   dbg.staged = stage.staged;
   dbg.mix = currentMix;
@@ -431,7 +461,22 @@ renderer.setAnimationLoop((tMs) => {
     modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
     chain: e.chain.list(),
   }));
+};
+
+let lastRafAt = performance.now();
+renderer.setAnimationLoop((tMs) => {
+  lastRafAt = performance.now();
+  frameTick(tMs);
 });
+
+// Browsers freeze rAF in hidden tabs (and starve it for offscreen iframes),
+// which used to freeze every Console preview whenever the Output tab wasn't
+// showing. A worker clock (exempt from background timer throttling) keeps the
+// engine ticking at ~30 fps whenever rAF isn't delivering; the moment rAF
+// resumes, the starvation guard backs off so the two never double-step.
+const stopHiddenClock = workerInterval(() => {
+  if (document.hidden || performance.now() - lastRafAt > 150) frameTick(performance.now());
+}, 33);
 
 // Tap tempo on "t"; any click also unblocks a suspended AudioContext.
 window.addEventListener("keydown", (e) => {
@@ -454,7 +499,7 @@ if (import.meta.hot) {
     const ok = trySwapLive(mod.default as SceneDef);
     console.info(
       ok
-        ? `[loom] scene hot-swapped: ${session.get(BOOT_ID)?.sceneName}`
+        ? `[loom] scene hot-swapped: ${session.get(bootId)?.sceneName}`
         : "[loom] scene rejected; previous still live",
     );
   });
@@ -478,7 +523,7 @@ if (import.meta.hot) {
     currentScenes = mod.getScenes as typeof getScenes;
     const map = currentScenes();
     for (const entry of [...session.entries.values()]) {
-      if (entry.id === BOOT_ID) continue; // owned by the live.scene accept above
+      if (entry.id === bootId) continue; // owned by the live.scene accept above
       const def = map.get(entry.sceneName);
       if (!def) {
         console.warn(`[loom] scene "${entry.sceneName}" removed; destroying instance "${entry.id}"`);
