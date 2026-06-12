@@ -19,6 +19,7 @@ export const RequestType = z.enum([
   "get_session",
   "get_manifest",
   "set_param",
+  "set_param_range",
   "modulate_param",
   "clear_modulation",
   "set_chain",
@@ -72,6 +73,25 @@ export const SetParamArgs = z.object({
   value: z.union([z.number(), z.boolean(), z.string()]),
 });
 export type SetParamArgs = z.infer<typeof SetParamArgs>;
+
+/**
+ * Widen/narrow a float|int param's slider bounds live (Console power-tool —
+ * the declared range is the author's default, this overrides it). `min`/`max`
+ * are individually optional (the engine fills a missing side from the current
+ * effective range); `restoreDefault` snaps back to the declared range.
+ */
+export const SetParamRangeArgs = z
+  .object({
+    instance: z.string().default("live"),
+    path: z.string().min(1),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    restoreDefault: z.boolean().optional(),
+  })
+  .refine((a) => a.restoreDefault === true || a.min !== undefined || a.max !== undefined, {
+    message: "set_param_range needs min and/or max (or restoreDefault: true)",
+  });
+export type SetParamRangeArgs = z.infer<typeof SetParamRangeArgs>;
 
 export const ModulateParamArgs = z.object({
   instance: z.string().default("live"),
@@ -468,6 +488,8 @@ export const ParamDescriptor = z.looseObject({
   labels: z.array(z.string()).optional(),
   /** Active modulator config, or null when the param is hand-driven (FR-8). */
   modulator: z.record(z.string(), z.unknown()).nullable().optional(),
+  /** Author-declared [min, max] — present only when the live range was widened/narrowed. */
+  defaultRange: z.tuple([z.number(), z.number()]).optional(),
 });
 export const ManifestResult = z.object({
   instance: z.string(),
@@ -483,6 +505,17 @@ export const SetParamResult = z.object({
   value: z.union([z.number(), z.boolean(), z.string()]),
 });
 export type SetParamResult = z.infer<typeof SetParamResult>;
+
+export const SetParamRangeResult = z.object({
+  instance: z.string(),
+  path: z.string(),
+  /** Effective range after the edit. */
+  min: z.number(),
+  max: z.number(),
+  /** Current value, re-clamped into the new bounds. */
+  value: z.number(),
+});
+export type SetParamRangeResult = z.infer<typeof SetParamRangeResult>;
 
 export const ModulateParamResult = z.object({
   instance: z.string(),

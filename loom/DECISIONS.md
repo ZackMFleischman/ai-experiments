@@ -805,3 +805,36 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - Follow-up left open: the ~800 lines of copied validator boilerplate
   (check/waitForServer/waitFor/spawn) want a shared scripts/_validate.mjs —
   mechanical but touches all 17 suites at once; do it as its own change.
+
+## Expandable slider ranges (2026-06-12)
+
+TouchDesigner-style live-editable param ranges: a module's declared
+`{min,max}` is now a *default* baseline the performer can widen/narrow at
+runtime, not a hard wall.
+
+- **`Param` owns a mutable effective range** (`param.ts`): float/int params
+  init `lo`/`hi` from the declared spec and keep an immutable `declaredLo/Hi`
+  baseline. Clamp, `setNormalized` (MIDI), and `cycle` all read the live
+  range. `setRange`/`resetRange` re-clamp the current value; numeric clamping
+  moved out of the per-spec closure into `Param.clamp` so it tracks edits.
+  `toJSON` carries `defaultRange` ONLY when overridden — keeps the default
+  manifest shape (and its golden test) untouched and doubles as the UI's
+  "is overridden" flag.
+- **Persistence mirrors values**: `Manifest.rangeOverrides()`/`applyRanges()`
+  → per-scene `state/ranges/<scene>.json` and global `state/input-ranges.json`.
+  Ranges are reapplied BEFORE values on every build (SessionStore.reapplyValues
+  / boot load) so a bound widened to hold an out-of-range value survives HMR
+  and restart. Only divergent paths are written (clean files; reset drops out).
+- **`set_param_range` is Console-only** (in the RequestType enum + engine
+  dispatch, NOT an MCP tool): widening the author's declared range is a human
+  power-tool, same spirit as MIDI-learn living in the Console. Labelled ints
+  (toggles) and bool/color are rejected — only plain sliders have a range.
+- **UX** (`RangePopover.tsx`, opened from a ⟷ button and the now-clickable
+  value readout): exact min/max fields, ⊟/⊞ halve/double (symmetric ranges
+  expand both ways, else anchor at min), a value field that widens the range
+  to swallow an out-of-bounds number, and reset-to-default. The ⟷ button and
+  value tint warning when the range is overridden.
+- Gates: typecheck + `pnpm test` (387) green. Browser acceptance suites
+  (validate:m5/m6) not run — this environment's egress blocks Playwright's
+  browser download; they exercise the rack/param widgets touched here and
+  should be run where a browser is available.

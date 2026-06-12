@@ -79,6 +79,8 @@ export class SessionStore {
     private readonly effects: () => EffectRegistry,
     /** Tuned per-scene values (NFR-5: params reapplied from tuned state). */
     private readonly tunedValues?: (scene: string) => Record<string, number | boolean | string> | undefined,
+    /** Per-scene slider range overrides, reapplied before values on every build. */
+    private readonly tunedRanges?: (scene: string) => Record<string, [number, number]> | undefined,
   ) {}
 
   create(def: SceneDef, id?: string, init?: InstanceInit): Entry {
@@ -228,6 +230,10 @@ export class SessionStore {
     chain: ChainHost,
     nodeChains: Map<string, ChainHost>,
   ): void {
+    // Ranges first: a widened bound must be in place before a value that depends
+    // on it is reapplied (a value saved outside the declared range).
+    const ranges = this.tunedRanges?.(sceneName);
+    if (ranges) instance.manifest.applyRanges(ranges);
     this.applyTuned(instance, sceneName);
     chain.applyValues(instance.manifest);
     for (const host of nodeChains.values()) host.applyValues(instance.manifest);

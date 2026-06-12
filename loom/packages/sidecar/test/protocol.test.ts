@@ -18,7 +18,7 @@ import {
 describe("RequestMsg", () => {
   it("parses every request type", () => {
     const types = [
-      "get_session", "get_manifest", "set_param", "modulate_param", "clear_modulation",
+      "get_session", "get_manifest", "set_param", "set_param_range", "modulate_param", "clear_modulation",
       "screenshot", "create_instance", "destroy_instance", "stage", "unstage", "commit",
       "set_chain", "save_chain", "preview_effect",
       "panic", "resume", "set_transport", "arm_agent_commit",
