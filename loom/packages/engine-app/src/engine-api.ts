@@ -17,6 +17,7 @@ import {
   InstanceArgs,
   MidiTargetArgs,
   ModulateParamArgs,
+  RenameInstanceArgs,
   SetAudioArgs,
   SetParamArgs,
   TransportArgs,
@@ -39,6 +40,7 @@ const HUMAN_ONLY: ReadonlySet<string> = new Set([
   "resume",
   "set_audio",
   "arm_agent_commit",
+  "rename_instance",
   "midi_learn",
   "midi_unbind",
 ]);
@@ -217,6 +219,21 @@ export class EngineApi {
         stage.onInstanceDestroyed(e.id);
         session.destroy(e.id);
         return { destroyed: e.id };
+      }
+      case "rename_instance": {
+        const { instance, to } = RenameInstanceArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        const from = e.id;
+        if (from === "boot") {
+          throw new Error('"boot" is bound to live.scene.ts hot-swaps — it can\'t be renamed');
+        }
+        if (to === from) return { instance: to, was: from };
+        if (to === "live" || to === "globals" || to === "boot") {
+          throw new Error(`"${to}" is a reserved name`);
+        }
+        session.rename(from, to);
+        stage.onInstanceRenamed(from, to);
+        return { instance: to, was: from };
       }
       case "stage": {
         const { instance } = InstanceArgs.parse(req.args);

@@ -74,6 +74,7 @@ export function ConsoleApp() {
             <ParamPanel
               instance={selected}
               manifest={selected != null ? manifests[selected] : undefined}
+              session={session}
             />
           </Box>
           {rackOpen && <Rack session={session} globals={manifests.globals ?? {}} />}

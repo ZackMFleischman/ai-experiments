@@ -339,3 +339,23 @@ merging the registry's manifest with the input rack's, routed by path prefix
 - Gates: typecheck, unit tests, full validate m0–m6 + modulators green. Solo probe:
   console alone → boot tile + thumbs stream; real Output opened → embedded frame counter
   freezes, console stays connected.
+
+## 2026-06-11 — Selection halo, name-only tiles, rename_instance, pnpm validate
+
+- **Selection and stage status get separate visual channels**: status stays the inner
+  ring (red LIVE / amber STAGED) + chip; selection is an OUTER green halo past a gap
+  (Figma-style) + tinted name row — a selected live tile reads "red ring inside a green
+  halo". Previously one ring served both and selection vanished on live/staged tiles.
+- **Tiles show just the instance name** (scene moved to the tooltip and the param-drawer
+  header, which also gained LIVE/STAGED chips). **Double-click renames inline** via a new
+  human-only `rename_instance` command: `SessionStore.rename` re-keys the entry (no
+  rebuild), `Stage.onInstanceRenamed` carries live/staged/fade pointers (unit-tested),
+  reserved names refused, `boot` exempt (bound to live.scene.ts hot-swaps). Not an MCP
+  tool — the agent tool surface is validator-pinned.
+- **`pnpm validate` runs every acceptance suite** in order, stopping on first failure.
+- **m5 de-flaked**: "threshold 0.95 zeroes kick onsets" raced the synthetic kick (any
+  threshold < 1 can be grazed; ~1-in-3 flake). The check now also sets the kick
+  envelope gain to 0 — deterministic silence, same late-binding semantics.
+- Gates: typecheck, unit tests (+ new stage rename test), full `pnpm validate` green
+  (139 checks). Eyes-on: selected-live halo, selected-staged halo, rename end-to-end
+  (tile id, stage pointer, drawer header all follow).

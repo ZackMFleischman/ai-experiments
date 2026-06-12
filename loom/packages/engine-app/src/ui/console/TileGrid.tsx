@@ -67,6 +67,20 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
     .filter((i) => !hiddenPreviews.current.has(i.id))
     .sort((a, b) => pos(a.id) - pos(b.id));
 
+  // A rename keeps the tile's slot and the selection: pin the whole current
+  // visual order with the new id swapped in (the engine re-keys the entry to
+  // the end of its map, so an unpinned tile would jump).
+  const renamed = (from: string, to: string) => {
+    const next = sorted.map((i) => (i.id === from ? to : i.id));
+    try {
+      localStorage.setItem(ORDER_KEY, JSON.stringify(next));
+    } catch {
+      // order just won't persist across reloads
+    }
+    setOrder(next);
+    onSelect(to);
+  };
+
   const reorderOver = (overId: string) => {
     const from = dragId.current;
     if (from == null || from === overId) return;
@@ -107,6 +121,7 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
           onSolo={onSolo}
           onDragId={(id) => (dragId.current = id)}
           onReorderOver={reorderOver}
+          onRenamed={renamed}
         />
       ))}
       <NewInstanceTile

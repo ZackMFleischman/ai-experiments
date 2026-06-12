@@ -1,5 +1,12 @@
 import { Box, Button, Card, IconButton, Stack, Typography } from "@mui/material";
-import { useEffect } from "react";
+import { alpha, type Theme } from "@mui/material/styles";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import type { InstanceInfo } from "@loom/sidecar/protocol";
 import { useEngine, useThumb } from "../hooks";
 import { snapshotScene } from "../scene-thumbs";
@@ -17,6 +24,8 @@ type Props = {
   onDragId: (id: string | null) => void;
   /** Reorder the dragged tile before this one (fires on drag-over). */
   onReorderOver: (overId: string) => void;
+  /** The engine accepted a rename — keep order/selection pointing at the new id. */
+  onRenamed: (from: string, to: string) => void;
 };
 
 const badgeSx = {
@@ -34,23 +43,59 @@ const badgeSx = {
  * One instance tile. DOM contract: .tile[data-id], child <img> (src only once
  * a thumb arrives), .live-badge/.staged-badge with a "show" class, .stagebtn
  * with exact text "stage"/"unstage", drag carries "text/loom-instance".
- * Chrome lives on the thumbnail: LIVE ring + chip, hover-only destroy ×.
+ *
+ * Two visual channels that never compete: stage status is the INNER ring
+ * (red LIVE / amber STAGED, hugging the card) + chip; selection is an OUTER
+ * green halo offset past a gap, plus a tinted name row — a selected live tile
+ * reads as "red ring inside a green halo".
  */
 export function Tile({
-  inst, isLive, isStaged, selected, solo, onSelect, onSolo, onDragId, onReorderOver,
+  inst, isLive, isStaged, selected, solo, onSelect, onSolo, onDragId, onReorderOver, onRenamed,
 }: Props) {
   const link = useEngine();
   const thumb = useThumb(inst.id);
   // Every rendering instance keeps its scene's snapshot fresh — the scene
   // picker shows these as "last time it ran".
   useEffect(() => snapshotScene(inst.scene, thumb), [inst.scene, thumb]);
-  const ring = isLive ? "error.main" : isStaged ? "warning.main" : selected ? "primary.main" : null;
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(inst.id);
+  const startRename = () => {
+    if (inst.id === "boot") return; // bound to live.scene.ts hot-swaps
+    setDraft(inst.id);
+    setEditing(true);
+  };
+  const commitRename = () => {
+    setEditing(false);
+    const to = draft.trim();
+    if (!to || to === inst.id) return;
+    void link
+      .req("rename_instance", { instance: inst.id, to })
+      .then(() => onRenamed(inst.id, to))
+      .catch(fail);
+  };
+  const onRenameKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.key === "Enter") commitRename();
+    if (e.key === "Escape") setEditing(false);
+  };
+
+  const ring = (t: Theme): string => {
+    const status = isLive ? t.palette.error.main : isStaged ? t.palette.warning.main : null;
+    if (selected) {
+      // status ring inside · gap · selection halo outside
+      const inner = status ?? t.palette.primary.main;
+      return `0 0 0 1.5px ${inner}, 0 0 0 3.5px ${t.palette.background.default}, 0 0 0 5px ${t.palette.primary.main}`;
+    }
+    return status ? `0 0 0 1.5px ${status}` : "none";
+  };
+
   return (
     <Card
       className="tile"
       data-id={inst.id}
       variant="outlined"
-      draggable
+      draggable={!editing}
       onClick={() => onSelect(inst.id)}
       onDoubleClick={() => onSolo(inst.id)}
       onDragStart={(e) => {
@@ -64,16 +109,21 @@ export function Tile({
         e.preventDefault();
         onReorderOver(inst.id);
       }}
-      sx={{
+      sx={(t) => ({
         position: "relative",
         cursor: "grab",
         bgcolor: "background.paper",
-        borderColor: ring ?? "divider",
-        boxShadow: ring ? "0 0 0 1.5px" : "none",
-        color: ring ?? undefined, // boxShadow picks up currentColor for the ring
+        borderColor: isLive
+          ? "error.main"
+          : isStaged
+            ? "warning.main"
+            : selected
+              ? "primary.main"
+              : "divider",
+        boxShadow: ring(t),
         gridColumn: solo ? "1 / -1" : undefined,
         "&:hover .destroybtn": { opacity: 1, pointerEvents: "auto" },
-      }}
+      })}
     >
       <Box
         component="img"
@@ -122,7 +172,17 @@ export function Tile({
           ×
         </IconButton>
       )}
-      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ px: 1, py: 0.5, color: "text.primary" }}>
+      <Stack
+        direction="row"
+        spacing={0.75}
+        alignItems="center"
+        sx={(t) => ({
+          px: 1,
+          py: 0.5,
+          color: "text.primary",
+          bgcolor: selected ? alpha(t.palette.primary.main, 0.12) : "transparent",
+        })}
+      >
         <Box
           component="span"
           className={`chip ${inst.status}`}
@@ -131,9 +191,45 @@ export function Tile({
         >
           {inst.status === "ok" ? "✓" : "✗"}
         </Box>
-        <Typography className="name" variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
-          {inst.id} · {inst.scene}
-        </Typography>
+        {editing ? (
+          <Box
+            component="input"
+            autoFocus
+            value={draft}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setDraft(e.target.value)}
+            onKeyDown={onRenameKey}
+            onBlur={commitRename}
+            onClick={(e: MouseEvent) => e.stopPropagation()}
+            onDoubleClick={(e: MouseEvent) => e.stopPropagation()}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              font: "inherit",
+              color: "inherit",
+              bgcolor: "#0006",
+              border: 1,
+              borderColor: "primary.main",
+              borderRadius: "3px",
+              px: 0.5,
+              py: 0,
+              outline: "none",
+            }}
+          />
+        ) : (
+          <Typography
+            className="name"
+            variant="body2"
+            noWrap
+            title={inst.id === "boot" ? `scene: ${inst.scene} (boot can't be renamed)` : `scene: ${inst.scene} — double-click to rename`}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              startRename();
+            }}
+            sx={{ flex: 1, minWidth: 0 }}
+          >
+            {inst.id}
+          </Typography>
+        )}
         <Button
           className="stagebtn"
           disabled={isLive}

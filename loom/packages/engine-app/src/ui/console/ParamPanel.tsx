@@ -2,6 +2,7 @@ import {
   Accordion, AccordionDetails, AccordionSummary, Box, Stack, Typography,
 } from "@mui/material";
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
 import { ParamWidget } from "./ParamWidget";
 
@@ -19,6 +20,7 @@ function loadOpen(): Record<string, boolean> {
 type Props = {
   instance: string | null;
   manifest: Record<string, ParamDesc> | undefined;
+  session: SessionSnapshot | null;
 };
 
 /**
@@ -26,7 +28,7 @@ type Props = {
  * accordion labeled "tiltX"; dotless params stay flat on top. Open state
  * persists per group name (collapsed until the human opens it).
  */
-export function ParamPanel({ instance, manifest }: Props) {
+export function ParamPanel({ instance, manifest, session }: Props) {
   const [open, setOpen] = useState<Record<string, boolean>>(loadOpen);
   const [w, setW] = useState(() => {
     const n = Number(localStorage.getItem(PANEL_W_KEY));
@@ -108,9 +110,28 @@ export function ParamPanel({ instance, manifest }: Props) {
           overflowY: "auto",
         }}
       >
-      <Typography id="paneltitle" variant="subtitle2" sx={{ mb: 1.5 }}>
-        {ready ? instance : "no instance selected"}
-      </Typography>
+      <Stack direction="row" spacing={0.75} alignItems="baseline" sx={{ mb: 1.5 }}>
+        <Typography id="paneltitle" variant="subtitle2" noWrap>
+          {ready ? instance : "no instance selected"}
+        </Typography>
+        {ready && (
+          <>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>
+              {session?.instances.find((i) => i.id === instance)?.scene ?? ""}
+            </Typography>
+            {session?.live === instance && (
+              <Typography variant="caption" sx={{ color: "error.main", fontWeight: 700 }}>
+                LIVE
+              </Typography>
+            )}
+            {session?.staged === instance && (
+              <Typography variant="caption" sx={{ color: "warning.main", fontWeight: 700 }}>
+                STAGED
+              </Typography>
+            )}
+          </>
+        )}
+      </Stack>
       <Box id="widgets">
         {ready && (
           <>
