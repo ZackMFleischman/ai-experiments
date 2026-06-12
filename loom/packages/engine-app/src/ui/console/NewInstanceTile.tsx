@@ -128,9 +128,11 @@ export function NewInstanceTile({ scenes, onCreated, onPreviewSpawn, onPreviewAd
       >
         {/* Same geometry as a real tile: 16/9 face + slim name row. The
             snapshot sits underneath and the live stream fades in over it, so
-            a build's first (possibly dark) frame never pops. */}
-        <Box sx={{ aspectRatio: "16/9", position: "relative", bgcolor: open ? "#000" : "transparent", overflow: "hidden" }}>
-          {open && showing != null ? (
+            a build's first (possibly dark) frame never pops. While nothing is
+            previewing, the face/footer are just an invisible height skeleton
+            and the +/hint overlays the WHOLE card, dead-centered. */}
+        <Box sx={{ aspectRatio: "16/9", position: "relative", bgcolor: open && showing != null ? "#000" : "transparent", overflow: "hidden" }}>
+          {open && showing != null && (
             <>
               {snap != null && (
                 <Box
@@ -151,33 +153,34 @@ export function NewInstanceTile({ scenes, onCreated, onPreviewSpawn, onPreviewAd
                 </Fade>
               )}
             </>
-          ) : (
-            <Box
-              sx={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Typography sx={{ fontSize: 34, lineHeight: 1 }}>+</Typography>
-              <Typography variant="caption">
-                {open
-                  ? hoveredScene != null
-                    ? `building ${hoveredScene}…`
-                    : "hover a scene to preview it here"
-                  : "new instance"}
-              </Typography>
-            </Box>
           )}
         </Box>
-        <Typography variant="body2" noWrap sx={{ px: 1, py: 0.5 }}>
-          {open && hoveredScene != null
+        <Typography variant="body2" noWrap sx={{ px: 1, py: 0.5, visibility: open && showing != null ? "visible" : "hidden" }}>
+          {open && showing != null && hoveredScene != null
             ? `${live != null ? "live preview" : "last run"} · ${hoveredScene}`
             : " "}
         </Typography>
+        {!(open && showing != null) && (
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Typography sx={{ fontSize: 34, lineHeight: 1 }}>+</Typography>
+            <Typography variant="caption">
+              {open
+                ? hoveredScene != null
+                  ? `building ${hoveredScene}…`
+                  : "hover a scene to preview it here"
+                : "new instance"}
+            </Typography>
+          </Box>
+        )}
       </Card>
       <Popover
         open={open}

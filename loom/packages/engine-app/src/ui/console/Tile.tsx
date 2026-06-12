@@ -61,7 +61,6 @@ export function Tile({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(inst.id);
   const startRename = () => {
-    if (inst.id === "boot") return; // bound to live.scene.ts hot-swaps
     setDraft(inst.id);
     setEditing(true);
   };
@@ -220,12 +219,12 @@ export function Tile({
             className="name"
             variant="body2"
             noWrap
-            title={inst.id === "boot" ? `scene: ${inst.scene} (boot can't be renamed)` : `scene: ${inst.scene} — double-click to rename`}
+            title={`scene: ${inst.scene} — double-click to rename`}
             onDoubleClick={(e) => {
               e.stopPropagation();
               startRename();
             }}
-            sx={{ flex: 1, minWidth: 0 }}
+            sx={{ flex: 1, minWidth: 0, cursor: "text" }}
           >
             {inst.id}
           </Typography>

@@ -86,6 +86,8 @@ export interface EngineDeps {
   onsetCount(): number;
   /** Current crossfade mix from the last directive, or null. */
   currentMix(): number | null;
+  /** Id bookkeeping outside the session (main.ts tracks the boot instance). */
+  onInstanceRenamed?(from: string, to: string): void;
 }
 
 /**
@@ -224,15 +226,13 @@ export class EngineApi {
         const { instance, to } = RenameInstanceArgs.parse(req.args);
         const e = session.require(this.resolveId(instance));
         const from = e.id;
-        if (from === "boot") {
-          throw new Error('"boot" is bound to live.scene.ts hot-swaps — it can\'t be renamed');
-        }
         if (to === from) return { instance: to, was: from };
-        if (to === "live" || to === "globals" || to === "boot") {
+        if (to === "live" || to === "globals") {
           throw new Error(`"${to}" is a reserved name`);
         }
         session.rename(from, to);
         stage.onInstanceRenamed(from, to);
+        this.deps.onInstanceRenamed?.(from, to);
         return { instance: to, was: from };
       }
       case "stage": {
