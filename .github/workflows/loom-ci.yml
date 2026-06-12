@@ -78,33 +78,30 @@ jobs:
         env:
           LOOM_RES: 640x360 # software WebGL2 on CI needs the lighter render
         run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs
-      # Self-provision the Pages project so there's no manual dashboard step.
-      # Errors (e.g. "already exists") are ignored.
-      - name: ensure Cloudflare Pages project exists
-        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
-        continue-on-error: true
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ env.CF_API_TOKEN }}
-          accountId: ${{ env.CF_ACCOUNT_ID }}
-          workingDirectory: loom
-          # npm, not the repo's pnpm: pnpm 11 blocks workerd's install script and
-          # fails the wrangler install.
-          packageManager: npm
-          command: pages project create loom --production-branch main
+      # Deploy with a globally-installed wrangler, run from the repo root. npm -g
+      # is isolated from the repo's pnpm workspace — earlier attempts that ran
+      # pnpm (blocks workerd's build) or npm (chokes on pnpm's node_modules
+      # layout) inside loom/ both failed. The repo root has no lockfile/modules.
       - name: deploy to Cloudflare Pages
         id: deploy
         if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ env.CF_API_TOKEN }}
-          accountId: ${{ env.CF_ACCOUNT_ID }}
-          workingDirectory: loom
-          packageManager: npm
-          command: >-
-            pages deploy packages/engine-app/dist
-            --project-name=loom
-            --branch=${{ github.head_ref }}
+        working-directory: ${{ github.workspace }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+        run: |
+          npm install -g wrangler@3
+          # Self-provision the Pages project (ignored if it already exists).
+          wrangler pages project create loom --production-branch main || true
+          set +e
+          out=$(wrangler pages deploy loom/packages/engine-app/dist \
+            --project-name=loom --branch="$GITHUB_HEAD_REF" 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$out"
+          [ "$status" -eq 0 ] || exit "$status"
+          url=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev' | tail -1)
+          echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
       - name: build preview comment
         if: steps.deploy.outcome == 'success'
         run: node scripts/preview-comment.mjs "${{ steps.deploy.outputs.deployment-url }}" packages/engine-app/dist/shots > preview-comment.md
