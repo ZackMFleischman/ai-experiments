@@ -376,7 +376,116 @@ try {
   }, 15_000, "inputs.ts restore to drop kickTight");
   check("restoring inputs.ts drops the channel again", true);
 
-  // 10. The agent tool surface is unchanged: MIDI-learn (like set_audio)
+  // 10. Button binding modes (set/cycle, rising-edge). midi_learn is
+  // HUMAN_ONLY, so arm it the way the Console does: a req envelope on the
+  // page's BroadcastChannel("loom").
+  let chanSeq = 0;
+  const humanReq = (type, args) =>
+    output.evaluate(
+      ([t, a, id]) =>
+        new Promise((resolve, reject) => {
+          const ch = new BroadcastChannel("loom");
+          const timer = setTimeout(() => {
+            ch.close();
+            reject(new Error(`no response to ${t}`));
+          }, 5000);
+          ch.onmessage = (e) => {
+            const m = e.data;
+            if (m?.kind !== "res" || m.id !== id) return;
+            clearTimeout(timer);
+            ch.close();
+            m.ok ? resolve(m.result) : reject(new Error(m.error));
+          };
+          ch.postMessage({ id, kind: "req", type: t, args: a });
+        }),
+      [type, args, `vm5-${++chanSeq}`],
+    );
+
+  await humanReq("midi_learn", { instance: "boot", path: "punch", mode: "set", value: 3 });
+  await output.evaluate(() => window.__loom.midiInject(34, 0, 1)); // press learns + fires
+  await output.evaluate(() => window.__loom.midiInject(34, 0, 0)); // release inert
+  await humanReq("midi_learn", { instance: "boot", path: "punch", mode: "set", value: 0.75 });
+  await output.evaluate(() => window.__loom.midiInject(35, 0, 1));
+  await output.evaluate(() => window.__loom.midiInject(35, 0, 0));
+  const radio = await waitFor(async () => {
+    const s = toolJson(await callOk(client, "get_session", {}));
+    const ours = s.bindings.filter((b) => b.path === "punch" && b.mode === "set");
+    return ours.length === 2 ? s : null;
+  }, 5_000, "radio group to land");
+  check("set-mode learns accumulate a radio group", true, JSON.stringify(radio.bindings));
+  const punchSet = toolJson(await callOk(client, "get_manifest", { instance: "boot" })).params.punch.value;
+  check("set binding fired on the learning press", punchSet === 0.75, `punch=${punchSet}`);
+  await output.evaluate(() => window.__loom.midiInject(34, 0, 1)); // radio: back to 3
+  const punch3 = await waitFor(async () => {
+    const v = toolJson(await callOk(client, "get_manifest", { instance: "boot" })).params.punch.value;
+    return v === 3 ? v : null;
+  }, 5_000, "radio press to set 3");
+  check("radio press sets its option value", punch3 === 3);
+  await output.evaluate(() => window.__loom.midiInject(34, 0, 0)); // release
+  await sleep(300);
+  const punchStill = toolJson(await callOk(client, "get_manifest", { instance: "boot" })).params.punch.value;
+  check("release is inert (rising edge only)", punchStill === 3, `punch=${punchStill}`);
+
+  // 11. Cycle on a globals bool — each press flips, release inert.
+  await humanReq("midi_learn", { instance: "globals", path: "inputs.kick.enabled", mode: "cycle" });
+  const enabledBefore = toolJson(await callOk(client, "get_manifest", { instance: "globals" }))
+    .params["inputs.kick.enabled"].value;
+  await output.evaluate(() => window.__loom.midiInject(36, 0, 1)); // learn + flip
+  // (waitFor treats falsy as "not yet" — return true, never the flipped bool itself)
+  await waitFor(async () => {
+    const v = toolJson(await callOk(client, "get_manifest", { instance: "globals" }))
+      .params["inputs.kick.enabled"].value;
+    return v === !enabledBefore ? true : null;
+  }, 5_000, "cycle to flip the bool");
+  check("cycle flips a globals bool", true);
+  await output.evaluate(() => window.__loom.midiInject(36, 0, 0)); // release
+  await output.evaluate(() => window.__loom.midiInject(36, 0, 1)); // flip back
+  await waitFor(async () => {
+    const v = toolJson(await callOk(client, "get_manifest", { instance: "globals" }))
+      .params["inputs.kick.enabled"].value;
+    return v === enabledBefore ? true : null;
+  }, 5_000, "second press to flip back");
+  check("second press flips back (edge per press)", true);
+  await output.evaluate(() => window.__loom.midiInject(36, 0, 0));
+
+  // 12. Actions: live.next crossfades LIVE between ok tiles, wrapping.
+  await callOk(client, "create_instance", { scene: "pulse", id: "deck2" });
+  await humanReq("midi_learn", { instance: "actions", path: "live.next" });
+  await output.evaluate(() => window.__loom.midiInject(44, 0, 1)); // learn + step
+  const live2 = await waitFor(async () => {
+    const s = toolJson(await callOk(client, "get_session", {}));
+    return s.live === "deck2" ? s : null;
+  }, 10_000, "live.next to switch live to deck2");
+  check("live.next steps LIVE to the next ok tile", live2.live === "deck2");
+  await output.evaluate(() => window.__loom.midiInject(44, 0, 0));
+  await waitFor(async () => {
+    const s = toolJson(await callOk(client, "get_session", {}));
+    return s.mix == null ? true : null; // fade finished
+  }, 10_000, "crossfade to finish");
+  await output.evaluate(() => window.__loom.midiInject(44, 0, 1)); // wrap back
+  const liveBack = await waitFor(async () => {
+    const s = toolJson(await callOk(client, "get_session", {}));
+    return s.live === "boot" ? s : null;
+  }, 10_000, "live.next to wrap back to boot");
+  check("live.next wraps around the tile ring", liveBack.live === "boot");
+  await output.evaluate(() => window.__loom.midiInject(44, 0, 0));
+  const stripChip = await waitFor(async () => {
+    const t = await consolePage.$eval('[data-learn="live.next"]', (b) => b.textContent);
+    return /cc44/.test(t ?? "") ? t : null;
+  }, 5_000, "stage strip to show the action binding");
+  check("stage strip shows the action binding", true, stripChip);
+
+  // 13. Mode/value persist to bindings.json.
+  await sleep(800); // debounced write
+  const bindingsJson2 = JSON.parse(readFileSync(join(STATE_DIR, "bindings.json"), "utf8"));
+  check(
+    "bindings.json carries mode/value and the action binding",
+    bindingsJson2.some((b) => b.mode === "set" && b.value === 3) &&
+      bindingsJson2.some((b) => b.scene === "actions" && b.path === "live.next"),
+    JSON.stringify(bindingsJson2),
+  );
+
+  // 14. The agent tool surface is unchanged: MIDI-learn (like set_audio)
   // is a Console-only, human-only affair.
   const tools = (await client.listTools()).tools.map((t) => t.name).sort();
   check(
