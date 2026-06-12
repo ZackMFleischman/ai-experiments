@@ -67,7 +67,9 @@ const TOOLS = [
     name: "get_session",
     description:
       "Snapshot of the running LOOM engine: active scene, instance error state, audio mode, " +
-      "BPM, RMS level, onset count, fps, frame counter, and the param paths of the live instance.",
+      "BPM, RMS level, onset count, fps, frame counter, and the param paths of the live instance. " +
+      "Also reports PANIC state (panicMode armed, panicActive, panicScene health) — if panicActive " +
+      "is non-null the human hit the emergency hatch, so stop touching the live path and wait.",
     inputSchema: { type: "object", properties: {} },
   },
   {

@@ -144,7 +144,17 @@ export function Tile({
       >
         STAGED
       </Box>
-      {!isLive && (
+      {inst.pinned === "panic" && (
+        <Box
+          component="span"
+          className="badge safe-badge show"
+          title="SAFE target — scene-panic cuts here; protected from destroy while designated"
+          sx={{ ...badgeSx, right: 6, bgcolor: "info.main", color: "#000" }}
+        >
+          ⛑ SAFE
+        </Box>
+      )}
+      {!isLive && inst.pinned !== "panic" && (
         <IconButton
           className="destroybtn"
           title="destroy"

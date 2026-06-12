@@ -1,6 +1,6 @@
-import { Box, Button, NativeSelect, Stack, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
-import type { SessionSnapshot } from "@loom/sidecar/protocol";
+import { Box, Button, ButtonGroup, NativeSelect, Stack, Typography } from "@mui/material";
+import { useEffect, useRef, useState } from "react";
+import type { PanicMode, SessionSnapshot } from "@loom/sidecar/protocol";
 import { useEngine } from "../hooks";
 import { mono } from "../theme";
 import { fail, primeMidiPermission } from "../util";
@@ -67,12 +67,94 @@ export function Header({ session: s, onToggleRack }: Props) {
       <Button component="a" href="/staged.html" target="_blank" rel="noopener" title="open the staged preview in a new tab">
         staged ⧉
       </Button>
+      <PanicControls session={s} />
+    </Stack>
+  );
+}
+
+const PANIC_MODE_KEY = "loom.panicMode";
+
+/**
+ * The big red button (one click, executes the armed mode) plus the
+ * arm-in-advance HOLD | SAFE SCENE control. Arming is human-only and persisted
+ * in localStorage so a reload never silently re-arms a different behavior. The
+ * armed mode reflects the engine snapshot; flipping the arm WHILE panicked also
+ * re-executes it, which is the hold→scene escalation path (Stage ignores a
+ * scene→hold downgrade). FR-7: the SCENE option shows a warning when the panic
+ * instance is in build-fallback.
+ */
+function PanicControls({ session: s }: { session: SessionSnapshot }) {
+  const link = useEngine();
+  const mode = s.panicMode; // engine is the source of truth
+  const synced = useRef(false);
+
+  // On first connect, re-arm the engine from the persisted choice (the engine
+  // boots in "hold"); thereafter the snapshot drives the UI.
+  useEffect(() => {
+    if (synced.current) return;
+    const saved = localStorage.getItem(PANIC_MODE_KEY);
+    if ((saved === "hold" || saved === "scene") && saved !== s.panicMode) {
+      void link.req("arm_panic_mode", { mode: saved }).catch(fail);
+    }
+    synced.current = true;
+  }, [s.panicMode, link]);
+
+  const arm = (next: PanicMode) => {
+    localStorage.setItem(PANIC_MODE_KEY, next);
+    void link.req("arm_panic_mode", { mode: next }).catch(fail);
+    // Escalate live if already panicked (hold→scene); Stage no-ops scene→hold.
+    if (s.panicked) void link.req("panic", { mode: next }).catch(fail);
+  };
+
+  const sceneBroken = s.panicScene.status === "error";
+  const safeId = s.instances.find((i) => i.pinned === "panic")?.id ?? null;
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      <ButtonGroup id="panicmode" size="small" variant="outlined" disableElevation>
+        <Button
+          id="panicmode-hold"
+          variant={mode === "hold" ? "contained" : "outlined"}
+          onClick={() => arm("hold")}
+          sx={{ fontSize: 11, lineHeight: 1.1, px: 1 }}
+        >
+          HOLD
+        </Button>
+        <Button
+          id="panicmode-scene"
+          color={sceneBroken ? "warning" : "primary"}
+          variant={mode === "scene" ? "contained" : "outlined"}
+          onClick={() => arm("scene")}
+          title={
+            sceneBroken
+              ? `safe scene unavailable — PANIC will hold (${s.panicScene.error ?? "build failed"})`
+              : `cut to safe scene "${s.panicScene.name}"`
+          }
+          sx={{ fontSize: 11, lineHeight: 1.1, px: 1, textTransform: "none" }}
+        >
+          {sceneBroken ? "⚠ " : ""}SAFE SCENE
+        </Button>
+      </ButtonGroup>
+      <NativeSelect
+        value={safeId ?? ""}
+        inputProps={{ id: "panicscene", title: "SAFE target — the instance scene-panic cuts to" }}
+        onChange={(e) => void link.req("set_panic_instance", { instance: e.target.value }).catch(fail)}
+        sx={{ fontSize: 12, color: sceneBroken ? "warning.main" : "text.primary" }}
+      >
+        {/* Pick any existing instance as the safe target; its scene is what
+            scene-panic cuts to. Spawn + tune a tile, then designate it here. */}
+        {safeId == null && <option value="">(none)</option>}
+        {s.instances.map((i) => (
+          <option key={i.id} value={i.id}>{i.id} · {i.scene}</option>
+        ))}
+      </NativeSelect>
       <Button
         id="panic"
         color="error"
         variant={s.panicked ? "contained" : "outlined"}
-        onClick={() => void link.req(s.panicked ? "resume" : "panic").catch(fail)}
-        sx={{ fontWeight: 700, fontSize: 14, px: 2 }}
+        onClick={() =>
+          void link.req(s.panicked ? "resume" : "panic", s.panicked ? {} : { mode }).catch(fail)
+        }
+        sx={{ fontWeight: 700, fontSize: 15, px: 2.5 }}
       >
         {s.panicked ? "RESUME" : "PANIC"}
       </Button>

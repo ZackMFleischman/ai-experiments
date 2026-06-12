@@ -10,9 +10,11 @@ import { entryStatus, type SessionStore } from "./session";
 
 /**
  * Renders the whole session for one frame, exactly once per instance:
- * - single:    live → canvas, everyone else → their preview target
- * - crossfade: live → full-res A, staged → full-res B, blend(mix) → canvas
- * - hold:      render nothing; the canvas keeps presenting the last frame
+ * - single:      live → canvas, everyone else → their preview target
+ * - crossfade:   live → full-res A, staged → full-res B, blend(mix) → canvas
+ * - hold:        render nothing; the canvas keeps presenting the last frame
+ * - panic-scene: panic instance → canvas; the prior live instance is paused
+ *                (not rendered, FR-5); everyone else → their preview target
  */
 export class Compositor {
   private readonly fullA: RenderTarget;
@@ -45,6 +47,23 @@ export class Compositor {
     session: SessionStore,
   ): void {
     if (directive.mode === "hold") return;
+
+    if (directive.mode === "panic-scene") {
+      for (const entry of session.entries.values()) {
+        if (entryStatus(entry) === "frozen") continue; // holds its last pixels
+        if (entry.id === directive.panic) {
+          // The panic instance is alive on the audience output (hard cut).
+          // If it has frozen (render throw), the loop above skipped it and the
+          // canvas keeps its last frame — scene-panic degrades to hold (FR-8).
+          entry.instance.renderFrame(renderer, f, null);
+        } else if (entry.id === directive.live) {
+          continue; // FR-5: the prior live instance pauses while panicked
+        } else {
+          entry.instance.renderFrame(renderer, f, entry.target);
+        }
+      }
+      return;
+    }
 
     for (const entry of session.entries.values()) {
       if (entryStatus(entry) === "frozen") continue; // holds its last pixels
