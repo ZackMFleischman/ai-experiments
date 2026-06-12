@@ -5,6 +5,7 @@ import { useEngineState } from "../hooks";
 import { Header } from "./Header";
 import { ParamPanel } from "./ParamPanel";
 import { Rack } from "./Rack";
+import { StageDropZone } from "./StageDropZone";
 import { StageStrip } from "./StageStrip";
 import { TileGrid } from "./TileGrid";
 
@@ -60,8 +61,10 @@ export function ConsoleApp() {
     >
       {session && (
         <>
-          <Header session={session} onToggleRack={() => setRackOpen((o) => !o)} />
-          <StageStrip session={session} />
+          <StageDropZone>
+            <Header session={session} onToggleRack={() => setRackOpen((o) => !o)} />
+            <StageStrip session={session} />
+          </StageDropZone>
           <Box component="main" sx={{ flex: 1, display: "flex", minHeight: 0 }}>
             <TileGrid
               session={session}

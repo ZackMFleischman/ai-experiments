@@ -1,7 +1,6 @@
 import {
   Box, Button, Checkbox, FormControlLabel, Stack, Typography,
 } from "@mui/material";
-import { useState } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import { useEngine } from "../hooks";
 import { fail } from "../util";
@@ -9,14 +8,13 @@ import { fail } from "../util";
 type Props = { session: SessionSnapshot };
 
 /**
- * Slim stage bar: LIVE/STAGED pointers + unstage/arm/COMMIT, and the
- * drop-to-go-live target — dropping a tile here stages AND commits (R9.3
- * redesign; the human-sourced commit is never gated). DOM contract:
- * #stagestrip, #livename, #stagedname, #fadeinfo, #unstage, #commit, #armagent.
+ * Slim stage bar: LIVE/STAGED pointers + unstage/arm/COMMIT. The
+ * drop-to-go-live target lives in StageDropZone (the whole console top);
+ * drag events on this row bubble up to it. DOM contract: #stagestrip,
+ * #livename, #stagedname, #fadeinfo, #unstage, #commit, #armagent.
  */
 export function StageStrip({ session: s }: Props) {
   const link = useEngine();
-  const [dragOver, setDragOver] = useState(false);
 
   const withScene = (id: string | null) => {
     if (id == null) return "—";
@@ -30,24 +28,6 @@ export function StageStrip({ session: s }: Props) {
       direction="row"
       spacing={1.5}
       alignItems="center"
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("text/loom-instance")) return;
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        const id = e.dataTransfer.getData("text/loom-instance");
-        // One gesture, all the way: drop = stage + commit.
-        if (id) {
-          void link
-            .req("stage", { instance: id })
-            .then(() => link.req("commit", {}))
-            .catch(fail);
-        }
-      }}
       sx={{
         px: 1.25,
         py: 0.5,
@@ -55,9 +35,6 @@ export function StageStrip({ session: s }: Props) {
         borderBottom: 1,
         borderColor: "divider",
         flex: "0 0 auto",
-        outline: dragOver ? "2px dashed" : "none",
-        outlineColor: "warning.main",
-        outlineOffset: "-2px",
       }}
     >
       <Typography variant="caption" color="text.secondary">LIVE ▸</Typography>
@@ -69,11 +46,6 @@ export function StageStrip({ session: s }: Props) {
       <Typography id="fadeinfo" variant="caption" color="text.secondary">
         {s.mix != null ? `crossfading ${(s.mix * 100).toFixed(0)}%` : ""}
       </Typography>
-      {dragOver && (
-        <Typography variant="caption" sx={{ color: "warning.main", fontWeight: 700 }}>
-          drop to go LIVE
-        </Typography>
-      )}
       <Box sx={{ flex: 1 }} />
       <FormControlLabel
         sx={{ mr: 0.5 }}
