@@ -43,6 +43,7 @@ export const RequestType = z.enum([
   "list_projects",
   "save_project",
   "load_project",
+  "record_fixture",
 ]);
 export type RequestType = z.infer<typeof RequestType>;
 
@@ -89,8 +90,57 @@ export type ClearModulationArgs = z.infer<typeof ClearModulationArgs>;
 export const CreateInstanceArgs = z.object({
   scene: z.string().min(1),
   id: z.string().min(1).optional(),
+  /** "fixture:<name>" replays a recorded input trace instead of the live rack. */
+  inputs: z
+    .string()
+    .regex(/^fixture:[a-z0-9][a-z0-9_-]*$/i, 'inputs must be "fixture:<name>"')
+    .optional(),
 });
 export type CreateInstanceArgs = z.infer<typeof CreateInstanceArgs>;
+
+/** Screenshot args: `frames` (fixture instances only) renders a deterministic
+ * offline pass — same fixture + frame list always returns identical pixels. */
+export const ScreenshotArgs = z.object({
+  instance: z.string().default("live"),
+  frames: z.array(z.number().int().min(0).max(36_000)).min(1).max(16).optional(),
+});
+export type ScreenshotArgs = z.infer<typeof ScreenshotArgs>;
+
+/** Record the live input rack for N frames into content/state/fixtures/<name>.json. */
+export const RecordFixtureArgs = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(60)
+    .regex(/^[a-z0-9][a-z0-9_-]*$/i, "letters, digits, - and _ (must start alphanumeric)"),
+  frames: z.number().int().min(1).max(3600),
+});
+export type RecordFixtureArgs = z.infer<typeof RecordFixtureArgs>;
+
+export const RecordFixtureResult = z.object({
+  saved: z.string(),
+  path: z.string(),
+  frames: z.number().int(),
+  channels: z.array(z.string()),
+  bpm: z.number(),
+});
+export type RecordFixtureResult = z.infer<typeof RecordFixtureResult>;
+
+/** One deterministic frame capture from a fixture replay. */
+export const FixtureShot = z.object({
+  frame: z.number().int(),
+  mime: z.literal("image/png"),
+  base64: z.string().min(1),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+export type FixtureShot = z.infer<typeof FixtureShot>;
+
+export const ScreenshotFramesResult = z.object({
+  fixture: z.string(),
+  frames: z.array(FixtureShot),
+});
+export type ScreenshotFramesResult = z.infer<typeof ScreenshotFramesResult>;
 
 export const RenameInstanceArgs = z.object({
   instance: z.string().default("live"),
@@ -334,6 +384,8 @@ export const InstanceInfo = z.object({
   chain: z.array(ChainStepInfo),
   /** Named layer nodes in wrap order (Layers); [] when the scene wraps none. */
   nodes: z.array(LayerNode).default([]),
+  /** The input-trace name this instance replays, or null for the live rack (Fixtures). */
+  fixture: z.string().nullable().default(null),
   /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
   builds: z.number().int(),
   /** Pinned role, if any: "panic" = the always-warm safe-scene instance. */

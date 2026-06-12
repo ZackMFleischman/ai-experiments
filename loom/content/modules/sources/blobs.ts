@@ -1,5 +1,5 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
-import { mx_fractal_noise_float, sin, smoothstep, time, uv, vec2, vec3, vec4 } from "three/tsl";
+import { mx_fractal_noise_float, sin, smoothstep, uv, vec2, vec3, vec4 } from "three/tsl";
 
 export interface BlobsOpts {
   /** Number of metaballs (compile-time constant). */
@@ -44,14 +44,16 @@ export const blobs = defineModule(
     const wobble = ctx.uniformOf(opts.wobble ?? 0.05);
     const softness = ctx.uniformOf(opts.softness ?? 0.3);
 
-    const warpAt = vec3(uv().mul(3), time.mul(0.07));
+    // Frame-clock time, NOT TSL `time` (wall clock) — keeps fixture replays deterministic.
+    const now = ctx.uniformOf(ctx.time.now);
+    const warpAt = vec3(uv().mul(3), now.mul(0.07));
     const warp = vec2(
       mx_fractal_noise_float(warpAt, 2),
       mx_fractal_noise_float(warpAt.add(vec3(7.3, 1.7, 0)), 2),
     ).mul(wobble);
     const p = uv().sub(vec2(0.5)).mul(vec2(aspect, 1)).add(warp);
 
-    const t = time.mul(speed);
+    const t = now.mul(speed);
     const parts = Array.from({ length: count }, (_, i) => {
       const x0 = (rand(i, 1) - 0.5) * aspect * 0.8;
       const sway = 0.06 + rand(i, 2) * 0.12;

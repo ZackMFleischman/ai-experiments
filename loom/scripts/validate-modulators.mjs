@@ -26,7 +26,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok });
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` â€” ${detail}` : ""}`);
 }
 
 async function waitForServer(url, timeoutMs = 30_000) {
@@ -147,7 +147,7 @@ try {
     waitForServer(`http://localhost:${PORT}/`),
     (async () => {
       while (viteExit === null) await sleep(200);
-      throw new Error(`vite exited early (code ${viteExit}) — is port ${PORT} already in use?`);
+      throw new Error(`vite exited early (code ${viteExit}) â€” is port ${PORT} already in use?`);
     })(),
   ]);
 
@@ -189,7 +189,7 @@ try {
     JSON.stringify(tools) ===
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
-        "get_session", "list_projects", "load_project", "modulate_param", "save_chain",
+        "get_session", "list_projects", "load_project", "modulate_param", "record_fixture", "save_chain",
         "save_project", "screenshot", "set_chain", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),
@@ -251,8 +251,8 @@ try {
     }
     return lums.reduce((a, b) => a + b, 0) / lums.length;
   };
-  const lumHi = await lumAt(800, "hi"); // samples ~0.8–1.4 s (hi half: 0–3 s)
-  const lumLo = await lumAt(1500, "lo"); // samples ~3.5–4.1 s (lo half: 3–6 s)
+  const lumHi = await lumAt(800, "hi"); // samples ~0.8â€“1.4 s (hi half: 0â€“3 s)
+  const lumLo = await lumAt(1500, "lo"); // samples ~3.5â€“4.1 s (lo half: 3â€“6 s)
   check("square on trail visibly modulates output luminance", lumHi > lumLo, `hi=${lumHi.toFixed(2)} lo=${lumLo.toFixed(2)}`);
 
   // 4. FR-7: direct writes are rejected while modulated; clear releases.

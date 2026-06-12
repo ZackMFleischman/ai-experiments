@@ -7,7 +7,7 @@ import {
   type SignalLike,
   type TexNode,
 } from "@loom/runtime";
-import { floor, hash, sin, step, texture, time, uv, vec2, vec3, vec4 } from "three/tsl";
+import { floor, hash, sin, step, texture, uv, vec2, vec3, vec4 } from "three/tsl";
 import {
   HalfFloatType,
   MeshBasicNodeMaterial,
@@ -62,9 +62,11 @@ export const glitch = defineModule(
     srcMaterial.colorNode = opts.input.color;
     const srcQuad = new QuadMesh(srcMaterial);
 
+    // Frame-clock time, NOT TSL `time` (wall clock) — keeps fixture replays deterministic.
+    const t = ctx.uniformOf(ctx.time.now);
     // Per-row tear offsets, re-rolled ~9x/sec; only some rows tear.
     const row = floor(uv().y.mul(slices));
-    const seed = row.mul(57.0).add(floor(time.mul(9)).mul(113.0));
+    const seed = row.mul(57.0).add(floor(t.mul(9)).mul(113.0));
     const tear = hash(seed).sub(0.5);
     const rowActive = step(0.65, hash(seed.add(13.0)));
     const tearAmt = amount.mul(burst.mul(1.6).add(0.12)).mul(0.35);
@@ -75,7 +77,7 @@ export const glitch = defineModule(
     const g = texture(rt.texture, guv).g;
     const b = texture(rt.texture, guv.sub(vec2(chroma, 0))).b;
 
-    const scan = sin(uv().y.mul(560).add(time.mul(24))).mul(0.5).add(0.5);
+    const scan = sin(uv().y.mul(560).add(t.mul(24))).mul(0.5).add(0.5);
     const rowDrop = step(0.93, hash(seed.add(31.0))).mul(amount).mul(0.7);
     const dim = scan.mul(amount).mul(0.22).oneMinus().mul(rowDrop.oneMinus());
 

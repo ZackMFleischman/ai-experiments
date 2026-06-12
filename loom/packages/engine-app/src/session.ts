@@ -1,10 +1,12 @@
 import {
   buildInstance,
   ChainHost,
+  FixturePlayer,
   ModulatorHost,
   type AudioBusLike,
   type ChainStepInput,
   type EffectRegistry,
+  type FixtureData,
   type FrameCtx,
   type InputRegistry,
   type Instance,
@@ -35,6 +37,8 @@ export interface Entry {
   readonly chain: ChainHost;
   /** Per-node FX chains (Layers): node id → host, folded at each ctx.layer() wrap. */
   readonly nodeChains: Map<string, ChainHost>;
+  /** Deterministic input trace this instance consumes instead of the live rack (Fixtures). */
+  readonly fixture: { name: string; data: FixtureData; player: FixturePlayer } | null;
   /** Successful builds of this entry (1 on create) — validators assert "no rebuild" against this. */
   builds: number;
   /** Pinned role: "panic" = the always-warm safe-scene instance (protected from destroy). */
@@ -49,6 +53,8 @@ export interface InstanceInit {
   nodeChains?: Record<string, ChainStepInput[]>;
   /** Per-instance tuned values, applied OVER the per-scene tuned defaults. */
   values?: Record<string, number | boolean | string>;
+  /** Replay a recorded input trace instead of the live rack (Fixtures). */
+  fixture?: { name: string; data: FixtureData; baseFrame: number };
 }
 
 export function entryStatus(e: Entry): InstanceStatus {
@@ -88,9 +94,16 @@ export class SessionStore {
       host.steps = host.plan(steps);
       nodeChains.set(node, host);
     }
+    const fixture = init?.fixture
+      ? {
+          name: init.fixture.name,
+          data: init.fixture.data,
+          player: new FixturePlayer(init.fixture.data, init.fixture.baseFrame),
+        }
+      : null;
     const instance = buildInstance(
       def,
-      this.buses,
+      fixture ? { ...this.buses, inputs: fixture.player } : this.buses,
       (ctx, tex) => chain.fold(ctx, tex),
       { foldNode: (ctx, node, tex) => nodeChains.get(node)?.fold(ctx, tex) ?? tex },
     );
@@ -115,6 +128,7 @@ export class SessionStore {
       modulators: new ModulatorHost({ bpm: () => this.buses.time.bpm, audio: this.buses.audio }),
       chain,
       nodeChains,
+      fixture,
       builds: 1,
     };
     this.entries.set(finalId, entry);
@@ -176,7 +190,7 @@ export class SessionStore {
     try {
       const next = buildInstance(
         def,
-        this.buses,
+        e.fixture ? { ...this.buses, inputs: e.fixture.player } : this.buses,
         (ctx, tex) => e.chain.fold(ctx, tex),
         { foldNode: (ctx, node, tex) => e.nodeChains.get(node)?.fold(ctx, tex) ?? tex },
       );

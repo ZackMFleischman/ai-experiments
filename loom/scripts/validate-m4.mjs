@@ -29,7 +29,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok });
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` â€” ${detail}` : ""}`);
 }
 
 async function waitForServer(url, timeoutMs = 30_000) {
@@ -110,7 +110,7 @@ try {
     waitForServer(`http://localhost:${PORT}/`),
     (async () => {
       while (viteExit === null) await sleep(200);
-      throw new Error(`vite exited early (code ${viteExit}) — is port ${PORT} already in use?`);
+      throw new Error(`vite exited early (code ${viteExit}) â€” is port ${PORT} already in use?`);
     })(),
   ]);
 
@@ -181,7 +181,7 @@ try {
   await output.setViewportSize({ width: 960, height: 540 });
 
   // 3. Engine reaches the sidecar; tool surface is unchanged (set_audio is
-  // deliberately NOT an MCP tool — agents have no path to the audio source).
+  // deliberately NOT an MCP tool â€” agents have no path to the audio source).
   await waitFor(async () => {
     const res = await client.callTool({ name: "get_session", arguments: {} });
     return res.isError ? null : toolJson(res);
@@ -192,7 +192,7 @@ try {
     JSON.stringify(tools) ===
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
-        "get_session", "list_projects", "load_project", "modulate_param", "save_chain",
+        "get_session", "list_projects", "load_project", "modulate_param", "record_fixture", "save_chain",
         "save_project", "screenshot", "set_chain", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),
@@ -202,7 +202,7 @@ try {
   const consolePage = await context.newPage();
   await consolePage.goto(CONSOLE_URL);
   await consolePage.waitForSelector('.tile[data-id="boot"]', { timeout: 10_000 });
-  // state: "attached" — <option>s in a closed <select> are never "visible".
+  // state: "attached" â€” <option>s in a closed <select> are never "visible".
   await consolePage.waitForSelector('#audiomode option[value^="mic:"]', { timeout: 10_000, state: "attached" });
   const micOption = await consolePage.$eval('#audiomode option[value^="mic:"]', (o) => o.value);
   await consolePage.selectOption("#audiomode", micOption);

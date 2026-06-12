@@ -34,4 +34,23 @@ describe("golden patterns", () => {
       .map(([file]) => file);
     expect(offenders).toEqual([]);
   });
+
+  // TSL's `time` node reads the renderer's WALL clock — it bypasses the frame
+  // clock, so fixture replays stop being deterministic and a paused virtual
+  // clock keeps animating. Animate with ctx.uniformOf(ctx.time.now) instead.
+  const TSL_TIME_IMPORT = /import\s*\{[^}]*\btime\b[^}]*\}\s*from\s*["']three\/tsl["']/;
+
+  it("no module imports TSL `time` (wall clock — use ctx.uniformOf(ctx.time.now))", () => {
+    const offenders = Object.entries(rawModuleSources())
+      .filter(([, src]) => TSL_TIME_IMPORT.test(src))
+      .map(([file]) => file);
+    expect(offenders).toEqual([]);
+  });
+
+  it("no scene imports TSL `time` (wall clock — use ctx.uniformOf(ctx.time.now))", () => {
+    const offenders = Object.entries(rawSceneSources())
+      .filter(([, src]) => TSL_TIME_IMPORT.test(src))
+      .map(([file]) => file);
+    expect(offenders).toEqual([]);
+  });
 });

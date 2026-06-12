@@ -1,6 +1,7 @@
 import type {
   AudioBusLike,
   BindingStore,
+  FixtureData,
   FrameCtx,
   InputRegistry,
   Manifest,
@@ -21,9 +22,11 @@ import {
   ModulateParamArgs,
   PanicArgs,
   PreviewEffectArgs,
+  RecordFixtureArgs,
   RenameInstanceArgs,
   SaveChainArgs,
   SaveProjectArgs,
+  ScreenshotArgs,
   SetAudioArgs,
   SetChainArgs,
   SetPanicInstanceArgs,
@@ -31,6 +34,7 @@ import {
   TransportArgs,
   type AudioDevice,
   type EffectInfo,
+  type FixtureShot,
   type LayerNode,
   type MidiMessageLog,
   type PanicMode,
@@ -121,6 +125,15 @@ export interface EngineDeps {
   setPanicInstance(id: string): void;
   /** Id bookkeeping outside the session (main.ts tracks the boot instance). */
   onInstanceRenamed?(from: string, to: string): void;
+  /** Fixtures — deterministic input traces (main.ts owns recording + replay shots). */
+  fixtures: {
+    /** Capture the live rack for N frames; resolves when the trace is written. */
+    record(name: string, frames: number): Promise<{ saved: string; path: string; frames: number; channels: string[]; bpm: number }>;
+    /** Load + validate a saved trace. */
+    load(name: string): Promise<FixtureData>;
+    /** Deterministic offline captures of a fixture entry at the given frames. */
+    shots(entryId: string, frames: number[]): Promise<FixtureShot[]>;
+  };
   /** Projects — set lists (main.ts owns the store, persistence and the cull). */
   projects: {
     /** Refresh from disk and return the saved project names. */
@@ -286,20 +299,41 @@ export class EngineApi {
         return { saved: name, path, steps: steps.length };
       }
       case "screenshot": {
-        const { instance } = InstanceArgs.parse(req.args);
+        const { instance, frames } = ScreenshotArgs.parse(req.args);
         const e = session.require(this.resolveId(instance));
+        if (frames != null) {
+          // Deterministic offline pass (Fixtures): same trace + frame list →
+          // identical pixels, every time. Only meaningful against a fixture.
+          if (e.fixture == null) {
+            throw new Error(
+              `"${e.id}" replays no fixture — screenshot {frames} needs an instance ` +
+                'created with inputs: "fixture:<name>"',
+            );
+          }
+          return { fixture: e.fixture.name, frames: await this.deps.fixtures.shots(e.id, frames) };
+        }
         if (this.isOnCanvas(e)) return this.deps.captureCanvas();
         return this.targetShot(e);
       }
       case "create_instance": {
-        const { scene, id } = CreateInstanceArgs.parse(req.args);
+        const { scene, id, inputs } = CreateInstanceArgs.parse(req.args);
         const def = this.deps.getScenes().get(scene);
         if (!def) {
           const have = [...this.deps.getScenes().keys()].join(", ") || "(none)";
           throw new Error(`unknown scene "${scene}" — available: ${have}`);
         }
-        const e = session.create(def, id);
+        let fixture;
+        if (inputs != null) {
+          const name = inputs.slice("fixture:".length);
+          const data = await this.deps.fixtures.load(name); // throws on unknown/corrupt trace
+          fixture = { name, data, baseFrame: this.deps.latestFrame().frame };
+        }
+        const e = session.create(def, id, fixture ? { fixture } : undefined);
         return { instance: e.id, scene: e.sceneName, paramPaths: e.instance.manifest.paths() };
+      }
+      case "record_fixture": {
+        const { name, frames } = RecordFixtureArgs.parse(req.args);
+        return await this.deps.fixtures.record(name, frames);
       }
       case "destroy_instance": {
         const { instance } = InstanceArgs.parse(req.args);
@@ -541,6 +575,7 @@ export class EngineApi {
         modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
         chain: e.chain.list(),
         nodes: this.nodesJson(e),
+        fixture: e.fixture?.name ?? null,
         builds: e.builds,
         pinned: e.pinned ?? null,
       })),
