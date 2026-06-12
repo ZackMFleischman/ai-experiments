@@ -42,6 +42,11 @@ jobs:
       - name: unit tests
         run: pnpm test
       - name: acceptance validators
+        # Software WebGL2 on the runner can't render LOOM's heavy scenes at the
+        # default 1080p fast enough for a screenshot; drop the internal render
+        # resolution for CI (assertions sample colors/luminance, not exact px).
+        env:
+          LOOM_RES: 640x360
         run: |
           set -e
           for v in m0 m1 m2 m3 m4 m5 m6 modulators; do
@@ -87,6 +92,8 @@ jobs:
       - name: render scene screenshots into the deploy
         # Best-effort: a failed shot must not block the preview link itself.
         continue-on-error: true
+        env:
+          LOOM_RES: 640x360 # software WebGL2 on CI needs the lighter render
         run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs
       # Self-provision the Pages project so there's no manual dashboard step.
       # Errors (e.g. "already exists") are ignored.

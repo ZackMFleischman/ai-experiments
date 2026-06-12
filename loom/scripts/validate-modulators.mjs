@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs, forceWebGL2 } from "./_browser.mjs";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -20,7 +20,7 @@ const SCRATCH = join(ROOT, "content", "scenes", "modtest.scene.ts");
 const PORT = 5203;
 const WS_PORT = 7346;
 // state=off: persisted tunings (M5) must never skew validation assertions.
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off${resQuery}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];

@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs, forceWebGL2 } from "./_browser.mjs";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -19,7 +19,7 @@ const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const PORT = 5200;
 const WS_PORT = 7343;
 // state=off: persisted tunings (M5) must never skew validation assertions.
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off${resQuery}`;
 const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

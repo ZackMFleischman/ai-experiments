@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs, forceWebGL2 } from "./_browser.mjs";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -20,7 +20,7 @@ const PORT = 5199;
 // Isolated sidecar port: a live Claude Code session may hold the default 7341.
 const WS_PORT = 7342;
 // state=off: persisted tunings (M5) must never skew validation assertions.
-const URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
+const URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off${resQuery}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];

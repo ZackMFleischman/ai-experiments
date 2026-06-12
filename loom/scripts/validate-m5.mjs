@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs, forceWebGL2 } from "./_browser.mjs";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
@@ -21,7 +21,7 @@ const STATE_DIR = join(ROOT, "content", "state");
 const PORT = 5202;
 const WS_PORT = 7345;
 // State persistence stays ON here (no state=off) — it's under test.
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}${resQuery}`;
 const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs, forceWebGL2 } from "./_browser.mjs";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -14,7 +14,7 @@ const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const ARTIFACTS = join(ROOT, "artifacts");
 const PORT = 5198;
 // state=off: persisted tunings (M5) must never skew validation assertions.
-const URL = `http://localhost:${PORT}/?audio=test&bpm=120&state=off`;
+const URL = `http://localhost:${PORT}/?audio=test&bpm=120&state=off${resQuery}`;
 
 const GREEN_SCENE = `import { defineScene, texNode } from "@loom/runtime";
 import { vec4 } from "three/tsl";

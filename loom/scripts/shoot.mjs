@@ -34,7 +34,7 @@ const PORT = 5210;
 const WS_PORT = 7349; // isolated from a live session's 7341
 // Lower internal render res keeps software WebGL2 (CI) fast enough that the
 // compositor hands Playwright a frame before the screenshot timeout.
-const RES = process.env.SHOOT_RES ?? "1280x720";
+const RES = process.env.SHOOT_RES ?? process.env.LOOM_RES ?? "1280x720";
 const URL = `http://localhost:${PORT}/?state=off&audio=test&bpm=120&res=${RES}&ws=${WS_PORT}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

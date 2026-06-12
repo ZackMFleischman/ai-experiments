@@ -48,3 +48,11 @@ const HIDE_WEBGPU = () => {
  * addInitScript). Call after creation, before the first goto.
  */
 export const forceWebGL2 = (pageOrContext) => pageOrContext.addInitScript(HIDE_WEBGPU);
+
+// A `&res=WxH` query fragment when LOOM_RES is set, else "". Software WebGL2 on
+// CI can't render LOOM's heavy scenes (pho-nebula's multi-pass feedback) at the
+// default 1920×1080 fast enough for a screenshot — the compositor never hands
+// Playwright a frame and the shot times out. Lowering the internal render res
+// (e.g. LOOM_RES=640x360) cuts fragment cost ~9× and frames land in time. Empty
+// by default, so local hardware-GL runs keep full-resolution fidelity.
+export const resQuery = process.env.LOOM_RES ? `&res=${process.env.LOOM_RES}` : "";
