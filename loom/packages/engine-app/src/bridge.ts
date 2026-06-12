@@ -8,10 +8,12 @@ import type { EngineApi, Source } from "./engine-api";
  */
 const RECONNECT_MS = 2000;
 
-export function startBridge(url: string, api: EngineApi): void {
+export function startBridge(url: string, api: EngineApi): () => void {
   let ws: WebSocket | null = null;
+  let stopped = false;
 
   function connect(): void {
+    if (stopped) return;
     ws = new WebSocket(url);
     ws.onopen = () => console.info(`[loom] sidecar connected (${url})`);
     ws.onmessage = (ev) => {
@@ -21,12 +23,18 @@ export function startBridge(url: string, api: EngineApi): void {
     };
     ws.onclose = () => {
       ws = null;
-      setTimeout(connect, RECONNECT_MS);
+      if (!stopped) setTimeout(connect, RECONNECT_MS);
     };
     ws.onerror = () => ws?.close();
   }
 
   connect();
+  // Stop = no reconnects (a yielded embedded engine must never race the real
+  // Output engine for "latest connection wins" at the sidecar).
+  return () => {
+    stopped = true;
+    ws?.close();
+  };
 }
 
 /** Parse a raw request, dispatch it, and serialize the response envelope. */

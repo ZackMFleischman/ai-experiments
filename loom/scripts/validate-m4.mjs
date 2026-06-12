@@ -20,7 +20,8 @@ const PORT = 5201;
 const WS_PORT = 7344;
 // state=off: persisted tunings (M5) must never skew validation assertions.
 const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
-const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
+// embed=0: validator consoles must never spawn an embedded engine (it would dial the default sidecar port).
+const CONSOLE_URL = `http://localhost:${PORT}/console.html?embed=0`;
 const STAGED_URL = `http://localhost:${PORT}/staged.html`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

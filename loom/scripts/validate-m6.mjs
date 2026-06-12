@@ -22,7 +22,8 @@ const PORT = 5203;
 const WS_PORT = 7346;
 // State persistence stays ON here (no state=off) — palette persistence is under test.
 const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
-const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
+// embed=0: validator consoles must never spawn an embedded engine (it would dial the default sidecar port).
+const CONSOLE_URL = `http://localhost:${PORT}/console.html?embed=0`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];

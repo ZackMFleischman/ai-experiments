@@ -6,29 +6,61 @@ const STATE_MS = 100; // ~10 fps session state
 const THUMBS_MS = 150; // ~6.6 fps tile thumbnails
 const PRESENCE_TIMEOUT_MS = 5000;
 
+export type ConsoleChannelOpts = {
+  /** This engine runs inside the Console's hidden iframe (solo mode). */
+  embedded?: boolean;
+  /** Called once when this engine must stand down for another engine. */
+  onYield?: () => void;
+};
+
 /**
  * Engine side of the Console link: same request/response envelopes as the
  * sidecar wire, plus periodic state and thumbnail broadcasts — but only
  * while a Console has said hello recently. Works with the sidecar (and the
  * agent) completely absent.
+ *
+ * State broadcasts carry `engineId`/`embedded`, which doubles as engine
+ * presence detection: an EMBEDDED engine that hears another engine's state
+ * yields (the real Output window always wins; between two embedded peers the
+ * smaller id survives). A yielded engine stops broadcasting AND stops
+ * answering requests — two engines answering one request id would race.
  */
-export function startConsoleChannel(api: EngineApi): void {
+export function startConsoleChannel(api: EngineApi, opts: ConsoleChannelOpts = {}): void {
   const ch = new BroadcastChannel("loom");
+  const engineId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   let lastHello = -Infinity;
+  let yielded = false;
   const consolePresent = () => performance.now() - lastHello < PRESENCE_TIMEOUT_MS;
+
+  const standDown = () => {
+    if (yielded) return;
+    yielded = true;
+    console.info("[loom] another engine is live on this origin — this one is standing down");
+    opts.onYield?.();
+  };
 
   ch.onmessage = (ev) => {
     const data: unknown = ev.data;
     if (typeof data !== "object" || data === null) return;
-    const kind = (data as { kind?: string }).kind;
-    if (kind === "hello") {
+    const msg = data as { kind?: string; engineId?: string; embedded?: boolean };
+    if (msg.kind === "state") {
+      // Another engine broadcasting on this origin (BroadcastChannel never
+      // echoes to the sender). Embedded engines defer to the Output window;
+      // embedded peers tie-break on id.
+      if (opts.embedded && (msg.embedded !== true || (msg.engineId ?? "") < engineId)) {
+        standDown();
+      }
+      return;
+    }
+    if (yielded) return;
+    if (msg.kind === "hello") {
       lastHello = performance.now();
       api.markConsolePresent(); // lets the render loop mirror the live canvas
       return;
     }
-    if (kind === "req") {
+    if (msg.kind === "req") {
       void respond(api, JSON.stringify(data), "human").then((res) => {
-        if (res !== null) ch.postMessage(JSON.parse(res));
+        if (res !== null && !yielded) ch.postMessage(JSON.parse(res));
       });
     }
   };
@@ -36,16 +68,20 @@ export function startConsoleChannel(api: EngineApi): void {
   // Worker clocks, not setInterval: main-thread timers clamp to >=1 s when
   // the Output tab is hidden, which froze the Console's state and previews.
   workerInterval(() => {
-    if (consolePresent()) ch.postMessage({ kind: "state", ...api.consoleState() });
+    if (!yielded && consolePresent()) {
+      ch.postMessage({ kind: "state", engineId, embedded: opts.embedded === true, ...api.consoleState() });
+    }
   }, STATE_MS);
 
   let thumbsBusy = false;
   workerInterval(() => {
-    if (!consolePresent() || thumbsBusy) return;
+    if (yielded || !consolePresent() || thumbsBusy) return;
     thumbsBusy = true;
     void api
       .thumbnails()
-      .then((thumbs) => ch.postMessage({ kind: "thumbs", thumbs }))
+      .then((thumbs) => {
+        if (!yielded) ch.postMessage({ kind: "thumbs", thumbs });
+      })
       .catch(() => {})
       .finally(() => {
         thumbsBusy = false;

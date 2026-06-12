@@ -303,3 +303,39 @@ merging the registry's manifest with the input rack's, routed by path prefix
   stops (localStorage `loom.palettepresets`, user entries shadow built-ins).
 - Gates: typecheck, unit tests, full validate m0–m6 + modulators green; worker-clock
   render path proven via forced-hidden probe (clockSource=worker, thumbs streaming).
+
+## 2026-06-11 — Roadmap restructure: depth before library, assets get milestones
+
+- Zack's call: split the old Geo-&-particles L into two milestones and move them **ahead of**
+  Library & parallel build — M7 Geo, M8 Particles (particles consume M7's `GeoNode`). New
+  milestones: M9 video sources (clips usable exactly like images, mirroring `sources/image.ts`),
+  M10 asset explorer (left Console pane: modules binned by kind, TouchDesigner-style, plus
+  user-registered external folders — e.g. a VJ Assets dir — with select/drag as the interaction
+  model). Library is M11, gig hardening M12.
+- New ordered Housekeeping block in the roadmap: cull `hello`/`pulse-glitch`/`vinyl` scenes
+  (`pulse` stays — every validator pins it as its live scene, so culling it would mean re-pinning
+  six validators; Zack chose to keep it as the test workhorse), then a param-group naming
+  pass over surviving scenes; Console mod-popover default becomes 20 s (was 4 beats; runtime
+  has no default to change); double-click-to-rename instance tiles; 2× tile thumbnails.
+
+## 2026-06-11 — The Output window is optional: embedded console engine
+
+- The previous worker-clock fix only covered "Output open but backgrounded" — Zack opens
+  the Console *alone*. The Console now boots an **embedded engine** in a hidden same-origin
+  iframe (`/?embedded=1&audio=test`) when no engine says hello within 2.5 s.
+- **Takeover protocol** (console-channel): state broadcasts carry `engineId`/`embedded`;
+  an embedded engine that hears another engine''s state **stands down completely** — stops
+  the render loop, the worker clocks, the WS bridge (no zombie reconnects racing
+  "latest connection wins" at the sidecar), and stops answering channel requests. The
+  Output window always wins; embedded peers tie-break on id. The Console follows the new
+  engine seamlessly.
+- Worker fallback clock now also fires on **rAF starvation** (>150 ms without a rAF tick),
+  which covers offscreen-iframe throttling, not just `document.hidden`.
+- Audio: AudioContexts need a user gesture the iframe never gets — the Console forwards
+  its pointerdown to `iframe.__loom.resumeAudio()` (activation is visible to same-origin
+  frames). Embedded boots on the test signal; switch to mic from the header picker.
+- Validator consoles pin `?embed=0` — an embedded engine would dial the DEFAULT sidecar
+  port and break run isolation.
+- Gates: typecheck, unit tests, full validate m0–m6 + modulators green. Solo probe:
+  console alone → boot tile + thumbs stream; real Output opened → embedded frame counter
+  freezes, console stays connected.

@@ -56,6 +56,8 @@ declare global {
       palettes: Record<string, number | boolean | string>;
       /** Mocked-hardware hook: feeds the same path as a real CC message. */
       midiInject: (cc: number, ch: number, value01: number) => void;
+      /** Console (parent frame) forwards its click gesture here to unsuspend audio. */
+      resumeAudio: () => void;
     };
   }
 }
@@ -298,6 +300,7 @@ window.__loom = {
   inputs: {},
   palettes: {},
   midiInject: (cc, ch, value01) => midi.inject(cc, ch, value01),
+  resumeAudio: () => audio.resume(),
 };
 
 trySwapLive(liveScene);
@@ -341,10 +344,24 @@ const api = new EngineApi(
 
 // `?ws=` lets validation runs use an isolated sidecar port so they never
 // collide with (or silently talk to) a live performance session's sidecar.
-startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, api);
-startConsoleChannel(api);
+const stopBridge = startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, api);
+
+// ?embedded=1 marks the Console's hidden-iframe engine (solo mode, no Output
+// window). It stands down completely if a real Output engine appears.
+const embedded = qs.get("embedded") === "1";
+let yielded = false;
+startConsoleChannel(api, {
+  embedded,
+  onYield: () => {
+    yielded = true;
+    renderer.setAnimationLoop(null);
+    stopHiddenClock();
+    stopBridge();
+  },
+});
 
 const frameTick = (tMs: number): void => {
+  if (yielded) return;
   const f = clock.tick(tMs);
   latestFrame = f;
   timeBus.tick(f);
@@ -411,15 +428,19 @@ const frameTick = (tMs: number): void => {
   }));
 };
 
-renderer.setAnimationLoop(frameTick);
+let lastRafAt = performance.now();
+renderer.setAnimationLoop((tMs) => {
+  lastRafAt = performance.now();
+  frameTick(tMs);
+});
 
-// Browsers freeze rAF in hidden tabs, which used to freeze every Console
-// preview whenever the Output tab wasn't showing. A worker clock (exempt from
-// background timer throttling) keeps the engine ticking at ~30 fps while
-// hidden; the moment the tab is visible again rAF takes over (the guard keeps
-// the two from double-stepping a frame).
-workerInterval(() => {
-  if (document.hidden) frameTick(performance.now());
+// Browsers freeze rAF in hidden tabs (and starve it for offscreen iframes),
+// which used to freeze every Console preview whenever the Output tab wasn't
+// showing. A worker clock (exempt from background timer throttling) keeps the
+// engine ticking at ~30 fps whenever rAF isn't delivering; the moment rAF
+// resumes, the starvation guard backs off so the two never double-step.
+const stopHiddenClock = workerInterval(() => {
+  if (document.hidden || performance.now() - lastRafAt > 150) frameTick(performance.now());
 }, 33);
 
 // Tap tempo on "t"; any click also unblocks a suspended AudioContext.
