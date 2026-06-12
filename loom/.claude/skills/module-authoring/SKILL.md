@@ -34,6 +34,8 @@ export const myModule = defineModule(
 
 ## Shader gotchas (hard-won — each of these cost a debugging session)
 
+- **Never import TSL `time`** — it reads the renderer's WALL clock, bypassing LOOM's frame clock, which breaks fixture-replay determinism (and a paused virtual clock would keep animating). Animate with `const t = ctx.uniformOf(ctx.time.now)` instead; a golden-pattern scan rejects `time` imports.
+
 - **Never put a plain JS number as the FIRST argument of TSL math.** `mix(1.0, node, node)` or `step(0.0, node)` builds a shader that silently fails to compile — the instance reports ok but its render target never gets written (`screenshot` errors with "reading 'format'"). Wrap leading literals: `mix(float(1), …)`.
 - **Derivative poisoning:** guarding invalid UV regions with a huge sentinel (mix to 1e6) collapses texture sampling to the lowest mip everywhere (giant mosaic). Guard by adding a SMALL node-first offset instead: `local.add(behind.mul(10))`.
 - **Warping effects can't re-evaluate `input.color` at a shifted UV** — the input is a node graph, not a function of UV. Render the input into an owned RenderTarget, then sample `texture(rt.texture, warpedUv)`; `content/modules/effects/glitch.ts` is the reference.

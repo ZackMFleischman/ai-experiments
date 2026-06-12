@@ -1,5 +1,5 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
-import { cos, time, uv, vec3, vec4 } from "three/tsl";
+import { cos, uv, vec3, vec4 } from "three/tsl";
 
 const TAU = Math.PI * 2;
 
@@ -25,7 +25,9 @@ export const osc = defineModule(
     const freq = ctx.uniformOf(opts.freq ?? 8);
     const sync = ctx.uniformOf(opts.sync ?? 0.25);
     const offset = ctx.uniformOf(opts.offset ?? 0.1);
-    const phase = uv().x.mul(freq).add(time.mul(sync));
+    // Frame-clock time, NOT TSL `time` (wall clock) — keeps fixture replays deterministic.
+    const t = ctx.uniformOf(ctx.time.now);
+    const phase = uv().x.mul(freq).add(t.mul(sync));
     const r = cos(phase.mul(TAU)).mul(0.5).add(0.5);
     const g = cos(phase.add(offset).mul(TAU)).mul(0.5).add(0.5);
     const b = cos(phase.add(offset.mul(2)).mul(TAU)).mul(0.5).add(0.5);

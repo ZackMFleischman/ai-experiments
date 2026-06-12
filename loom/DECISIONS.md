@@ -624,3 +624,27 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - **SHIPPED:** video module + cases.ts entry (tier-1/2 swept), stdlib smoke
   covers it, `validate:m9` 14/14 (play/freeze/scrub/loop with no rebuild, M4
   cover checks on a video source, Range/403/404 middleware, external clip e2e).
+
+## Fixtures — deterministic input traces (2026-06-11)
+
+- **A fixture is the rack's POST-DETECTOR values, one row per frame**
+  (`content/state/fixtures/<name>.json`: name/bpm/channels/frames) — replay
+  needs no audio, no detectors, no timing luck. `record_fixture` captures the
+  live rack in the render loop; `create_instance({inputs:"fixture:<name>"})`
+  replays it through a `FixturePlayer` (an `InputProvider` — `ctx.input` is
+  late-bound, so scenes change not at all).
+- **`screenshot({frames:[…]})` is a deterministic offline pass**: the entry's
+  scene is REBUILT against the trace on a virtual clock (frame 0, dt 1/60, own
+  TimeBus at the trace's bpm, silent audio), with its tuned values + chains +
+  modulator specs mirrored, stepped to each requested frame and read back.
+  Same fixture + frames → byte-identical PNGs, every call, across instances.
+  The live entry is never touched (builds counter unchanged).
+- **TSL `time` is banned from content/** (golden-pattern scan): it reads the
+  renderer's WALL clock, bypassing the frame clock — the one nondeterminism
+  the first validator run caught (7 modules migrated to
+  `ctx.uniformOf(ctx.time.now)`). Frame-clock time also means a virtual clock
+  can pause/step scenes — groundwork M11/M12 want anyway.
+- **SHIPPED:** runtime `FixturePlayer`/`InputProvider` (+ unit tests), session
+  fixture entries (rebuild-safe), record/replay/shots in main.ts, MCP
+  `record_fixture` + extended `create_instance`/`screenshot`,
+  `validate:fixtures` 11/11. Tool-surface assertions moved (m3/m4/m5/modulators).

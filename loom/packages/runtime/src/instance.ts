@@ -8,7 +8,7 @@ import { BuildCtx } from "./buildctx";
 import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
-import type { InputRegistry } from "./inputs";
+import type { InputProvider } from "./fixture";
 import type { LayerHooks, LayerNodeInfo } from "./layer";
 import type { PaletteRegistry } from "./palette";
 import type { Manifest } from "./param";
@@ -72,7 +72,7 @@ export class Instance {
 /** Build a scene into a running instance. Throws on a bad build — callers contain. */
 export function buildInstance(
   scene: SceneDef,
-  buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry; palettes?: PaletteRegistry },
+  buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputProvider; palettes?: PaletteRegistry },
   /**
    * Optional post-effect fold (M6 chains): wraps the scene's output before the
    * manifest finalizes, so chain params land on the same manifest and a throwing

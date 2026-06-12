@@ -27,7 +27,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok });
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` â€” ${detail}` : ""}`);
 }
 
 async function waitForServer(url, timeoutMs = 30_000) {
@@ -107,7 +107,7 @@ try {
     waitForServer(`http://localhost:${PORT}/`),
     (async () => {
       while (viteExit === null) await sleep(200);
-      throw new Error(`vite exited early (code ${viteExit}) — is port ${PORT} already in use?`);
+      throw new Error(`vite exited early (code ${viteExit}) â€” is port ${PORT} already in use?`);
     })(),
   ]);
 
@@ -148,7 +148,7 @@ try {
     JSON.stringify(tools) ===
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
-        "get_session", "list_projects", "load_project", "modulate_param", "save_chain",
+        "get_session", "list_projects", "load_project", "modulate_param", "record_fixture", "save_chain",
         "save_project", "screenshot", "set_chain", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),
@@ -189,7 +189,7 @@ try {
     }, id);
 
   // The LIVE tile's preview must show real pixels (regression: the canvas is
-  // only readable in the render task — a stale-task read shows black).
+  // only readable in the render task â€” a stale-task read shows black).
   const liveLum = await waitFor(async () => {
     const l = await tileThumbLum("boot");
     return l != null && l > 2 ? l : null;
@@ -227,7 +227,7 @@ try {
 
   // 5. Param panel drives the candidate.
   await consolePage.click(`.tile[data-id="${cid}"]`);
-  // The param input is MUI Slider's hidden <input type="range"> — attached
+  // The param input is MUI Slider's hidden <input type="range"> â€” attached
   // but not "visible" to Playwright, and React dedupes direct .value writes
   // through its value tracker, so write through the prototype setter.
   await consolePage.waitForSelector('[data-path="size"]', { state: "attached", timeout: 5_000 });
@@ -302,7 +302,7 @@ try {
   const frameB = (await loomState(output)).frame;
   const drift = Math.abs(holdA.r - holdB.r) + Math.abs(holdA.g - holdB.g) + Math.abs(holdA.b - holdB.b);
   check("PANIC holds the output pixels", drift < 1.5, `rgb drift ${drift.toFixed(2)} over 500 ms`);
-  check("engine loop keeps ticking under PANIC", frameB > frameA + 10, `frames ${frameA}→${frameB}`);
+  check("engine loop keeps ticking under PANIC", frameB > frameA + 10, `frames ${frameA}â†’${frameB}`);
   await consolePage.click("#panic"); // now reads RESUME
   await waitFor(async () => (!(await loomState(output)).panicked ? true : null), 5_000, "resume");
   check("RESUME releases the hold", true);
@@ -322,7 +322,7 @@ try {
   );
   check("destroyed instance's tile disappears", true);
 
-  // 9b. The human can spawn library scenes from the Console (R4.5 — works
+  // 9b. The human can spawn library scenes from the Console (R4.5 â€” works
   // with the agent absent): the "+" ghost tile opens the scene picker,
   // clicking a scene row creates the instance.
   await consolePage.click("#newinstance");
@@ -358,7 +358,7 @@ try {
     blocked2.content?.[0]?.text,
   );
 
-  // ...and a plain boot is armed end-to-end: create → stage → agent commit lands.
+  // ...and a plain boot is armed end-to-end: create â†’ stage â†’ agent commit lands.
   await output.goto(OUTPUT_URL);
   await output.waitForFunction(
     () => /\d+ fps/.test(document.querySelector("#fps")?.textContent ?? ""),

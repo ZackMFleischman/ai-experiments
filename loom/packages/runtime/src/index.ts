@@ -29,6 +29,7 @@ export { lagSignal, lfoSignal, envelopeSignal, type LfoShape, type LfoOpts } fro
 export { texNode, type TexNode, type Pass, type ColorNode } from "./texnode";
 export { BuildCtx } from "./buildctx";
 export { layerRig, NODE_NAME_RE, RESERVED_NODE_NAMES, type LayerHooks, type LayerNodeInfo } from "./layer";
+export { FixtureDataSchema, FixturePlayer, type FixtureData, type InputProvider } from "./fixture";
 export { defineScene, type SceneDef, type SceneInput } from "./scene";
 export { Instance, buildInstance } from "./instance";
 export { Stage, type StageDirective, type PanicMode } from "./stage";

@@ -1,5 +1,5 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
-import { abs, float, max, mix, sin, smoothstep, time, uv, vec3, vec4 } from "three/tsl";
+import { abs, float, max, mix, sin, smoothstep, uv, vec3, vec4 } from "three/tsl";
 import type { Node } from "three/webgpu";
 
 const TAU = Math.PI * 2;
@@ -44,7 +44,8 @@ export const noodles = defineModule(
 
     const x = uv().x;
     const y = uv().y;
-    const t = time.mul(flow);
+    // Frame-clock time, NOT TSL `time` (wall clock) — keeps fixture replays deterministic.
+    const t = ctx.uniformOf(ctx.time.now).mul(flow);
     // Energy multiplies the wander — a kick ripples through every strand.
     const amp = wiggle.mul(energy.mul(0.9).add(1));
 

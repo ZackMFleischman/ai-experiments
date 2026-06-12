@@ -138,6 +138,17 @@ through a registered uniform updater that runs each frame (`BuildCtx.uniformOf`)
   silhouette. Explicit-only: unwrapped nodes cost nothing. `get_manifest` and
   `get_session` carry `nodes: [{id, parent, chain}]`; the Console renders node
   groups with per-node "+ effect".
+- Fixtures: deterministic input traces. `record_fixture` writes the rack's
+  post-detector values (one row per frame, plus bpm) to
+  `content/state/fixtures/<name>.json`; `create_instance({inputs:
+  "fixture:<name>"})` replays it via a `FixturePlayer` (an `InputProvider` —
+  the interface `ctx.input` consumes, so scenes are unchanged).
+  `screenshot({frames})` runs a deterministic OFFLINE pass: the scene rebuilds
+  against the trace on a virtual clock (frame 0, dt 1/60, own TimeBus, silent
+  audio) with values/chains/modulators mirrored — same fixture + frames →
+  byte-identical pixels. Consequence, enforced by a golden-pattern scan: TSL
+  `time` (the renderer's wall clock) is banned in content/ — animate with
+  `ctx.uniformOf(ctx.time.now)`.
 - Modulators: `modulate_param` attaches a runtime LFO/stepper/follower to any
   non-color param (sine/triangle/ramp/square/random/drift/cycle/audio;
   `periodSeconds` or BPM-tracking `periodBeats`). Phase is a dt-accumulator ticked
@@ -252,8 +263,9 @@ per shipped milestone, kept green forever: `m0` (HMR/never-go-black), `m1`
 NFR-5 on a throwing node step, Console node tree), `projects` (set lists:
 save/mutate/load round-trip with LIVE untouched, deferred cull, restart
 survival, agent-save gating), `m9` (video: play/freeze/scrub/loop with no
-rebuild, cover scaling on a video source, media middleware), `modulators`, and
-`stdlib` — the tier-3 smoke render: every module is
+rebuild, cover scaling on a video source, media middleware), `fixtures`
+(record/replay determinism: byte-identical screenshots across calls and
+instances), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
 mounted in a generated sandbox scene (sources direct, effects over an `osc`,
 controls driving an osc param), hot-swapped in via the `live.scene.ts` pin, and
 must render non-black with a clean console and no NFR-2 freeze.

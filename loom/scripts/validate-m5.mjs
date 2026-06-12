@@ -2,7 +2,7 @@
 // are tunable on the "globals" pseudo-instance manifest, metered in the
 // Console rack drawer, consumed late-bound by scenes (retune never rebuilds),
 // persisted via the loom:state middleware, and bindable to (mocked) MIDI CCs
-// through learn. Runs with state persistence ON — content/state/ is
+// through learn. Runs with state persistence ON â€” content/state/ is
 // snapshotted and restored around the run.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -20,7 +20,7 @@ const INPUTS = join(ROOT, "content", "inputs.ts");
 const STATE_DIR = join(ROOT, "content", "state");
 const PORT = 5202;
 const WS_PORT = 7345;
-// State persistence stays ON here (no state=off) — it's under test.
+// State persistence stays ON here (no state=off) â€” it's under test.
 const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}${resQuery}`;
 // embed=0: validator consoles must never spawn an embedded engine (it would dial the default sidecar port).
 const CONSOLE_URL = `http://localhost:${PORT}/console.html?embed=0`;
@@ -29,7 +29,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok });
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` â€” ${detail}` : ""}`);
 }
 
 async function waitForServer(url, timeoutMs = 30_000) {
@@ -119,7 +119,7 @@ try {
     waitForServer(`http://localhost:${PORT}/`),
     (async () => {
       while (viteExit === null) await sleep(200);
-      throw new Error(`vite exited early (code ${viteExit}) — is port ${PORT} already in use?`);
+      throw new Error(`vite exited early (code ${viteExit}) â€” is port ${PORT} already in use?`);
     })(),
   ]);
 
@@ -166,7 +166,7 @@ try {
       gp["inputs.kick.enabled"]?.value === true &&
       gp["inputs.bass.gain"] != null &&
       gp["inputs.knob1.gain"] != null,
-    Object.keys(gp).slice(0, 6).join(", ") + ", …",
+    Object.keys(gp).slice(0, 6).join(", ") + ", â€¦",
   );
 
   // 2. Channels are computed every frame with no consumers required: the
@@ -219,7 +219,7 @@ try {
   );
   const msgMark = consoleMsgs.length;
   // threshold proves the knob writes through; gain 0 (envelope peak) is what
-  // makes the silence deterministic — the synthetic kick occasionally grazes
+  // makes the silence deterministic â€” the synthetic kick occasionally grazes
   // any threshold < 1 and a single onset mid-window flaked this check.
   await callOk(client, "set_param", { instance: "globals", path: "inputs.kick.threshold", value: 0.95 });
   await callOk(client, "set_param", { instance: "globals", path: "inputs.kick.gain", value: 0 });
@@ -268,7 +268,7 @@ try {
   check(
     "bound CC rides punch across its range",
     Math.abs(punchAt75 - 2.25) < 1e-6 && punchAtMax === 3,
-    `0.75→${punchAt75}, 1.0→${punchAtMax}`,
+    `0.75â†’${punchAt75}, 1.0â†’${punchAtMax}`,
   );
   await waitFor(async () => {
     const learnBtn = await consolePage.$eval('#widgets [data-learn="punch"]', (b) => b.textContent);
@@ -426,12 +426,12 @@ try {
   const punchStill = toolJson(await callOk(client, "get_manifest", { instance: "boot" })).params.punch.value;
   check("release is inert (rising edge only)", punchStill === 3, `punch=${punchStill}`);
 
-  // 11. Cycle on a globals bool — each press flips, release inert.
+  // 11. Cycle on a globals bool â€” each press flips, release inert.
   await humanReq("midi_learn", { instance: "globals", path: "inputs.kick.enabled", mode: "cycle" });
   const enabledBefore = toolJson(await callOk(client, "get_manifest", { instance: "globals" }))
     .params["inputs.kick.enabled"].value;
   await output.evaluate(() => window.__loom.midiInject(36, 0, 1)); // learn + flip
-  // (waitFor treats falsy as "not yet" — return true, never the flipped bool itself)
+  // (waitFor treats falsy as "not yet" â€” return true, never the flipped bool itself)
   await waitFor(async () => {
     const v = toolJson(await callOk(client, "get_manifest", { instance: "globals" }))
       .params["inputs.kick.enabled"].value;
@@ -493,7 +493,7 @@ try {
     JSON.stringify(tools) ===
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
-        "get_session", "list_projects", "load_project", "modulate_param", "save_chain",
+        "get_session", "list_projects", "load_project", "modulate_param", "record_fixture", "save_chain",
         "save_project", "screenshot", "set_chain", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),

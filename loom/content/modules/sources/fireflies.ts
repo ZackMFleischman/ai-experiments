@@ -1,5 +1,5 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
-import { cos, float, pow, select, sin, time, uv, vec2, vec3, vec4 } from "three/tsl";
+import { cos, float, pow, select, sin, uv, vec2, vec3, vec4 } from "three/tsl";
 
 const TAU = Math.PI * 2;
 
@@ -60,8 +60,10 @@ export const fireflies = defineModule(
     const brightness = ctx.uniformOf(opts.brightness ?? 1);
 
     const p = uv().sub(vec2(0.5)).mul(vec2(aspect, 1));
-    const t = time.mul(speed);
-    const tb = time.mul(twinkle);
+    // Frame-clock time, NOT TSL `time` (wall clock) — keeps fixture replays deterministic.
+    const now = ctx.uniformOf(ctx.time.now);
+    const t = now.mul(speed);
+    const tb = now.mul(twinkle);
 
     const flies = Array.from({ length: maxCount }, (_, i) => {
       // wander: home position + two slow sines per axis

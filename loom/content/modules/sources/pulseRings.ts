@@ -1,5 +1,5 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
-import { length, mix, sin, smoothstep, time, uv, vec2, vec3, vec4 } from "three/tsl";
+import { length, mix, sin, smoothstep, uv, vec2, vec3, vec4 } from "three/tsl";
 import { noise } from "./noise";
 
 export interface PulseRingsOpts {
@@ -35,9 +35,11 @@ export const pulseRings = defineModule(
     const energy = ctx.uniformOf(opts.energy ?? 0.5);
     const hue = ctx.uniformOf(opts.hue ?? 0);
 
+    // Frame-clock time, NOT TSL `time` (wall clock) — keeps fixture replays deterministic.
+    const t = ctx.uniformOf(ctx.time.now);
     const p = uv().sub(vec2(0.5)).mul(vec2(opts.aspect ?? 16 / 9, 1));
     const d = length(p);
-    const rings = sin(d.mul(freq).sub(time.mul(speed))).mul(0.5).add(0.5);
+    const rings = sin(d.mul(freq).sub(t.mul(speed))).mul(0.5).add(0.5);
     const core = smoothstep(0.55, 0.0, d);
     const lit = rings.mul(core).mul(energy);
 

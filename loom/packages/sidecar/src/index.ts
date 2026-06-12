@@ -13,8 +13,11 @@ import {
   InstanceArgs,
   LoadProjectArgs,
   ModulateParamArgs,
+  RecordFixtureArgs,
   SaveChainArgs,
   SaveProjectArgs,
+  ScreenshotArgs,
+  ScreenshotFramesResult,
   ScreenshotResult,
   SetChainArgs,
   SetParamArgs,
@@ -232,21 +235,53 @@ const TOOLS = [
     description:
       "Capture an instance's output as a PNG — your eyes on what is actually rendering. " +
       "The live instance captures the Output canvas; others capture their preview target. " +
-      "Returns the image plus width/height/frame metadata.",
-    inputSchema: { type: "object", properties: { ...INSTANCE_PROP } },
+      "Returns the image plus width/height/frame metadata. Pass frames:[…] on a FIXTURE " +
+      "instance (created with inputs:\"fixture:<name>\") for a deterministic offline pass: " +
+      "the scene is re-stepped from frame 0 on a virtual clock against the trace, so the " +
+      "same fixture + frame list returns bit-identical images every call.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        frames: {
+          type: "array",
+          items: { type: "integer" },
+          description: "Deterministic capture frames (fixture instances only, max 16).",
+        },
+      },
+    },
   },
   {
     name: "create_instance",
     description:
       "Build a sandbox instance of a scene (by catalog name) so it renders in a Console tile " +
-      "without touching the live output. Returns the new instance id and its param paths.",
+      "without touching the live output. Returns the new instance id and its param paths. " +
+      "Pass inputs:\"fixture:<name>\" to replay a recorded input trace instead of the live " +
+      "rack — deterministic audio-reactivity for development and validation.",
     inputSchema: {
       type: "object",
       properties: {
         scene: { type: "string", description: "Scene name from get_session's availableScenes." },
         id: { type: "string", description: "Optional explicit instance id." },
+        inputs: { type: "string", description: 'Optional "fixture:<name>" input-trace replay.' },
       },
       required: ["scene"],
+    },
+  },
+  {
+    name: "record_fixture",
+    description:
+      "Record the live input rack (every channel's value, every frame) for N frames into " +
+      "content/state/fixtures/<name>.json — a deterministic trace that create_instance " +
+      "can replay via inputs:\"fixture:<name>\". Records whatever is playing (mic or the " +
+      "synthetic test signal). Returns when the trace is written.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Trace name (letters, digits, - and _)." },
+        frames: { type: "integer", description: "How many frames to record (1..3600, ~60/s)." },
+      },
+      required: ["name", "frames"],
     },
   },
   {
@@ -380,7 +415,25 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         return textResult(result);
       }
       case "screenshot": {
-        const raw = await broker.request("screenshot", { ...InstanceArgs.parse(args) }, 10_000);
+        const parsed = ScreenshotArgs.parse(args);
+        if (parsed.frames != null) {
+          // Deterministic fixture pass — stepping hundreds of frames offline.
+          const raw = await broker.request("screenshot", { ...parsed }, 30_000);
+          const result = ScreenshotFramesResult.parse(raw);
+          return {
+            content: [
+              ...result.frames.map((s) => ({ type: "image" as const, data: s.base64, mimeType: s.mime })),
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  fixture: result.fixture,
+                  frames: result.frames.map((s) => ({ frame: s.frame, width: s.width, height: s.height })),
+                }),
+              },
+            ],
+          };
+        }
+        const raw = await broker.request("screenshot", { ...parsed }, 10_000);
         const shot = ScreenshotResult.parse(raw);
         return {
           content: [
@@ -427,6 +480,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case "load_project": {
         // Loading builds every project instance — give heavy sets headroom.
         const result = await broker.request("load_project", { ...LoadProjectArgs.parse(args) }, 20_000);
+        return textResult(result);
+      }
+      case "record_fixture": {
+        const a = RecordFixtureArgs.parse(args);
+        // Recording runs in real time: N frames at ~60 fps plus write headroom.
+        const result = await broker.request("record_fixture", { ...a }, Math.ceil((a.frames / 60) * 1000) + 10_000);
         return textResult(result);
       }
       default:

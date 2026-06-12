@@ -41,6 +41,7 @@ focused month of evenings.
 | Layers (2026-06-11) | `ctx.layer(name, tex)` named nodes: uniform-driven rigs (`<name>.layer.*`, no rebuild), per-node FX chains (`set_chain {node}`, `<name>.fx.*`), `nodes` in manifests, Console node tree, scenes wrapped | `validate:layers` |
 | Projects (2026-06-11) | set lists: save/load named instance sets (values, modulators, root + node chains, tile order) to `content/state/projects/`; audience-safe load (sandboxes, deferred cull after commit); MCP list/save/load (agent save arming-gated); Console switcher + save dialog | `validate:projects` |
 | M9 Video sources (2026-06-11) | `video` module (speed/scrub/loop as Signals, muted, image-parity placement), `loom:media` middleware (Range/206, registered roots in `media-roots.json`), `beeple-wall` scene on real VJ clips | `validate:m9` |
+| Fixtures (2026-06-11) | deterministic input traces: `record_fixture` → `content/state/fixtures/`, `create_instance({inputs:"fixture:…"})` replay, byte-identical `screenshot({frames})` offline pass; TSL `time` banned from content (frame clock only) | `validate:fixtures` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
@@ -71,19 +72,6 @@ declare a default `chain` and `restoreDefault` resets to it. Output types formal
 (`ModuleOutput`, `ChainableEffect`); `glitch`/`feedback`/`levels` carry `chainParams`.
 M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
 snapshot/restore across reload stays M9.
-
-### Fixtures — deterministic input traces (S) *(pulled out of M11; everything downstream wants them)*
-
-- Record/replay InputBus traces **including input-channel values**:
-  `create_instance({inputs: "fixture:…"})`; `screenshot({frames:[…]})`
-  deterministic against fixtures. The stdlib harness's `FakeAudioBus` is the
-  hand-rolled precursor; this is its grown-up form.
-- Payoff order: M7/M8 develop against deterministic audio instead of the
-  synthetic kick; validator flakes of the m5-threshold class die; M11's parallel
-  subagent builds and M12's soak test both consume them.
-
-**Shipped when:** a recorded trace replays bit-identically; a validator asserts
-the same screenshot twice from the same fixture + frame list.
 
 ### M7 — Geo (M) *(first half of the old Geo-&-particles L; moved ahead of the library)*
 
