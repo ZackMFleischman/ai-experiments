@@ -94,7 +94,9 @@ snapshot/restore across reload stays M9.
   already cataloged by M7/M8) — every effect `chainParams`-compliant, every
   audio-reactive module consuming named `ctx.input(...)` channels. The content
   test root makes each addition mechanical: a `cases.ts` entry + the automatic
-  tier-1/2 sweeps.
+  tier-1/2 sweeps. **The concrete worklist is `docs/stdlib-burndown.md`**
+  (2026-06-11): ~33 TD-inspired modules (CHOP/TOP/SOP analogues) + 8 showcase
+  scenes, dependency-ordered, every module mapped to a scene that proves it.
 - `CATALOG.md` extended (chainable / inputs-consumed columns) — the AST generator already rides `pnpm typecheck`; this supersedes the old “catalog.json” line. *Library-use* skill: search catalog first, register after writing, tag conventions.
 - Parallel workflow proven: signatures-first convention + `tsc` gate; subagents each get a sandbox instance (own tile) with fixture input (fixtures land earlier, see above).
 
