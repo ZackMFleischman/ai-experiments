@@ -1,6 +1,8 @@
 import { Box, Button, Card, IconButton, Stack, Typography } from "@mui/material";
+import { useEffect } from "react";
 import type { InstanceInfo } from "@loom/sidecar/protocol";
 import { useEngine, useThumb } from "../hooks";
+import { snapshotScene } from "../scene-thumbs";
 import { fail } from "../util";
 
 type Props = {
@@ -39,6 +41,9 @@ export function Tile({
 }: Props) {
   const link = useEngine();
   const thumb = useThumb(inst.id);
+  // Every rendering instance keeps its scene's snapshot fresh — the scene
+  // picker shows these as "last time it ran".
+  useEffect(() => snapshotScene(inst.scene, thumb), [inst.scene, thumb]);
   const ring = isLive ? "error.main" : isStaged ? "warning.main" : selected ? "primary.main" : null;
   return (
     <Card

@@ -271,8 +271,12 @@ merging the registry's manifest with the input rack's, routed by path prefix
   chrome as overlays (LIVE = red ring + chip, hover-only destroy ×); drag-reorder persists to
   localStorage; param drawer resizable (240px–60vw, persisted); palettes are swatch-only with
   hex tooltips; staged instance streams at 640×360 so /staged.html shows real detail.
-- **Scene picker is a ghost "+" tile**: hovering a scene builds a REAL sandbox instance after
-  300 ms and streams it as the preview (destroyed on close/move — never more than one alive).
+- **Scene picker is a ghost "+" tile**: a grid of scene cards showing each scene's *last-run
+  snapshot* (`loom.scenethumbs` in localStorage, fed by every rendering tile). Hovering a card
+  shows its snapshot in the tile instantly, builds a REAL sandbox instance after 250 ms, and
+  swaps in live pixels when they arrive — the tile never blanks mid-swap (the v1 list flickered:
+  destroy-then-create left a blank gap). Preview destroyed on close/move, never more than one
+  alive; the grid hides the preview's own tile until picked.
 - **Agent commit defaults ARMED** ("let the agent commit by default for now" — Zack);
   `?agentCommit=0` or the Console checkbox restores the gate. **Drop on the stage bar = stage
   + commit** (human-sourced, never gated). validate-m3/m4 acceptance moved with the behavior:
