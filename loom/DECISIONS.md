@@ -716,3 +716,28 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - **SHIPPED:** particleEmitter module + case + stdlib smoke, hippo-swarm
   scene, `validate:m8` 9/9 (emission, motion, no-rebuild rides, turbulence
   whip, chain commit, byte-identical fixture replay, frame-time HUD).
+
+## Stdlib burndown complete — 33 TD-inspired modules + 8 showcase scenes (2026-06-12)
+
+- **The whole docs/stdlib-burndown.md list shipped in one pass** (M11's §6
+  coverage worklist): 6 controls (envelope/remap/spring/sampleHold/gate/
+  counter), 8 sources (solid/gradient/shape/checker/voronoi/plasma/text/
+  webcam), 15 effects (blur/threshold/bloom/mixer/displace/hsv/mirror/tile/
+  echo/key/posterize/invert/rgbSplit/vignette/crt), 4 geo (plane/tube/
+  pointCloud/displaceGeo) — 63 modules total in the catalog, every effect
+  chainParams-eligible, every module cases.ts-swept (381 content tests) and
+  smoke-rendered (validate:stdlib 64/64, now with Chromium's fake camera for
+  the webcam smoke).
+- **`mix` landed as `mixer`** — TSL's `mix` import would shadow it everywhere.
+  Like `over`, `mixer`/`displace`-with-map are scene-composition effects (two
+  TexNode inputs; chains carry one), but `displace` doubles as a chain step
+  with a built-in fractal-noise displacer.
+- All time-driven modules integrate on the frame clock (no TSL `time`, the
+  scan enforces it); stateful CHOPs (envelope/spring/sampleHold/gate/counter)
+  document the pull-every-frame contract; geo vertex writers (displaceGeo/
+  pointCloud) carry the M8 DynamicDrawUsage lesson.
+- **Echo's ring buffer stores frames at 640×360** (24 max) — ghosting doesn't
+  need 1080p and VRAM dies fast at full res.
+- 8 showcase scenes (neon-bloom, deck-mixer on two live Beeple decks,
+  warp-room, camera-ghost, type-strobe, plasma-wall, rutt-etra, spring-rave),
+  all layer-wrapped, all rack-driven, eyes-on stills verified.
