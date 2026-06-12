@@ -34,9 +34,10 @@ was made, grep `DECISIONS.md`.
   `commit()` (frame-boundary crossfade; PANIC holds the last frame and cancels
   fades). Instances render exactly once per frame to a directive-chosen destination
   (canvas, crossfade leg, or preview target).
-- `packages/sidecar` — agent surface: MCP server over stdio (11 tools: `get_session`,
-  `get_manifest`, `set_param`, `modulate_param`, `clear_modulation`, `screenshot`,
-  `create_instance`, `destroy_instance`, `stage`, `unstage`, `commit`) bridged to the
+- `packages/sidecar` — agent surface: MCP server over stdio (13 tools: `get_session`,
+  `get_manifest`, `set_param`, `modulate_param`, `clear_modulation`, `set_chain`,
+  `save_chain`, `screenshot`, `create_instance`, `destroy_instance`, `stage`, `unstage`,
+  `commit`) bridged to the
   engine over WebSocket (port 7341; `LOOM_WS_PORT` + `?ws=` override for isolation).
   The wire contract is `@loom/sidecar/protocol` (browser-safe, shared with the
   engine via tsconfig path + Vite alias). The sidecar's stdout belongs to MCP — log
@@ -110,6 +111,21 @@ through a registered uniform updater that runs each frame (`BuildCtx.uniformOf`)
   (0 primary · 1 secondary · 2 own, declared in `BuildCtx.finalize()`), resolved per
   frame — switching palettes is a plain `set_param`, **never a rebuild**. Stop roles
   (0 bg · 1 edge · 2/3 core · 4 accent) are convention, not kernel vocabulary.
+- Chains (M6): a per-instance post-effect chain is runtime data on the session
+  `Entry` (a `ChainHost`, sibling to `ModulatorHost`), **folded inside
+  `buildInstance` before `finalize()`** — `tex = effect(ctx, { input: tex, … })` per
+  step, each wrapped `mix(input, effect, fx.<id>.mix)`. So a throwing step throws
+  the whole build (NFR-5 rejects it, previous pixels keep running) and enable/disable
+  is a plain `fx.<id>.mix` param (no rebuild, MIDI-bindable). Step ids are stable
+  (`<effect>-<n>`); knob values live in the chain data and re-apply after every
+  rebuild (carry-forward by id on reorder/insert; full disk persistence is M9).
+  `set_chain` is full-list/idempotent (agent edits to the LIVE chain are arming-gated
+  like `commit`; sandbox + human edits are ungated; `restoreDefault` resets to the
+  scene's declared `chain`). The chainable-effect library (`engine-app/effects.ts`,
+  globbed like scenes) merges code effects that declare `meta.chainParams`
+  (primitives) with saved chains under `content/modules/effects/chains/*.chain.json`
+  (composites — one level deep, namespaced `fx.<id>.<inner>.<param>`); `save_chain`
+  writes one via the `loom:effects` Vite middleware.
 - Modulators: `modulate_param` attaches a runtime LFO/stepper/follower to any
   non-color param (sine/triangle/ramp/square/random/drift/cycle/audio;
   `periodSeconds` or BPM-tracking `periodBeats`). Phase is a dt-accumulator ticked

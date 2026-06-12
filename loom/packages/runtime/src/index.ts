@@ -3,7 +3,28 @@ export { Signal, asSignal, type SignalLike } from "./signal";
 export { Events } from "./events";
 export { Manifest, Param, normalizeHex, type ParamType, type RangedParamSpec, type BoolParamSpec, type ColorParamSpec } from "./param";
 export { fillRamp, PALETTE_SOURCES, PALETTE_STOPS, PaletteCtxImpl, PaletteRegistry, type PaletteSource } from "./palette";
-export { defineModule, ModuleMetaSchema, type ModuleMeta, type ModuleFactory } from "./module";
+export {
+  defineModule,
+  ModuleMetaSchema,
+  ChainParamSpec,
+  type ModuleMeta,
+  type ModuleFactory,
+  type ChainParamInput,
+} from "./module";
+export {
+  ChainHost,
+  type ModuleOutput,
+  type ChainEffectOpts,
+  type ChainableEffect,
+  type EffectRegistry,
+  type EffectEntry,
+  type PrimitiveEffectEntry,
+  type CompositeEffectEntry,
+  type CompositeInnerStep,
+  type ChainStep,
+  type ChainStepInput,
+  type ChainStepInfo,
+} from "./chain";
 export { lagSignal, lfoSignal, envelopeSignal, type LfoShape, type LfoOpts } from "./control";
 export { texNode, type TexNode, type Pass, type ColorNode } from "./texnode";
 export { BuildCtx } from "./buildctx";

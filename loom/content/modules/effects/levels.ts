@@ -17,6 +17,11 @@ export const levels = defineModule(
     description: "Gain, bias and gamma adjustment on an image.",
     tags: ["color", "grade"],
     example: 'levels(ctx, { input: src, gain: 1.2, gamma: 1.1 })',
+    chainParams: [
+      { name: "gain", default: 1, min: 0, max: 2, description: "output gain" },
+      { name: "gamma", default: 1, min: 0.1, max: 3, description: ">1 brightens mids, <1 crushes" },
+      { name: "bias", default: 0, min: -0.5, max: 0.5, description: "additive lift" },
+    ],
   },
   (ctx: BuildCtx, opts: LevelsOpts): TexNode => {
     const gain = ctx.uniformOf(opts.gain ?? 1);

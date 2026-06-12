@@ -48,6 +48,12 @@ export const colorize = defineModule(
     description: "Luminance-to-color mapping through animatable cosine palettes (PALETTES presets).",
     tags: ["color", "palette", "gradient", "grade"],
     example: 'colorize(ctx, { input: src, palette: driftSig, bands: 2, shift: 0.1 })',
+    chainParams: [
+      { name: "palette", default: 0, min: 0, max: 6, step: 0.01, description: "fractional palette index (wraps)" },
+      { name: "shift", default: 0, min: 0, max: 1, step: 0.01, description: "scroll colors along the gradient" },
+      { name: "bands", default: 1, min: 0.25, max: 8, step: 0.05, description: "palette cycles across luminance" },
+      { name: "preserveBlack", default: 1, min: 0, max: 1, description: "1 keeps near-black input black" },
+    ],
   },
   (ctx: BuildCtx, opts: ColorizeOpts): TexNode => {
     const a = uniform(new Vector3());

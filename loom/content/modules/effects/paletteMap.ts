@@ -23,6 +23,10 @@ export const paletteMap = defineModule(
     description: "Recolors an input's luminance through the active global palette ramp.",
     tags: ["color", "palette", "ramp", "grade"],
     example: 'paletteMap(ctx, { input: src, shift: scrollSig })',
+    chainParams: [
+      { name: "shift", default: 0, min: 0, max: 1, step: 0.01, description: "scroll along the palette ramp" },
+      { name: "gain", default: 1, min: 0, max: 4, step: 0.01, description: "luminance gain before lookup" },
+    ],
   },
   (ctx: BuildCtx, opts: PaletteMapOpts): TexNode => {
     const shift = ctx.uniformOf(opts.shift ?? 0);

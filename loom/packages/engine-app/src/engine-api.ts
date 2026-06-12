@@ -19,12 +19,16 @@ import {
   MidiTargetArgs,
   ModulateParamArgs,
   PanicArgs,
+  PreviewEffectArgs,
   RenameInstanceArgs,
+  SaveChainArgs,
   SetAudioArgs,
+  SetChainArgs,
   SetPanicInstanceArgs,
   SetParamArgs,
   TransportArgs,
   type AudioDevice,
+  type EffectInfo,
   type PanicMode,
   type PanicSceneInfo,
   type RequestMsg,
@@ -85,6 +89,12 @@ export interface EngineDeps {
   audioDevices(): AudioDevice[];
   refreshAudioDevices(): void;
   getScenes(): Map<string, SceneDef>;
+  /** The chainable-effect library for the "+ effect" picker (M6). */
+  availableEffects(): EffectInfo[];
+  /** Write the instance's current chain as a composite effect file; returns its repo path. */
+  saveEffectChain(name: string, data: unknown): Promise<{ path: string }>;
+  /** Render a candidate effect over an instance's current output → JPEG data URL (picker grid). */
+  previewEffect(instanceId: string, effect: string): Promise<string>;
   latestFrame(): FrameCtx;
   /** Same-task canvas capture, resolved by the render loop (live output only). */
   captureCanvas(): Promise<ScreenshotResult>;
@@ -159,6 +169,20 @@ export class EngineApi {
     return id === "live" ? (this.deps.stage.live ?? id) : id;
   }
 
+  /**
+   * Humans may edit the LIVE chain directly; an agent needs the same arming
+   * gate as commit to touch it. Non-live (sandbox) chain edits are ungated —
+   * they change nothing the audience sees.
+   */
+  private guardLiveChain(source: Source, id: string): void {
+    if (source === "agent" && this.deps.stage.live === id && !this.agentCommitArmed) {
+      throw new Error(
+        "agent edits to the LIVE chain need arming — edit a staged candidate instead, " +
+          "or ask the human to arm agent commit (engines started with ?agentCommit=1 arm it)",
+      );
+    }
+  }
+
   async handleRequest(req: RequestMsg, source: Source): Promise<unknown> {
     if (source === "agent" && HUMAN_ONLY.has(req.type)) {
       throw new Error(`${req.type} is a human-only control (Console)`);
@@ -212,6 +236,30 @@ export class EngineApi {
         const { instance, path } = ClearModulationArgs.parse(req.args);
         const e = session.require(this.resolveId(instance));
         return { instance: e.id, path, cleared: e.modulators.clear(path) };
+      }
+      case "set_chain": {
+        const { instance, steps, restoreDefault } = SetChainArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        this.guardLiveChain(source, e.id);
+        // Throws on an unknown effect or a rejected build (chain unchanged / NFR-5).
+        session.setChain(e.id, restoreDefault ? "default" : (steps ?? []));
+        this.deps.persist.scene(e.sceneName);
+        return { instance: e.id, chain: e.chain.list() };
+      }
+      case "preview_effect": {
+        const { instance, effect } = PreviewEffectArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        return { effect, image: await this.deps.previewEffect(e.id, effect) };
+      }
+      case "save_chain": {
+        const { instance, name, description } = SaveChainArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        e.chain.captureValues(e.instance.manifest); // saved knobs reflect live tweaks
+        const { steps } = e.chain.serialize(); // throws if a composite is present
+        if (steps.length === 0) throw new Error("nothing to save — this instance has no chain");
+        const payload = { name, ...(description != null ? { description } : {}), steps };
+        const { path } = await this.deps.saveEffectChain(name, payload);
+        return { saved: name, path, steps: steps.length };
       }
       case "screenshot": {
         const { instance } = InstanceArgs.parse(req.args);
@@ -397,6 +445,7 @@ export class EngineApi {
         error: e.instance.error != null ? String(e.instance.error) : null,
         paramPaths: e.instance.manifest.paths(),
         modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
+        chain: e.chain.list(),
         builds: e.builds,
         pinned: e.pinned ?? null,
       })),
@@ -409,6 +458,7 @@ export class EngineApi {
       panicScene: this.deps.panicScene(),
       agentCommitArmed: this.agentCommitArmed,
       availableScenes: [...this.deps.getScenes().keys()],
+      availableEffects: this.deps.availableEffects(),
       audioMode: this.deps.audio.mode,
       audioDevices: this.deps.audioDevices(),
       inputs: this.deps.inputs.values(),

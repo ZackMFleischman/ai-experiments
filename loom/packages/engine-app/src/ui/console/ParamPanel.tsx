@@ -4,6 +4,7 @@ import {
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
+import { FxChain } from "./FxChain";
 import { ParamWidget } from "./ParamWidget";
 
 const GROUP_OPEN_KEY = "loom.pgroups.open";
@@ -71,6 +72,7 @@ export function ParamPanel({ instance, manifest, session }: Props) {
   const flat: Array<[string, ParamDesc]> = [];
   const groups = new Map<string, Array<[string, ParamDesc]>>();
   for (const [path, p] of Object.entries(manifest ?? {})) {
+    if (path.startsWith("fx.")) continue; // chain knobs render inside the FX CHAIN section
     const dot = path.indexOf(".");
     // palette.source is the scene's palette switch (R7.2) — too load-bearing
     // to bury in a collapsed accordion, so it stays on the flat top level.
@@ -171,6 +173,7 @@ export function ParamPanel({ instance, manifest, session }: Props) {
                 </AccordionDetails>
               </Accordion>
             ))}
+            {instance !== "globals" && <FxChain instance={instance} manifest={manifest} />}
           </>
         )}
       </Box>

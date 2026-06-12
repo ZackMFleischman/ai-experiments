@@ -138,6 +138,15 @@ export const transform = defineModule(
     description: "Moves/spins/3D-tilts/scales/mirrors any input as a layer (live Transform).",
     tags: ["transform", "3d", "layout", "layer", "stateful"],
     example: 'transform(ctx, { input: src, x: 0.3, scale: 0.5, rotateY: flipSig })',
+    chainParams: [
+      { name: "x", default: 0.5, min: 0, max: 1, step: 0.01, description: "center x (uv)" },
+      { name: "y", default: 0.5, min: 0, max: 1, step: 0.01, description: "center y (uv)" },
+      { name: "rotate", default: 0, min: -3.1416, max: 3.1416, step: 0.01, description: "in-plane spin (radians)" },
+      { name: "rotateX", default: 0, min: -1.5, max: 1.5, step: 0.01, description: "3D tilt about horizontal" },
+      { name: "rotateY", default: 0, min: -1.5, max: 1.5, step: 0.01, description: "3D tilt about vertical" },
+      { name: "scale", default: 1, min: 0.1, max: 3, step: 0.01, description: "uniform scale" },
+      { name: "perspective", default: 1.5, min: 0.3, max: 5, step: 0.01, description: "focal length (smaller = more dramatic)" },
+    ],
   },
   (ctx: BuildCtx, opts: TransformOpts): TexNode => {
     // Sized to match the live destination on first render — no assumed resolution.

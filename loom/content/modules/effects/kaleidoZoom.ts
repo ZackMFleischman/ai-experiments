@@ -64,6 +64,11 @@ export const kaleidoZoom = defineModule(
     description: "Endless fractal-style dive into any input through a mirrored kaleido fold.",
     tags: ["kaleidoscope", "zoom", "infinite", "fractal", "stateful"],
     example: 'kaleidoZoom(ctx, { input: src, zoom: depthSig, segments: 6, twist: 0.5 })',
+    chainParams: [
+      { name: "zoom", default: 0, min: 0, max: 8, step: 0.01, description: "dive depth in octaves (ride it)" },
+      { name: "segments", type: "int", default: 6, min: 2, max: 16, description: "mirror-wedge count" },
+      { name: "twist", default: 0.5, min: -3, max: 3, step: 0.01, description: "spiral per octave (radians)" },
+    ],
   },
   (ctx: BuildCtx, opts: KaleidoZoomOpts): TexNode => {
     const rt = new RenderTarget(WIDTH, HEIGHT, { type: HalfFloatType });

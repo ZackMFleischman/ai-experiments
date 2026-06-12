@@ -46,6 +46,12 @@ export const kaleido = defineModule(
     description: "Mirrored polar-fold kaleidoscope over any input, with rotation and zoom.",
     tags: ["kaleidoscope", "mirror", "symmetry", "stateful"],
     example: 'kaleido(ctx, { input: src, segments: 6, rotate: spinSig, amount: 0.9 })',
+    chainParams: [
+      { name: "segments", type: "int", default: 6, min: 2, max: 16, description: "mirror-wedge count" },
+      { name: "rotate", default: 0, min: 0, max: 6.2832, step: 0.01, description: "pattern rotation (radians)" },
+      { name: "zoom", default: 1, min: 0.5, max: 3, step: 0.01, description: "radial zoom into the source" },
+      { name: "amount", default: 1, min: 0, max: 1, description: "fold blend (0 = bypass)" },
+    ],
   },
   (ctx: BuildCtx, opts: KaleidoOpts): TexNode => {
     const rt = new RenderTarget(WIDTH, HEIGHT, { type: HalfFloatType });
