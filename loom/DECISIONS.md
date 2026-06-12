@@ -435,3 +435,15 @@ parseable) and as a live monitor dialog behind the Console header's MIDI status.
 The engine still *acts* on CC only; the monitor is eyes, not new routing.
 Hardware lesson for the books: constant repeated CC values or pitch-bend faders
 mean the controller needs a factory reset to CC mode, not an engine fix.
+
+## 2026-06-11 — SHIPPED: MIDI button bindings (modes + actions pseudo-scene)
+
+Bindings carry mode absolute/set/cycle (rising-edge for buttons): set
+accumulates radio groups, cycle wraps ints / flips bools (Param.cycle —
+renamed from step() in review: collided with the RangedSpec step slider
+hint), and pseudo-scene "actions" (live.next/live.prev) steps LIVE through
+ok tiles via stage/commit as a human gesture (mash-safe; clobbers a pending
+staged candidate by design). Gates: typecheck, unit (154), validate-m5 34/34,
+full pnpm validate. Stumble: validator waitFor treats falsy as "not yet" —
+never return a flipped bool from a poll. Spec:
+docs/superpowers/specs/2026-06-11-midi-button-bindings-design.md.
