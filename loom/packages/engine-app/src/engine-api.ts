@@ -31,6 +31,7 @@ import {
   SetChainArgs,
   SetPanicInstanceArgs,
   SetParamArgs,
+  SetParamRangeArgs,
   TransportArgs,
   type AudioDevice,
   type EffectInfo,
@@ -258,6 +259,37 @@ export class EngineApi {
         param.set(value);
         this.deps.persist.scene(e.sceneName);
         return { instance: e.id, path, value: param.value as number | boolean | string };
+      }
+      case "set_param_range": {
+        const { instance, path, min, max, restoreDefault } = SetParamRangeArgs.parse(req.args);
+        const retune = (param: ReturnType<typeof this.requireParam>) => {
+          if (!param.rangeable) {
+            throw new Error(
+              `"${path}" is ${param.type}${param.range() != null ? " (a labelled selector)" : ""} — ` +
+                "only plain float/int sliders have an editable range",
+            );
+          }
+          if (restoreDefault) {
+            param.resetRange();
+            return;
+          }
+          const [curLo, curHi] = param.range()!;
+          param.setRange(min ?? curLo, max ?? curHi);
+        };
+        if (instance === GLOBALS) {
+          const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
+          retune(param);
+          // Rack ranges persist with the rack tunings (palette params have no range).
+          this.deps.persist.globals();
+          const [lo, hi] = param.range()!;
+          return { instance: GLOBALS, path, min: lo, max: hi, value: param.value as number };
+        }
+        const e = session.require(this.resolveId(instance));
+        const param = this.requireParam(e.instance.manifest, path, e.id);
+        retune(param);
+        this.deps.persist.scene(e.sceneName);
+        const [lo, hi] = param.range()!;
+        return { instance: e.id, path, min: lo, max: hi, value: param.value as number };
       }
       case "modulate_param": {
         const { instance, path, modulator } = ModulateParamArgs.parse(req.args);

@@ -13,6 +13,8 @@ export type ParamDesc = {
   description?: string;
   /** Active modulator config, or null when the param is hand-driven (FR-8). */
   modulator?: Record<string, unknown> | null;
+  /** Author-declared [min, max]; present only when the live range was overridden. */
+  defaultRange?: [number, number];
 };
 
 export type Manifests = Record<string, Record<string, ParamDesc>>;
@@ -147,6 +149,18 @@ export class EngineLink {
       }
       this.queued.clear();
     });
+  }
+
+  /**
+   * Widen/narrow a slider's bounds (Console power-tool). Occasional, so it skips
+   * the frame-coalesced write path and goes straight out as a request.
+   */
+  sendParamRange(
+    instance: string,
+    path: string,
+    opts: { min?: number; max?: number; restoreDefault?: boolean },
+  ): Promise<unknown> {
+    return this.req("set_param_range", { instance, path, ...opts });
   }
 
   dispose(): void {

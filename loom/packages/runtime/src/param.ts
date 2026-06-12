@@ -47,20 +47,44 @@ export type BoolParamSpec = z.infer<typeof BoolSpec>;
 export type ColorParamSpec = z.infer<typeof ColorSpec>;
 
 export class Param<T> {
+  /**
+   * Effective numeric bounds for float/int params (undefined for bool/color).
+   * These start at the author-declared range but can be widened or narrowed
+   * live (TouchDesigner-style) — clamp, MIDI mapping and cycle all read them.
+   */
+  private lo?: number;
+  private hi?: number;
+  /** The author-declared baseline, for reset and "is this overridden?" checks. */
+  private readonly declaredLo?: number;
+  private readonly declaredHi?: number;
+
   constructor(
     readonly path: string,
     readonly type: ParamType,
     private readonly clampFn: (v: T) => T,
     private readonly meta: Record<string, unknown>,
     private v: T,
-  ) {}
+  ) {
+    if ((type === "float" || type === "int") && typeof meta.min === "number" && typeof meta.max === "number") {
+      this.lo = this.declaredLo = meta.min;
+      this.hi = this.declaredHi = meta.max;
+    }
+  }
 
   get value(): T {
     return this.v;
   }
 
   set(next: T): void {
-    this.v = this.clampFn(next);
+    this.v = this.clamp(next);
+  }
+
+  /** Clamp to the live effective range (numeric) or the type's clamp (bool/color). */
+  private clamp(next: T): T {
+    if (this.lo === undefined) return this.clampFn(next);
+    let n = Math.min(this.hi!, Math.max(this.lo, next as unknown as number));
+    if (this.type === "int") n = Math.round(n);
+    return n as unknown as T;
   }
 
   /** Live view of the param; reflects later set() calls. */
@@ -70,7 +94,7 @@ export class Param<T> {
 
   /**
    * Set from a normalized 0..1 value (MIDI CC, faders): floats/ints map onto
-   * [min, max], bools flip at 0.5. The regular clamp still applies.
+   * the live [min, max], bools flip at 0.5. The regular clamp still applies.
    */
   setNormalized(v01: number): void {
     const v = Math.min(1, Math.max(0, v01));
@@ -78,17 +102,16 @@ export class Param<T> {
       this.set((v >= 0.5) as unknown as T);
       return;
     }
-    if (this.type === "color") return; // a 0..1 CC has no honest color mapping — ignore
-    const min = this.meta.min as number;
-    const max = this.meta.max as number;
-    this.set((min + v * (max - min)) as unknown as T);
+    if (this.lo === undefined) return; // color: a 0..1 CC has no honest mapping — ignore
+    this.set((this.lo + v * (this.hi! - this.lo)) as unknown as T);
   }
 
   /**
    * One button press (cycle-mode bindings): ints advance and wrap max→min,
    * bools flip, floats/colors hold — a float has no honest "next" value.
    * Advances by exactly 1 regardless of the spec's declared `step` field
-   * (that field is a slider UI hint, not a cycle increment).
+   * (that field is a slider UI hint, not a cycle increment). Wraps across the
+   * live effective range.
    */
   cycle(): void {
     if (this.type === "bool") {
@@ -96,14 +119,68 @@ export class Param<T> {
       return;
     }
     if (this.type !== "int") return;
-    const min = this.meta.min as number;
-    const max = this.meta.max as number;
     const next = (this.v as number) + 1;
-    this.set((next > max ? min : next) as unknown as T);
+    this.set((next > this.hi! ? this.lo! : next) as unknown as T);
+  }
+
+  /** Effective numeric range [min, max], or null for bool/color params. */
+  range(): [number, number] | null {
+    return this.lo === undefined ? null : [this.lo, this.hi!];
+  }
+
+  /**
+   * A range is editable when it's numeric AND not a labelled selector (an int
+   * with `labels` renders as a toggle, so widening its bounds is meaningless).
+   */
+  get rangeable(): boolean {
+    return this.lo !== undefined && this.meta.labels === undefined;
+  }
+
+  /** True once the effective range diverges from the author-declared baseline. */
+  get rangeOverridden(): boolean {
+    return this.lo !== undefined && (this.lo !== this.declaredLo || this.hi !== this.declaredHi);
+  }
+
+  /**
+   * Widen or narrow the live numeric range (TouchDesigner-style). Re-clamps the
+   * current value into the new bounds. Inverted args are swapped; int bounds
+   * snap to integers. Throws for bool/color (no range to set).
+   */
+  setRange(min: number, max: number): void {
+    if (this.lo === undefined) {
+      throw new Error(`param "${this.path}" (${this.type}) has no numeric range to set`);
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      throw new Error(`range bounds for "${this.path}" must be finite numbers`);
+    }
+    if (min > max) [min, max] = [max, min];
+    if (this.type === "int") {
+      min = Math.round(min);
+      max = Math.round(max);
+      if (min === max) max = min + 1; // an int range needs at least two values
+    }
+    if (min === max) {
+      throw new Error(`range for "${this.path}" must have min < max (got ${min})`);
+    }
+    this.lo = min;
+    this.hi = max;
+    this.meta.min = min; // toJSON spreads meta, so the wire range tracks the edit
+    this.meta.max = max;
+    this.v = this.clamp(this.v);
+  }
+
+  /** Restore the author-declared range, re-clamping the current value. */
+  resetRange(): void {
+    if (this.declaredLo === undefined) return;
+    this.setRange(this.declaredLo, this.declaredHi!);
   }
 
   toJSON(): Record<string, unknown> {
-    return { type: this.type, ...this.meta, value: this.v };
+    const out: Record<string, unknown> = { type: this.type, ...this.meta, value: this.v };
+    // Only carried when widened/narrowed — keeps the default manifest shape (and
+    // its tests) untouched, and doubles as the UI's "range is overridden" flag.
+    if (this.rangeOverridden) out.defaultRange = [this.declaredLo, this.declaredHi];
+    return out;
   }
 }
 
@@ -113,14 +190,14 @@ export class Manifest {
 
   float(path: string, spec: z.input<typeof RangedSpec>): Param<number> {
     const s = RangedSpec.parse(spec);
-    const clamp = (v: number) => Math.min(s.max, Math.max(s.min, v));
-    return this.add(path, new Param<number>(path, "float", clamp, specMeta(s), s.default));
+    // Numeric clamping lives in Param (it reads the live, possibly-widened range);
+    // identity is enough here.
+    return this.add(path, new Param<number>(path, "float", (v) => v, specMeta(s), s.default));
   }
 
   int(path: string, spec: z.input<typeof RangedSpec>): Param<number> {
     const s = RangedSpec.parse(spec);
-    const clamp = (v: number) => Math.round(Math.min(s.max, Math.max(s.min, v)));
-    return this.add(path, new Param<number>(path, "int", clamp, specMeta(s), s.default));
+    return this.add(path, new Param<number>(path, "int", (v) => v, specMeta(s), s.default));
   }
 
   bool(path: string, spec: z.input<typeof BoolSpec>): Param<boolean> {
@@ -154,6 +231,40 @@ export class Manifest {
     const out: Record<string, number | boolean | string> = {};
     for (const [path, p] of this.params) out[path] = p.value as number | boolean | string;
     return out;
+  }
+
+  /**
+   * Per-path effective ranges that diverge from the declared spec — the
+   * range-override shape persisted alongside values(). Empty until a slider's
+   * bounds have been widened or narrowed.
+   */
+  rangeOverrides(): Record<string, [number, number]> {
+    const out: Record<string, [number, number]> = {};
+    for (const [path, p] of this.params) {
+      if (!p.rangeOverridden) continue;
+      const r = p.range();
+      if (r) out[path] = r;
+    }
+    return out;
+  }
+
+  /**
+   * Re-apply persisted range overrides (tuned state / Projects). Apply BEFORE
+   * values() so a widened bound is in place to hold a value saved outside the
+   * declared range. Unknown or malformed paths are skipped.
+   */
+  applyRanges(map: Record<string, unknown> | null | undefined): void {
+    if (!map) return;
+    for (const [path, r] of Object.entries(map)) {
+      if (!Array.isArray(r) || r.length !== 2) continue;
+      const [min, max] = r as [unknown, unknown];
+      if (typeof min !== "number" || typeof max !== "number") continue;
+      try {
+        this.params.get(path)?.setRange(min, max);
+      } catch {
+        // a persisted override that no longer fits the param — keep the default
+      }
+    }
   }
 
   toJSON(): Record<string, unknown> {

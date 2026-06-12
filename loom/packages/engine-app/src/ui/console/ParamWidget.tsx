@@ -16,6 +16,7 @@ import { useEngine, useEngineState } from "../hooks";
 import { fail, primeMidiPermission } from "../util";
 import { BindPopover } from "./BindPopover";
 import { ModPopover } from "./ModPopover";
+import { RangePopover } from "./RangePopover";
 
 type Props = {
   instance: string;
@@ -41,10 +42,19 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
   const [drag, setDrag] = useState<number | null>(null);
   const [modAnchor, setModAnchor] = useState<HTMLElement | null>(null);
   const [bindAnchor, setBindAnchor] = useState<HTMLElement | null>(null);
+  const [rangeAnchor, setRangeAnchor] = useState<HTMLElement | null>(null);
 
   const modulated = p.modulator != null;
   const min = typeof p.min === "number" ? p.min : 0;
   const max = typeof p.max === "number" ? p.max : 1;
+  // A plain slider (float or unlabelled int) has an editable range; toggles,
+  // bools and colors don't.
+  const rangeable = (p.type === "float" || p.type === "int") && p.labels == null;
+  const rangeOverridden = p.defaultRange != null;
+  const openRange = (e: MouseEvent) => {
+    e.stopPropagation();
+    setRangeAnchor((a) => (a ? null : (e.currentTarget as HTMLElement)));
+  };
 
   // Bindings are keyed by scene engine-side; resolve this instance to its scene.
   const scene =
@@ -151,7 +161,32 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
           {learning ? "···" : bindingsFor.length > 1 ? `cc×${bindingsFor.length}` : binding ? `cc${binding.cc}` : "M"}
         </Button>
         )}
-        <Typography variant="body2" data-value={path} sx={{ minWidth: 48, textAlign: "right" }}>
+        {rangeable && (
+          <IconButton
+            size="small"
+            data-range={path}
+            title={
+              rangeOverridden
+                ? `range ${min}–${max} (overridden) — click to edit`
+                : "edit slider range (widen / narrow)"
+            }
+            onClick={openRange}
+            sx={{ color: rangeOverridden ? "warning.main" : "text.secondary", fontSize: 13, p: 0.25 }}
+          >
+            ⟷
+          </IconButton>
+        )}
+        <Typography
+          variant="body2"
+          data-value={path}
+          onClick={rangeable ? openRange : undefined}
+          title={rangeable ? "click to set an exact value or edit the range" : undefined}
+          sx={{
+            minWidth: 48,
+            textAlign: "right",
+            ...(rangeable ? { cursor: "pointer", "&:hover": { color: "primary.main" } } : {}),
+          }}
+        >
           {valueText}
         </Typography>
       </Stack>
@@ -229,6 +264,15 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
           p={p}
           anchorEl={modAnchor}
           onClose={() => setModAnchor(null)}
+        />
+      )}
+      {rangeable && (
+        <RangePopover
+          instance={instance}
+          path={path}
+          p={p}
+          anchorEl={rangeAnchor}
+          onClose={() => setRangeAnchor(null)}
         />
       )}
       {hasModes && (

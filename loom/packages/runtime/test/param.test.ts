@@ -113,4 +113,83 @@ describe("Param / Manifest", () => {
     const j = m.toJSON() as Record<string, Record<string, unknown>>;
     expect(j.source!.labels).toEqual(["primary", "secondary", "own"]);
   });
+
+  describe("editable ranges", () => {
+    it("setRange widens the clamp and re-exposes the new bounds", () => {
+      const m = new Manifest();
+      const p = m.float("size", { default: 1, min: 0, max: 1 });
+      p.set(5);
+      expect(p.value).toBe(1); // clamped to the declared max
+      p.setRange(0, 10);
+      expect(p.range()).toEqual([0, 10]);
+      p.set(5);
+      expect(p.value).toBe(5); // the widened bound now holds it
+    });
+
+    it("narrowing the range re-clamps the current value", () => {
+      const m = new Manifest();
+      const p = m.float("size", { default: 8, min: 0, max: 10 });
+      p.setRange(0, 4);
+      expect(p.value).toBe(4);
+    });
+
+    it("setNormalized maps onto the live (widened) range", () => {
+      const m = new Manifest();
+      const p = m.float("gain", { default: 1, min: 0, max: 2 });
+      p.setRange(0, 10);
+      p.setNormalized(0.5);
+      expect(p.value).toBe(5);
+    });
+
+    it("int ranges snap bounds to integers and keep at least two values", () => {
+      const m = new Manifest();
+      const p = m.int("count", { default: 2, min: 1, max: 4 });
+      p.setRange(0.2, 9.8);
+      expect(p.range()).toEqual([0, 10]);
+      p.setRange(3, 3);
+      expect(p.range()).toEqual([3, 4]);
+    });
+
+    it("toJSON carries defaultRange only once overridden, and resetRange clears it", () => {
+      const m = new Manifest();
+      const p = m.float("size", { default: 1, min: 0, max: 2 });
+      expect((p.toJSON() as Record<string, unknown>).defaultRange).toBeUndefined();
+      p.setRange(0, 20);
+      expect((p.toJSON() as Record<string, unknown>).defaultRange).toEqual([0, 2]);
+      expect(p.rangeOverridden).toBe(true);
+      p.resetRange();
+      expect(p.range()).toEqual([0, 2]);
+      expect(p.rangeOverridden).toBe(false);
+      expect((p.toJSON() as Record<string, unknown>).defaultRange).toBeUndefined();
+    });
+
+    it("setRange rejects non-numeric params", () => {
+      const m = new Manifest();
+      const b = m.bool("invert", { default: false });
+      expect(() => b.setRange(0, 1)).toThrow(/no numeric range/i);
+      expect(b.range()).toBeNull();
+    });
+
+    it("labelled ints are not rangeable; plain floats are", () => {
+      const m = new Manifest();
+      const sel = m.int("source", { default: 0, min: 0, max: 2, labels: ["a", "b", "c"] });
+      const size = m.float("size", { default: 1, min: 0, max: 2 });
+      expect(sel.rangeable).toBe(false);
+      expect(size.rangeable).toBe(true);
+    });
+
+    it("rangeOverrides round-trips through applyRanges", () => {
+      const m = new Manifest();
+      m.float("size", { default: 1, min: 0, max: 2 });
+      m.float("speed", { default: 1, min: 0, max: 4 });
+      m.get("size")!.setRange(0, 20);
+      const overrides = m.rangeOverrides();
+      expect(overrides).toEqual({ size: [0, 20] });
+
+      const m2 = new Manifest();
+      m2.float("size", { default: 1, min: 0, max: 2 });
+      m2.applyRanges(overrides);
+      expect(m2.get("size")!.range()).toEqual([0, 20]);
+    });
+  });
 });

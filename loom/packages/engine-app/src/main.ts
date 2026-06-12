@@ -171,9 +171,15 @@ const bindings = new BindingStore();
 // `?state=off` keeps validation runs from reading/writing tuned state.
 const state = new StateClient(qs.get("state") !== "off");
 const tunedValues = new Map<string, Record<string, number | boolean | string>>();
+// Per-scene slider range overrides (path → [min, max]); persisted next to values
+// and reapplied before them on every build, so a widened bound holds across HMR.
+const tunedRanges = new Map<string, Record<string, [number, number]>>();
 
 const persist = {
-  globals: () => state.save("inputs", () => inputs.manifest.values()),
+  globals: () => {
+    state.save("inputs", () => inputs.manifest.values());
+    state.save("input-ranges", () => inputs.manifest.rangeOverrides());
+  },
   palettes: () => state.save("palettes", () => palettes.manifest.values()),
   scene: (sceneName: string) => {
     const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
@@ -183,8 +189,12 @@ const persist = {
       const vals = entry.instance.manifest.values();
       for (const k of Object.keys(vals)) if (k.startsWith("fx.")) delete vals[k];
       tunedValues.set(sceneName, vals);
+      const ranges = entry.instance.manifest.rangeOverrides();
+      for (const k of Object.keys(ranges)) if (k.startsWith("fx.")) delete ranges[k];
+      tunedRanges.set(sceneName, ranges);
     }
     state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
+    state.save(`ranges/${sceneName}`, () => tunedRanges.get(sceneName) ?? {});
   },
   bindings: () => state.save("bindings", () => bindings.toJSON()),
   panicScene: () => state.save("panic", () => ({ scene: panicSceneName })),
@@ -256,6 +266,7 @@ const session = new SessionStore(
   { audio, time: timeBus, inputs, palettes },
   () => effectsLib,
   (scene) => tunedValues.get(scene),
+  (scene) => tunedRanges.get(scene),
 );
 
 // Effect-picker previews: fold a candidate effect over an instance's CURRENT
@@ -618,6 +629,12 @@ await startAudio();
 // load before the boot instance builds so it comes up already tuned.
 let savedPanicScene: string | null = null;
 if (state.enabled) {
+  // Range overrides load BEFORE values so a widened bound is in place to hold a
+  // value persisted outside the declared range.
+  const savedInputRanges = await state.load("input-ranges");
+  if (savedInputRanges && typeof savedInputRanges === "object") {
+    inputs.manifest.applyRanges(savedInputRanges as Record<string, unknown>);
+  }
   const savedGlobals = await state.load("inputs");
   if (savedGlobals && typeof savedGlobals === "object") {
     for (const [path, v] of Object.entries(savedGlobals as Record<string, number | boolean>)) {
@@ -643,6 +660,10 @@ if (state.enabled) {
     const vals = await state.load(`values/${scene}`);
     if (vals && typeof vals === "object") {
       tunedValues.set(scene, vals as Record<string, number | boolean | string>);
+    }
+    const ranges = await state.load(`ranges/${scene}`);
+    if (ranges && typeof ranges === "object") {
+      tunedRanges.set(scene, ranges as Record<string, [number, number]>);
     }
   }
   const savedPanic = await state.load("panic");
