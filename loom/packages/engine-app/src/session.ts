@@ -33,6 +33,8 @@ export interface Entry {
   readonly modulators: ModulatorHost;
   /** Post-effect chain — per instance, folded into every build (M6). */
   readonly chain: ChainHost;
+  /** Per-node FX chains (Layers): node id → host, folded at each ctx.layer() wrap. */
+  readonly nodeChains: Map<string, ChainHost>;
   /** Successful builds of this entry (1 on create) — validators assert "no rebuild" against this. */
   builds: number;
   /** Pinned role: "panic" = the always-warm safe-scene instance (protected from destroy). */
@@ -68,7 +70,13 @@ export class SessionStore {
     if (this.entries.has(finalId)) throw new Error(`instance "${finalId}" already exists`);
     const chain = new ChainHost(this.effects);
     chain.seed(def.chain); // scene-declared default chain (M6)
-    const instance = buildInstance(def, this.buses, (ctx, tex) => chain.fold(ctx, tex));
+    const nodeChains = new Map<string, ChainHost>();
+    const instance = buildInstance(
+      def,
+      this.buses,
+      (ctx, tex) => chain.fold(ctx, tex),
+      { foldNode: (ctx, node, tex) => nodeChains.get(node)?.fold(ctx, tex) ?? tex },
+    );
     this.applyTuned(instance, def.name);
     chain.applyValues(instance.manifest);
     const entry: Entry = {
@@ -80,6 +88,7 @@ export class SessionStore {
       lastUpdateRejected: false,
       modulators: new ModulatorHost({ bpm: () => this.buses.time.bpm, audio: this.buses.audio }),
       chain,
+      nodeChains,
       builds: 1,
     };
     this.entries.set(finalId, entry);
@@ -90,36 +99,64 @@ export class SessionStore {
   rebuild(id: string, def: SceneDef): boolean {
     const e = this.entries.get(id);
     if (!e) return false;
-    e.chain.captureValues(e.instance.manifest); // preserve live chain knobs across the scene rebuild
+    this.captureChainValues(e); // preserve live chain knobs across the scene rebuild
     return this.swap(e, def);
   }
 
   /**
-   * M6: replace the post-effect chain (full-list semantics — add/remove/reorder/
+   * M6: replace a post-effect chain (full-list semantics — add/remove/reorder/
    * insert in one idempotent verb) and rebuild. A throwing step rejects the
    * rebuild and keeps the previous chain AND pixels (NFR-5). `"default"` restores
    * the scene's declared chain. Throws on an unknown effect (chain untouched).
+   * `node` targets a named layer node's chain (Layers); default is the root.
    */
-  setChain(id: string, input: ChainStepInput[] | "default"): boolean {
+  setChain(id: string, input: ChainStepInput[] | "default", node?: string): boolean {
     const e = this.require(id);
-    const prev = e.chain.steps;
-    e.chain.captureValues(e.instance.manifest); // so carry-forward sees live knob values
-    const candidate = input === "default" ? e.chain.toDefault() : e.chain.plan(input);
-    e.chain.steps = candidate;
+    const host = node == null ? e.chain : this.requireNodeChain(e, node);
+    const prev = host.steps;
+    this.captureChainValues(e); // so carry-forward sees live knob values
+    const candidate = input === "default" ? host.toDefault() : host.plan(input);
+    host.steps = candidate;
     const ok = this.swap(e, e.def);
     if (!ok) {
-      e.chain.steps = prev; // a step failed to build — restore the old chain; old pixels still live
-      throw new Error(`chain edit rejected on "${e.id}" — a step failed to build; previous chain kept`);
+      host.steps = prev; // a step failed to build — restore the old chain; old pixels still live
+      const where = node == null ? `"${e.id}"` : `node "${node}" of "${e.id}"`;
+      throw new Error(`chain edit rejected on ${where} — a step failed to build; previous chain kept`);
     }
     return ok;
   }
 
-  /** Build a fresh instance (folding the entry's chain) and swap it in; NFR-5 on throw. */
+  /** A node's chain host, created lazily; the node must exist on the current build. */
+  private requireNodeChain(e: Entry, node: string): ChainHost {
+    let host = e.nodeChains.get(node);
+    if (host) return host;
+    if (!e.instance.nodes.some((n) => n.id === node)) {
+      const have = e.instance.nodes.map((n) => n.id).join(", ") || "(none — wrap one with ctx.layer)";
+      throw new Error(`unknown node "${node}" on "${e.id}" — nodes: ${have}`);
+    }
+    host = new ChainHost(this.effects, `${node}.fx`);
+    host.seed([]); // node chains have no scene-declared default (root only)
+    e.nodeChains.set(node, host);
+    return host;
+  }
+
+  private captureChainValues(e: Entry): void {
+    e.chain.captureValues(e.instance.manifest);
+    for (const host of e.nodeChains.values()) host.captureValues(e.instance.manifest);
+  }
+
+  /** Build a fresh instance (folding the entry's chains) and swap it in; NFR-5 on throw. */
   private swap(e: Entry, def: SceneDef): boolean {
     try {
-      const next = buildInstance(def, this.buses, (ctx, tex) => e.chain.fold(ctx, tex));
+      const next = buildInstance(
+        def,
+        this.buses,
+        (ctx, tex) => e.chain.fold(ctx, tex),
+        { foldNode: (ctx, node, tex) => e.nodeChains.get(node)?.fold(ctx, tex) ?? tex },
+      );
       this.applyTuned(next, def.name);
       e.chain.applyValues(next.manifest);
+      for (const host of e.nodeChains.values()) host.applyValues(next.manifest);
       e.instance.dispose();
       e.instance = next;
       e.sceneName = def.name;

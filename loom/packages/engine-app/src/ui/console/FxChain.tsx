@@ -21,14 +21,17 @@ import { ParamWidget } from "./ParamWidget";
 type Props = {
   instance: string;
   manifest: Record<string, ParamDesc>;
+  /** A layer node id (Layers) — the chain edits that node; omitted = the root chain. */
+  node?: string;
 };
 
-/** A step's manifest knobs (everything under fx.<id>. except the wet/dry mix). */
+/** A step's manifest knobs (everything under <prefix><id>. except the wet/dry mix). */
 function stepKnobs(
   manifest: Record<string, ParamDesc>,
+  prefix: string,
   id: string,
 ): Array<[string, ParamDesc]> {
-  const head = `fx.${id}.`;
+  const head = `${prefix}${id}.`;
   return Object.entries(manifest)
     .filter(([path]) => path.startsWith(head) && path !== `${head}mix`)
     .map(([path, p]) => [path, p] as [string, ParamDesc]);
@@ -41,7 +44,7 @@ function stepKnobs(
  * + saved chains), restore-default, and "save as effect". Structural edits go
  * through one full-list set_chain; knob/mix rides are plain set_param.
  */
-export function FxChain({ instance, manifest }: Props) {
+export function FxChain({ instance, manifest, node }: Props) {
   const link = useEngine();
   const { session } = useEngineState();
   const [drag, setDrag] = useState<number | null>(null);
@@ -51,10 +54,13 @@ export function FxChain({ instance, manifest }: Props) {
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
 
-  const chain: ChainStepInfo[] = useMemo(
-    () => session?.instances.find((i) => i.id === instance)?.chain ?? [],
-    [session, instance],
-  );
+  // A node's chain params live at <node>.fx.*; the root chain keeps fx.* (M6).
+  const prefix = node != null ? `${node}.fx.` : "fx.";
+  const chain: ChainStepInfo[] = useMemo(() => {
+    const info = session?.instances.find((i) => i.id === instance);
+    if (node != null) return info?.nodes.find((n) => n.id === node)?.chain ?? [];
+    return info?.chain ?? [];
+  }, [session, instance, node]);
   const effects = session?.availableEffects ?? [];
   const primitives = effects.filter((e) => e.kind === "primitive");
   const composites = effects.filter((e) => e.kind === "composite");
@@ -81,7 +87,9 @@ export function FxChain({ instance, manifest }: Props) {
   // steps keep their knobs (params/mix omitted → the engine carries them forward).
   const apply = (steps: Array<{ id?: string; effect: string }>) => {
     setErr(null);
-    void link.req("set_chain", { instance, steps }).catch((e: Error) => setErr(e.message));
+    void link
+      .req("set_chain", { instance, steps, ...(node != null ? { node } : {}) })
+      .catch((e: Error) => setErr(e.message));
   };
   const ids = (): Array<{ id?: string; effect: string }> =>
     chain.map((s) => ({ id: s.id, effect: s.effect }));
@@ -102,7 +110,9 @@ export function FxChain({ instance, manifest }: Props) {
   };
   const restore = () => {
     setErr(null);
-    void link.req("set_chain", { instance, restoreDefault: true }).catch((e: Error) => setErr(e.message));
+    void link
+      .req("set_chain", { instance, restoreDefault: true, ...(node != null ? { node } : {}) })
+      .catch((e: Error) => setErr(e.message));
   };
   const save = () => {
     const name = saveName.trim();
@@ -139,7 +149,7 @@ export function FxChain({ instance, manifest }: Props) {
   );
 
   return (
-    <Box id="fxchain" sx={{ mt: 1 }}>
+    <Box id={node != null ? undefined : "fxchain"} data-fxnode={node ?? "root"} sx={{ mt: 1 }}>
       <Stack direction="row" alignItems="center" sx={{ mb: 0.5 }}>
         <Typography
           variant="caption"
@@ -147,7 +157,7 @@ export function FxChain({ instance, manifest }: Props) {
         >
           FX chain{chain.length > 0 ? ` · ${chain.length}` : ""}
         </Typography>
-        {chain.length > 0 && (
+        {node == null && chain.length > 0 && (
           <Tooltip title="save this chain as a reusable effect">
             <Button
               data-fxsave
@@ -182,7 +192,7 @@ export function FxChain({ instance, manifest }: Props) {
 
       {inserter(0)}
       {chain.map((step, i) => {
-        const mix = manifest[`fx.${step.id}.mix`];
+        const mix = manifest[`${prefix}${step.id}.mix`];
         const dim = typeof mix?.value === "number" && mix.value < 0.02;
         return (
           <Box key={step.id}>
@@ -236,15 +246,15 @@ export function FxChain({ instance, manifest }: Props) {
                 </Tooltip>
               </Stack>
               {mix != null && (
-                <ParamWidget instance={instance} path={`fx.${step.id}.mix`} p={mix} label="mix" dense fill />
+                <ParamWidget instance={instance} path={`${prefix}${step.id}.mix`} p={mix} label="mix" dense fill />
               )}
-              {stepKnobs(manifest, step.id).map(([path, p]) => (
+              {stepKnobs(manifest, prefix, step.id).map(([path, p]) => (
                 <ParamWidget
                   key={path}
                   instance={instance}
                   path={path}
                   p={p}
-                  label={path.slice(`fx.${step.id}.`.length)}
+                  label={path.slice(`${prefix}${step.id}.`.length)}
                   dense
                   fill
                 />

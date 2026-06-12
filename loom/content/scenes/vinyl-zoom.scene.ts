@@ -78,7 +78,12 @@ export default defineScene({
       segments: segments.signal(),
       twist: twist.signal(),
     });
-    const graded = levels(ctx, { input: dive, gain: kick.map((k) => 1 + k * 0.2), gamma: 1.05 });
+    // Layer nodes: the obvious grabbables, each with a free transform/opacity
+    // rig (<node>.layer.*) and chainable FX (set_chain { node }).
+    const graded = ctx.layer(
+      "dive",
+      levels(ctx, { input: dive, gain: kick.map((k) => 1 + k * 0.2), gamma: 1.05 }),
+    );
 
     // The logo rides on top, outside the zoom chain — static while the dive runs.
     const logoRpmSig = logoRpm.signal();
@@ -92,7 +97,7 @@ export default defineScene({
         rotateY: logoTiltY.signal(),
       },
     });
-    const badgePix = pixelate(ctx, { input: badge, amount: pixelLogo.signal() });
+    const badgePix = ctx.layer("logo", pixelate(ctx, { input: badge, amount: pixelLogo.signal() }));
     const branded = over(ctx, { input: graded, overlay: badgePix, opacity: logo.signal() });
 
     // The flock builds on a transparent base so it can be pixelated as its
@@ -104,7 +109,7 @@ export default defineScene({
       speed: hippoSpeed.signal(),
       opacity: hippos.signal(),
     });
-    const flockPix = pixelate(ctx, { input: flock, amount: pixelHippos.signal() });
+    const flockPix = ctx.layer("hippos", pixelate(ctx, { input: flock, amount: pixelHippos.signal() }));
     const withFlock = over(ctx, { input: branded, overlay: flockPix });
 
     // Whole-frame mosaic last; every pixelate is free while its slider is 0.

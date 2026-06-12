@@ -37,6 +37,7 @@ pnpm validate:m3        # M3 acceptance: stage/commit/PANIC loop via MCP + Conso
 pnpm validate:m4        # M4 acceptance: pure output, cover scaling, set_audio, staging UX
 pnpm validate:m5        # M5 acceptance: input rack, globals manifest, persistence, MIDI-learn
 pnpm validate:m6        # M6 acceptance: palettes retint live, source switch with no rebuild
+pnpm validate:layers    # Layers acceptance: ctx.layer nodes, rig rides with no rebuild, per-node chains
 pnpm validate:modulators # param-modulator acceptance: attach/clear via MCP, FR-4/5/7/10 behavior
 pnpm validate:stdlib    # tier-3 smoke render: every module hot-swapped in, non-black + clean console
 ```

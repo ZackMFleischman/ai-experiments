@@ -103,11 +103,16 @@ export default defineScene({
       zoom: new Signal((f) => 1 + bloomSig.get(f)),
     });
     const heatSig = heat.signal();
-    const served = levels(ctx, {
-      input: steam,
-      gain: new Signal((f) => 1 + kick.get(f) * heatSig.get(f) * 0.35),
-      gamma: 1.05,
-    });
+    // Layer nodes: the obvious grabbables, each with a free transform/opacity
+    // rig (<node>.layer.*) and chainable FX (set_chain { node }).
+    const served = ctx.layer(
+      "bowl",
+      levels(ctx, {
+        input: steam,
+        gain: new Signal((f) => 1 + kick.get(f) * heatSig.get(f) * 0.35),
+        gamma: 1.05,
+      }),
+    );
 
     // Garnish drifts over the bowl, outside the steam chain so it stays crisp.
     // One atlas texture serves the whole swarm (sampler-cap safe up to 18).
@@ -120,7 +125,11 @@ export default defineScene({
       size: garnishSize.signal(),
       speed: garnishSpeed.signal(),
     });
-    const garnished = over(ctx, { input: served, overlay: swarm, opacity: garnish.signal() });
+    const garnished = over(ctx, {
+      input: served,
+      overlay: ctx.layer("garnish", swarm),
+      opacity: garnish.signal(),
+    });
 
     // The PHỞ marquee bounces on the kick.
     const badgeSizeSig = badgeSize.signal();
@@ -131,6 +140,6 @@ export default defineScene({
         scale: new Signal((f) => badgeSizeSig.get(f) * (1 + kick.get(f) * bumpSig.get(f))),
       },
     });
-    return over(ctx, { input: garnished, overlay: marquee, opacity: badge.signal() });
+    return over(ctx, { input: garnished, overlay: ctx.layer("badge", marquee), opacity: badge.signal() });
   },
 });

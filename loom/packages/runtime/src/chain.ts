@@ -103,7 +103,14 @@ export class ChainHost {
   private defaults: ChainStep[] = [];
   private counter = 0;
 
-  constructor(private readonly registry: () => EffectRegistry) {}
+  constructor(
+    private readonly registry: () => EffectRegistry,
+    /**
+     * Manifest path head for this chain's params: the root chain keeps the
+     * M6 `fx` prefix; a layer node's chain uses `<node>.fx` (Layers).
+     */
+    readonly prefix = "fx",
+  ) {}
 
   /** Seed from a scene's declared default chain (at instance create). */
   seed(init: ChainStepInput[] | undefined): void {
@@ -180,7 +187,7 @@ export class ChainHost {
   ): TexNode {
     const entry = this.registry().get(effectName);
     if (!entry) throw new Error(`unknown effect "${effectName}" in chain`);
-    const prefix = `fx.${idPrefix}`;
+    const prefix = `${this.prefix}.${idPrefix}`;
     const mixParam = ctx.float(`${prefix}.mix`, {
       default: 1,
       min: 0,
@@ -214,14 +221,19 @@ export class ChainHost {
 
     // Wet/dry blend: mix=0 passes the input straight through (the effect's
     // passes still run, so stateful history stays warm and no rebuild is needed).
+    // The root chain feeds the canvas, so alpha locks to 1 (M6). A node chain
+    // wraps a layer that composites over the rest of the scene: most stdlib
+    // effects emit alpha 1, so carrying the INPUT's alpha through keeps the
+    // node's silhouette — FX recolor the node instead of going full-frame opaque.
     const wet = ctx.uniformOf(mixParam.signal());
-    return texNode(vec4(mix(input.color.rgb, out.color.rgb, wet), 1), out.passes);
+    const alpha = this.prefix === "fx" ? 1 : input.color.a;
+    return texNode(vec4(mix(input.color.rgb, out.color.rgb, wet), alpha), out.passes);
   }
 
-  /** Read live `fx.<id>.*` values back into step data (before a rebuild). */
+  /** Read live `<prefix>.<id>.*` values back into step data (before a rebuild). */
   captureValues(manifest: Manifest): void {
     for (const step of this.steps) {
-      const head = `fx.${step.id}.`;
+      const head = `${this.prefix}.${step.id}.`;
       for (const path of manifest.paths()) {
         if (!path.startsWith(head)) continue;
         const p = manifest.get(path);
@@ -235,7 +247,7 @@ export class ChainHost {
     for (const step of this.steps) {
       for (const [sub, v] of Object.entries(step.params)) {
         try {
-          manifest.get(`fx.${step.id}.${sub}`)?.set(v as never);
+          manifest.get(`${this.prefix}.${step.id}.${sub}`)?.set(v as never);
         } catch {
           // a value that no longer fits its param (effect changed) — keep default
         }

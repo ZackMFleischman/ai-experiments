@@ -118,6 +118,8 @@ export type ChainStepInputSchema = z.infer<typeof ChainStepInputSchema>;
 export const SetChainArgs = z
   .object({
     instance: z.string().default("live"),
+    /** Target a named layer node's chain (Layers); omitted = the root chain. */
+    node: z.string().min(1).optional(),
     steps: z.array(ChainStepInputSchema).optional(),
     restoreDefault: z.boolean().optional(),
   })
@@ -265,6 +267,19 @@ export const ChainStepInfo = z.object({
 });
 export type ChainStepInfo = z.infer<typeof ChainStepInfo>;
 
+/**
+ * A named layer node registered by ctx.layer() (Layers): its rig params live at
+ * `<id>.layer.*`, its chain's at `<id>.fx.<stepId>.*`. `parent` is the closest
+ * enclosing node (null = feeds the root). The root chain is just the root node's.
+ */
+export const LayerNode = z.object({
+  id: z.string(),
+  parent: z.string().nullable(),
+  /** The node's FX chain steps in order (empty when never chained). */
+  chain: z.array(ChainStepInfo),
+});
+export type LayerNode = z.infer<typeof LayerNode>;
+
 export const InstanceInfo = z.object({
   id: z.string(),
   scene: z.string(),
@@ -274,6 +289,8 @@ export const InstanceInfo = z.object({
   modulators: z.array(ModulatorSummary),
   /** Post-effect chain steps in order (M6). */
   chain: z.array(ChainStepInfo),
+  /** Named layer nodes in wrap order (Layers); [] when the scene wraps none. */
+  nodes: z.array(LayerNode).default([]),
   /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
   builds: z.number().int(),
   /** Pinned role, if any: "panic" = the always-warm safe-scene instance. */
@@ -356,6 +373,8 @@ export const ParamDescriptor = z.looseObject({
 export const ManifestResult = z.object({
   instance: z.string(),
   params: z.record(z.string(), ParamDescriptor),
+  /** Layer nodes (Layers) — instances only; absent on "globals". */
+  nodes: z.array(LayerNode).optional(),
 });
 export type ManifestResult = z.infer<typeof ManifestResult>;
 
@@ -382,6 +401,8 @@ export type ClearModulationResult = z.infer<typeof ClearModulationResult>;
 
 export const SetChainResult = z.object({
   instance: z.string(),
+  /** The edited node's id, or null for the root chain. */
+  node: z.string().nullable().default(null),
   chain: z.array(ChainStepInfo),
 });
 export type SetChainResult = z.infer<typeof SetChainResult>;
