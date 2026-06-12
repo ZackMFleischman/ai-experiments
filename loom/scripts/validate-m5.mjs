@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs } from "./_browser.mjs";
+import { glArgs, forceWebGL2 } from "./_browser.mjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
@@ -143,6 +143,7 @@ try {
     ],
   });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await forceWebGL2(context);
   const output = await context.newPage();
   const consoleMsgs = [];
   output.on("console", (m) => consoleMsgs.push(m.text()));

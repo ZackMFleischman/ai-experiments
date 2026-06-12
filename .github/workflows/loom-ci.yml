@@ -85,6 +85,8 @@ jobs:
       - name: build static app (Output + Console + Staged)
         run: pnpm --filter @loom/engine-app exec vite build
       - name: render scene screenshots into the deploy
+        # Best-effort: a failed shot must not block the preview link itself.
+        continue-on-error: true
         run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs
       # Self-provision the Pages project so there's no manual dashboard step.
       # Errors (e.g. "already exists") are ignored.

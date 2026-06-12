@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs } from "./_browser.mjs";
+import { glArgs, forceWebGL2 } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -140,6 +140,7 @@ try {
     ],
   });
   const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+  await forceWebGL2(page);
   const consoleLines = [];
   page.on("console", (msg) => consoleLines.push(msg.text()));
   const waitForConsole = async (substr, timeoutMs = 10_000) => {

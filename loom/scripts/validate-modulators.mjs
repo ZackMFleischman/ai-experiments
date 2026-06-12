@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs } from "./_browser.mjs";
+import { glArgs, forceWebGL2 } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -170,6 +170,7 @@ try {
     ],
   });
   const context = await browser.newContext({ viewport: { width: 960, height: 540 } });
+  await forceWebGL2(context);
   const output = await context.newPage();
   await output.goto(OUTPUT_URL);
   await waitForFps(output);

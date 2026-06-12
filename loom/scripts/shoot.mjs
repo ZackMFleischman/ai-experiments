@@ -21,7 +21,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { glArgs } from "./_browser.mjs";
+import { glArgs, forceWebGL2 } from "./_browser.mjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SCENES = join(ROOT, "content", "scenes");
@@ -32,7 +32,10 @@ const H = Number(process.env.SHOOT_H ?? 720);
 const SETTLE = Number(process.env.SHOOT_SETTLE ?? 2500);
 const PORT = 5210;
 const WS_PORT = 7349; // isolated from a live session's 7341
-const URL = `http://localhost:${PORT}/?state=off&audio=test&bpm=120&ws=${WS_PORT}`;
+// Lower internal render res keeps software WebGL2 (CI) fast enough that the
+// compositor hands Playwright a frame before the screenshot timeout.
+const RES = process.env.SHOOT_RES ?? "1280x720";
+const URL = `http://localhost:${PORT}/?state=off&audio=test&bpm=120&res=${RES}&ws=${WS_PORT}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const args = process.argv.slice(2);
@@ -82,6 +85,7 @@ try {
 
   browser = await chromium.launch({ headless: true, args: [...glArgs, "--autoplay-policy=no-user-gesture-required"] });
   const page = await browser.newPage({ viewport: { width: W, height: H } });
+  await forceWebGL2(page);
   const consoleLines = [];
   page.on("console", (m) => consoleLines.push(m.text()));
   await page.goto(URL);
@@ -110,9 +114,15 @@ try {
     }
     await sleep(SETTLE); // let kicks/feedback/steam accumulate to a representative frame
     const path = join(OUT, `${name}.png`);
-    await page.screenshot({ path });
-    shots.push(path);
-    console.log(`shot ${name} -> ${path}`);
+    try {
+      // Generous timeout: software GL on CI is slow to commit a frame.
+      await page.screenshot({ path, timeout: 90_000 });
+      shots.push(path);
+      console.log(`shot ${name} -> ${path}`);
+    } catch (err) {
+      // One slow/broken scene shouldn't sink the rest (or the preview deploy).
+      console.error(`skip ${name}: ${err instanceof Error ? err.message : err}`);
+    }
   }
 } finally {
   writeFileSync(LIVE, originalLive); // never leave the boot scene repointed
