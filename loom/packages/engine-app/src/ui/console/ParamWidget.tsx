@@ -4,13 +4,18 @@ import {
   IconButton,
   Slider,
   Stack,
-  Switch,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useState, type ChangeEvent, type InputHTMLAttributes, type MouseEvent } from "react";
+import {
+  useState,
+  type ChangeEvent,
+  type InputHTMLAttributes,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
 import { fail, primeMidiPermission } from "../util";
@@ -24,22 +29,27 @@ type Props = {
   p: ParamDesc;
   /** Display label (group-stripped); defaults to the full path. */
   label?: string;
-  /** Rack rows hide the description to stay one line tall. */
+  /** Rack rows: fixed-width compact variant. */
   dense?: boolean;
   /** Fill the parent's width instead of the fixed dense rack width (FX-chain rows). */
   fill?: boolean;
 };
 
 /**
- * One param: name · modulator button (instances only) · MIDI-learn · value,
- * over a slider (float/int) or switch (bool). DOM contract for validators:
- * data-path lands on the real <input>, data-learn on the learn button with
- * exact text "M" / "···" / "cc<N>".
+ * One param, ONE row: name · modulator button (instances only) · MIDI-learn ·
+ * control (slider / toggle button / selector / color) · value. The param
+ * description lives in the label's tooltip. Double-click the value to type an
+ * exact number (the slider range widens to swallow an out-of-bounds value).
+ * DOM contract for validators: data-path lands on the slider's real <input>
+ * (float/int), the labelled ToggleButtonGroup, the color <input>, or the bool
+ * ToggleButton; data-learn on the learn button with exact text "M" / "···" /
+ * "cc<N>"; data-value on the numeric readout.
  */
 export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
   const link = useEngine();
   const { session } = useEngineState();
   const [drag, setDrag] = useState<number | null>(null);
+  const [edit, setEdit] = useState<string | null>(null);
   const [modAnchor, setModAnchor] = useState<HTMLElement | null>(null);
   const [bindAnchor, setBindAnchor] = useState<HTMLElement | null>(null);
   const [rangeAnchor, setRangeAnchor] = useState<HTMLElement | null>(null);
@@ -50,6 +60,7 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
   // A plain slider (float or unlabelled int) has an editable range; toggles,
   // bools and colors don't.
   const rangeable = (p.type === "float" || p.type === "int") && p.labels == null;
+  const isSlider = (p.type === "float" || p.type === "int") && p.labels == null;
   const rangeOverridden = p.defaultRange != null;
   const openRange = (e: MouseEvent) => {
     e.stopPropagation();
@@ -80,6 +91,23 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
       ? String(p.value)
       : (drag ?? Number(p.value)).toFixed(p.type === "int" ? 0 : 3);
 
+  // Commit a typed value (inline edit): bad input reverts; an out-of-bounds
+  // number widens the slider range first (same contract as the range popover).
+  const commitEdit = () => {
+    if (edit == null) return;
+    const v = Number(edit);
+    setEdit(null);
+    if (edit.trim() === "" || !Number.isFinite(v)) return;
+    const lo = Math.min(min, v);
+    const hi = Math.max(max, v);
+    const send = () => link.sendParam(instance, path, p.type === "int" ? Math.round(v) : v);
+    if (lo < min || hi > max) {
+      void link.sendParamRange(instance, path, { min: lo, max: hi }).then(send).catch(fail);
+    } else {
+      send();
+    }
+  };
+
   const onLearn = (e: MouseEvent) => {
     e.stopPropagation();
     // No MIDI access yet? This click IS the user gesture — pop the prompt here.
@@ -98,11 +126,29 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
   return (
     <Box
       className={`widget${modulated ? " modulated" : ""}`}
-      sx={{ mb: dense ? (fill ? 1 : 0) : 1.5, width: fill || !dense ? "auto" : 170 }}
+      sx={{ mb: dense ? (fill ? 0.5 : 0) : 0.75, width: fill || !dense ? "auto" : 170 }}
     >
-      <Stack direction="row" spacing={0.5} alignItems="center">
-        <Tooltip title={label ?? path} placement="top" enterDelay={350} disableInteractive>
-          <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        alignItems="center"
+        flexWrap={p.labels != null ? "wrap" : undefined}
+      >
+        <Tooltip
+          title={
+            p.description != null && p.description !== ""
+              ? `${label ?? path} — ${p.description}`
+              : (label ?? path)
+          }
+          placement="top"
+          enterDelay={350}
+          disableInteractive
+        >
+          <Typography
+            variant="body2"
+            noWrap
+            sx={isSlider ? { flex: "0 0 auto", maxWidth: 96, minWidth: 0 } : { flex: 1, minWidth: 0 }}
+          >
             {label ?? path}
           </Typography>
         </Tooltip>
@@ -176,87 +222,118 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
             ⟷
           </IconButton>
         )}
-        <Typography
-          variant="body2"
-          data-value={path}
-          onClick={rangeable ? openRange : undefined}
-          title={rangeable ? "click to set an exact value or edit the range" : undefined}
-          sx={{
-            minWidth: 48,
-            textAlign: "right",
-            ...(rangeable ? { cursor: "pointer", "&:hover": { color: "primary.main" } } : {}),
-          }}
-        >
-          {valueText}
-        </Typography>
-      </Stack>
-      {p.type === "bool" ? (
-        <Switch
-          size="small"
-          checked={p.value === true}
-          disabled={modulated}
-          inputProps={inputAttrs}
-          onChange={(e) => link.sendParam(instance, path, e.target.checked)}
-        />
-      ) : p.type === "color" ? (
-        <Box
-          component="input"
-          type="color"
-          value={String(p.value)}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            link.sendParam(instance, path, e.target.value)
-          }
-          {...inputAttrs}
-          sx={{
-            width: dense ? 44 : 64,
-            height: 26,
-            p: 0,
-            border: 1,
-            borderColor: "divider",
-            borderRadius: 1,
-            bgcolor: "transparent",
-            cursor: "pointer",
-          }}
-        />
-      ) : p.labels != null ? (
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          data-path={path}
-          value={Number(drag ?? p.value)}
-          onChange={(_, v) => {
-            if (typeof v === "number") link.sendParam(instance, path, v);
-          }}
-        >
-          {p.labels.map((l, i) => (
-            <ToggleButton key={l} value={i + (p.min ?? 0)} sx={{ py: 0, px: 1, fontSize: 11 }}>
-              {l}
-            </ToggleButton>
+        {p.type === "bool" ? (
+          <ToggleButton
+            size="small"
+            value="on"
+            selected={p.value === true}
+            disabled={modulated}
+            data-path={path}
+            onChange={() => link.sendParam(instance, path, !(p.value === true))}
+            sx={{ py: 0, px: 1.25, fontSize: 11, lineHeight: "18px", textTransform: "none" }}
+          >
+            {p.value === true ? "on" : "off"}
+          </ToggleButton>
+        ) : p.type === "color" ? (
+          <Box
+            component="input"
+            type="color"
+            value={String(p.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              link.sendParam(instance, path, e.target.value)
+            }
+            {...inputAttrs}
+            sx={{
+              width: dense ? 44 : 64,
+              height: 24,
+              p: 0,
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 1,
+              bgcolor: "transparent",
+              cursor: "pointer",
+            }}
+          />
+        ) : p.labels != null ? (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            data-path={path}
+            value={Number(drag ?? p.value)}
+            onChange={(_, v) => {
+              if (typeof v === "number") link.sendParam(instance, path, v);
+            }}
+          >
+            {p.labels.map((l, i) => (
+              <ToggleButton key={l} value={i + (p.min ?? 0)} sx={{ py: 0, px: 1, fontSize: 11 }}>
+                {l}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        ) : (
+          <Slider
+            size="small"
+            min={min}
+            max={max}
+            step={p.type === "int" ? 1 : (p.step ?? (max - min) / 200)}
+            value={drag ?? Number(p.value)}
+            disabled={modulated}
+            color={modulated ? "warning" : "primary"}
+            onChange={(_, v) => {
+              const n = v as number;
+              setDrag(n); // local value wins over the 10 Hz broadcast mid-drag
+              link.sendParam(instance, path, n);
+            }}
+            onChangeCommitted={() => setDrag(null)}
+            slotProps={{ input: inputAttrs }}
+            sx={{ flex: 1, minWidth: 56, mx: 0.5, py: 0.75 }}
+          />
+        )}
+        {isSlider &&
+          (edit != null ? (
+            <Box
+              component="input"
+              autoFocus
+              value={edit}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEdit(e.target.value)}
+              onFocus={(e: ChangeEvent<HTMLInputElement>) => e.currentTarget.select()}
+              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === "Enter") commitEdit();
+                if (e.key === "Escape") setEdit(null);
+              }}
+              onBlur={commitEdit}
+              sx={{
+                width: 52,
+                flex: "0 0 auto",
+                font: "inherit",
+                textAlign: "right",
+                color: "inherit",
+                bgcolor: "#0006",
+                border: 1,
+                borderColor: "primary.main",
+                borderRadius: "3px",
+                px: 0.25,
+                py: 0,
+                outline: "none",
+              }}
+            />
+          ) : (
+            <Typography
+              variant="body2"
+              data-value={path}
+              onDoubleClick={() => setEdit(valueText)}
+              title="double-click to type an exact value (widens the range if needed)"
+              sx={{
+                minWidth: 48,
+                textAlign: "right",
+                cursor: "text",
+                "&:hover": { color: "primary.main" },
+              }}
+            >
+              {valueText}
+            </Typography>
           ))}
-        </ToggleButtonGroup>
-      ) : (
-        <Slider
-          size="small"
-          min={min}
-          max={max}
-          step={p.type === "int" ? 1 : (p.step ?? (max - min) / 200)}
-          value={drag ?? Number(p.value)}
-          disabled={modulated}
-          color={modulated ? "warning" : "primary"}
-          onChange={(_, v) => {
-            const n = v as number;
-            setDrag(n); // local value wins over the 10 Hz broadcast mid-drag
-            link.sendParam(instance, path, n);
-          }}
-          onChangeCommitted={() => setDrag(null)}
-          slotProps={{ input: inputAttrs }}
-        />
-      )}
-      {!dense && p.description != null && p.description !== "" && (
-        <Typography variant="caption" color="text.secondary" component="div">
-          {p.description}
-        </Typography>
-      )}
+      </Stack>
       {instance !== "globals" && (
         <ModPopover
           instance={instance}
