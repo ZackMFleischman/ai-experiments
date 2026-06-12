@@ -46,6 +46,8 @@ content/CATALOG.md   generated index of every module + scene — read this first
 
 `CATALOG.md` regenerates automatically — the dev server rebuilds it on every module/scene save, and `pnpm typecheck` rebuilds it as the offline gate. Never edit it by hand; it is always current in a live session.
 
+**A new module ships with its test case**: add a minimal-opts entry to `content/test/cases.ts` — `pnpm test:content` sweeps every module on disk (tier-1 contract: shape, pass ordering, honest ranges; tier-2: param-extremes NaN sweep) and its completeness test fails if your module has no case. Scenes and modules must consume `ctx.input(<channel>)`, never `ctx.audio.onset(...)` — a source scan enforces it. `pnpm validate:stdlib` smoke-renders every module for eyes-on proof (full doc: "Testing & validation" in `docs/architecture.md`).
+
 Key kernel facts:
 - Signals are pulled per frame and memoized on `f.frame`. CPU signals reach the GPU only through `ctx.uniformOf(signal)` — that registration is also what keeps stateful signals (lag, envelope) ticking.
 - `TexNode.color` is strictly a TSL `vec4` node. Sources normalize to vec4 once.

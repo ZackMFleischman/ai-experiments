@@ -1,4 +1,4 @@
-import { defineScene, envelopeSignal, lagSignal, Signal, texNode } from "@loom/runtime";
+import { defineScene, lagSignal, Signal, texNode } from "@loom/runtime";
 import { mix, smoothstep, vec4 } from "three/tsl";
 import { lfo } from "../modules/control/lfo";
 import { feedback } from "../modules/effects/feedback";
@@ -27,8 +27,8 @@ export default defineScene({
     const pal = ctx.palette;
     pal.own(["#161238", "#76102c", "#f37627", "#da3089", "#ffc15e"]);
 
-    const kick = ctx.audio.onset({ band: "bass", threshold: 0.22 });
-    const kickEnv = envelopeSignal(kick, { decay: 0.3 });
+    // The rack owns kick detection (R6.4) — ride the named channel's envelope.
+    const kickEnv = ctx.input("kick");
     const bass = lagSignal(ctx.audio.band("bass"), 0.08);
     const breatheLfo = lfo(ctx, { shape: "sine", periodBeats: 16 });
     const hueDrift = lfo(ctx, { shape: "sine", periodBeats: 64 });

@@ -145,7 +145,79 @@ reapply on create/rebuild (NFR-5's "params reapplied from tuned state").
 `?state=off` disables load+save — all validators boot with it except m5, which
 tests persistence.
 
-## Validation approach
+## Testing & validation
+
+Four layers, cheapest first. The merge gate is all of them: milestone work merges
+only with typecheck green, `pnpm test` green, and `pnpm validate` (every suite)
+still passing.
+
+### 1. Typecheck — the contract gate (`pnpm typecheck`, seconds)
+
+Regenerates `content/CATALOG.md`, then `tsc --noEmit` over `packages/*` and
+`content/`. Types are the coordination protocol between modules, scenes, and the
+kernel — this is the first thing to run after any edit, and the only gate a live
+session's hot-reload loop doesn't already enforce.
+
+### 2. Package unit tests (`pnpm -r test`, ~5 s)
+
+Per-package vitest roots, plain Node:
+
+- `packages/runtime` — kernel behavior with a fake clock: Signal/Events memoization,
+  Param clamping, Stage commit/panic/rename semantics, modulators, onset detection,
+  input rack, palettes, MIDI bindings.
+- `packages/sidecar` — protocol schemas and MCP tool surface.
+- `packages/engine-app` — `EngineLink` (the Console↔engine channel client) against a
+  fake BroadcastChannel.
+
+Run one file: `pnpm --filter @loom/runtime exec vitest run test/signal.test.ts`.
+
+### 3. Stdlib content tests (`pnpm test:content`, ~3 s — chained into `pnpm test`)
+
+`content/test/` under the root `loom/vitest.config.ts` (happy-dom, because
+image-flavored modules construct a DOM `Image` at build time; no GPU is ever
+created). Modules build through the **real `BuildCtx`** over mock/real buses —
+`FakeAudioBus` (settable levels, queued onsets), real `TimeBus`, real
+`InputRegistry` running the actual `content/inputs.ts` rack, real
+`PaletteRegistry`. `ProbeCtx` records every uniform a module registers, so
+checking those values for finiteness is *total* NaN detection for CPU-side
+signals. Coverage is automatic — `import.meta.glob` discovers every
+`defineModule` export, and a discovered module without an opts entry in
+`content/test/cases.ts` fails the completeness test (**new modules merge with
+their case + tests, mechanically enforced**):
+
+- **Tier 1 — contract** (`contract.test.ts`): meta kind matches its folder,
+  metadata complete, output shape per kind (TexNode / Signal), effects return
+  `[...input.passes, ownPass]` (asserted with a marker pass), manifest ranges
+  honest (`min < max`, default inside — degenerate knobs rejected).
+- **Tier 2 — robustness** (`robustness.test.ts`): every ranged param swept to
+  min and max (bools both ways), 60 ticked frames per setting, every probe
+  finite, nothing throws; effects also build against a black constant input.
+- **Golden patterns** (`golden-patterns.test.ts`): raw-source scans — no
+  `audio.onset(` in modules *or* scenes (onset detection is owned by the named
+  rack channels, R6.4; a differently-tuned kick is a new channel, never a local
+  re-detection); modules never import the engine app or sidecar.
+- **Harness self-test** (`harness.test.ts`): deliberately broken modules (NaN at
+  a param extreme, dropped/reordered passes, malformed metadata, dishonest
+  ranges) are provably caught — if one of these "passes", the net has a hole.
+
+What this layer *can't* see: actual pixels, shader compilation, render-time
+behavior. That's layer 4.
+
+### 4. Acceptance validators (`pnpm validate`, ~6 min; or any `pnpm validate:<x>` alone)
+
+Playwright + headless Chromium scripts in `scripts/validate-*.mjs`, each booting
+its own Vite (and, where needed, its own sidecar) — the eyes-on layer. One suite
+per shipped milestone, kept green forever: `m0` (HMR/never-go-black), `m1`
+(signals/audio/containment), `m2` (MCP e2e), `m3` (stage/commit/PANIC + Console),
+`m4` (pure output/staging UX), `m5` (input rack/persistence/MIDI-learn), `m6`
+(palettes), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
+mounted in a generated sandbox scene (sources direct, effects over an `osc`,
+controls driving an osc param), hot-swapped in via the `live.scene.ts` pin, and
+must render non-black with a clean console and no NFR-2 freeze.
+
+When a deliberate behavior change invalidates a validator's assertion, the
+validator moves with the behavior (same coverage, new expectation) — checks are
+never deleted or weakened to get to green.
 
 Acceptance checks are screenshot-based (Playwright + pngjs): reading a
 WebGL/WebGPU canvas via `drawImage` returns black without `preserveDrawingBuffer`,
@@ -158,9 +230,23 @@ in desktop Chrome. Hard-won validator rules:
 - Validators pin `pulse` as their live scene (restoring the real one afterwards)
   and run their sidecars on isolated ports (`?ws=` + `LOOM_WS_PORT`) — safe to run
   while a live session is up. Ad-hoc debug pages must pass `?ws=<isolated>` too.
+- Validator console pages pass `?embed=0` so the Console never spawns an embedded
+  engine that would dial the DEFAULT sidecar port and break run isolation.
 - Each session entry carries a `builds` counter (1 on create, ++ per successful
   rebuild) exposed in `get_session` and `window.__loom` — assert "no rebuild
   happened" against it.
+- Editing source files **while** a validator runs reloads its dev server mid-flight
+  and fails the run spuriously — run validators between editing bursts.
+
+### When to run what
+
+| Moment | Run |
+|---|---|
+| After any edit | `pnpm typecheck` |
+| After kernel/sidecar/UI-client changes | `pnpm test` |
+| After adding/changing a module or scene | `pnpm test` (tiers 1–2 + patterns) then `pnpm validate:stdlib` (pixels) |
+| After touching the swap/HMR/render path | `pnpm validate:m0` + `validate:m1` at minimum |
+| Before merging milestone-level work | `pnpm typecheck && pnpm test && pnpm validate` |
 
 ## Conventions
 

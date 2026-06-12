@@ -36,37 +36,12 @@ focused month of evenings.
 | M6 Color & palettes — palette half (2026-06-11) | color param type, global palettes, `ctx.palette`, source switch with no rebuild | `validate:m6` |
 | Console UI redesign (2026-06-11) | cohesive dense cockpit: brand, tap-BPM, "+" tile w/ live previews, drag-reorder, drop-to-commit, agent commit armed by default, resizable drawer, swatch palettes | `validate:m3`/`m4` (updated) |
 | Housekeeping (2026-06-11) | scene cull (hello/pulse-glitch/vinyl), param groups (fireflies/mandelbrot/mandelbloom + value-key migration), 20 s modulator default, double-click instance rename, 2× tiles, whole-top drop-to-go-live zone | `validate:m3`/`m4` (updated), full suite green |
+| Stdlib tests & robustness (2026-06-11) | headless content/ test root (real BuildCtx + probe uniforms), tier-1 contract + tier-2 extremes sweeps over all 22 modules, golden-pattern scans (caught 2 scenes re-detecting kick), broken-module self-test, tier-3 smoke render | `pnpm test:content` (144 tests) + `validate:stdlib` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
 
 ## Remaining
-
-### Stdlib tests & robustness (M) — unnumbered, can land incrementally
-
-Today `pnpm test` covers `runtime` and `sidecar` only; `content/modules/` ships
-with zero tests and is about to grow to ~20 modules (M11). Before that growth:
-
-- **A vitest root for `content/`** with a mock `BuildCtx` (params, `uniformOf`,
-  inputs, palette) so modules build headlessly without `three/webgpu` needing a
-  GPU.
-- **Per-module unit tests**, three tiers each: (1) metadata/contract — zod
-  metadata parses, declared params appear in the manifest with honest ranges,
-  effects return `[...input.passes, ownPass]`; (2) robustness — a param-extremes
-  sweep (min/max/default of every param, zero-size input) builds without throwing
-  or producing NaN in CPU-side signals; (3) smoke render — build each module in a
-  headless sandbox via the existing Playwright harness and assert non-black
-  pixels + no console errors.
-- **Golden patterns enforced**: audio-reactive modules consume named
-  `ctx.input(...)` channels (no local re-detection); sources normalize to vec4
-  once; stateful effects own pass ordering. Tests encode the conventions the
-  skills currently only describe.
-- New modules merge with their tier-1/2 tests from day one (cross-cutting rule);
-  the smoke-render harness rides the validator infrastructure, not a new one.
-
-**Shipped when:** every existing stdlib module has tier-1/2 coverage and the
-smoke-render sweep runs green in CI alongside `pnpm test`; a deliberately broken
-module (NaN param range, missing pass) is caught by tests, not by eyes.
 
 ### M6 — chains half (M)
 
