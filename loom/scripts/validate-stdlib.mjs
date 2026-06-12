@@ -94,6 +94,7 @@ const MIN_LUM = {
   orbitCam: 0.5,
   model: 0.5,
   render3d: 0.5,
+  particleEmitter: 0.1, // sparse glowing dots over a transparent background
 };
 
 /** Geo modules mount through the render3d bridge under an orbiting camera. */
@@ -104,6 +105,7 @@ const GEO_WORLD = {
   // orbitCam's own smoke orbits a box; model loads the committed test cube.
   orbitCam: `box(ctx, { color: "#3ff0b7" })`,
   model: `model(ctx, { url: new URL("../assets/test/cube.glb", import.meta.url).href, spin: 0.4 })`,
+  particleEmitter: `particleEmitter(ctx, { surface: box(ctx, {}), rate: 500, size: 0.06, speed: 0.6, color: "#ffd24a" })`,
 };
 
 function sceneSource(folder, name) {

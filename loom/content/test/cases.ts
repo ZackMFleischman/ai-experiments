@@ -25,6 +25,7 @@ import { video } from "../modules/sources/video";
 import { box } from "../modules/geo/box";
 import { model } from "../modules/geo/model";
 import { orbitCam } from "../modules/geo/orbitCam";
+import { particleEmitter } from "../modules/geo/particleEmitter";
 import { sphere } from "../modules/geo/sphere";
 import { torus } from "../modules/geo/torus";
 import { render3d } from "../modules/sources/render3d";
@@ -65,6 +66,7 @@ export const CASES: Record<string, ModuleCase> = {
   torus: (ctx) => torus(ctx, { tumble: 0.4 }),
   orbitCam: (ctx) => orbitCam(ctx, { speed: 0.5 }),
   model: (ctx) => model(ctx, { url: CUBE, spin: 0.3 }),
+  particleEmitter: (ctx) => particleEmitter(ctx, { surface: torus(ctx, {}), turbulence: ctx.input("hats") }),
   // effects
   colorize: (ctx, input) => colorize(ctx, { input }),
   feedback: (ctx, input) => feedback(ctx, { input }),

@@ -420,15 +420,23 @@ const fixturesApi = {
       const scratch = new RenderTarget(PREVIEW_W, PREVIEW_H);
       try {
         const DT = 1 / 60;
+        const liveTarget = renderer.getRenderTarget();
         for (let i = 0; i <= want[want.length - 1]!; i++) {
           const f: FrameCtx = { frame: i, now: i * DT, dt: DT };
           vTime.tick(f);
           mods.tick(throwaway.manifest, f);
-          throwaway.renderFrame(renderer, f, rts.get(i) ?? scratch);
+          // Bind the destination BEFORE the passes run: destination-sized
+          // stateful passes (render3d, transform, layer rigs) read the current
+          // target to size their buffers — leaving the live loop's last target
+          // bound made that size (and the pixels) nondeterministic.
+          const dest = rts.get(i) ?? scratch;
+          renderer.setRenderTarget(dest);
+          throwaway.renderFrame(renderer, f, dest);
           if (throwaway.error != null) {
             throw new Error(`offline render froze at frame ${i}: ${String(throwaway.error)}`);
           }
         }
+        renderer.setRenderTarget(liveTarget);
         const shots = [];
         for (const i of want) {
           const buf = (await renderer.readRenderTargetPixelsAsync(

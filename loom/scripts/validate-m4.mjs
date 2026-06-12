@@ -232,11 +232,17 @@ try {
   }, 10_000, "drag to go live");
   check("drag onto the stage bar stages and commits", dragCarried === true);
 
-  // 6. The staged tile's stage button reads "unstage" and unstages.
+  // 6. The staged tile's stage button reads "unstage" and unstages. The
+  // Console refreshes at ~10 Hz — poll the DOM for the toggle instead of
+  // reading it once (the single read raced the render and flaked).
   await callOk(client, "stage", { instance: "boot" });
   await waitFor(async () => ((await loomState(output)).staged === "boot" ? true : null), 5_000, "boot staged");
-  const btnText = await consolePage.$eval('.tile[data-id="boot"] .stagebtn', (b) => b.textContent);
-  check('staged tile button toggles to "unstage"', btnText === "unstage", `text="${btnText}"`);
+  await consolePage.waitForFunction(
+    () => document.querySelector('.tile[data-id="boot"] .stagebtn')?.textContent === "unstage",
+    null,
+    { timeout: 5_000 },
+  );
+  check('staged tile button toggles to "unstage"', true);
   await consolePage.click('.tile[data-id="boot"] .stagebtn');
   await waitFor(async () => ((await loomState(output)).staged === null ? true : null), 5_000, "unstage");
   check("tile unstage button clears the staged slot", true);

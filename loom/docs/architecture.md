@@ -146,6 +146,14 @@ through a registered uniform updater that runs each frame (`BuildCtx.uniformOf`)
   MeshStandardMaterial (loader-specific materials can throw in the backend).
   `Instance.frameMs` (EMA CPU submit cost) is the per-instance frame-time HUD
   (get_session, Console tiles); screenshot metadata carries fps.
+- Particles (M8): `particleEmitter` samples a mesh's SURFACE (seeded
+  MeshSurfaceSampler — `setRandomGenerator`, or fixture replays break) into a
+  GPU-instanced pool driven by a CPU sim (struct-of-arrays, swap-kill,
+  spawn-debt; `instanceMatrix` MUST be `DynamicDrawUsage` — static-usage
+  buffers only re-upload inside the rAF loop). The base path runs and
+  validates on the WebGL2 fallback; a TSL-compute pool is the post-v1 WebGPU
+  upgrade. Offline fixture stepping binds the destination RT before each
+  frame so destination-sized passes size deterministically.
 - Fixtures: deterministic input traces. `record_fixture` writes the rack's
   post-detector values (one row per frame, plus bpm) to
   `content/state/fixtures/<name>.json`; `create_instance({inputs:
@@ -274,7 +282,9 @@ survival, agent-save gating), `m9` (video: play/freeze/scrub/loop with no
 rebuild, cover scaling on a video source, media middleware), `fixtures`
 (record/replay determinism: byte-identical screenshots across calls and
 instances), `m7` (geo: gltf sandbox → orbit → post chain → commit, frame-time
-HUD; FBX checks where the local asset exists), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
+HUD; FBX checks where the local asset exists), `m8` (particles: surface
+emission, turbulence whip, chain commit, byte-identical fixture replay),
+`modulators`, and `stdlib` — the tier-3 smoke render: every module is
 mounted in a generated sandbox scene (sources direct, effects over an `osc`,
 controls driving an osc param), hot-swapped in via the `live.scene.ts` pin, and
 must render non-black with a clean console and no NFR-2 freeze.
