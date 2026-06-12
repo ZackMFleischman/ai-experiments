@@ -23,6 +23,7 @@ import { FpsMeter } from "./fps";
 import { getScenes } from "./scenes";
 import { entryStatus, SessionStore } from "./session";
 import { StateClient } from "./state";
+import { workerInterval } from "./worker-clock";
 
 declare global {
   interface Window {
@@ -35,6 +36,8 @@ declare global {
       instanceError: string | null;
       frame: number;
       fps: number;
+      /** Which clock drove the last frame: rAF (visible) or the worker fallback (hidden tab). */
+      clockSource?: "raf" | "worker";
       live: string | null;
       staged: string | null;
       mix: number | null;
@@ -341,7 +344,7 @@ const api = new EngineApi(
 startBridge(`ws://localhost:${Number(qs.get("ws")) || DEFAULT_WS_PORT}`, api);
 startConsoleChannel(api);
 
-renderer.setAnimationLoop((tMs) => {
+const frameTick = (tMs: number): void => {
   const f = clock.tick(tMs);
   latestFrame = f;
   timeBus.tick(f);
@@ -391,6 +394,7 @@ renderer.setAnimationLoop((tMs) => {
   dbg.instanceError = liveEntry?.instance.error != null ? String(liveEntry.instance.error) : null;
   dbg.frame = f.frame;
   dbg.fps = fps.current;
+  dbg.clockSource = document.hidden ? "worker" : "raf"; // which clock drove this frame
   dbg.live = stage.live;
   dbg.staged = stage.staged;
   dbg.mix = currentMix;
@@ -405,7 +409,18 @@ renderer.setAnimationLoop((tMs) => {
     builds: e.builds,
     modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
   }));
-});
+};
+
+renderer.setAnimationLoop(frameTick);
+
+// Browsers freeze rAF in hidden tabs, which used to freeze every Console
+// preview whenever the Output tab wasn't showing. A worker clock (exempt from
+// background timer throttling) keeps the engine ticking at ~30 fps while
+// hidden; the moment the tab is visible again rAF takes over (the guard keeps
+// the two from double-stepping a frame).
+workerInterval(() => {
+  if (document.hidden) frameTick(performance.now());
+}, 33);
 
 // Tap tempo on "t"; any click also unblocks a suspended AudioContext.
 window.addEventListener("keydown", (e) => {

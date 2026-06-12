@@ -1,5 +1,6 @@
 import { respond } from "./bridge";
 import type { EngineApi } from "./engine-api";
+import { workerInterval } from "./worker-clock";
 
 const STATE_MS = 100; // ~10 fps session state
 const THUMBS_MS = 150; // ~6.6 fps tile thumbnails
@@ -32,12 +33,14 @@ export function startConsoleChannel(api: EngineApi): void {
     }
   };
 
-  setInterval(() => {
+  // Worker clocks, not setInterval: main-thread timers clamp to >=1 s when
+  // the Output tab is hidden, which froze the Console's state and previews.
+  workerInterval(() => {
     if (consolePresent()) ch.postMessage({ kind: "state", ...api.consoleState() });
   }, STATE_MS);
 
   let thumbsBusy = false;
-  setInterval(() => {
+  workerInterval(() => {
     if (!consolePresent() || thumbsBusy) return;
     thumbsBusy = true;
     void api

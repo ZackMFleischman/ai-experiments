@@ -283,3 +283,23 @@ merging the registry's manifest with the input rack's, routed by path prefix
   the gate is now proven via disarm instead of via arm, drag-to-strip asserts go-live.
 - Gates: typecheck, unit tests, validate m0–m6 + modulators all green (m5 flaked once on the
   envelope-drain window, clean on rerun). Eyes-on via validator + peek screenshots.
+
+## 2026-06-11 — Console works without the Output tab visible (+ QoL batch)
+
+- **Worker clock for hidden tabs**: browsers freeze rAF and clamp main-thread timers to
+  >=1 s when a tab is backgrounded, so the Console went dead whenever the Output tab
+  wasn''t showing. A dedicated-worker interval (exempt from timer throttling) drives
+  `frameTick` at ~30 fps while `document.hidden`, and the console-channel state/thumb
+  broadcasts moved to the same worker clocks. `__loom.clockSource` reports which clock
+  drove the last frame (raf | worker).
+- **/staged.html presents like the Output window**: preview fills the viewport,
+  cover-scaled, under its slim header (was a small contain-fit image).
+- **palette.source moved to the param drawer** (Zack: belongs with the instance''s params,
+  not the sub-header). ParamPanel hoists it flat — never buried in an accordion; the
+  stage bar lost its toggle; /staged keeps one (no drawer there). m6 §9 now drives the
+  drawer toggle.
+- **Named palette presets**: per-row dropdown in the Rack applies curated built-ins or
+  user-saved palettes (5 stops, live retint via set_param); "save as…" names the current
+  stops (localStorage `loom.palettepresets`, user entries shadow built-ins).
+- Gates: typecheck, unit tests, full validate m0–m6 + modulators green; worker-clock
+  render path proven via forced-hidden probe (clockSource=worker, thumbs streaming).

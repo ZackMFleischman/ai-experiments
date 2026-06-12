@@ -70,7 +70,9 @@ export function ParamPanel({ instance, manifest }: Props) {
   const groups = new Map<string, Array<[string, ParamDesc]>>();
   for (const [path, p] of Object.entries(manifest ?? {})) {
     const dot = path.indexOf(".");
-    if (dot < 0) {
+    // palette.source is the scene's palette switch (R7.2) — too load-bearing
+    // to bury in a collapsed accordion, so it stays on the flat top level.
+    if (dot < 0 || path === "palette.source") {
       flat.push([path, p]);
     } else {
       const g = path.slice(0, dot);

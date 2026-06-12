@@ -3,12 +3,10 @@ import {
 } from "@mui/material";
 import { useState } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
-import type { Manifests } from "../engine-link";
-import { PaletteSourceToggle } from "../PaletteSourceToggle";
 import { useEngine } from "../hooks";
 import { fail } from "../util";
 
-type Props = { session: SessionSnapshot; manifests: Manifests };
+type Props = { session: SessionSnapshot };
 
 /**
  * Slim stage bar: LIVE/STAGED pointers + unstage/arm/COMMIT, and the
@@ -16,7 +14,7 @@ type Props = { session: SessionSnapshot; manifests: Manifests };
  * redesign; the human-sourced commit is never gated). DOM contract:
  * #stagestrip, #livename, #stagedname, #fadeinfo, #unstage, #commit, #armagent.
  */
-export function StageStrip({ session: s, manifests }: Props) {
+export function StageStrip({ session: s }: Props) {
   const link = useEngine();
   const [dragOver, setDragOver] = useState(false);
 
@@ -68,9 +66,6 @@ export function StageStrip({ session: s, manifests }: Props) {
       <Typography id="stagedname" sx={{ fontWeight: 700, color: s.staged != null ? "warning.main" : "text.primary" }}>
         {withScene(s.staged)}
       </Typography>
-      {s.staged != null && manifests[s.staged]?.["palette.source"] != null && (
-        <PaletteSourceToggle instance={s.staged} p={manifests[s.staged]!["palette.source"]!} />
-      )}
       <Typography id="fadeinfo" variant="caption" color="text.secondary">
         {s.mix != null ? `crossfading ${(s.mix * 100).toFixed(0)}%` : ""}
       </Typography>

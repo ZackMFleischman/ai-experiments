@@ -259,15 +259,17 @@ try {
   check("Console swatch edits write through to globals", true);
   await consolePage.screenshot({ path: join(ARTIFACTS, "m6-1-palettes-drawer.png") });
 
-  // 9. Stage strip source selector (R7.2).
+  // 9. Param-drawer source selector (R7.2) — palette.source renders flat
+  // (never buried in an accordion) as a labeled toggle group.
   await callOk(client, "stage", { instance: grad.instance });
-  await consolePage.waitForSelector("#palettesource", { timeout: 10_000 });
-  await consolePage.click('#palettesource button:has-text("own")');
+  await consolePage.click(`.tile[data-id="${grad.instance}"]`);
+  await consolePage.waitForSelector('#widgets [data-path="palette.source"]', { timeout: 10_000 });
+  await consolePage.click('#widgets [data-path="palette.source"] button:has-text("own")');
   await waitFor(async () => {
     const m = toolJson(await callOk(client, "get_manifest", { instance: grad.instance }));
     return m.params["palette.source"].value === 2 ? true : null;
   }, 5_000, "selector click to land");
-  check("stage-strip selector flips palette.source", true);
+  check("param-drawer selector flips palette.source", true);
   await consolePage.screenshot({ path: join(ARTIFACTS, "m6-3-source-selector.png") });
 
   // 10. Persistence: palettes.json round-trips a reload (state is ON in this run).
