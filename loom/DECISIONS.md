@@ -422,3 +422,30 @@ realities (the validators were written for a real GPU + manual WebGPU checks):
   never-go-black smoke); **advisory** (non-blocking) = m1–m6 + modulators. They
   still run every PR for signal but don't gate merge. Full acceptance stays a
   real-GPU / manual exercise, exactly as the validators were designed.
+
+## 2026-06-11 — Stdlib tests & robustness SHIPPED
+
+- **Real BuildCtx, not a mock**: the roadmap asked for a mock BuildCtx, but the real one
+  is already GPU-free (its only three import is `uniform` from three/tsl) — so the
+  content/ test root (`loom/vitest.config.ts`, happy-dom for TextureLoader''s DOM Image)
+  builds modules with the REAL BuildCtx over mock/real buses (FakeAudioBus, real
+  TimeBus/InputRegistry-with-the-actual-rack/PaletteRegistry). `ProbeCtx` records every
+  uniform a module registers; finiteness over those probes is total NaN detection for
+  CPU-side signals.
+- **Coverage is automatic**: `import.meta.glob` discovery sweeps every module file;
+  tier-1 (kind↔folder, metadata, output shape, `[...input.passes, own]` via a marker
+  pass, honest ranges incl. no degenerate min==max) and tier-2 (param-extremes sweep,
+  60 frames per setting, black-input builds for effects) run per discovered module. A
+  module without a `cases.ts` entry fails the completeness test — "new modules merge
+  with their tests" is mechanical, not policy.
+- **Golden patterns as tests**: no `audio.onset(` in modules OR scenes (named rack
+  channels only, R6.4). The scan immediately caught `lava` and `mandelbloom` re-detecting
+  kick locally — both converted to `ctx.input("kick")`.
+- **Ship-gate self-test**: deliberately broken modules (NaN at a param extreme, dropped/
+  reordered input passes, malformed metadata, dishonest ranges) are provably caught.
+- **Tier-3 smoke render** (`validate:stdlib`): every module hot-swaps into the live
+  engine in a generated sandbox scene (effects over osc, controls driving osc) and must
+  render non-black with a clean console; appended to `pnpm validate`.
+- Gates: typecheck; `pnpm test` = 312 tests (168 package + 144 content); full
+  `pnpm validate` = 162 checks across 9 suites, all green. Spec + plan under
+  `docs/superpowers/`.
