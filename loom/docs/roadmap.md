@@ -69,7 +69,43 @@ declare a default `chain` and `restoreDefault` resets to it. Output types formal
 M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
 snapshot/restore across reload stays M9.
 
-### Projects — set lists (S/M) *(new 2026-06-11: save/load named instance sets)*
+### Layers — named nodes, per-node rigs & chains (S/M) *(new 2026-06-12: FX at arbitrary points in a scene)*
+
+**Goal:** grab anything inside a scene — transform it, fade it, chain FX onto it —
+without the scene author having pre-surfaced params for it.
+
+- **One new BuildCtx primitive: `ctx.layer(name, tex)`** — wraps any TexNode at
+  any point in the build and does three things there: registers the node's
+  identity (name required → ids are always stable), folds a **uniform-driven
+  layer rig** (transform + opacity; params auto-declared at
+  `<name>.layer.x/y/scale/rotate/opacity`, identity by default — `set_param`
+  never rebuilds), and folds that node's **FX chain** (`ChainHost` becomes a
+  per-node map; same NFR-5 semantics as the root chain, which becomes just the
+  root node's chain).
+- `set_chain` grows a `node` arg (default root — fully back-compatible);
+  per-node chain params live at `<name>.fx.<stepId>.<param>`.
+- The manifest stays **flat** — paths encode the tree, so modulators, MIDI-learn,
+  tuned persistence and Projects all work on layer params unchanged.
+  `get_manifest` gains a `nodes` listing (`{id, module, parent}`) so agents and
+  the Console can render the tree without parsing paths; the Console param panel
+  grows node headers, each with its own "+ effect".
+- **Explicit-only by design**: unwrapped nodes cost nothing (no GPU overhead, no
+  manifest growth, no id-stability problem). "Arbitrary points" stays honest
+  because hot-reload is the deploy mechanism — an agent adds `ctx.layer(...)`
+  around anything mid-session in one line, protected by never-go-black.
+  *Implicit capture of every module call is the deliberate follow-up if wrapping
+  proves to be friction (auto-nodes with anonymous ids; `ctx.layer` becomes the
+  stabilized form) — the addressing model is shared, so nothing is wasted.*
+- Skills convention: wrap the obvious grabbables (every `image`/`video`, each
+  major compositional stage); one pass over the existing scenes wrapping theirs.
+
+**Shipped when:** an unmodified scene gains a wrapped `logo` layer in one live
+edit; `set_param logo.layer.scale` moves it with no rebuild; `set_chain
+{node:"logo"}` pixelates just that node (NFR-5 on a throwing step); layer params
+modulate and MIDI-bind like any other; the Console shows the node tree.
+(`validate:layers`)
+
+### Projects — set lists (S/M) *(new 2026-06-11: save/load named instance sets; serializes Layers' per-node chain map)*
 
 **Goal:** prep a set at home, walk it at the gig.
 
