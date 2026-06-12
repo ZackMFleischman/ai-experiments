@@ -153,6 +153,14 @@ export function ParamPanel({ instance, manifest, session }: Props) {
             {[...groups.entries()].map(([group, entries]) => {
               const isNode = nodeIds.has(group);
               const parent = parentOf.get(group);
+              // A node's rig params (<node>.layer.x/y/scale/rotate/opacity) fold
+              // into a nested "transform" sub-group so the section stays scannable.
+              const rig = entries.filter(([path]) =>
+                path.slice(group.length + 1).startsWith("layer."),
+              );
+              const rest = rig.length > 0
+                ? entries.filter(([path]) => !path.slice(group.length + 1).startsWith("layer."))
+                : entries;
               return (
                 <Accordion
                   key={group}
@@ -181,7 +189,7 @@ export function ParamPanel({ instance, manifest, session }: Props) {
                     )}
                   </AccordionSummary>
                   <AccordionDetails>
-                    {entries.map(([path, p]) => (
+                    {rest.map(([path, p]) => (
                       <ParamWidget
                         key={path}
                         instance={instance}
@@ -190,6 +198,39 @@ export function ParamPanel({ instance, manifest, session }: Props) {
                         label={path.slice(group.length + 1)}
                       />
                     ))}
+                    {rig.length > 0 && (
+                      <Accordion
+                        variant="outlined"
+                        disableGutters
+                        expanded={open[`${group}.layer`] ?? false}
+                        onChange={(_, x) => toggle(`${group}.layer`, x)}
+                        sx={{ mb: 1, bgcolor: "transparent" }}
+                      >
+                        <AccordionSummary
+                          data-transform={group}
+                          sx={{
+                            minHeight: 30,
+                            fontSize: 11,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "text.secondary",
+                          }}
+                        >
+                          ⤡ transform
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          {rig.map(([path, p]) => (
+                            <ParamWidget
+                              key={path}
+                              instance={instance}
+                              path={path}
+                              p={p}
+                              label={path.slice(group.length + 1 + "layer.".length)}
+                            />
+                          ))}
+                        </AccordionDetails>
+                      </Accordion>
+                    )}
                     {isNode && instance !== "globals" && (
                       <FxChain instance={instance} manifest={manifest} node={group} />
                     )}
