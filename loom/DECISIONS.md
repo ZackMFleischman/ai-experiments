@@ -741,3 +741,27 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - 8 showcase scenes (neon-bloom, deck-mixer on two live Beeple decks,
   warp-room, camera-ghost, type-strobe, plasma-wall, rutt-etra, spring-rave),
   all layer-wrapped, all rack-driven, eyes-on stills verified.
+
+## M11 — Library & parallel build (2026-06-12)
+
+- **Catalog columns**: the AST generator now marks ⛓chainable (declares
+  `chainParams` → FX-picker/set_chain eligible) and ⚡inputs (named rack
+  channels consumed, scanned from `ctx.input("…")` calls). Reality check the
+  columns encode: modules take SignalLike opts BY DESIGN, so ⚡ lives on scene
+  lines; two-input effects (`mixer`, `over`) are correctly not chainable.
+- **library-use skill**: search-catalog-first, compose-before-writing,
+  register-after-writing (metadata/tags/chainParams/cases.ts), and the
+  parallel-build recipe (own tile + fixture input + independent files +
+  signatures-first).
+- **Parallel proof, run for real**: three subagents concurrently wrote
+  static-haunt (glitchy) / biolume (organic) / prism-array (geometric) from
+  the library only — zero file collisions, types-only coordination, all
+  typecheck-green on first convergence; one human-pass default tune
+  (static-haunt's strobe squared so decaying kicks don't sit half-inverted).
+- **`validate:m11`**: catalog columns asserted; a module written MID-RUN
+  hot-registers into the catalog + availableEffects with no reload (the
+  "found tomorrow" loop); the 3 subagent scenes build healthy; three
+  fixture-driven sandboxes create CONCURRENTLY and run healthy on a shared
+  trace. The roadmap's stale CI section corrected: PR/push CI (typecheck +
+  tests + build + Pages preview) has existed all along; validators stay
+  local-on-real-GPU by documented decision.

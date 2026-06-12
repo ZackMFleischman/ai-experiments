@@ -60,11 +60,29 @@ function listFiles(dir, filter) {
     .sort();
 }
 
+/** Every named rack channel the file consumes via ctx.input("..."). */
+function inputsConsumed(sourceFile) {
+  const names = new Set();
+  for (const node of walk(sourceFile)) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.expression.getText() === "ctx" &&
+      node.expression.name.text === "input"
+    ) {
+      const name = str(node.arguments[0]);
+      if (name) names.add(name);
+    }
+  }
+  return [...names];
+}
+
 const modules = listFiles(
   path.join(contentDir, "modules"),
   (n) => n.endsWith(".ts") && n !== "index.ts",
 ).flatMap((file) => {
-  const meta = callArgObject(parse(file), "defineModule");
+  const sourceFile = parse(file);
+  const meta = callArgObject(sourceFile, "defineModule");
   if (!meta) return [];
   return [
     {
@@ -73,6 +91,9 @@ const modules = listFiles(
       description: str(prop(meta, "description")) ?? "",
       tags: strArray(prop(meta, "tags")),
       example: str(prop(meta, "example")) ?? "",
+      // Declares chainParams → selectable as an FX-chain step (set_chain / picker).
+      chainable: prop(meta, "chainParams") != null,
+      inputs: inputsConsumed(sourceFile),
     },
   ];
 });
@@ -88,6 +109,7 @@ const scenes = listFiles(
   const sourceFile = parse(file);
   const meta = callArgObject(sourceFile, "defineScene");
   if (!meta) return [];
+  const inputs = inputsConsumed(sourceFile);
   const params = [];
   for (const node of walk(sourceFile)) {
     if (
@@ -106,6 +128,7 @@ const scenes = listFiles(
       description: str(prop(meta, "description")) ?? "",
       tags: strArray(prop(meta, "tags")),
       params,
+      inputs,
       live: path.basename(file, ".scene.ts") === liveTarget,
     },
   ];
@@ -122,12 +145,17 @@ for (const kind of KIND_ORDER) {
   const ofKind = modules.filter((m) => m.kind === kind).sort((a, b) => a.name.localeCompare(b.name));
   if (!ofKind.length) continue;
   lines.push("", `### ${kind}`);
-  for (const m of ofKind) lines.push(`- **${m.name}** — ${m.description} \`${m.example}\` _[${m.tags.join(", ")}]_`);
+  for (const m of ofKind) {
+    const chain = m.chainable ? " ⛓chainable" : "";
+    const inputs = m.inputs.length ? ` ⚡inputs: ${m.inputs.join(", ")}` : "";
+    lines.push(`- **${m.name}** — ${m.description} \`${m.example}\` _[${m.tags.join(", ")}]_${chain}${inputs}`);
+  }
 }
 lines.push("", "## Scenes (`content/scenes/`)", "");
 for (const s of scenes.sort((a, b) => a.name.localeCompare(b.name))) {
   const live = s.live ? " **(live)**" : "";
-  lines.push(`- **${s.name}**${live} — ${s.description} params: ${s.params.join(", ") || "none"} _[${s.tags.join(", ")}]_`);
+  const inputs = s.inputs.length ? ` ⚡inputs: ${s.inputs.join(", ")}` : "";
+  lines.push(`- **${s.name}**${live} — ${s.description} params: ${s.params.join(", ") || "none"} _[${s.tags.join(", ")}]_${inputs}`);
 }
 const output = lines.join("\n") + "\n";
 
