@@ -152,6 +152,9 @@ jobs:
           apiToken: ${{ env.CF_API_TOKEN }}
           accountId: ${{ env.CF_ACCOUNT_ID }}
           workingDirectory: loom
+          # npm, not the repo's pnpm: pnpm 11 blocks workerd's install script and
+          # fails the wrangler install.
+          packageManager: npm
           command: pages project create loom --production-branch main
       - name: deploy to Cloudflare Pages
         id: deploy
@@ -161,6 +164,7 @@ jobs:
           apiToken: ${{ env.CF_API_TOKEN }}
           accountId: ${{ env.CF_ACCOUNT_ID }}
           workingDirectory: loom
+          packageManager: npm
           command: >-
             pages deploy packages/engine-app/dist
             --project-name=loom
