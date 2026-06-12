@@ -6,9 +6,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  ListSubheader,
-  Menu,
-  MenuItem,
+  Popover,
   Stack,
   TextField,
   Tooltip,
@@ -131,6 +129,18 @@ export function FxChain({ instance, manifest }: Props) {
         >
           FX chain{chain.length > 0 ? ` · ${chain.length}` : ""}
         </Typography>
+        {chain.length > 0 && (
+          <Tooltip title="save this chain as a reusable effect">
+            <Button
+              data-fxsave
+              size="small"
+              onClick={() => setSaveOpen(true)}
+              sx={{ minWidth: 0, px: 0.75, py: 0, fontSize: 11, color: "text.secondary" }}
+            >
+              ⌑ save as…
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip title="restore the scene's default chain">
           <Button
             data-fxrestore
@@ -208,7 +218,7 @@ export function FxChain({ instance, manifest }: Props) {
                 </Tooltip>
               </Stack>
               {mix != null && (
-                <ParamWidget instance={instance} path={`fx.${step.id}.mix`} p={mix} label="mix" dense />
+                <ParamWidget instance={instance} path={`fx.${step.id}.mix`} p={mix} label="mix" dense fill />
               )}
               {stepKnobs(manifest, step.id).map(([path, p]) => (
                 <ParamWidget
@@ -218,10 +228,11 @@ export function FxChain({ instance, manifest }: Props) {
                   p={p}
                   label={path.slice(`fx.${step.id}.`.length)}
                   dense
+                  fill
                 />
               ))}
             </Box>
-            {inserter(i + 1)}
+            {i < chain.length - 1 && inserter(i + 1)}
           </Box>
         );
       })}
@@ -232,44 +243,79 @@ export function FxChain({ instance, manifest }: Props) {
         </Typography>
       )}
 
-      <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-        <Button
-          data-fxadd
-          size="small"
-          variant="outlined"
-          onClick={(e) => setPick({ anchor: e.currentTarget, index: chain.length })}
-          sx={{ flex: 1, fontSize: 11, py: 0.25 }}
-        >
-          + effect
-        </Button>
-        {chain.length > 0 && (
-          <Button
-            data-fxsave
-            size="small"
-            onClick={() => setSaveOpen(true)}
-            sx={{ fontSize: 11, py: 0.25, color: "text.secondary" }}
-          >
-            ⌑ save as…
-          </Button>
-        )}
-      </Stack>
+      <Button
+        data-fxadd
+        size="small"
+        variant="outlined"
+        fullWidth
+        onClick={(e) => setPick({ anchor: e.currentTarget, index: chain.length })}
+        sx={{ mt: 0.5, fontSize: 11, py: 0.25 }}
+      >
+        + effect
+      </Button>
 
-      <Menu open={pick != null} anchorEl={pick?.anchor ?? null} onClose={() => setPick(null)}>
-        <ListSubheader sx={{ lineHeight: "24px", bgcolor: "transparent" }}>primitives</ListSubheader>
-        {primitives.map((e) => (
-          <MenuItem key={e.name} data-fxpick={e.name} dense onClick={() => insert(e.name, pick!.index)}>
-            {e.name}
-          </MenuItem>
-        ))}
-        {composites.length > 0 && (
-          <ListSubheader sx={{ lineHeight: "24px", bgcolor: "transparent" }}>saved chains</ListSubheader>
-        )}
-        {composites.map((e) => (
-          <MenuItem key={e.name} data-fxpick={e.name} dense onClick={() => insert(e.name, pick!.index)}>
-            ✦ {e.name}
-          </MenuItem>
-        ))}
-      </Menu>
+      <Popover
+        open={pick != null}
+        anchorEl={pick?.anchor ?? null}
+        onClose={() => setPick(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Box sx={{ p: 1, width: 300 }}>
+          {[
+            { label: "primitives", items: primitives, mark: "" },
+            { label: "saved chains", items: composites, mark: "✦ " },
+          ]
+            .filter((g) => g.items.length > 0)
+            .map((g) => (
+              <Box key={g.label} sx={{ mb: 1, "&:last-of-type": { mb: 0 } }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.08em" }}
+                >
+                  {g.label}
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0.75, mt: 0.5 }}>
+                  {g.items.map((e) => (
+                    <Box
+                      key={e.name}
+                      data-fxpick={e.name}
+                      onClick={() => insert(e.name, pick!.index)}
+                      title={e.description ?? e.name}
+                      sx={{
+                        border: 1,
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        p: 0.75,
+                        cursor: "pointer",
+                        bgcolor: "background.default",
+                        "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                      }}
+                    >
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                        {g.mark}
+                        {e.name}
+                      </Typography>
+                      {e.description != null && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {e.description}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            ))}
+        </Box>
+      </Popover>
 
       <Dialog open={saveOpen} onClose={() => setSaveOpen(false)}>
         <DialogTitle sx={{ fontSize: 16 }}>Save chain as effect</DialogTitle>
