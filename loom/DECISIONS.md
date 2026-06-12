@@ -296,3 +296,34 @@ realities (the validators were written for a real GPU + manual WebGPU checks):
   never-go-black smoke); **advisory** (non-blocking) = m1–m6 + modulators. They
   still run every PR for signal but don't gate merge. Full acceptance stays a
   real-GPU / manual exercise, exactly as the validators were designed.
+
+## 2026-06-12 — Better panic button (PANIC modes: hold | safe scene)
+
+Implements `feature-requests/panic-scene.md`. PANIC gains an armed mode: **hold**
+(freeze the last frame, unchanged default) or **scene** (hard-cut to a warm,
+always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
+150, sidecar 24, engine-app 7), `validate:panic`.
+
+- **Runtime stays minimal (NFR-2).** Stage adds one directive mode
+  (`panic-scene`, carrying the panic instance id + the untouched live id) and a
+  `panic(mode, panicId?)` signature; `held: boolean` became `panicState: "hold"
+  |"scene"|null`. Scene-panic is an output override — the LIVE pointer never
+  moves (FR-4), so RESUME is just "clear panic" with no bookkeeping. Re-press
+  only escalates hold→scene; scene→hold is a no-op (FR-6). Everything else
+  (warm-instance lifecycle, compositor leg, fallback) lives in engine-app.
+- **Worst case = today.** A broken/absent safe scene routes to hold (FR-7); a
+  render-throw in the panic instance freezes it → the compositor skips it →
+  hold (FR-8). Never worse than the pre-feature behavior.
+- **Deviation from the spec's resolved-decision #1 (designation via
+  `panic.scene.ts` pointer, *not* a Console picker), at the user's request:**
+  the safe scene is now **chosen dynamically** from a Console picker
+  (`set_panic_scene`, human-only), persisted engine-side (`content/state/
+  panic.json`). `panic.scene.ts` is kept as the boot default + guaranteed
+  fallback, and the warm panic instance now rebuilds by scene *name* through the
+  normal `./scenes` HMR barrel (it's pinned, so never destroyed) — which also
+  retired the dedicated pointer HMR accept. The "multiple named safe scenes with
+  a picker" item moves from out-of-scope to shipped.
+- **Trust tiers unchanged.** `panic`/`resume`/`arm_panic_mode`/`set_panic_scene`
+  are human-only (Console); agents only observe via `get_session`
+  (`panicMode`/`panicActive`/`panicScene` + the `pinned:"panic"` instance) and
+  are told to stop touching the live path while `panicActive` is non-null.

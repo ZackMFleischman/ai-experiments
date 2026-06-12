@@ -1,10 +1,14 @@
 import type { FrameCtx } from "./frame";
 
+/** Armed/active PANIC behavior: freeze the last frame, or cut to a safe scene. */
+export type PanicMode = "hold" | "scene";
+
 /** What the engine's compositor should do this frame. */
 export type StageDirective =
   | { mode: "single"; live: string | null }
   | { mode: "crossfade"; live: string; staged: string; mix: number }
-  | { mode: "hold" };
+  | { mode: "hold" }
+  | { mode: "panic-scene"; panic: string; live: string | null };
 
 interface Fade {
   from: string;
@@ -24,7 +28,10 @@ export class Stage {
   private liveId: string | null;
   private stagedId: string | null = null;
   private fade: Fade | null = null;
-  private held = false;
+  /** null = not panicked; otherwise the active mode. */
+  private panicState: PanicMode | null = null;
+  /** The routed instance id while scene-panicked (null in hold mode). */
+  private panicId: string | null = null;
 
   constructor(initialLive: string | null = null) {
     this.liveId = initialLive;
@@ -39,7 +46,17 @@ export class Stage {
   }
 
   get panicked(): boolean {
-    return this.held;
+    return this.panicState !== null;
+  }
+
+  /** The active PANIC mode, or null when not panicked. */
+  get panicActive(): PanicMode | null {
+    return this.panicState;
+  }
+
+  /** The instance routed to output while scene-panicked, or null. */
+  get panicSceneId(): string | null {
+    return this.panicId;
   }
 
   get fading(): boolean {
@@ -73,7 +90,7 @@ export class Stage {
    * The audience-facing transition: only this (and panic) may change LIVE.
    */
   commit(f: FrameCtx, durationFrames = 60): void {
-    if (this.held) throw new Error("PANIC is engaged — resume before committing");
+    if (this.panicState !== null) throw new Error("PANIC is engaged — resume before committing");
     if (this.fade) throw new Error("a commit is already in progress");
     if (this.stagedId === null || this.liveId === null) {
       throw new Error("nothing staged to commit");
@@ -86,14 +103,34 @@ export class Stage {
     };
   }
 
-  /** Hold the last presented frame. Cancels an in-flight fade — live stays live. */
-  panic(): void {
-    this.held = true;
-    this.fade = null;
+  /**
+   * Execute the armed PANIC mode. `hold` freezes the last presented frame;
+   * `scene` routes a pre-built panic instance to the output with a hard cut and
+   * WITHOUT moving the LIVE pointer (FR-4) — resume() returns to whatever was
+   * live. Either way an in-flight crossfade is cancelled first (FR-9).
+   *
+   * Re-pressing while already panicked only ever escalates hold→scene;
+   * scene→hold is a no-op, since holding the safe scene is strictly worse than
+   * rendering it (FR-6). Passing `scene` with no panicId (a broken/absent panic
+   * instance) falls back to hold (FR-7).
+   */
+  panic(mode: PanicMode = "hold", panicId: string | null = null): void {
+    this.fade = null; // FR-9: cancel an in-flight crossfade first
+    if (mode === "scene" && panicId !== null) {
+      this.panicState = "scene";
+      this.panicId = panicId;
+      return;
+    }
+    // hold (or scene-with-no-instance fallback): never downgrade an active
+    // scene-panic back to hold.
+    if (this.panicState === "scene") return;
+    this.panicState = "hold";
+    this.panicId = null;
   }
 
   resume(): void {
-    this.held = false;
+    this.panicState = null;
+    this.panicId = null;
   }
 
   onInstanceDestroyed(id: string): void {
@@ -102,10 +139,20 @@ export class Stage {
       this.liveId = null;
       this.fade = null;
     }
+    // Defensive: the engine protects the panic instance, but if its id ever
+    // vanishes mid-panic, degrade scene-panic to hold rather than route a ghost.
+    if (this.panicId === id) {
+      this.panicId = null;
+      if (this.panicState === "scene") this.panicState = "hold";
+    }
   }
 
   tick(f: FrameCtx): StageDirective {
-    if (this.held) return { mode: "hold" };
+    if (this.panicState === "scene" && this.panicId !== null) {
+      // Output override only — the LIVE pointer is untouched (FR-4).
+      return { mode: "panic-scene", panic: this.panicId, live: this.liveId };
+    }
+    if (this.panicState === "hold") return { mode: "hold" };
     const fade = this.fade;
     if (fade && f.frame >= fade.start) {
       if (f.frame >= fade.start + fade.duration) {

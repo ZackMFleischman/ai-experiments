@@ -15,7 +15,8 @@
     "validate:m4": "node scripts/validate-m4.mjs",
     "validate:m5": "node scripts/validate-m5.mjs",
     "validate:m6": "node scripts/validate-m6.mjs",
-    "validate:modulators": "node scripts/validate-modulators.mjs"
+    "validate:modulators": "node scripts/validate-modulators.mjs",
+    "validate:panic": "node scripts/validate-panic.mjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",

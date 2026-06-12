@@ -15,6 +15,7 @@ import { DEFAULT_WS_PORT, type InstanceStatus, type ScreenshotResult } from "@lo
 import { WebGPURenderer } from "three/webgpu";
 import inputsDef from "../../../content/inputs";
 import liveScene from "../../../content/scenes/live.scene";
+import panicScene from "../../../content/scenes/panic.scene";
 import { startBridge } from "./bridge";
 import { Compositor } from "./compositor";
 import { startConsoleChannel } from "./console-channel";
@@ -39,12 +40,19 @@ declare global {
       staged: string | null;
       mix: number | null;
       panicked: boolean;
+      /** Armed PANIC behavior ("hold" | "scene"). */
+      panicMode: "hold" | "scene";
+      /** Active PANIC mode, or null when not panicked. */
+      panicActive: "hold" | "scene" | null;
+      /** Designated Panic Scene name + build health. */
+      panicScene: { name: string; status: "ok" | "error"; error: string | null };
       agentCommitArmed: boolean;
       instances: Array<{
         id: string;
         scene: string;
         status: InstanceStatus;
         builds: number;
+        pinned: "panic" | null;
         modulators: Array<{ path: string; type: string; error: string | null }>;
       }>;
       /** Input-rack channel values (rack meters / validation). */
@@ -150,6 +158,7 @@ const persist = {
     state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
   },
   bindings: () => state.save("bindings", () => bindings.toJSON()),
+  panicScene: () => state.save("panic", () => ({ scene: panicSceneName })),
 };
 
 // MIDI routing: a CC completes a pending learn, then drives its bindings
@@ -190,6 +199,13 @@ let currentScenes = getScenes;
 const BOOT_ID = "boot";
 
 /**
+ * The always-warm Panic Scene instance (FR-3). Built at boot next to the boot
+ * instance, rebuilt through HMR when panic.scene.ts changes, never disposed —
+ * PANIC must never wait on (or risk) a build. Its id is "panic".
+ */
+const PANIC_ID = "panic";
+
+/**
  * NFR-5 for the boot instance: build the new one first; a failed
  * build/rebuild keeps whatever is running — never go black.
  */
@@ -203,6 +219,65 @@ function trySwapLive(def: SceneDef): boolean {
     console.error(`[loom] scene "${def?.name ?? "?"}" rejected; keeping previous`, err);
     return false;
   }
+}
+
+// Panic Scene build health (FR-7): the last build error, surfaced even when a
+// previous good instance still runs. Null once a usable instance exists.
+let panicSceneName = panicScene?.name ?? "panic";
+let panicBuildError: string | null = "panic instance not built yet";
+
+/**
+ * Build (or HMR-rebuild) the warm panic instance, same NFR-5 semantics as the
+ * boot instance: a failed rebuild keeps the previous one running and only
+ * flags health. FR-7's hold-fallback triggers only if there has *never* been a
+ * healthy build (no instance exists).
+ */
+function tryBuildPanic(def: SceneDef): boolean {
+  panicSceneName = def?.name ?? panicSceneName;
+  if (session.get(PANIC_ID)) {
+    const ok = session.rebuild(PANIC_ID, def);
+    panicBuildError = ok ? null : `panic scene "${def?.name ?? "?"}" update rejected (see console)`;
+    return ok;
+  }
+  try {
+    const e = session.create(def, PANIC_ID);
+    e.pinned = "panic";
+    panicBuildError = null;
+    return true;
+  } catch (err) {
+    panicBuildError = `panic scene "${def?.name ?? "?"}" failed to build: ${String(err)}`;
+    console.error(`[loom] ${panicBuildError}; PANIC will hold`, err);
+    return false;
+  }
+}
+
+/** A usable warm panic instance exists → scene-panic is available (FR-7). */
+function panicInstanceId(): string | null {
+  return session.get(PANIC_ID) ? PANIC_ID : null;
+}
+function panicSceneInfo(): { name: string; status: "ok" | "error"; error: string | null } {
+  const ok = session.get(PANIC_ID) != null;
+  return {
+    name: session.get(PANIC_ID)?.sceneName ?? panicSceneName,
+    status: ok ? "ok" : "error",
+    error: panicBuildError,
+  };
+}
+
+/**
+ * Re-point the warm panic instance at a named catalog scene at runtime (the
+ * Console safe-scene picker). The panic.scene.ts pointer is the boot default;
+ * this overrides it live with the same rebuild-before-dispose safety, then
+ * persists the choice so it survives a restart.
+ */
+function setPanicScene(scene: string): void {
+  const def = currentScenes().get(scene);
+  if (!def) {
+    const have = [...currentScenes().keys()].join(", ") || "(none)";
+    throw new Error(`unknown scene "${scene}" — available: ${have}`);
+  }
+  tryBuildPanic(def);
+  persist.panicScene();
 }
 
 async function startAudio(): Promise<void> {
@@ -225,6 +300,7 @@ await startAudio();
 
 // Tuned state (R6.2): globals tunings, MIDI bindings, and per-scene values
 // load before the boot instance builds so it comes up already tuned.
+let savedPanicScene: string | null = null;
 if (state.enabled) {
   const savedGlobals = await state.load("inputs");
   if (savedGlobals && typeof savedGlobals === "object") {
@@ -253,6 +329,9 @@ if (state.enabled) {
       tunedValues.set(scene, vals as Record<string, number | boolean | string>);
     }
   }
+  const savedPanic = await state.load("panic");
+  const name = (savedPanic as { scene?: unknown } | null)?.scene;
+  if (typeof name === "string") savedPanicScene = name;
 }
 
 // Audio input devices, cached for the (synchronous) session snapshot.
@@ -290,6 +369,9 @@ window.__loom = {
   staged: null,
   mix: null,
   panicked: false,
+  panicMode: "hold",
+  panicActive: null,
+  panicScene: { name: panicSceneName, status: "error", error: panicBuildError },
   agentCommitArmed: false,
   instances: [],
   inputs: {},
@@ -298,6 +380,13 @@ window.__loom = {
 };
 
 trySwapLive(liveScene);
+// Build the warm panic instance alongside boot. A throw here leaves it in
+// hold-fallback (FR-7) rather than failing the engine.
+tryBuildPanic(panicScene);
+// A persisted runtime pick overrides the panic.scene.ts boot default.
+if (savedPanicScene && savedPanicScene !== panicSceneName && currentScenes().has(savedPanicScene)) {
+  tryBuildPanic(currentScenes().get(savedPanicScene)!);
+}
 
 const api = new EngineApi(
   {
@@ -321,6 +410,9 @@ const api = new EngineApi(
     rms: () => window.__loom?.rms ?? 0,
     onsetCount: () => onsetCount,
     currentMix: () => currentMix,
+    panicInstanceId,
+    panicScene: panicSceneInfo,
+    setPanicScene,
     audioDevices: () => audioDevices,
     refreshAudioDevices: () => void refreshAudioDevices(),
     inputs,
@@ -349,8 +441,10 @@ renderer.setAnimationLoop((tMs) => {
   const directive = stage.tick(f);
   currentMix = directive.mode === "crossfade" ? directive.mix : null;
   lastDirectiveHold = directive.mode === "hold";
-  // Modulators write CPU-side before any leg renders; PANIC holds them too (FR-10).
-  if (directive.mode !== "hold") session.tickModulators(f);
+  // Modulators write CPU-side before any leg renders. Hold pauses them all;
+  // scene-panic pauses only the suspended live instance (FR-5/FR-10).
+  if (directive.mode === "panic-scene") session.tickModulators(f, directive.live);
+  else if (directive.mode !== "hold") session.tickModulators(f);
   compositor.render(renderer, f, directive, session);
   api.captureLiveMirror(directive.mode); // same-task canvas read for the live tile
   fps.tick();
@@ -392,6 +486,9 @@ renderer.setAnimationLoop((tMs) => {
   dbg.staged = stage.staged;
   dbg.mix = currentMix;
   dbg.panicked = stage.panicked;
+  dbg.panicMode = api.armedPanicMode;
+  dbg.panicActive = stage.panicActive;
+  dbg.panicScene = panicSceneInfo();
   dbg.agentCommitArmed = api.agentCommitArmed;
   dbg.inputs = inputs.values();
   dbg.palettes = palettes.manifest.values();
@@ -400,6 +497,7 @@ renderer.setAnimationLoop((tMs) => {
     scene: e.sceneName,
     status: entryStatus(e),
     builds: e.builds,
+    pinned: e.pinned ?? null,
     modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
   }));
 });
@@ -442,8 +540,10 @@ if (import.meta.hot) {
   });
 
   // Any scene file edit bubbles through the barrel: rebuild only instances
-  // whose def identity actually changed (NFR-5), destroy ones whose scene
-  // file vanished.
+  // whose def identity actually changed (NFR-5), destroy ones whose scene file
+  // vanished. The warm panic instance rebuilds here by name like any other
+  // (so editing whichever scene is the safe target hot-reloads it), but is
+  // never destroyed — the escape hatch must stay warm.
   import.meta.hot.accept("./scenes", (mod) => {
     if (!mod?.getScenes) return;
     currentScenes = mod.getScenes as typeof getScenes;
@@ -452,11 +552,15 @@ if (import.meta.hot) {
       if (entry.id === BOOT_ID) continue; // owned by the live.scene accept above
       const def = map.get(entry.sceneName);
       if (!def) {
+        if (entry.pinned === "panic") continue; // keep the hatch warm
         console.warn(`[loom] scene "${entry.sceneName}" removed; destroying instance "${entry.id}"`);
         stage.onInstanceDestroyed(entry.id);
         session.destroy(entry.id);
       } else if (def !== entry.def) {
         const ok = session.rebuild(entry.id, def);
+        if (entry.id === PANIC_ID) {
+          panicBuildError = ok ? null : `panic scene "${def.name}" update rejected (see console)`;
+        }
         console.info(
           ok
             ? `[loom] instance "${entry.id}" rebuilt (${def.name})`

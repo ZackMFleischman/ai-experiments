@@ -62,6 +62,16 @@ export function Tile({ inst, isLive, isStaged, selected, solo, onSelect, onSolo 
         <Typography className="name" variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
           {inst.id} · {inst.scene}
         </Typography>
+        {inst.pinned === "panic" && (
+          <Box
+            component="span"
+            className="badge panic-badge show"
+            title="pinned PANIC safe-scene instance — always warm, can't be destroyed"
+            sx={{ ...badgeSx, bgcolor: "info.main", color: "#000" }}
+          >
+            ⛑ PANIC
+          </Box>
+        )}
         <Box
           component="span"
           className={`badge live-badge${isLive ? " show" : ""}`}
@@ -91,7 +101,7 @@ export function Tile({ inst, isLive, isStaged, selected, solo, onSelect, onSolo 
         </Button>
         <Button
           className="destroybtn"
-          disabled={isLive}
+          disabled={isLive || inst.pinned === "panic"}
           title="destroy"
           onClick={(e) => {
             e.stopPropagation();

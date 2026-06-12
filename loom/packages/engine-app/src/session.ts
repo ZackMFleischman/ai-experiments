@@ -30,6 +30,8 @@ export interface Entry {
   readonly modulators: ModulatorHost;
   /** Successful builds of this entry (1 on create) — validators assert "no rebuild" against this. */
   builds: number;
+  /** Pinned role: "panic" = the always-warm safe-scene instance (protected from destroy). */
+  pinned?: "panic";
 }
 
 export function entryStatus(e: Entry): InstanceStatus {
@@ -95,9 +97,16 @@ export class SessionStore {
     }
   }
 
-  /** Per-frame modulator write pass; the engine skips it while held (FR-10). */
-  tickModulators(f: FrameCtx): void {
-    for (const e of this.entries.values()) e.modulators.tick(e.instance.manifest, f);
+  /**
+   * Per-frame modulator write pass; the engine skips it entirely while held
+   * (FR-10). `skipId` pauses one instance's modulators — the suspended live
+   * instance during scene-panic, so its held state stays truly frozen.
+   */
+  tickModulators(f: FrameCtx, skipId?: string | null): void {
+    for (const e of this.entries.values()) {
+      if (e.id === skipId) continue;
+      e.modulators.tick(e.instance.manifest, f);
+    }
   }
 
   /** Re-apply tuned values over code defaults; unknown paths are skipped. */

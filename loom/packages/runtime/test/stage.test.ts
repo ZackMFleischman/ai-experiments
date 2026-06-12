@@ -73,12 +73,87 @@ describe("Stage", () => {
     s.tick(F(3)); // mid-fade
     s.panic();
     expect(s.panicked).toBe(true);
+    expect(s.panicActive).toBe("hold");
     expect(s.tick(F(4))).toEqual({ mode: "hold" });
     s.resume();
     expect(s.panicked).toBe(false);
+    expect(s.panicActive).toBeNull();
     // fade was cancelled: still the old live, candidate still staged
     expect(s.tick(F(5))).toEqual({ mode: "single", live: "live" });
     expect(s.staged).toBe("a");
+  });
+
+  it("scene-panic routes the panic instance without moving LIVE; resume hard-cuts back", () => {
+    const s = new Stage("live");
+    s.panic("scene", "panic");
+    expect(s.panicked).toBe(true);
+    expect(s.panicActive).toBe("scene");
+    expect(s.panicSceneId).toBe("panic");
+    // Output override only: the LIVE pointer is untouched (FR-4).
+    expect(s.live).toBe("live");
+    expect(s.tick(F(0))).toEqual({ mode: "panic-scene", panic: "panic", live: "live" });
+    s.resume();
+    // Hard cut straight back to the prior live instance.
+    expect(s.panicActive).toBeNull();
+    expect(s.tick(F(1))).toEqual({ mode: "single", live: "live" });
+  });
+
+  it("scene-panic cancels an in-flight crossfade first (FR-9)", () => {
+    const s = new Stage("live");
+    s.stage("a");
+    s.commit(F(0), 10);
+    s.tick(F(3)); // mid-fade
+    s.panic("scene", "panic");
+    expect(s.tick(F(4))).toEqual({ mode: "panic-scene", panic: "panic", live: "live" });
+    s.resume();
+    // Fade was cancelled: back to the old live, candidate still staged.
+    expect(s.tick(F(5))).toEqual({ mode: "single", live: "live" });
+    expect(s.staged).toBe("a");
+  });
+
+  it("re-press escalates hold→scene, but scene→hold is a no-op (FR-6)", () => {
+    const s = new Stage("live");
+    s.panic("hold");
+    expect(s.panicActive).toBe("hold");
+    // Escalate: flip the arm to SAFE SCENE and re-press.
+    s.panic("scene", "panic");
+    expect(s.panicActive).toBe("scene");
+    expect(s.tick(F(0))).toEqual({ mode: "panic-scene", panic: "panic", live: "live" });
+    // Re-press in hold while scene is active does not downgrade.
+    s.panic("hold");
+    expect(s.panicActive).toBe("scene");
+    expect(s.tick(F(1))).toEqual({ mode: "panic-scene", panic: "panic", live: "live" });
+  });
+
+  it("scene-panic with no panic instance falls back to hold (FR-7)", () => {
+    const s = new Stage("live");
+    s.panic("scene", null);
+    expect(s.panicActive).toBe("hold");
+    expect(s.tick(F(0))).toEqual({ mode: "hold" });
+  });
+
+  it("double-resume is a harmless no-op", () => {
+    const s = new Stage("live");
+    s.panic("scene", "panic");
+    s.resume();
+    s.resume();
+    expect(s.panicked).toBe(false);
+    expect(s.tick(F(0))).toEqual({ mode: "single", live: "live" });
+  });
+
+  it("destroying the panic instance mid scene-panic degrades to hold", () => {
+    const s = new Stage("live");
+    s.panic("scene", "panic");
+    s.onInstanceDestroyed("panic");
+    expect(s.panicActive).toBe("hold");
+    expect(s.tick(F(0))).toEqual({ mode: "hold" });
+  });
+
+  it("commit while scene-panicked is refused", () => {
+    const s = new Stage("live");
+    s.stage("a");
+    s.panic("scene", "panic");
+    expect(() => s.commit(F(0))).toThrow(/panic/i);
   });
 
   it("destroying the staged instance unstages it and cancels a fade to it", () => {
