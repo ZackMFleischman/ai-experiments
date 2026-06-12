@@ -177,10 +177,20 @@ try {
   const after = await loomState(page);
   const spread = Math.max(...lums) - Math.min(...lums);
   check("scene renders non-black", Math.max(...lums) > 4, `peak lum ${Math.max(...lums).toFixed(1)}`);
+  // Onset detection is pulled per animation frame; on CI's slow software-GL
+  // renderer the screenshot loop above starves rAF, so let the page free-run
+  // (plain sleeps, no screenshots) until enough of the ~2/s kicks register. A
+  // genuine "onsets never fire" regression still fails when the window elapses.
+  let onsetCount = after.onsetCount;
+  const onsetDeadline = Date.now() + 10_000;
+  while (onsetCount < 3 && Date.now() < onsetDeadline) {
+    await sleep(500);
+    onsetCount = (await loomState(page)).onsetCount;
+  }
   check(
     "onsets fired from synthetic kicks (~2/s)",
-    after.onsetCount >= 3,
-    `onsetCount=${after.onsetCount} after ~3 s`,
+    onsetCount >= 3,
+    `onsetCount=${onsetCount}`,
   );
   check("audio level registers (peak rms)", peakRms > 0.01, `peak rms=${peakRms.toFixed(4)}`);
   check(
