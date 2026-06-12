@@ -30,6 +30,8 @@ export const RequestType = z.enum([
   "commit",
   "panic",
   "resume",
+  "arm_panic_mode",
+  "set_panic_instance",
   "set_transport",
   "set_audio",
   "arm_agent_commit",
@@ -102,6 +104,21 @@ export type CommitArgs = z.infer<typeof CommitArgs>;
 export const ArmAgentCommitArgs = z.object({ armed: z.boolean() });
 export type ArmAgentCommitArgs = z.infer<typeof ArmAgentCommitArgs>;
 
+/** PANIC behavior: hold the last frame, or cut to the designated safe scene. */
+export const PanicMode = z.enum(["hold", "scene"]);
+export type PanicMode = z.infer<typeof PanicMode>;
+
+/** PANIC executes the armed mode unless an explicit override is supplied. */
+export const PanicArgs = z.object({ mode: PanicMode.optional() });
+export type PanicArgs = z.infer<typeof PanicArgs>;
+
+export const ArmPanicModeArgs = z.object({ mode: PanicMode });
+export type ArmPanicModeArgs = z.infer<typeof ArmPanicModeArgs>;
+
+/** Designate which existing instance the SAFE SCENE panic cuts to (Console). */
+export const SetPanicInstanceArgs = z.object({ instance: z.string().min(1) });
+export type SetPanicInstanceArgs = z.infer<typeof SetPanicInstanceArgs>;
+
 export const TransportArgs = z.object({
   bpm: z.number().positive().optional(),
   tap: z.boolean().optional(),
@@ -167,8 +184,20 @@ export const InstanceInfo = z.object({
   modulators: z.array(ModulatorSummary),
   /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
   builds: z.number().int(),
+  /** Pinned role, if any: "panic" = the always-warm safe-scene instance. */
+  pinned: z.literal("panic").nullable().default(null),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfo>;
+
+/** Health of the designated Panic Scene (FR-7/FR-10). */
+export const PanicSceneInfo = z.object({
+  name: z.string(),
+  /** "ok" = a warm panic instance exists; "error" = it never built (PANIC holds). */
+  status: z.enum(["ok", "error"]),
+  /** Last build error, surfaced even when a previous good instance still runs. */
+  error: z.string().nullable(),
+});
+export type PanicSceneInfo = z.infer<typeof PanicSceneInfo>;
 
 export const SessionSnapshot = z.object({
   // Live-instance views (kept flat for M2 compatibility and quick reads).
@@ -183,6 +212,12 @@ export const SessionSnapshot = z.object({
   /** Crossfade progress 0..1, or null when not fading. */
   mix: z.number().nullable(),
   panicked: z.boolean(),
+  /** Armed PANIC behavior the button will execute (human-set, Console). */
+  panicMode: PanicMode,
+  /** Active PANIC mode, or null when not panicked. */
+  panicActive: PanicMode.nullable(),
+  /** The designated Panic Scene's name + build health. */
+  panicScene: PanicSceneInfo,
   agentCommitArmed: z.boolean(),
   availableScenes: z.array(z.string()),
   // World

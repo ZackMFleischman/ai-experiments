@@ -11,17 +11,22 @@ import type {
 } from "@loom/runtime";
 import {
   ArmAgentCommitArgs,
+  ArmPanicModeArgs,
   ClearModulationArgs,
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
   MidiTargetArgs,
   ModulateParamArgs,
+  PanicArgs,
   RenameInstanceArgs,
   SetAudioArgs,
+  SetPanicInstanceArgs,
   SetParamArgs,
   TransportArgs,
   type AudioDevice,
+  type PanicMode,
+  type PanicSceneInfo,
   type RequestMsg,
   type ScreenshotResult,
   type SessionSnapshot,
@@ -38,6 +43,8 @@ export type Source = "agent" | "human";
 const HUMAN_ONLY: ReadonlySet<string> = new Set([
   "panic",
   "resume",
+  "arm_panic_mode",
+  "set_panic_instance",
   "set_audio",
   "arm_agent_commit",
   "rename_instance",
@@ -86,6 +93,12 @@ export interface EngineDeps {
   onsetCount(): number;
   /** Current crossfade mix from the last directive, or null. */
   currentMix(): number | null;
+  /** The warm panic instance's id if one is usable, else null (PANIC holds). */
+  panicInstanceId(): string | null;
+  /** The designated Panic Scene's name + build health (FR-7/FR-10). */
+  panicScene(): PanicSceneInfo;
+  /** Designate which existing instance the SAFE SCENE panic cuts to. */
+  setPanicInstance(id: string): void;
   /** Id bookkeeping outside the session (main.ts tracks the boot instance). */
   onInstanceRenamed?(from: string, to: string): void;
 }
@@ -97,6 +110,8 @@ export interface EngineDeps {
  */
 export class EngineApi {
   agentCommitArmed: boolean;
+  /** Armed PANIC behavior; the human sets it from the Console (FR-1/FR-10). */
+  armedPanicMode: PanicMode = "hold";
 
   // The live output's thumbnail source. The WebGL canvas is only readable in
   // the task that rendered it, so the render loop mirrors it in here (a 2D
@@ -125,8 +140,10 @@ export class EngineApi {
    * render, the only place the canvas is readable. Throttled to thumbnail
    * rate and skipped entirely when no Console is listening.
    */
-  captureLiveMirror(mode: "single" | "crossfade" | "hold"): void {
-    if (mode === "hold" || this.deps.stage.live == null) return;
+  captureLiveMirror(mode: "single" | "crossfade" | "hold" | "panic-scene"): void {
+    // Skip while held or scene-panicked: the canvas isn't showing the LIVE
+    // instance, so the live tile keeps its last good (pre-panic) mirror.
+    if (mode === "hold" || mode === "panic-scene" || this.deps.stage.live == null) return;
     const now = performance.now();
     if (now - this.consoleSeenAt > 5000 || now - this.liveMirrorAt < 140) return;
     this.liveMirrorAt = now;
@@ -218,6 +235,9 @@ export class EngineApi {
         if (stage.live === e.id) {
           throw new Error(`"${e.id}" is LIVE — commit something else before destroying it`);
         }
+        if (e.pinned === "panic") {
+          throw new Error(`"${e.id}" is the SAFE target — designate another instance before destroying it`);
+        }
         stage.onInstanceDestroyed(e.id);
         session.destroy(e.id);
         return { destroyed: e.id };
@@ -227,6 +247,9 @@ export class EngineApi {
         const e = session.require(this.resolveId(instance));
         const from = e.id;
         if (to === from) return { instance: to, was: from };
+        if (e.pinned === "panic") {
+          throw new Error(`"${from}" is the SAFE target — designate another instance before renaming it`);
+        }
         if (to === "live" || to === "globals") {
           throw new Error(`"${to}" is a reserved name`);
         }
@@ -257,12 +280,32 @@ export class EngineApi {
         stage.commit(this.deps.latestFrame(), durationFrames);
         return { from, to, durationFrames };
       }
-      case "panic":
-        stage.panic();
-        return { panicked: true };
+      case "panic": {
+        // Execute the armed mode (an explicit override is allowed). Scene mode
+        // routes the warm panic instance; if none is usable, Stage falls back
+        // to hold (FR-7) — worst case equals today's behavior, never worse.
+        const { mode } = PanicArgs.parse(req.args);
+        const effective = mode ?? this.armedPanicMode;
+        const panicId = effective === "scene" ? this.deps.panicInstanceId() : null;
+        stage.panic(panicId != null ? "scene" : "hold", panicId);
+        return { panicked: true, mode: stage.panicActive };
+      }
       case "resume":
         stage.resume();
         return { panicked: false };
+      case "arm_panic_mode": {
+        const { mode } = ArmPanicModeArgs.parse(req.args);
+        this.armedPanicMode = mode;
+        return { panicMode: mode };
+      }
+      case "set_panic_instance": {
+        // Move the SAFE designation to an existing, already-warm instance — no
+        // build, no gap. Its scene becomes the safe target scene-panic cuts to.
+        const { instance } = SetPanicInstanceArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        this.deps.setPanicInstance(e.id);
+        return { panicScene: this.deps.panicScene(), instance: e.id };
+      }
       case "set_transport": {
         const { bpm, tap } = TransportArgs.parse(req.args);
         if (bpm !== undefined) this.deps.time.setBpm(bpm);
@@ -355,11 +398,15 @@ export class EngineApi {
         paramPaths: e.instance.manifest.paths(),
         modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
         builds: e.builds,
+        pinned: e.pinned ?? null,
       })),
       live: stage.live,
       staged: stage.staged,
       mix: this.deps.currentMix(),
       panicked: stage.panicked,
+      panicMode: this.armedPanicMode,
+      panicActive: stage.panicActive,
+      panicScene: this.deps.panicScene(),
       agentCommitArmed: this.agentCommitArmed,
       availableScenes: [...this.deps.getScenes().keys()],
       audioMode: this.deps.audio.mode,

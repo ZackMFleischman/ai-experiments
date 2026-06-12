@@ -449,3 +449,37 @@ realities (the validators were written for a real GPU + manual WebGPU checks):
 - Gates: typecheck; `pnpm test` = 312 tests (168 package + 144 content); full
   `pnpm validate` = 162 checks across 9 suites, all green. Spec + plan under
   `docs/superpowers/`.
+
+## 2026-06-12 — Better panic button (PANIC modes: hold | safe scene)
+
+Implements `feature-requests/panic-scene.md`. PANIC gains an armed mode: **hold**
+(freeze the last frame, unchanged default) or **scene** (hard-cut to a warm,
+always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
+144, sidecar 24, engine-app 7), `validate:panic`.
+
+- **Runtime stays minimal (NFR-2).** Stage adds one directive mode
+  (`panic-scene`, carrying the panic instance id + the untouched live id) and a
+  `panic(mode, panicId?)` signature; `held: boolean` became `panicState: "hold"
+  |"scene"|null`. Scene-panic is an output override — the LIVE pointer never
+  moves (FR-4), so RESUME is just "clear panic" with no bookkeeping. Re-press
+  only escalates hold→scene; scene→hold is a no-op (FR-6). Everything else
+  (warm-instance lifecycle, compositor leg, fallback) lives in engine-app.
+- **Worst case = today.** A broken/absent safe scene routes to hold (FR-7); a
+  render-throw in the panic instance freezes it → the compositor skips it →
+  hold (FR-8). Never worse than the pre-feature behavior.
+- **Deviation from the spec's resolved-decision #1 (designation via
+  `panic.scene.ts` pointer, *not* a Console picker), at the user's request:**
+  the SAFE target is now a **movable designation over existing instances** — the
+  ⛑ SAFE marker and scene-panic routing point at whichever instance the human
+  picks from the Console (`set_panic_instance`, human-only), exactly like LIVE /
+  STAGED are instance pointers. `panic.scene.ts` builds the boot-default safe
+  instance (id `"panic"`, the initial designation + guaranteed fallback);
+  picking any other instance moves the designation (and destroy/rename
+  protection) to it with no rebuild. Persisting the designated instance's scene
+  name lets the boot default reflect it across a restart (instance ids are
+  ephemeral). The "pick any instance / multiple named safe scenes" item moves
+  from out-of-scope to shipped.
+- **Trust tiers unchanged.** `panic`/`resume`/`arm_panic_mode`/`set_panic_instance`
+  are human-only (Console); agents only observe via `get_session`
+  (`panicMode`/`panicActive`/`panicScene` + the `pinned:"panic"` instance) and
+  are told to stop touching the live path while `panicActive` is non-null.
