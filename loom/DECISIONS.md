@@ -271,3 +271,28 @@ merging the registry's manifest with the input rack's, routed by path prefix
   `CLOUDFLARE_ACCOUNT_ID` secrets exist; the build still runs so the bundle stays
   tested. Setup: `docs/ci-and-preview.md`. Gates: typecheck + unit tests green
   locally; validators run in CI (no GPU in this dev container to run them here).
+
+## 2026-06-12 — Headless CI tuning: required gate vs advisory validators
+
+Getting the validators green on GitHub's GPU-less runners surfaced three headless
+realities (the validators were written for a real GPU + manual WebGPU checks):
+
+- **Force WebGL2 by hiding `navigator.gpu`.** Chrome 148 headless exposes a
+  software WebGPU adapter regardless of flags (`--disable-features=WebGPU` etc.
+  don't stick), so `WebGPURenderer` picked WebGPU and rendered blank-white or hung
+  the screenshot. A Playwright init script (`forceWebGL2`, `scripts/_browser.mjs`)
+  defines `navigator.gpu` as undefined → three falls back to the WebGL2 backend the
+  assertions are calibrated for. Chromium GL flags only choose SwiftShader as the
+  WebGL2 *provider*.
+- **`LOOM_RES=640x360` in CI.** Software WebGL2 can't render heavy scenes
+  (pho-nebula's multi-pass feedback) at 1080p fast enough for the compositor to
+  hand Playwright a frame; the shot times out. A `resQuery` (gated on `LOOM_RES`)
+  drops the internal render res for CI only — local hardware keeps full fidelity.
+- **Headless audio/MCP-readback are flaky.** The synthetic `AudioContext` yields
+  only a couple of analysable kicks (onset detectors can't re-arm), and the MCP
+  `screenshot` tool's `readRenderTargetPixelsAsync` returns no image under software
+  GL. Rather than weaken the suite further or change `engine-app`, CI splits:
+  **required gate** = typecheck + unit + build + **m0** (deterministic HMR /
+  never-go-black smoke); **advisory** (non-blocking) = m1–m6 + modulators. They
+  still run every PR for signal but don't gate merge. Full acceptance stays a
+  real-GPU / manual exercise, exactly as the validators were designed.
