@@ -40,10 +40,6 @@ Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 
 ## Remaining
 
-(Housekeeping leftover: thumbnail capture is still 320×180 — bump
-`engine-api.ts` mirror + `thumbnails()` to the full 640×360 preview res once
-the rename workstream's in-flight engine-api changes land.)
-
 ### Stdlib tests & robustness (M) — unnumbered, can land incrementally
 
 Today `pnpm test` covers `runtime` and `sidecar` only; `content/modules/` ships
