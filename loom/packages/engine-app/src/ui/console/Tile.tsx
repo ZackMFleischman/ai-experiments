@@ -147,11 +147,11 @@ export function Tile({
       {inst.pinned === "panic" && (
         <Box
           component="span"
-          className="badge panic-badge show"
-          title="pinned PANIC safe-scene instance — always warm, can't be destroyed"
+          className="badge safe-badge show"
+          title="SAFE target — scene-panic cuts here; protected from destroy while designated"
           sx={{ ...badgeSx, right: 6, bgcolor: "info.main", color: "#000" }}
         >
-          ⛑ PANIC
+          ⛑ SAFE
         </Box>
       )}
       {!isLive && inst.pinned !== "panic" && (

@@ -442,14 +442,17 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   hold (FR-8). Never worse than the pre-feature behavior.
 - **Deviation from the spec's resolved-decision #1 (designation via
   `panic.scene.ts` pointer, *not* a Console picker), at the user's request:**
-  the safe scene is now **chosen dynamically** from a Console picker
-  (`set_panic_scene`, human-only), persisted engine-side (`content/state/
-  panic.json`). `panic.scene.ts` is kept as the boot default + guaranteed
-  fallback, and the warm panic instance now rebuilds by scene *name* through the
-  normal `./scenes` HMR barrel (it's pinned, so never destroyed) — which also
-  retired the dedicated pointer HMR accept. The "multiple named safe scenes with
-  a picker" item moves from out-of-scope to shipped.
-- **Trust tiers unchanged.** `panic`/`resume`/`arm_panic_mode`/`set_panic_scene`
+  the SAFE target is now a **movable designation over existing instances** — the
+  ⛑ SAFE marker and scene-panic routing point at whichever instance the human
+  picks from the Console (`set_panic_instance`, human-only), exactly like LIVE /
+  STAGED are instance pointers. `panic.scene.ts` builds the boot-default safe
+  instance (id `"panic"`, the initial designation + guaranteed fallback);
+  picking any other instance moves the designation (and destroy/rename
+  protection) to it with no rebuild. Persisting the designated instance's scene
+  name lets the boot default reflect it across a restart (instance ids are
+  ephemeral). The "pick any instance / multiple named safe scenes" item moves
+  from out-of-scope to shipped.
+- **Trust tiers unchanged.** `panic`/`resume`/`arm_panic_mode`/`set_panic_instance`
   are human-only (Console); agents only observe via `get_session`
   (`panicMode`/`panicActive`/`panicScene` + the `pinned:"panic"` instance) and
   are told to stop touching the live path while `panicActive` is non-null.

@@ -162,8 +162,8 @@ try {
   check("default safe scene ships and is named", s0.panicScene.name === "safe", s0.panicScene.name);
 
   // 2. The Console pins the panic tile with its badge (FR-11).
-  await consolePage.waitForSelector('.tile[data-id="panic"] .panic-badge', { timeout: 10_000 });
-  check("console shows the pinned panic tile with ⛑ badge", true);
+  await consolePage.waitForSelector('.tile[data-id="panic"] .safe-badge', { timeout: 10_000 });
+  check("console shows the default SAFE tile with ⛑ badge", true);
 
   // 3. The agent can observe but never touch the panic path (FR-10).
   const toolNames = (await client.listTools()).tools.map((t) => t.name);
@@ -215,37 +215,47 @@ try {
     `delta to live=${rgbDelta(resumed, livePixels).toFixed(1)}`,
   );
 
-  // 5b. The safe scene is chosen dynamically from the Console (no file edit):
-  //     re-point the warm panic instance at another catalog scene, live.
-  await consolePage.selectOption("#panicscene", "gradient");
+  // 5b. The SAFE target is any instance, chosen from the Console: spawn a
+  //     candidate, designate it, and the ⛑ SAFE marker + routing move to it.
+  const safeCand = toolJson(await callOk(client, "create_instance", { scene: "gradient" }));
+  const candId = safeCand.instance;
+  await consolePage.waitForSelector(`.tile[data-id="${candId}"]`, { timeout: 10_000 });
+  await consolePage.selectOption("#panicscene", candId);
   const repointed = await waitFor(async () => {
     const res = await client.callTool({ name: "get_session", arguments: {} });
     if (res.isError) return null;
     const s = toolJson(res);
-    return s.panicScene.name === "gradient" ? s : null;
-  }, 10_000, "panic instance to re-point");
+    const pinned = s.instances.find((i) => i.pinned === "panic");
+    return pinned?.id === candId ? s : null;
+  }, 10_000, "SAFE designation to move");
+  const pinnedNow = repointed.instances.filter((i) => i.pinned === "panic");
   check(
-    "picker re-points the warm panic instance live (dynamic safe scene)",
-    repointed.panicScene.status === "ok" &&
-      repointed.instances.some((i) => i.pinned === "panic" && i.scene === "gradient"),
-    repointed.instances.find((i) => i.pinned === "panic")?.scene,
+    "picker designates any instance as the SAFE target (moves, exactly one)",
+    pinnedNow.length === 1 && pinnedNow[0].id === candId && repointed.panicScene.status === "ok",
+    pinnedNow.map((i) => i.id).join(", "),
   );
-  // Scene-panic now cuts to the newly chosen scene.
+  // Scene-panic now cuts to the newly designated instance.
   await consolePage.click("#panicmode-scene");
   await consolePage.click("#panic");
-  await waitFor(async () => ((await loomState(output)).panicActive === "scene" ? true : null), 5_000, "scene-panic to gradient");
+  await waitFor(async () => ((await loomState(output)).panicActive === "scene" ? true : null), 5_000, "scene-panic to candidate");
   await sleep(250);
-  const gradPixels = await centerStats(output, join(ARTIFACTS, "panic-3-gradient.png"));
+  const gradPixels = await centerStats(output, join(ARTIFACTS, "panic-3-designated.png"));
   check(
-    "scene-panic uses the dynamically chosen safe scene",
+    "scene-panic cuts to the designated instance",
     rgbDelta(gradPixels, livePixels) > 8 && gradPixels.lum > 1,
     `delta=${rgbDelta(gradPixels, livePixels).toFixed(1)} lum=${gradPixels.lum.toFixed(1)}`,
   );
+  // The designated SAFE target is protected from destroy.
+  const destroySafe = await client.callTool({ name: "destroy_instance", arguments: { instance: candId } });
+  check("the designated SAFE target is destroy-protected", destroySafe.isError === true && /SAFE/i.test(destroySafe.content[0].text));
   await consolePage.click("#panic"); // RESUME
   await waitFor(async () => (!(await loomState(output)).panicActive ? true : null), 5_000, "resume after re-point");
-  // Restore the shipped default for the remaining checks.
-  await consolePage.selectOption("#panicscene", "safe");
-  await waitFor(async () => ((await loomState(output)).panicScene.name === "safe" ? true : null), 10_000, "restore safe");
+  // Restore the boot-default SAFE instance for the remaining checks.
+  await consolePage.selectOption("#panicscene", "panic");
+  await waitFor(async () => {
+    const pinned = (await loomState(output)).instances.find((i) => i.pinned === "panic");
+    return pinned?.id === "panic" ? true : null;
+  }, 10_000, "restore default SAFE");
 
   // 6. Escalation: HOLD froze garbage → flip arm to SAFE SCENE → cut to safety
   //    (FR-6). Arm hold, panic (frame freezes), then flip the arm live.

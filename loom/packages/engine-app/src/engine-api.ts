@@ -21,7 +21,7 @@ import {
   PanicArgs,
   RenameInstanceArgs,
   SetAudioArgs,
-  SetPanicSceneArgs,
+  SetPanicInstanceArgs,
   SetParamArgs,
   TransportArgs,
   type AudioDevice,
@@ -44,7 +44,7 @@ const HUMAN_ONLY: ReadonlySet<string> = new Set([
   "panic",
   "resume",
   "arm_panic_mode",
-  "set_panic_scene",
+  "set_panic_instance",
   "set_audio",
   "arm_agent_commit",
   "rename_instance",
@@ -97,8 +97,8 @@ export interface EngineDeps {
   panicInstanceId(): string | null;
   /** The designated Panic Scene's name + build health (FR-7/FR-10). */
   panicScene(): PanicSceneInfo;
-  /** Re-point the warm panic instance at a named scene; throws if unknown. */
-  setPanicScene(scene: string): void;
+  /** Designate which existing instance the SAFE SCENE panic cuts to. */
+  setPanicInstance(id: string): void;
   /** Id bookkeeping outside the session (main.ts tracks the boot instance). */
   onInstanceRenamed?(from: string, to: string): void;
 }
@@ -236,7 +236,7 @@ export class EngineApi {
           throw new Error(`"${e.id}" is LIVE — commit something else before destroying it`);
         }
         if (e.pinned === "panic") {
-          throw new Error(`"${e.id}" is the pinned PANIC instance — it stays warm and cannot be destroyed`);
+          throw new Error(`"${e.id}" is the SAFE target — designate another instance before destroying it`);
         }
         stage.onInstanceDestroyed(e.id);
         session.destroy(e.id);
@@ -248,7 +248,7 @@ export class EngineApi {
         const from = e.id;
         if (to === from) return { instance: to, was: from };
         if (e.pinned === "panic") {
-          throw new Error(`"${from}" is the pinned PANIC instance — its id is fixed`);
+          throw new Error(`"${from}" is the SAFE target — designate another instance before renaming it`);
         }
         if (to === "live" || to === "globals") {
           throw new Error(`"${to}" is a reserved name`);
@@ -298,12 +298,13 @@ export class EngineApi {
         this.armedPanicMode = mode;
         return { panicMode: mode };
       }
-      case "set_panic_scene": {
-        // Re-designate the safe scene live (rebuild-before-dispose). A failed
-        // build keeps the previous warm instance — the hatch never gaps.
-        const { scene } = SetPanicSceneArgs.parse(req.args);
-        this.deps.setPanicScene(scene);
-        return { panicScene: this.deps.panicScene() };
+      case "set_panic_instance": {
+        // Move the SAFE designation to an existing, already-warm instance — no
+        // build, no gap. Its scene becomes the safe target scene-panic cuts to.
+        const { instance } = SetPanicInstanceArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        this.deps.setPanicInstance(e.id);
+        return { panicScene: this.deps.panicScene(), instance: e.id };
       }
       case "set_transport": {
         const { bpm, tap } = TransportArgs.parse(req.args);

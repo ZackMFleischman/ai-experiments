@@ -31,7 +31,7 @@ export const RequestType = z.enum([
   "panic",
   "resume",
   "arm_panic_mode",
-  "set_panic_scene",
+  "set_panic_instance",
   "set_transport",
   "set_audio",
   "arm_agent_commit",
@@ -115,9 +115,9 @@ export type PanicArgs = z.infer<typeof PanicArgs>;
 export const ArmPanicModeArgs = z.object({ mode: PanicMode });
 export type ArmPanicModeArgs = z.infer<typeof ArmPanicModeArgs>;
 
-/** Re-point the warm panic instance at a different scene at runtime (Console). */
-export const SetPanicSceneArgs = z.object({ scene: z.string().min(1) });
-export type SetPanicSceneArgs = z.infer<typeof SetPanicSceneArgs>;
+/** Designate which existing instance the SAFE SCENE panic cuts to (Console). */
+export const SetPanicInstanceArgs = z.object({ instance: z.string().min(1) });
+export type SetPanicInstanceArgs = z.infer<typeof SetPanicInstanceArgs>;
 
 export const TransportArgs = z.object({
   bpm: z.number().positive().optional(),

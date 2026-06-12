@@ -107,6 +107,7 @@ function PanicControls({ session: s }: { session: SessionSnapshot }) {
   };
 
   const sceneBroken = s.panicScene.status === "error";
+  const safeId = s.instances.find((i) => i.pinned === "panic")?.id ?? null;
   return (
     <Stack direction="row" spacing={1} alignItems="center">
       <ButtonGroup id="panicmode" size="small" variant="outlined" disableElevation>
@@ -134,18 +135,16 @@ function PanicControls({ session: s }: { session: SessionSnapshot }) {
         </Button>
       </ButtonGroup>
       <NativeSelect
-        value={s.panicScene.name}
-        inputProps={{ id: "panicscene", title: "safe scene — the SAFE SCENE panic target" }}
-        onChange={(e) => void link.req("set_panic_scene", { scene: e.target.value }).catch(fail)}
+        value={safeId ?? ""}
+        inputProps={{ id: "panicscene", title: "SAFE target — the instance scene-panic cuts to" }}
+        onChange={(e) => void link.req("set_panic_instance", { instance: e.target.value }).catch(fail)}
         sx={{ fontSize: 12, color: sceneBroken ? "warning.main" : "text.primary" }}
       >
-        {/* The current target may be a failed build that isn't in the live
-            catalog; surface it so the select still shows the real selection. */}
-        {!s.availableScenes.includes(s.panicScene.name) && (
-          <option value={s.panicScene.name}>{s.panicScene.name} (unavailable)</option>
-        )}
-        {s.availableScenes.map((n) => (
-          <option key={n} value={n}>{n}</option>
+        {/* Pick any existing instance as the safe target; its scene is what
+            scene-panic cuts to. Spawn + tune a tile, then designate it here. */}
+        {safeId == null && <option value="">(none)</option>}
+        {s.instances.map((i) => (
+          <option key={i.id} value={i.id}>{i.id} · {i.scene}</option>
         ))}
       </NativeSelect>
       <Button

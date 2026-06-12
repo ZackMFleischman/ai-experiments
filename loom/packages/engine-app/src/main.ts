@@ -257,32 +257,39 @@ function tryBuildPanic(def: SceneDef): boolean {
   }
 }
 
-/** A usable warm panic instance exists → scene-panic is available (FR-7). */
+/** The instance currently bearing the SAFE designation, if any. */
+function pinnedPanicEntry() {
+  for (const e of session.entries.values()) if (e.pinned === "panic") return e;
+  return undefined;
+}
+
+/** A usable safe-target instance exists → scene-panic is available (FR-7). */
 function panicInstanceId(): string | null {
-  return session.get(PANIC_ID) ? PANIC_ID : null;
+  return pinnedPanicEntry()?.id ?? (session.get(PANIC_ID) ? PANIC_ID : null);
 }
 function panicSceneInfo(): { name: string; status: "ok" | "error"; error: string | null } {
-  const ok = session.get(PANIC_ID) != null;
+  const e = pinnedPanicEntry();
   return {
-    name: session.get(PANIC_ID)?.sceneName ?? panicSceneName,
-    status: ok ? "ok" : "error",
-    error: panicBuildError,
+    name: e?.sceneName ?? panicSceneName,
+    status: e ? "ok" : "error",
+    error: e ? null : panicBuildError,
   };
 }
 
 /**
- * Re-point the warm panic instance at a named catalog scene at runtime (the
- * Console safe-scene picker). The panic.scene.ts pointer is the boot default;
- * this overrides it live with the same rebuild-before-dispose safety, then
- * persists the choice so it survives a restart.
+ * Designate an existing, already-warm instance as the SAFE SCENE target (the
+ * Console picker). The ⛑ SAFE marker — and what scene-panic cuts to — moves to
+ * the chosen instance; no build, no gap. The boot default ("panic", from
+ * panic.scene.ts) is just the initial designation. Persists the target's scene
+ * so the default reflects it across a restart (instance ids are ephemeral).
  */
-function setPanicScene(scene: string): void {
-  const def = currentScenes().get(scene);
-  if (!def) {
-    const have = [...currentScenes().keys()].join(", ") || "(none)";
-    throw new Error(`unknown scene "${scene}" — available: ${have}`);
-  }
-  tryBuildPanic(def);
+function setPanicInstance(id: string): void {
+  const target = session.require(id);
+  if (target.pinned === "panic") return;
+  for (const e of session.entries.values()) if (e.pinned === "panic") delete e.pinned;
+  target.pinned = "panic";
+  panicSceneName = target.sceneName;
+  panicBuildError = null;
   persist.panicScene();
 }
 
@@ -419,7 +426,7 @@ const api = new EngineApi(
     currentMix: () => currentMix,
     panicInstanceId,
     panicScene: panicSceneInfo,
-    setPanicScene,
+    setPanicInstance,
     audioDevices: () => audioDevices,
     refreshAudioDevices: () => void refreshAudioDevices(),
     inputs,
@@ -603,8 +610,8 @@ if (import.meta.hot) {
         session.destroy(entry.id);
       } else if (def !== entry.def) {
         const ok = session.rebuild(entry.id, def);
-        if (entry.id === PANIC_ID) {
-          panicBuildError = ok ? null : `panic scene "${def.name}" update rejected (see console)`;
+        if (entry.pinned === "panic") {
+          panicBuildError = ok ? null : `safe scene "${def.name}" update rejected (see console)`;
         }
         console.info(
           ok
