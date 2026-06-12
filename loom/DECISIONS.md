@@ -600,3 +600,27 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - **SHIPPED:** engine `ProjectStore` + deferred cull (main.ts), session init
   seeding, 3 MCP tools, Console header control, `validate:projects` 23/23,
   engine-app `projects.test.ts` round-trip; full gate green.
+
+## M9 — Video sources (2026-06-11)
+
+- **`video` module mirrors `image`** (same localSpace placement, premultiplied
+  alpha, contain-by-height): an HTMLVideoElement + three `VideoTexture`, muted
+  by default. `speed`/`scrubbing`/`scrub`/`loop` are **SignalLike opts** (the
+  module-authoring rule: params live in scenes, modules take Signals) — scenes
+  wire them to params, so set_param retimes/scrubs with no rebuild. The element
+  is driven CPU-side in the module's pass, fully guarded: a missing/unsupported
+  clip stays transparent, never throws the build.
+- **`loom:media` middleware** serves repo-EXTERNAL files (`/loom/media?p=<abs>`)
+  with HTTP Range support (video seeks need 206); confined to roots registered
+  in `content/state/media-roots.json` (read per request, hot-editable; 403
+  outside). `mediaUrl(absPath)` in video.ts builds the URL. M10's asset
+  explorer grows on this registration.
+- **Asset reality**: the artist .mov loops are MJPEG (Chrome can't decode) — the
+  Beeple .mp4s play directly; `Videos/transcoded/` holds h264 transcodes of two
+  loops (ffmpeg, not in repo). A committed 23 KB testsrc2 clip
+  (content/assets/test/clip.mp4) makes the validators machine-independent.
+- `beeple-wall` scene: two video decks (city + kaleido-folded tunnel) with
+  speed/scrub params, layer-wrapped, kick-driven levels.
+- **SHIPPED:** video module + cases.ts entry (tier-1/2 swept), stdlib smoke
+  covers it, `validate:m9` 14/14 (play/freeze/scrub/loop with no rebuild, M4
+  cover checks on a video source, Range/403/404 middleware, external clip e2e).
