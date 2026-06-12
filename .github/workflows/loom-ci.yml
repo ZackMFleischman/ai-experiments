@@ -81,14 +81,27 @@ jobs:
         env:
           LOOM_RES: 640x360
         run: |
-          set -e
+          {
+            echo "## Acceptance validators (advisory)"
+            echo ""
+            echo "Non-blocking — built for a real GPU + manual WebGPU checks; on"
+            echo "headless software GL they're informative, not authoritative."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
           for v in m1 m2 m3 m4 m5 m6 modulators; do
             echo "::group::validate:$v"
-            pnpm "validate:$v"
+            if pnpm "validate:$v"; then
+              echo "- ✅ \`$v\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚠️ \`$v\` — see logs / artifacts" >> "$GITHUB_STEP_SUMMARY"
+            fi
             echo "::endgroup::"
           done
-      - name: upload validator screenshots on failure
-        if: failure()
+          # Advisory: never fail the job — the signal is the summary above plus
+          # the per-validator log groups and uploaded screenshots.
+          exit 0
+      - name: upload validator screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: validator-artifacts
@@ -123,8 +136,9 @@ jobs:
       - name: build static app (Output + Console + Staged)
         run: pnpm --filter @loom/engine-app exec vite build
       - name: render scene screenshots into the deploy
-        # Best-effort: a failed shot must not block the preview link itself.
+        # Best-effort: a failed/slow shot must not block the preview link itself.
         continue-on-error: true
+        timeout-minutes: 4
         env:
           LOOM_RES: 640x360 # software WebGL2 on CI needs the lighter render
         run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs

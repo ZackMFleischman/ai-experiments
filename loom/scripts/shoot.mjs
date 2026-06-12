@@ -131,6 +131,9 @@ try {
 }
 
 console.log(`\n${shots.length} screenshot(s) written to ${OUT}`);
+// Exit explicitly: a lingering Vite child (slow SIGTERM under software GL) keeps
+// the event loop alive otherwise, hanging the CI step. The validators do the same.
+process.exit(0);
 
 /** Pull the scene basename out of `export { default } from "./<name>.scene";`. */
 function bootSceneName(src) {
