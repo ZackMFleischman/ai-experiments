@@ -11,6 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -19,7 +20,7 @@ const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const PORT = 5201;
 const WS_PORT = 7344;
 // state=off: persisted tunings (M5) must never skew validation assertions.
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off`;
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}&state=off${resQuery}`;
 const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
 const STAGED_URL = `http://localhost:${PORT}/staged.html`;
 
@@ -126,9 +127,7 @@ try {
   browser = await chromium.launch({
     headless: true,
     args: [
-      "--enable-unsafe-webgpu",
-      "--enable-features=Vulkan",
-      "--use-angle=d3d11",
+      ...glArgs,
       "--autoplay-policy=no-user-gesture-required",
       // set_audio's mic path needs a (fake) capture device in headless.
       "--use-fake-device-for-media-stream",
@@ -136,6 +135,7 @@ try {
     ],
   });
   const context = await browser.newContext({ viewport: { width: 960, height: 540 } });
+  await forceWebGL2(context);
   const output = await context.newPage();
   await output.goto(OUTPUT_URL);
   await waitForFps(output);

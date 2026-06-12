@@ -9,6 +9,8 @@ focused month of evenings.
 
 - TypeScript everywhere, pnpm monorepo, Vite (dev server + HMR is the deploy
   mechanism); zod for metadata validation; `tsc --noEmit` as the contract gate.
+  (A static `vite build` also exists for the per-PR Cloudflare Pages preview —
+  "view + tweak", not the live runtime; see `docs/ci-and-preview.md`.)
 - Three.js `WebGPURenderer` + TSL (WebGL2 fallback in headless validation); the
   TexNode layer compiles to fullscreen passes on top of it.
 - Plain Chrome windows + a Node sidecar (WS bridge + MCP over stdio). No Electron

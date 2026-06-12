@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
@@ -20,7 +21,7 @@ const STATE_DIR = join(ROOT, "content", "state");
 const PORT = 5202;
 const WS_PORT = 7345;
 // State persistence stays ON here (no state=off) — it's under test.
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}${resQuery}`;
 const CONSOLE_URL = `http://localhost:${PORT}/console.html`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -135,15 +136,14 @@ try {
   browser = await chromium.launch({
     headless: true,
     args: [
-      "--enable-unsafe-webgpu",
-      "--enable-features=Vulkan",
-      "--use-angle=d3d11",
+      ...glArgs,
       "--autoplay-policy=no-user-gesture-required",
       "--use-fake-device-for-media-stream",
       "--use-fake-ui-for-media-stream",
     ],
   });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await forceWebGL2(context);
   const output = await context.newPage();
   const consoleMsgs = [];
   output.on("console", (m) => consoleMsgs.push(m.text()));
