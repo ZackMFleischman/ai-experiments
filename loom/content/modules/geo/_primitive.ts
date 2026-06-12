@@ -1,5 +1,5 @@
 import { asSignal, BuildCtx, type GeoNode, type SignalLike } from "@loom/runtime";
-import { Color, Mesh, MeshStandardMaterial, type BufferGeometry } from "three/webgpu";
+import { Color, DoubleSide, Mesh, MeshStandardMaterial, type BufferGeometry } from "three/webgpu";
 
 /** Shared looks/motion options for the geo primitives (box/sphere/torus). */
 export interface PrimitiveOpts {
@@ -31,6 +31,7 @@ export function primitive(ctx: BuildCtx, geometry: BufferGeometry, opts: Primiti
     color: new Color(opts.color ?? "#cccccc"),
     metalness: opts.metalness ?? 0.1,
     roughness: opts.roughness ?? 0.55,
+    side: DoubleSide, // planes/ribbons must read from both sides
   });
   const mesh = new Mesh(geometry, material);
   if (opts.position) mesh.position.set(...opts.position);

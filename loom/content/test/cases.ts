@@ -1,6 +1,39 @@
 import type { BuildCtx, Pass, TexNode } from "@loom/runtime";
+import { counter } from "../modules/control/counter";
+import { envelope } from "../modules/control/envelope";
+import { gate } from "../modules/control/gate";
 import { lag } from "../modules/control/lag";
 import { lfo } from "../modules/control/lfo";
+import { remap } from "../modules/control/remap";
+import { sampleHold } from "../modules/control/sampleHold";
+import { spring } from "../modules/control/spring";
+import { bloom } from "../modules/effects/bloom";
+import { blur } from "../modules/effects/blur";
+import { crt } from "../modules/effects/crt";
+import { displace } from "../modules/effects/displace";
+import { echo } from "../modules/effects/echo";
+import { hsv } from "../modules/effects/hsv";
+import { invert } from "../modules/effects/invert";
+import { key } from "../modules/effects/key";
+import { mirror } from "../modules/effects/mirror";
+import { mixer } from "../modules/effects/mixer";
+import { posterize } from "../modules/effects/posterize";
+import { rgbSplit } from "../modules/effects/rgbSplit";
+import { threshold } from "../modules/effects/threshold";
+import { tile } from "../modules/effects/tile";
+import { vignette } from "../modules/effects/vignette";
+import { checker } from "../modules/sources/checker";
+import { gradient } from "../modules/sources/gradient";
+import { plasma } from "../modules/sources/plasma";
+import { shape } from "../modules/sources/shape";
+import { solid } from "../modules/sources/solid";
+import { text } from "../modules/sources/text";
+import { voronoi } from "../modules/sources/voronoi";
+import { webcam } from "../modules/sources/webcam";
+import { displaceGeo } from "../modules/geo/displaceGeo";
+import { plane } from "../modules/geo/plane";
+import { pointCloud } from "../modules/geo/pointCloud";
+import { tube } from "../modules/geo/tube";
 import { colorize } from "../modules/effects/colorize";
 import { feedback } from "../modules/effects/feedback";
 import { flyby } from "../modules/effects/flyby";
@@ -48,6 +81,12 @@ export const CASES: Record<string, ModuleCase> = {
   // control
   lag: (ctx) => lag(ctx, { input: ctx.input("kick"), seconds: 0.1 }),
   lfo: (ctx) => lfo(ctx, { shape: "sine", periodBeats: 4 }),
+  envelope: (ctx) => envelope(ctx, { input: ctx.input("kick") }),
+  remap: (ctx) => remap(ctx, { input: ctx.input("bass"), outMin: 1, outMax: 1.5, curve: "smooth" }),
+  spring: (ctx) => spring(ctx, { input: ctx.input("kick") }),
+  sampleHold: (ctx) => sampleHold(ctx, { input: lfo(ctx, { periodBeats: 3 }), trigger: ctx.input("kick") }),
+  gate: (ctx) => gate(ctx, { input: ctx.input("bass"), threshold: 0.4 }),
+  counter: (ctx) => counter(ctx, { trigger: ctx.input("kick"), wrap: 4 }),
   // sources
   blobs: (ctx) => blobs(ctx, {}),
   fireflies: (ctx) => fireflies(ctx, {}),
@@ -60,6 +99,14 @@ export const CASES: Record<string, ModuleCase> = {
   spriteSwarm: (ctx) => spriteSwarm(ctx, { url: ASSET, cols: 3, rows: 2 }),
   video: (ctx) => video(ctx, { url: CLIP }),
   render3d: (ctx) => render3d(ctx, { world: box(ctx, { spin: 0.5 }), cam: orbitCam(ctx, {}) }),
+  solid: (ctx) => solid(ctx, { paletteStop: 2 }),
+  gradient: (ctx) => gradient(ctx, { mode: "radial", scroll: 0.1 }),
+  shape: (ctx) => shape(ctx, { kind: "ring", radius: ctx.input("kick") }),
+  checker: (ctx) => checker(ctx, { count: 8, line: 0.05, scroll: 0.5 }),
+  voronoi: (ctx) => voronoi(ctx, {}),
+  plasma: (ctx) => plasma(ctx, {}),
+  text: (ctx) => text(ctx, { text: "LOOM" }),
+  webcam: (ctx) => webcam(ctx, {}),
   // geo
   box: (ctx) => box(ctx, { spin: 0.5 }),
   sphere: (ctx) => sphere(ctx, { glow: ctx.input("kick") }),
@@ -67,6 +114,10 @@ export const CASES: Record<string, ModuleCase> = {
   orbitCam: (ctx) => orbitCam(ctx, { speed: 0.5 }),
   model: (ctx) => model(ctx, { url: CUBE, spin: 0.3 }),
   particleEmitter: (ctx) => particleEmitter(ctx, { surface: torus(ctx, {}), turbulence: ctx.input("hats") }),
+  plane: (ctx) => plane(ctx, { segments: 16 }),
+  tube: (ctx) => tube(ctx, { glow: ctx.input("kick") }),
+  pointCloud: (ctx) => pointCloud(ctx, { source: plane(ctx, { segments: 12 }) }),
+  displaceGeo: (ctx) => displaceGeo(ctx, { input: plane(ctx, { segments: 12 }), amount: ctx.input("bass") }),
   // effects
   colorize: (ctx, input) => colorize(ctx, { input }),
   feedback: (ctx, input) => feedback(ctx, { input }),
@@ -79,6 +130,21 @@ export const CASES: Record<string, ModuleCase> = {
   paletteMap: (ctx, input) => paletteMap(ctx, { input }),
   pixelate: (ctx, input) => pixelate(ctx, { input }),
   transform: (ctx, input) => transform(ctx, { input }),
+  blur: (ctx, input) => blur(ctx, { input }),
+  threshold: (ctx, input) => threshold(ctx, { input }),
+  bloom: (ctx, input) => bloom(ctx, { input }),
+  mixer: (ctx, input) => mixer(ctx, { input, b: blackInput(), mix: ctx.input("bass") }),
+  displace: (ctx, input) => displace(ctx, { input }),
+  hsv: (ctx, input) => hsv(ctx, { input, hue: lfo(ctx, { periodBeats: 8 }) }),
+  mirror: (ctx, input) => mirror(ctx, { input }),
+  tile: (ctx, input) => tile(ctx, { input }),
+  echo: (ctx, input) => echo(ctx, { input }),
+  key: (ctx, input) => key(ctx, { input, mode: "luma" }),
+  posterize: (ctx, input) => posterize(ctx, { input }),
+  invert: (ctx, input) => invert(ctx, { input, amount: ctx.input("kick") }),
+  rgbSplit: (ctx, input) => rgbSplit(ctx, { input }),
+  vignette: (ctx, input) => vignette(ctx, { input }),
+  crt: (ctx, input) => crt(ctx, { input }),
 };
 
 export interface BuiltCase {

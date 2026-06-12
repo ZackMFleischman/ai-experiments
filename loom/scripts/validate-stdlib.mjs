@@ -71,14 +71,25 @@ const SOURCE_OPTS = {
   pulseRings: `{ energy: ctx.input("kick") }`,
   noodles: `{ energy: ctx.input("kick") }`,
   video: `{ url: ${CLIP} }`,
+  text: `{ text: "LOOM" }`,
+  shape: `{ kind: "ring", radius: 0.35, thickness: 0.12, soft: 0.05 }`,
+  gradient: `{ mode: "radial", scroll: 0.1 }`,
+  checker: `{ count: 8, line: 0.05 }`,
 };
 const EFFECT_EXTRA = {
   over: `, overlay: osc(ctx, { freq: 3, offset: 0.3 })`,
   flyby: `, urls: [${ASSET}]`,
+  mixer: `, b: osc(ctx, { freq: 9, offset: 0.2 }), mix: 0.5`,
 };
 const CONTROL_OPTS = {
   lag: `{ input: ctx.input("kick"), seconds: 0.1 }`,
   lfo: `{ shape: "sine", periodBeats: 2 }`,
+  envelope: `{ input: ctx.input("kick") }`,
+  remap: `{ input: ctx.input("bass"), outMin: 0, outMax: 1, curve: "smooth" }`,
+  spring: `{ input: ctx.input("kick") }`,
+  sampleHold: `{ input: ctx.input("bass"), trigger: ctx.input("kick") }`,
+  gate: `{ input: ctx.input("bass"), threshold: 0.3 }`,
+  counter: `{ trigger: ctx.input("kick"), wrap: 4 }`,
 };
 // Sparse/dark-by-design modules get a lower luminance bar (still non-black).
 const MIN_LUM = {
@@ -95,6 +106,13 @@ const MIN_LUM = {
   model: 0.5,
   render3d: 0.5,
   particleEmitter: 0.1, // sparse glowing dots over a transparent background
+  plane: 0.5,
+  tube: 0.5,
+  displaceGeo: 0.5,
+  pointCloud: 0.02, // a handful of vertex points
+  shape: 0.2,
+  text: 0.2,
+  webcam: 0.1, // the fake-device pattern is dim
 };
 
 /** Geo modules mount through the render3d bridge under an orbiting camera. */
@@ -106,6 +124,10 @@ const GEO_WORLD = {
   orbitCam: `box(ctx, { color: "#3ff0b7" })`,
   model: `model(ctx, { url: new URL("../assets/test/cube.glb", import.meta.url).href, spin: 0.4 })`,
   particleEmitter: `particleEmitter(ctx, { surface: box(ctx, {}), rate: 500, size: 0.06, speed: 0.6, color: "#ffd24a" })`,
+  plane: `plane(ctx, { segments: 24, color: "#3fb7f0" })`,
+  tube: `tube(ctx, { glow: 0.8, color: "#9ae6ff" })`,
+  pointCloud: `pointCloud(ctx, { source: box(ctx, {}), size: 0.04 })`,
+  displaceGeo: `displaceGeo(ctx, { input: box(ctx, {}), amount: 0.3 })`,
 };
 
 function sceneSource(folder, name) {
@@ -225,6 +247,9 @@ try {
       "--enable-features=Vulkan",
       "--use-angle=d3d11",
       "--autoplay-policy=no-user-gesture-required",
+      // The webcam module's smoke gets Chromium's synthetic camera.
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
     ],
   });
   const context = await browser.newContext({ viewport: { width: 640, height: 360 } });
