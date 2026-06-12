@@ -838,3 +838,40 @@ runtime, not a hard wall.
   (validate:m5/m6) not run — this environment's egress blocks Playwright's
   browser download; they exercise the rack/param widgets touched here and
   should be run where a browser is available.
+
+## 2026-06-12 — Console UI overhaul: FX/modulator toggles, concise params, dnd-kit
+
+- **FX step enable/fade are manifest params** (`fx.<id>.enabled` bool +
+  `fx.<id>.fade` seconds, declared in `ChainHost.foldStep` next to `mix`):
+  making them real params buys MIDI cycle-binding, value carry-forward across
+  rebuilds/reorders, project persistence, and Console widgets for free. The
+  effective wet/dry is `mix x envelope` (`chainWetSignal`) — a stateful Signal
+  ramping linearly toward enabled∈{0,1} over `fade` seconds, pulled per frame
+  through the existing uniform updater, so toggling never rebuilds and the
+  envelope starts AT the current state (no fade-in from bypass on build).
+  `mix`/`enabled`/`fade` are now reserved chain-param names (fold throws).
+- **Modulator pause is slot-level, not spec-level**: `ModulatorSpec` stays a
+  strict zod union; `enabled` lives on the host slot (`setEnabled`/
+  `toggleEnabled`), survives reattach, resets on replace. Paused = tick skips
+  the slot, the param holds and `active()` is false so `set_param` works again.
+  New `set_modulation_enabled` verb (engine dispatch + MCP tool). MIDI maps it
+  via the `mod:<paramPath>` binding namespace (cycle = flip per press), fanned
+  out to every instance of the scene like param bindings; manifest snapshots
+  embed `enabled` in the modulator config (stripped before re-sending — the
+  spec parser is strict).
+- **dnd-kit over react-beautiful-dnd** for FX-chain reorder, tile grid
+  reorder, and drag-to-live: rbd is archived, has no React 19 support, and no
+  grid sorting (@hello-pangea/dnd inherits the grid limitation). One
+  DndContext in ConsoleApp (tiles + stage-zone droppable; order state lifted
+  there), a nested context per FX chain (handle-only drags — cards are full
+  of sliders). validate-m4 now drives a real pointer drag.
+- **Param rows are one line**: description moved into the label tooltip,
+  control inline (slider mid-row, bools as a ToggleButton — not a switch),
+  double-click the value to type an exact number (widens the range like the
+  range popover). Layer rig params fold into a nested "transform" accordion.
+
+SHIPPED 2026-06-12: console-ui-overhaul — FX enable/fade, modulator
+pause/resume (+MIDI), single-row params, inline value edit, transform
+sub-group, dnd-kit DnD. Gates: typecheck, pnpm test (387+201+27+17),
+validate m4/m5/m6/layers/projects/modulators green. Deviations: exact
+MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
