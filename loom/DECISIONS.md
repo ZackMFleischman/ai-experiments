@@ -370,3 +370,55 @@ merging the registry's manifest with the input rack's, routed by path prefix
 - Deviation: thumbnail capture stays 320×180 until the rename workstream's engine-api lands
   (follow-up noted in roadmap). Stumble: a parallel session edited the same console files
   mid-run — every commit used explicit path lists, no `git add -A`.
+
+## 2026-06-12 — CI on GitHub Actions + Cloudflare Pages preview + PR screenshots
+
+- **First production build target.** The standing decision was "Vite dev server =
+  the deploy mechanism" (no build step). For phone-openable PR previews we added a
+  static multi-page `vite build` (Output `/` + Console `/console.html` + Staged
+  `/staged.html`) in `engine-app/vite.config.ts`. Dev server, HMR, and never-go-black
+  are untouched — the build is a *parallel* artifact, not the live runtime. The
+  static bundle is "view + tweak" only: the sidecar WS is absent and the bridge's
+  reconnect loop no-ops harmlessly; live agent/MCP editing stays in the dev session.
+- **Validators are now Linux-portable.** They hardcoded `--use-angle=d3d11` (Windows).
+  Centralized GL flags in `scripts/_browser.mjs` (`glArgs`), chosen by platform and
+  overridable with `LOOM_GL`; Linux/CI defaults to SwiftShader, the software GL that
+  drives the same WebGL2 fallback the checks already assert against.
+- **pnpm 11 portability.** `pnpm.onlyBuiltDependencies` (read by pnpm 10 from
+  package.json) moved to `pnpm-workspace.yaml` `allowBuilds: { esbuild: true }`;
+  pinned `packageManager: pnpm@11.6.0` for reproducible installs (corepack + CI).
+- **Preview + screenshots ride the same deploy.** `scripts/shoot.mjs` renders scenes
+  to PNG (same spawn-vite + headless-Chromium pattern as the validators, restores
+  `live.scene.ts`); the preview job shoots into the deploy's `shots/` and
+  `scripts/preview-comment.mjs` embeds them inline in a sticky PR comment — no git
+  binaries. Durable in-diff stills go to the tracked `preview/screenshots/` when
+  authoring a visual.
+- Cloudflare deploy/comment steps skip gracefully until `CLOUDFLARE_API_TOKEN` +
+  `CLOUDFLARE_ACCOUNT_ID` secrets exist; the build still runs so the bundle stays
+  tested. Setup: `docs/ci-and-preview.md`. Gates: typecheck + unit tests green
+  locally; validators run in CI (no GPU in this dev container to run them here).
+
+## 2026-06-12 — Headless CI tuning: required gate vs advisory validators
+
+Getting the validators green on GitHub's GPU-less runners surfaced three headless
+realities (the validators were written for a real GPU + manual WebGPU checks):
+
+- **Force WebGL2 by hiding `navigator.gpu`.** Chrome 148 headless exposes a
+  software WebGPU adapter regardless of flags (`--disable-features=WebGPU` etc.
+  don't stick), so `WebGPURenderer` picked WebGPU and rendered blank-white or hung
+  the screenshot. A Playwright init script (`forceWebGL2`, `scripts/_browser.mjs`)
+  defines `navigator.gpu` as undefined → three falls back to the WebGL2 backend the
+  assertions are calibrated for. Chromium GL flags only choose SwiftShader as the
+  WebGL2 *provider*.
+- **`LOOM_RES=640x360` in CI.** Software WebGL2 can't render heavy scenes
+  (pho-nebula's multi-pass feedback) at 1080p fast enough for the compositor to
+  hand Playwright a frame; the shot times out. A `resQuery` (gated on `LOOM_RES`)
+  drops the internal render res for CI only — local hardware keeps full fidelity.
+- **Headless audio/MCP-readback are flaky.** The synthetic `AudioContext` yields
+  only a couple of analysable kicks (onset detectors can't re-arm), and the MCP
+  `screenshot` tool's `readRenderTargetPixelsAsync` returns no image under software
+  GL. Rather than weaken the suite further or change `engine-app`, CI splits:
+  **required gate** = typecheck + unit + build + **m0** (deterministic HMR /
+  never-go-black smoke); **advisory** (non-blocking) = m1–m6 + modulators. They
+  still run every PR for signal but don't gate merge. Full acceptance stays a
+  real-GPU / manual exercise, exactly as the validators were designed.

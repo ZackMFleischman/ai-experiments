@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import { chromium } from "playwright";
+import { glArgs, forceWebGL2, resQuery } from "./_browser.mjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
@@ -21,7 +22,7 @@ const STATE_DIR = join(ROOT, "content", "state");
 const PORT = 5203;
 const WS_PORT = 7346;
 // State persistence stays ON here (no state=off) — palette persistence is under test.
-const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}`;
+const OUTPUT_URL = `http://localhost:${PORT}/?audio=test&bpm=120&ws=${WS_PORT}${resQuery}`;
 // embed=0: validator consoles must never spawn an embedded engine (it would dial the default sidecar port).
 const CONSOLE_URL = `http://localhost:${PORT}/console.html?embed=0`;
 
@@ -139,15 +140,14 @@ try {
   browser = await chromium.launch({
     headless: true,
     args: [
-      "--enable-unsafe-webgpu",
-      "--enable-features=Vulkan",
-      "--use-angle=d3d11",
+      ...glArgs,
       "--autoplay-policy=no-user-gesture-required",
       "--use-fake-device-for-media-stream",
       "--use-fake-ui-for-media-stream",
     ],
   });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await forceWebGL2(context);
   const output = await context.newPage();
   await output.goto(OUTPUT_URL);
   await waitForFps(output);
