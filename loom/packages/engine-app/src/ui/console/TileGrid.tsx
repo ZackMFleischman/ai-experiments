@@ -1,3 +1,4 @@
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { Box } from "@mui/material";
 import { useRef, useState } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
@@ -8,28 +9,31 @@ type Props = {
   session: SessionSnapshot;
   selected: string | null;
   solo: string | null;
+  /** Display order (ConsoleApp owns it — the DndContext lives up there). */
+  order: string[];
+  onOrderChange: (next: string[]) => void;
   onSelect: (id: string) => void;
   onSolo: (id: string) => void;
   onCreated: (id: string) => void;
 };
 
-const ORDER_KEY = "loom.tileorder";
-
-const loadOrder = (): string[] => {
-  try {
-    return JSON.parse(localStorage.getItem(ORDER_KEY) ?? "[]") as string[];
-  } catch {
-    return [];
-  }
-};
+/** Sort instance ids by a persisted order; unknown ids keep engine order at the end. */
+export function sortTiles<T extends { id: string }>(instances: T[], order: string[]): T[] {
+  const pos = (id: string) => {
+    const i = order.indexOf(id);
+    return i < 0 ? order.length : i;
+  };
+  return [...instances].sort((a, b) => pos(a.id) - pos(b.id));
+}
 
 /**
- * The instance grid. Tiles drag-reorder (order persists locally; unknown ids
- * keep engine order at the end) — the same drag, released on the stage bar,
- * goes live. DOM contract: #grid, tiles render in display order.
+ * The instance grid. Tiles drag-reorder via dnd-kit sortables (order persists
+ * locally; the DndContext in ConsoleApp also lets the same drag go LIVE on the
+ * stage bar). DOM contract: #grid, tiles render in display order.
  */
-export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreated }: Props) {
-  const [order, setOrder] = useState<string[]>(loadOrder);
+export function TileGrid({
+  session: s, selected, solo, order, onOrderChange, onSelect, onSolo, onCreated,
+}: Props) {
   // The "+" tile's preview instances render inside that tile, never as grid
   // tiles. Hiding must outlive the preview pointer: a destroyed preview stays
   // in the session for a state tick or two, and clearing its id immediately
@@ -48,7 +52,6 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
     hiddenPreviews.current.delete(id);
     bump((n) => n + 1);
   };
-  const dragId = useRef<string | null>(null);
 
   for (const [id, seen] of hiddenPreviews.current) {
     const inSession = s.instances.some((i) => i.id === id);
@@ -59,41 +62,17 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
     }
   }
 
-  const pos = (id: string) => {
-    const i = order.indexOf(id);
-    return i < 0 ? order.length : i;
-  };
-  const sorted = [...s.instances]
-    .filter((i) => !hiddenPreviews.current.has(i.id))
-    .sort((a, b) => pos(a.id) - pos(b.id));
+  const sorted = sortTiles(
+    s.instances.filter((i) => !hiddenPreviews.current.has(i.id)),
+    order,
+  );
 
   // A rename keeps the tile's slot and the selection: pin the whole current
   // visual order with the new id swapped in (the engine re-keys the entry to
   // the end of its map, so an unpinned tile would jump).
   const renamed = (from: string, to: string) => {
-    const next = sorted.map((i) => (i.id === from ? to : i.id));
-    try {
-      localStorage.setItem(ORDER_KEY, JSON.stringify(next));
-    } catch {
-      // order just won't persist across reloads
-    }
-    setOrder(next);
+    onOrderChange(sorted.map((i) => (i.id === from ? to : i.id)));
     onSelect(to);
-  };
-
-  const reorderOver = (overId: string) => {
-    const from = dragId.current;
-    if (from == null || from === overId) return;
-    const cur = sorted.map((i) => i.id);
-    if (cur.indexOf(from) === cur.indexOf(overId) - 1) return; // already just before it
-    const next = cur.filter((id) => id !== from);
-    next.splice(next.indexOf(overId), 0, from);
-    try {
-      localStorage.setItem(ORDER_KEY, JSON.stringify(next));
-    } catch {
-      // order just won't persist across reloads
-    }
-    setOrder(next);
   };
 
   return (
@@ -109,21 +88,21 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
         overflowY: "auto",
       }}
     >
-      {sorted.map((inst) => (
-        <Tile
-          key={inst.id}
-          inst={inst}
-          isLive={inst.id === s.live}
-          isStaged={inst.id === s.staged}
-          selected={inst.id === selected}
-          solo={inst.id === solo}
-          onSelect={onSelect}
-          onSolo={onSolo}
-          onDragId={(id) => (dragId.current = id)}
-          onReorderOver={reorderOver}
-          onRenamed={renamed}
-        />
-      ))}
+      <SortableContext items={sorted.map((i) => i.id)} strategy={rectSortingStrategy}>
+        {sorted.map((inst) => (
+          <Tile
+            key={inst.id}
+            inst={inst}
+            isLive={inst.id === s.live}
+            isStaged={inst.id === s.staged}
+            selected={inst.id === selected}
+            solo={inst.id === solo}
+            onSelect={onSelect}
+            onSolo={onSolo}
+            onRenamed={renamed}
+          />
+        ))}
+      </SortableContext>
       <NewInstanceTile
         scenes={s.availableScenes}
         onCreated={onCreated}

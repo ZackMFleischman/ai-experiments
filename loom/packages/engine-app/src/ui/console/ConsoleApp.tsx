@@ -1,23 +1,83 @@
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import { Box } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import { Disconnected } from "../Disconnected";
-import { useEngineState } from "../hooks";
+import { useEngine, useEngineState } from "../hooks";
+import { fail } from "../util";
 import { Header } from "./Header";
 import { ParamPanel } from "./ParamPanel";
 import { Rack } from "./Rack";
-import { StageDropZone } from "./StageDropZone";
+import { STAGE_ZONE_ID, StageDropZone } from "./StageDropZone";
 import { StageStrip } from "./StageStrip";
-import { TileGrid } from "./TileGrid";
+import { sortTiles, TileGrid } from "./TileGrid";
 
 const EMBED_AFTER_MS = 2500;
+const ORDER_KEY = "loom.tileorder";
+
+const loadOrder = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(ORDER_KEY) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
+};
+
+// The stage zone wins whenever the pointer is inside it; otherwise tiles
+// sort by closest center (the grid strategy's preference).
+const collision: CollisionDetection = (args) => {
+  const zone = pointerWithin(args).find((c) => c.id === STAGE_ZONE_ID);
+  return zone ? [zone] : closestCenter(args).filter((c) => c.id !== STAGE_ZONE_ID);
+};
 
 type EngineWindow = Window & { __loom?: { resumeAudio?: () => void } };
 
 export function ConsoleApp() {
+  const link = useEngine();
   const { session, manifests, connected } = useEngineState();
   const [selected, setSelected] = useState<string | null>(null);
   const [solo, setSolo] = useState<string | null>(null);
   const [rackOpen, setRackOpen] = useState(false);
+  const [order, setOrder] = useState<string[]>(loadOrder);
+
+  const applyOrder = (next: string[]) => {
+    try {
+      localStorage.setItem(ORDER_KEY, JSON.stringify(next));
+    } catch {
+      // order just won't persist across reloads
+    }
+    setOrder(next);
+  };
+
+  // Tile drags start after 8px of slop, so click/double-click still work.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const onDragEnd = (e: DragEndEvent) => {
+    const activeId = String(e.active.id);
+    const overId = e.over != null ? String(e.over.id) : null;
+    if (overId === STAGE_ZONE_ID) {
+      // One gesture, all the way: drop on the top bar = stage + commit.
+      void link
+        .req("stage", { instance: activeId })
+        .then(() => link.req("commit", {}))
+        .catch(fail);
+      return;
+    }
+    if (overId == null || overId === activeId || session == null) return;
+    const cur = sortTiles(session.instances, order).map((i) => i.id);
+    const from = cur.indexOf(activeId);
+    const to = cur.indexOf(overId);
+    if (from < 0 || to < 0) return;
+    applyOrder(arrayMove(cur, from, to));
+  };
 
   // The Output window is optional: if no engine says hello within a grace
   // period, boot one in a hidden same-origin iframe. It stands down by itself
@@ -60,7 +120,7 @@ export function ConsoleApp() {
       }}
     >
       {session && (
-        <>
+        <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
           <StageDropZone>
             <Header session={session} onToggleRack={() => setRackOpen((o) => !o)} />
             <StageStrip session={session} />
@@ -70,6 +130,8 @@ export function ConsoleApp() {
               session={session}
               selected={selected}
               solo={solo}
+              order={order}
+              onOrderChange={applyOrder}
               onSelect={setSelected}
               onSolo={(id) => setSolo((cur) => (cur === id ? null : id))}
               onCreated={setSelected}
@@ -81,7 +143,7 @@ export function ConsoleApp() {
             />
           </Box>
           {rackOpen && <Rack session={session} globals={manifests.globals ?? {}} />}
-        </>
+        </DndContext>
       )}
       {embed && (
         <Box

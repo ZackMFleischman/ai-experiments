@@ -20,6 +20,7 @@ import {
   ScreenshotFramesResult,
   ScreenshotResult,
   SetChainArgs,
+  SetModulationEnabledArgs,
   SetParamArgs,
 } from "./protocol";
 
@@ -165,6 +166,22 @@ const TOOLS = [
         path: { type: "string", description: "Param path to release." },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "set_modulation_enabled",
+    description:
+      "Pause or resume a param's modulator WITHOUT detaching it: enabled:false freezes the " +
+      "wave (the param holds its last value and set_param works again); enabled:true resumes. " +
+      "Errors when the path has no modulator attached.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        path: { type: "string", description: "Param path whose modulator to pause/resume." },
+        enabled: { type: "boolean", description: "false = pause (hold), true = resume." },
+      },
+      required: ["path", "enabled"],
     },
   },
   {
@@ -400,6 +417,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       case "clear_modulation": {
         const result = await broker.request("clear_modulation", { ...ClearModulationArgs.parse(args) });
+        return textResult(result);
+      }
+      case "set_modulation_enabled": {
+        const result = await broker.request("set_modulation_enabled", {
+          ...SetModulationEnabledArgs.parse(args),
+        });
         return textResult(result);
       }
       case "set_chain": {

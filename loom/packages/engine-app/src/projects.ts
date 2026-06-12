@@ -18,7 +18,7 @@ export interface ProjectInstance {
   id: string;
   scene: string;
   values: Record<string, number | boolean | string>;
-  modulators: Array<{ path: string; spec: Record<string, unknown> }>;
+  modulators: Array<{ path: string; spec: Record<string, unknown>; enabled?: boolean }>;
   chain: Array<{ id: string; effect: string; params: Record<string, number | boolean> }>;
   nodeChains: Record<string, Array<{ id: string; effect: string; params: Record<string, number | boolean> }>>;
 }
@@ -71,7 +71,11 @@ function serializeEntry(e: Entry): ProjectInstance {
     id: e.id,
     scene: e.sceneName,
     values,
-    modulators: e.modulators.list().map((m) => ({ path: m.path, spec: m.spec as unknown as Record<string, unknown> })),
+    modulators: e.modulators.list().map((m) => ({
+      path: m.path,
+      spec: m.spec as unknown as Record<string, unknown>,
+      enabled: m.enabled,
+    })),
     chain: steps(e.chain.steps),
     nodeChains,
   };
@@ -128,6 +132,7 @@ export class ProjectStore {
         for (const m of inst.modulators ?? []) {
           try {
             entry.modulators.attach(entry.instance.manifest, m.path, m.spec);
+            if (m.enabled === false) entry.modulators.setEnabled(m.path, false);
           } catch {
             // a modulator that no longer fits its param — skip it, keep loading
           }

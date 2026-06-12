@@ -193,7 +193,7 @@ try {
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
         "get_session", "list_projects", "load_project", "modulate_param", "record_fixture", "save_chain",
-        "save_project", "screenshot", "set_chain", "set_param", "stage", "unstage",
+        "save_project", "screenshot", "set_chain", "set_modulation_enabled", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),
   );
@@ -213,24 +213,28 @@ try {
   check("console picker switches audio back to test", true);
 
   // 5. Drag a tile onto the stage bar: drop = stage + commit (R9.3 redesign).
+  // The grid runs on dnd-kit (pointer-driven, 8px activation slop), so drive
+  // a real pointer drag from the tile's center to the stage strip's.
   const created = toolJson(await callOk(client, "create_instance", { scene: "lava" }));
   const cid = created.instance;
-  await consolePage.waitForSelector(`.tile[data-id="${cid}"]`, { timeout: 10_000 });
-  const dragCarried = await consolePage.evaluate((tileId) => {
-    const tile = document.querySelector(`.tile[data-id="${CSS.escape(tileId)}"]`);
-    const strip = document.querySelector("#stagestrip");
-    if (!tile || !strip) return false;
-    const dt = new DataTransfer();
-    tile.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: dt }));
-    strip.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
-    strip.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
-    return dt.getData("text/loom-instance") !== "";
-  }, cid);
+  const tileLoc = consolePage.locator(`.tile[data-id="${cid}"]`);
+  await tileLoc.waitFor({ timeout: 10_000 });
+  await tileLoc.scrollIntoViewIfNeeded();
+  const tileBox = await tileLoc.boundingBox();
+  const stripBox = await consolePage.locator("#stagestrip").boundingBox();
+  await consolePage.mouse.move(tileBox.x + tileBox.width / 2, tileBox.y + tileBox.height / 2);
+  await consolePage.mouse.down();
+  await consolePage.mouse.move(
+    stripBox.x + stripBox.width / 2,
+    stripBox.y + stripBox.height / 2,
+    { steps: 12 },
+  );
+  await consolePage.mouse.up();
   await waitFor(async () => {
     const s = await loomState(output);
     return s.live === cid && s.staged === null && s.mix === null ? true : null;
   }, 10_000, "drag to go live");
-  check("drag onto the stage bar stages and commits", dragCarried === true);
+  check("drag onto the stage bar stages and commits", true);
 
   // 6. The staged tile's stage button reads "unstage" and unstages. The
   // Console refreshes at ~10 Hz — poll the DOM for the toggle instead of

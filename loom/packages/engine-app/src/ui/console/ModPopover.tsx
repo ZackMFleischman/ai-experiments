@@ -1,11 +1,11 @@
 import {
-  Box, Button, NativeSelect, Popover, Slider, Stack, TextField, Typography,
+  Box, Button, NativeSelect, Popover, Slider, Stack, TextField, ToggleButton, Typography,
 } from "@mui/material";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ParamDesc } from "../engine-link";
-import { useEngine } from "../hooks";
+import { useEngine, useEngineState } from "../hooks";
 import { MOD_TYPES } from "../mod-types";
-import { fail } from "../util";
+import { fail, primeMidiPermission } from "../util";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -26,15 +26,37 @@ type Props = {
   onClose: () => void;
 };
 
-/** Attach/update/retrigger/detach a modulator on one param (port of the old popover). */
+/** Attach/update/pause/retrigger/detach a modulator on one param. */
 export function ModPopover({ instance, path, p, anchorEl, onClose }: Props) {
   const link = useEngine();
+  const { session } = useEngineState();
   const isBool = p.type === "bool";
   const types = MOD_TYPES.filter((d) => !isBool || d.bool);
   const min = typeof p.min === "number" ? p.min : 0;
   const max = typeof p.max === "number" ? p.max : 1;
   const open = anchorEl != null;
   const active = (p.modulator ?? null) as Record<string, unknown> | null;
+  const running = active != null && active.enabled !== false;
+
+  // The on/off toggle is MIDI-mappable as a button: bindings target the
+  // "mod:<path>" namespace (cycle = flip per press), keyed by scene like
+  // any param binding.
+  const modPath = `mod:${path}`;
+  const scene = session?.instances.find((i) => i.id === instance)?.scene ?? null;
+  const modBinding =
+    scene != null
+      ? (session?.bindings.find((b) => b.scene === scene && b.path === modPath) ?? null)
+      : null;
+  const modLearning =
+    scene != null &&
+    session?.midi.learning != null &&
+    session.midi.learning.scene === scene &&
+    session.midi.learning.path === modPath;
+  const onLearnToggle = () => {
+    if (session?.midi.status !== "ready") primeMidiPermission();
+    const action = modBinding != null && !modLearning ? "midi_unbind" : "midi_learn";
+    void link.req(action, { instance, path: modPath, mode: "cycle" }).catch(fail);
+  };
 
   const [type, setType] = useState(types[0]?.type ?? "sine");
   const [rate, setRate] = useState("20");
@@ -194,10 +216,68 @@ export function ModPopover({ instance, path, p, anchorEl, onClose }: Props) {
         {err !== "" && (
           <Typography variant="caption" color="error">{err}</Typography>
         )}
+        {active && (
+          <Row label="state">
+            <ToggleButton
+              size="small"
+              value="on"
+              data-modstate={path}
+              selected={running}
+              onChange={() =>
+                void link
+                  .req("set_modulation_enabled", { instance, path, enabled: !running })
+                  .catch((e: Error) => setErr(String(e.message ?? e)))
+              }
+              sx={{ py: 0, px: 1.25, fontSize: 11, lineHeight: "18px", textTransform: "none" }}
+            >
+              {running ? "running" : "paused"}
+            </ToggleButton>
+            <Button
+              data-learn={modPath}
+              onClick={onLearnToggle}
+              title={
+                modLearning
+                  ? "press a controller button… (click to cancel)"
+                  : modBinding
+                    ? `cc${modBinding.cc} cycle — click to unbind`
+                    : "MIDI-learn: bind a button to toggle this modulator on/off"
+              }
+              sx={{
+                minWidth: 0,
+                px: 0.75,
+                py: 0,
+                fontSize: 11,
+                lineHeight: "18px",
+                ...(modLearning
+                  ? {
+                      bgcolor: "warning.main",
+                      color: "#000",
+                      borderColor: "warning.main",
+                      animation: "learnpulse 0.9s infinite alternate",
+                    }
+                  : modBinding
+                    ? { color: "primary.main", borderColor: "primary.main" }
+                    : { color: "text.secondary" }),
+              }}
+            >
+              {modLearning ? "···" : modBinding ? `cc${modBinding.cc}` : "M"}
+            </Button>
+          </Row>
+        )}
         <Stack direction="row" spacing={1}>
           <Button onClick={() => send(buildSpec())}>{active ? "update" : "attach"}</Button>
           {active && (
-            <Button title="restart the wave at lo" onClick={() => send(active)}>⟲ retrigger</Button>
+            <Button
+              title="restart the wave at lo"
+              onClick={() => {
+                // The manifest's modulator carries the host-side `enabled` flag;
+                // ModulatorSpec is strict, so strip it before re-sending.
+                const { enabled: _enabled, ...spec } = active;
+                send(spec);
+              }}
+            >
+              ⟲ retrigger
+            </Button>
           )}
           {active && (
             <Button

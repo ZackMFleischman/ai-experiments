@@ -29,6 +29,7 @@ import {
   ScreenshotArgs,
   SetAudioArgs,
   SetChainArgs,
+  SetModulationEnabledArgs,
   SetPanicInstanceArgs,
   SetParamArgs,
   SetParamRangeArgs,
@@ -250,10 +251,10 @@ export class EngineApi {
         const e = session.require(this.resolveId(instance));
         const param = this.requireParam(e.instance.manifest, path, e.id);
         const mod = e.modulators.get(path);
-        if (mod != null && mod.error == null) {
+        if (mod != null && mod.error == null && mod.enabled) {
           throw new Error(
             `"${path}" on "${e.id}" is modulated (${mod.spec.type}) — call clear_modulation ` +
-              "(or hit ∿ Detach in the Console) to take manual control",
+              "or set_modulation_enabled false (∿ in the Console) to take manual control",
           );
         }
         param.set(value);
@@ -305,6 +306,12 @@ export class EngineApi {
         const { instance, path } = ClearModulationArgs.parse(req.args);
         const e = session.require(this.resolveId(instance));
         return { instance: e.id, path, cleared: e.modulators.clear(path) };
+      }
+      case "set_modulation_enabled": {
+        const { instance, path, enabled } = SetModulationEnabledArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        const info = e.modulators.setEnabled(path, enabled); // throws when nothing is attached
+        return { instance: e.id, path, enabled: info.enabled };
       }
       case "set_chain": {
         const { instance, node, steps, restoreDefault } = SetChainArgs.parse(req.args);
@@ -551,6 +558,16 @@ export class EngineApi {
       }
       return { scene: ACTIONS, path, mode: "set" };
     }
+    // "mod:<paramPath>" toggles that param's modulator on/off (a button press
+    // pauses/resumes the wave without detaching). Always edge-triggered.
+    if (path.startsWith("mod:")) {
+      if (instance === GLOBALS) {
+        throw new Error("modulators live on instances — globals params can't be modulated");
+      }
+      const e = this.deps.session.require(this.resolveId(instance));
+      this.requireParam(e.instance.manifest, path.slice("mod:".length), e.id);
+      return { scene: e.sceneName, path, mode: "cycle" };
+    }
     let scene: string;
     let param: { type: string };
     if (instance === GLOBALS) {
@@ -605,7 +622,9 @@ export class EngineApi {
         status: entryStatus(e),
         error: e.instance.error != null ? String(e.instance.error) : null,
         paramPaths: e.instance.manifest.paths(),
-        modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
+        modulators: e.modulators
+          .list()
+          .map((m) => ({ path: m.path, type: m.spec.type, error: m.error, enabled: m.enabled })),
         chain: e.chain.list(),
         nodes: this.nodesJson(e),
         fixture: e.fixture?.name ?? null,
@@ -661,12 +680,13 @@ export class EngineApi {
     }));
   }
 
-  /** Manifest JSON with each param's active modulator config (or null) — FR-8. */
+  /** Manifest JSON with each param's attached modulator config + enabled (or null) — FR-8. */
   private manifestJson(e: Entry): Record<string, unknown> {
     const params = e.instance.manifest.toJSON() as Record<string, Record<string, unknown>>;
     for (const path of Object.keys(params)) {
       const m = e.modulators.get(path);
-      params[path]!.modulator = m != null && m.error == null ? m.spec : null;
+      params[path]!.modulator =
+        m != null && m.error == null ? { ...m.spec, enabled: m.enabled } : null;
     }
     return params;
   }

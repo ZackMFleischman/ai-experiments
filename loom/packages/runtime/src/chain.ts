@@ -3,7 +3,7 @@ import type { BuildCtx } from "./buildctx";
 import type { Events } from "./events";
 import type { ChainParamSpec, ModuleFactory } from "./module";
 import type { Manifest, Param } from "./param";
-import type { Signal } from "./signal";
+import { Signal } from "./signal";
 import { texNode, type TexNode } from "./texnode";
 
 /**
@@ -93,10 +93,40 @@ export interface ChainStepInfo {
   effect: string;
   kind: "primitive" | "composite";
   mix: number;
+  /** The step's on/off toggle (`fx.<id>.enabled`) — off fades to bypass. */
+  enabled: boolean;
 }
 
 const MAX_DEPTH = 2; // composites are one level deep (primitives only) — guards cycles.
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/** Param names every step declares itself — effects may not re-declare them. */
+const RESERVED_STEP_PARAMS: ReadonlySet<string> = new Set(["mix", "enabled", "fade"]);
+
+/**
+ * The effective wet/dry for one step: the mix knob scaled by an enable
+ * envelope that ramps linearly toward enabled∈{0,1} over `fade` seconds
+ * (fade 0 = hard cut). Stateful — the instance's uniform updater pulls it
+ * every frame. The envelope starts AT the current enabled state so a build
+ * never fades in from bypass.
+ */
+export function chainWetSignal(
+  mix: Signal<number>,
+  enabled: Signal<boolean>,
+  fade: Signal<number>,
+): Signal<number> {
+  let env: number | null = null;
+  return new Signal((f) => {
+    const want = enabled.get(f) ? 1 : 0;
+    const fadeS = Number(fade.get(f));
+    if (env == null || fadeS <= 0) env = want;
+    else if (env !== want) {
+      const step = f.dt / fadeS;
+      env = env < want ? Math.min(want, env + step) : Math.max(want, env - step);
+    }
+    return Number(mix.get(f)) * env;
+  });
+}
 
 /**
  * Owns one instance's chain: the live steps, the scene-declared default (for
@@ -200,11 +230,25 @@ export class ChainHost {
       step: 0.01,
       description: `${effectName} wet/dry — 0 bypassed · 1 full`,
     });
+    const enabledParam = ctx.bool(`${prefix}.enabled`, {
+      default: true,
+      description: `${effectName} on/off — disabling fades to bypass over .fade seconds`,
+    });
+    const fadeParam = ctx.float(`${prefix}.fade`, {
+      default: 0,
+      min: 0,
+      max: 8,
+      step: 0.05,
+      description: "enable/disable transition time (seconds)",
+    });
 
     let out: TexNode;
     if (entry.kind === "primitive") {
       const opts: ChainEffectOpts = { input };
       for (const cp of entry.chainParams) {
+        if (RESERVED_STEP_PARAMS.has(cp.name)) {
+          throw new Error(`effect "${effectName}" declares reserved chain param "${cp.name}"`);
+        }
         opts[cp.name] = declareChainParam(ctx, `${prefix}.${cp.name}`, cp).signal();
       }
       out = entry.factory(ctx, opts);
@@ -230,7 +274,9 @@ export class ChainHost {
     // wraps a layer that composites over the rest of the scene: most stdlib
     // effects emit alpha 1, so carrying the INPUT's alpha through keeps the
     // node's silhouette — FX recolor the node instead of going full-frame opaque.
-    const wet = ctx.uniformOf(mixParam.signal());
+    const wet = ctx.uniformOf(
+      chainWetSignal(mixParam.signal(), enabledParam.signal(), fadeParam.signal()),
+    );
     const alpha = this.prefix === "fx" ? 1 : input.color.a;
     return texNode(vec4(mix(input.color.rgb, out.color.rgb, wet), alpha), out.passes);
   }
@@ -269,6 +315,7 @@ export class ChainHost {
         effect: s.effect,
         kind: entry?.kind ?? "primitive",
         mix: typeof s.params.mix === "number" ? s.params.mix : 1,
+        enabled: s.params.enabled !== false,
       };
     });
   }

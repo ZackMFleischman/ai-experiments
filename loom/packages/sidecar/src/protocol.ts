@@ -22,6 +22,7 @@ export const RequestType = z.enum([
   "set_param_range",
   "modulate_param",
   "clear_modulation",
+  "set_modulation_enabled",
   "set_chain",
   "save_chain",
   "preview_effect",
@@ -106,6 +107,14 @@ export const ClearModulationArgs = z.object({
   path: z.string().min(1),
 });
 export type ClearModulationArgs = z.infer<typeof ClearModulationArgs>;
+
+/** Pause/resume a param's modulator without detaching it (the param holds). */
+export const SetModulationEnabledArgs = z.object({
+  instance: z.string().default("live"),
+  path: z.string().min(1),
+  enabled: z.boolean(),
+});
+export type SetModulationEnabledArgs = z.infer<typeof SetModulationEnabledArgs>;
 
 export const CreateInstanceArgs = z.object({
   scene: z.string().min(1),
@@ -367,6 +376,8 @@ export const ModulatorSummary = z.object({
   type: z.string(),
   /** Non-null = detached: eval threw or the param vanished on rebuild. */
   error: z.string().nullable(),
+  /** False = paused (attached but not writing; the param is hand-drivable). */
+  enabled: z.boolean().default(true),
 });
 export type ModulatorSummary = z.infer<typeof ModulatorSummary>;
 
@@ -377,6 +388,8 @@ export const ChainStepInfo = z.object({
   kind: z.enum(["primitive", "composite"]),
   /** Current wet/dry mix 0..1. */
   mix: z.number(),
+  /** The step's on/off toggle (`fx.<id>.enabled`) — off fades to bypass. */
+  enabled: z.boolean().default(true),
 });
 export type ChainStepInfo = z.infer<typeof ChainStepInfo>;
 
@@ -530,6 +543,13 @@ export const ClearModulationResult = z.object({
   cleared: z.boolean(),
 });
 export type ClearModulationResult = z.infer<typeof ClearModulationResult>;
+
+export const SetModulationEnabledResult = z.object({
+  instance: z.string(),
+  path: z.string(),
+  enabled: z.boolean(),
+});
+export type SetModulationEnabledResult = z.infer<typeof SetModulationEnabledResult>;
 
 export const SetChainResult = z.object({
   instance: z.string(),
