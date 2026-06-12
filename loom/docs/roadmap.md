@@ -33,37 +33,16 @@ focused month of evenings.
 | Console React+MUI rebuild (2026-06-11) | cockpit pages on React 19 + MUI 7, EngineLink | all validators |
 | M6 Color & palettes — palette half (2026-06-11) | color param type, global palettes, `ctx.palette`, source switch with no rebuild | `validate:m6` |
 | Console UI redesign (2026-06-11) | cohesive dense cockpit: brand, tap-BPM, "+" tile w/ live previews, drag-reorder, drop-to-commit, agent commit armed by default, resizable drawer, swatch palettes | `validate:m3`/`m4` (updated) |
+| Housekeeping (2026-06-11) | scene cull (hello/pulse-glitch/vinyl), param groups (fireflies/mandelbrot/mandelbloom + value-key migration), 20 s modulator default, double-click instance rename, 2× tiles, whole-top drop-to-go-live zone | `validate:m3`/`m4` (updated), full suite green |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
 
 ## Remaining
 
-### Housekeeping (S) — small items, can land alongside anything
-
-In order (the scene cull comes first — the group pass shouldn't touch scenes
-about to die):
-
-1. **Scene cull:** delete `hello`, `pulse-glitch`, and `vinyl` (keep `pulse`
-   — every validator pins it as its live scene, so it stays as the test
-   workhorse — and `vinyl-zoom`). Dependencies to unwind: m3 asserts `hello`
-   appears in `availableScenes`; the module-authoring/scene-composition
-   skills cite `pulse-glitch` as the `pulseRings` extraction example — sweep
-   docs/skills mentions of the dead scenes (`CATALOG.md` regenerates itself).
-2. **Param-group pass:** go through each surviving scene and rename params to
-   dotted prefixes where grouping helps — the Console already renders
-   `a.b` paths as collapsible accordions (`ParamPanel.tsx`); this is purely a
-   content/ naming refactor.
-3. **Modulator default = 20 s:** the Console mod popover seeds new modulators
-   at 4 beats (`ModPopover.tsx` — rate `"4"`, unit `"beats"`, plus the `|| 4`
-   fallback); change the default to 20 **seconds**. Runtime needs no change
-   (it requires an explicit period).
-4. **Bigger thumbnails:** instance tiles render their preview at 2× the
-   current size.
-
-(Instance rename shipped 2026-06-11: double-click the tile name; human-only
-`rename_instance` command keeps session/stage/selection coherent. `boot` is
-exempt — it's bound to `live.scene.ts` hot-swaps.)
+(Housekeeping leftover: thumbnail capture is still 320×180 — bump
+`engine-api.ts` mirror + `thumbnails()` to the full 640×360 preview res once
+the rename workstream's in-flight engine-api changes land.)
 
 ### Stdlib tests & robustness (M) — unnumbered, can land incrementally
 

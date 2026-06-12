@@ -359,3 +359,14 @@ merging the registry's manifest with the input rack's, routed by path prefix
 - Gates: typecheck, unit tests (+ new stage rename test), full `pnpm validate` green
   (139 checks). Eyes-on: selected-live halo, selected-staged halo, rename end-to-end
   (tile id, stage pointer, drawer header all follow).
+
+## 2026-06-11 — SHIPPED: Housekeeping batch
+
+- Scene cull (hello/pulse-glitch/vinyl; pulse kept as validator workhorse), param groups for
+  fireflies/mandelbrot/mandelbloom with persisted-value key migration, 20 s modulator default
+  (ModPopover seed only — runtime requires an explicit period), 2× tiles (480px columns),
+  whole-top StageDropZone (strip alone was too thin; #stagestrip id kept, validator drags bubble).
+- Gates: typecheck, unit tests (137+24+7), full `pnpm validate` (m0–m6 + modulators) green.
+- Deviation: thumbnail capture stays 320×180 until the rename workstream's engine-api lands
+  (follow-up noted in roadmap). Stumble: a parallel session edited the same console files
+  mid-run — every commit used explicit path lists, no `git add -A`.
