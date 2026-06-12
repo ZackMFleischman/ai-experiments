@@ -30,17 +30,41 @@ const loadOrder = (): string[] => {
  */
 export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreated }: Props) {
   const [order, setOrder] = useState<string[]>(loadOrder);
-  // The "+" tile's in-flight preview instance previews inside that tile —
-  // hide its own grid tile so it doesn't show twice.
-  const [previewId, setPreviewId] = useState<string | null>(null);
+  // The "+" tile's preview instances render inside that tile, never as grid
+  // tiles. Hiding must outlive the preview pointer: a destroyed preview stays
+  // in the session for a state tick or two, and clearing its id immediately
+  // made the dying tile flash in (shifting the whole grid — the flicker).
+  // Spawned ids stay hidden until they leave the session; picking adopts one.
+  // id → "seen in a session snapshot yet". Hidden ids are added at
+  // create-response time, often BEFORE the 10 Hz snapshot includes them —
+  // prune only after seen-then-gone, or fresh ids get unhidden by the race.
+  const hiddenPreviews = useRef<Map<string, boolean>>(new Map());
+  const [, bump] = useState(0);
+  const hidePreview = (id: string) => {
+    hiddenPreviews.current.set(id, false);
+    bump((n) => n + 1);
+  };
+  const adoptPreview = (id: string) => {
+    hiddenPreviews.current.delete(id);
+    bump((n) => n + 1);
+  };
   const dragId = useRef<string | null>(null);
+
+  for (const [id, seen] of hiddenPreviews.current) {
+    const inSession = s.instances.some((i) => i.id === id);
+    if (inSession) {
+      if (!seen) hiddenPreviews.current.set(id, true);
+    } else if (seen) {
+      hiddenPreviews.current.delete(id); // gone for good — ids never repeat
+    }
+  }
 
   const pos = (id: string) => {
     const i = order.indexOf(id);
     return i < 0 ? order.length : i;
   };
   const sorted = [...s.instances]
-    .filter((i) => i.id !== previewId)
+    .filter((i) => !hiddenPreviews.current.has(i.id))
     .sort((a, b) => pos(a.id) - pos(b.id));
 
   const reorderOver = (overId: string) => {
@@ -85,7 +109,12 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
           onReorderOver={reorderOver}
         />
       ))}
-      <NewInstanceTile scenes={s.availableScenes} onCreated={onCreated} onPreview={setPreviewId} />
+      <NewInstanceTile
+        scenes={s.availableScenes}
+        onCreated={onCreated}
+        onPreviewSpawn={hidePreview}
+        onPreviewAdopt={adoptPreview}
+      />
     </Box>
   );
 }

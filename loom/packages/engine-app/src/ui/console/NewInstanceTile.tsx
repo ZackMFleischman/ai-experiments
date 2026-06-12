@@ -1,4 +1,4 @@
-import { Box, ButtonBase, Card, Popover, Typography } from "@mui/material";
+import { Box, ButtonBase, Card, Fade, Popover, Typography } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import { useEngine, useThumb } from "../hooks";
 import { sceneThumb, snapshotScene } from "../scene-thumbs";
@@ -7,8 +7,10 @@ import { fail } from "../util";
 type Props = {
   scenes: string[];
   onCreated: (id: string) => void;
-  /** The in-flight preview instance's id (or null) — the grid hides its tile. */
-  onPreview: (id: string | null) => void;
+  /** A preview instance was created — the grid must hide its tile for good. */
+  onPreviewSpawn: (id: string) => void;
+  /** The human picked this preview — the grid shows its tile from now on. */
+  onPreviewAdopt: (id: string) => void;
 };
 
 /**
@@ -20,7 +22,7 @@ type Props = {
  * never blanks mid-swap. Picking keeps the instance (the tile reverts to "+"),
  * any other close destroys the orphan. Never more than one preview alive.
  */
-export function NewInstanceTile({ scenes, onCreated, onPreview }: Props) {
+export function NewInstanceTile({ scenes, onCreated, onPreviewSpawn, onPreviewAdopt }: Props) {
   const link = useEngine();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -40,12 +42,12 @@ export function NewInstanceTile({ scenes, onCreated, onPreview }: Props) {
   const setPreview = (p: { scene: string; id: string } | null) => {
     preview.current = p;
     setPreviewId(p?.id ?? null);
-    onPreview(p?.id ?? null);
   };
 
   const destroyPreview = () => {
     const p = preview.current;
     setPreview(null);
+    // No grid notification: the id stays hidden while the instance dies.
     if (p) void link.req("destroy_instance", { instance: p.id }).catch(fail);
   };
 
@@ -69,6 +71,7 @@ export function NewInstanceTile({ scenes, onCreated, onPreview }: Props) {
         .req("create_instance", { scene })
         .then((r) => {
           const id = (r as { instance: string }).instance;
+          onPreviewSpawn(id); // hidden from the grid before it can flash in
           // The picker may have closed (or the hover moved on) mid-build.
           if (!openRef.current || hovered.current !== scene) {
             void link.req("destroy_instance", { instance: id }).catch(fail);
@@ -86,6 +89,7 @@ export function NewInstanceTile({ scenes, onCreated, onPreview }: Props) {
       const { id } = preview.current;
       setPreview(null); // hand it to the grid — close() must not destroy it
       close();
+      onPreviewAdopt(id);
       onCreated(id);
       return;
     }
@@ -122,15 +126,31 @@ export function NewInstanceTile({ scenes, onCreated, onPreview }: Props) {
           "&:hover": { color: "primary.main", borderColor: "primary.main" },
         }}
       >
-        {/* Same geometry as a real tile: 16/9 face + slim name row. */}
-        <Box sx={{ aspectRatio: "16/9", position: "relative", bgcolor: open ? "#000" : "transparent" }}>
+        {/* Same geometry as a real tile: 16/9 face + slim name row. The
+            snapshot sits underneath and the live stream fades in over it, so
+            a build's first (possibly dark) frame never pops. */}
+        <Box sx={{ aspectRatio: "16/9", position: "relative", bgcolor: open ? "#000" : "transparent", overflow: "hidden" }}>
           {open && showing != null ? (
-            <Box
-              component="img"
-              src={showing}
-              alt=""
-              sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
+            <>
+              {snap != null && (
+                <Box
+                  component="img"
+                  src={snap}
+                  alt=""
+                  sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              )}
+              {live != null && (
+                <Fade in appear timeout={250} key={previewId ?? "none"}>
+                  <Box
+                    component="img"
+                    src={live}
+                    alt=""
+                    sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                </Fade>
+              )}
+            </>
           ) : (
             <Box
               sx={{
