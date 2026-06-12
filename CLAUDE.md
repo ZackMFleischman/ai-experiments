@@ -39,6 +39,7 @@ pnpm validate:m5        # M5 acceptance: input rack, globals manifest, persisten
 pnpm validate:m6        # M6 acceptance: palettes retint live, source switch with no rebuild
 pnpm validate:layers    # Layers acceptance: ctx.layer nodes, rig rides with no rebuild, per-node chains
 pnpm validate:projects  # Projects acceptance: set-list save/load round-trip, audience-safe load, deferred cull
+pnpm validate:m9        # M9 acceptance: video sources play/freeze/scrub/loop live, media middleware (Range/roots)
 pnpm validate:modulators # param-modulator acceptance: attach/clear via MCP, FR-4/5/7/10 behavior
 pnpm validate:stdlib    # tier-3 smoke render: every module hot-swapped in, non-black + clean console
 ```

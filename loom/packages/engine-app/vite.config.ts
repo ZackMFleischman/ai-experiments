@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, normalize, sep } from "node:path";
+import { createReadStream, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
@@ -103,6 +103,91 @@ const stateApi: Plugin = {
   },
 };
 
+// External media (M9): GET /loom/media?p=<absolute path> streams a file that
+// lives OUTSIDE the repo (a VJ-assets folder), with HTTP Range support —
+// HTMLVideoElement seeks need 206 responses. Confined to the roots registered
+// in content/state/media-roots.json (read per request, hot-editable); anything
+// else is 403. M10's asset explorer grows on this same registration.
+const MEDIA_TYPES = {
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mov": "video/quicktime",
+  ".m4v": "video/x-m4v",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+};
+const mediaApi: Plugin = {
+  name: "loom:media",
+  configureServer(server) {
+    const rootsFile = fileURLToPath(new URL("../../content/state/media-roots.json", import.meta.url));
+    server.middlewares.use("/loom/media", (req, res) => {
+      if (req.method !== "GET") {
+        res.statusCode = 405;
+        res.end();
+        return;
+      }
+      const p = new URL(req.url ?? "", "http://x").searchParams.get("p");
+      if (!p) {
+        res.statusCode = 400;
+        res.end("missing ?p=<absolute path>");
+        return;
+      }
+      const file = normalize(p);
+      let roots: string[] = [];
+      try {
+        roots = (JSON.parse(readFileSync(rootsFile, "utf8")) as { roots?: string[] }).roots ?? [];
+      } catch {
+        // no registration file -> nothing is served
+      }
+      const fl = file.toLowerCase();
+      const allowed = roots.some((r) => {
+        const n = normalize(r).toLowerCase().replace(/[\\/]+$/, "");
+        return fl === n || fl.startsWith(n + sep);
+      });
+      if (!allowed) {
+        res.statusCode = 403;
+        res.end("path is not under a registered media root (content/state/media-roots.json)");
+        return;
+      }
+      let st;
+      try {
+        st = statSync(file);
+        if (!st.isFile()) throw new Error("not a file");
+      } catch {
+        res.statusCode = 404;
+        res.end("no such file");
+        return;
+      }
+      res.setHeader("accept-ranges", "bytes");
+      res.setHeader(
+        "content-type",
+        MEDIA_TYPES[extname(file).toLowerCase() as keyof typeof MEDIA_TYPES] ?? "application/octet-stream",
+      );
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? "");
+      if (range) {
+        const start = range[1] ? Number(range[1]) : 0;
+        const end = range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1;
+        if (Number.isNaN(start) || start > end || start >= st.size) {
+          res.statusCode = 416;
+          res.setHeader("content-range", `bytes */${st.size}`);
+          res.end();
+          return;
+        }
+        res.statusCode = 206;
+        res.setHeader("content-range", `bytes ${start}-${end}/${st.size}`);
+        res.setHeader("content-length", String(end - start + 1));
+        createReadStream(file, { start, end }).pipe(res);
+        return;
+      }
+      res.setHeader("content-length", String(st.size));
+      createReadStream(file).pipe(res);
+    });
+  },
+};
+
 // State directory listing (Projects): GET /loom/state-list/<dir> returns the
 // JSON basenames under content/state/<dir>/ — the project switcher's source of
 // truth, so a project file dropped in via git shows up too.
@@ -190,7 +275,7 @@ const effectsApi: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [watchContent, buildCatalog, stateApi, stateListApi, effectsApi],
+  plugins: [watchContent, buildCatalog, stateApi, stateListApi, mediaApi, effectsApi],
   // Multi-page production build for the static preview deploy (Cloudflare Pages):
   // the Output window (/), the Console cockpit (/console.html), and the staged
   // preview (/staged.html) all ship so the preview is "view + tweak", not just a

@@ -62,6 +62,7 @@ async function pageLum(page, savePath) {
 // ---- per-module sandbox scenes ----------------------------------------------
 
 const ASSET = `new URL("../assets/hippos/hippo1.png", import.meta.url).href`;
+const CLIP = `new URL("../assets/test/clip.mp4", import.meta.url).href`;
 
 /** Module-specific build opts (everything else builds with {}). */
 const SOURCE_OPTS = {
@@ -69,6 +70,7 @@ const SOURCE_OPTS = {
   spriteSwarm: `{ url: ${ASSET}, cols: 3, rows: 2 }`,
   pulseRings: `{ energy: ctx.input("kick") }`,
   noodles: `{ energy: ctx.input("kick") }`,
+  video: `{ url: ${CLIP} }`,
 };
 const EFFECT_EXTRA = {
   over: `, overlay: osc(ctx, { freq: 3, offset: 0.3 })`,

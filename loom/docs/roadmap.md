@@ -40,6 +40,7 @@ focused month of evenings.
 | M6 Chains half (2026-06-12) | per-instance FX chains (`set_chain`/`save_chain`), wet/dry mix as a bindable param, insert/reorder, scene-default + restore, saved-chain composites | `validate:m6` (chain checks) |
 | Layers (2026-06-11) | `ctx.layer(name, tex)` named nodes: uniform-driven rigs (`<name>.layer.*`, no rebuild), per-node FX chains (`set_chain {node}`, `<name>.fx.*`), `nodes` in manifests, Console node tree, scenes wrapped | `validate:layers` |
 | Projects (2026-06-11) | set lists: save/load named instance sets (values, modulators, root + node chains, tile order) to `content/state/projects/`; audience-safe load (sandboxes, deferred cull after commit); MCP list/save/load (agent save arming-gated); Console switcher + save dialog | `validate:projects` |
+| M9 Video sources (2026-06-11) | `video` module (speed/scrub/loop as Signals, muted, image-parity placement), `loom:media` middleware (Range/206, registered roots in `media-roots.json`), `beeple-wall` scene on real VJ clips | `validate:m9` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
@@ -70,15 +71,6 @@ declare a default `chain` and `restoreDefault` resets to it. Output types formal
 (`ModuleOutput`, `ChainableEffect`); `glitch`/`feedback`/`levels` carry `chainParams`.
 M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
 snapshot/restore across reload stays M9.
-
-### M9 — Video sources (S) *(moved ahead of Geo: zero dependencies, immediate material)*
-
-**Goal:** video clips are usable exactly the way images are.
-
-- `video` source module mirroring `sources/image.ts`: file path in, `HTMLVideoElement` → texture out as a TexNode, with `loop`/`speed`/`scrub` (and mute-by-default audio) as params.
-- Accepted everywhere an image is: same cover/fit scaling, same param surface, same catalog entry shape — a scene swaps `image` for `video` and nothing else changes.
-
-**Shipped when:** a scene plays a looping clip as its source, `set_param` scrubs/retimes it live, and the M4 cover-scaling checks pass against a video source. (`validate:m9`)
 
 ### Fixtures — deterministic input traces (S) *(pulled out of M11; everything downstream wants them)*
 

@@ -172,7 +172,11 @@ a failed rebuild (including future chain edits) keeps the previous pixels.
 lists a state directory), saves debounced engine-side. Per-scene values
 reapply on create/rebuild (NFR-5's "params reapplied from tuned state").
 `?state=off` disables ambient load+save — all validators boot with it except m5
-and projects, which test persistence. Projects (set lists) are explicit save/
+and projects, which test persistence. `media-roots.json` registers directories
+OUTSIDE the repo (a VJ-assets folder) that the `loom:media` middleware may
+stream (`GET /loom/media?p=<abs path>`, HTTP Range/206 for video seeking, 403
+outside the roots; read per request, so edits apply without a restart) —
+`mediaUrl(absPath)` in `content/modules/sources/video.ts` builds the URL. Projects (set lists) are explicit save/
 load actions through `ProjectStore` (engine-app): serialize the instance set
 (values, modulators, root + per-node chains, tile order, live pointer); loading
 builds sandboxes via `SessionStore.create`'s init seed (chains fold into build
@@ -247,7 +251,9 @@ per shipped milestone, kept green forever: `m0` (HMR/never-go-black), `m1`
 (palettes), `layers` (named nodes: rig rides with no rebuild, per-node chains,
 NFR-5 on a throwing node step, Console node tree), `projects` (set lists:
 save/mutate/load round-trip with LIVE untouched, deferred cull, restart
-survival, agent-save gating), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
+survival, agent-save gating), `m9` (video: play/freeze/scrub/loop with no
+rebuild, cover scaling on a video source, media middleware), `modulators`, and
+`stdlib` — the tier-3 smoke render: every module is
 mounted in a generated sandbox scene (sources direct, effects over an `osc`,
 controls driving an osc param), hot-swapped in via the `live.scene.ts` pin, and
 must render non-black with a clean console and no NFR-2 freeze.

@@ -18,6 +18,7 @@
 - **osc** — Scrolling sinusoidal stripes with optional RGB phase offset. `osc(ctx, { freq: 10, sync: 0.25, offset: 0.1 })` _[pattern, stripes, classic]_
 - **pulseRings** — Concentric ink rings in a soft core with a teal-to-magenta glow palette. `pulseRings(ctx, { energy: kickEnv, hue: lfo(ctx, { periodBeats: 16 }) })` _[rings, radial, audio-reactive, ink]_
 - **spriteSwarm** — Many flying sprites from a single atlas texture (runtime count, one sampler). `spriteSwarm(ctx, { url: atlasUrl, cols: 3, rows: 2, maxCount: 18, count: amountSig })` _[sprites, atlas, particles, overlay, fun]_
+- **video** — A video clip drawn aspect-correct like image, with live speed/scrub/loop control (muted). `video(ctx, { url: mediaUrl("C:/VJ/clip.mp4"), speed: speedParam.signal() })` _[video, clip, media, texture, base]_
 
 ### effect
 - **colorize** — Luminance-to-color mapping through animatable cosine palettes (PALETTES presets). `colorize(ctx, { input: src, palette: driftSig, bands: 2, shift: 0.1 })` _[color, palette, gradient, grade]_
@@ -34,6 +35,7 @@
 
 ## Scenes (`content/scenes/`)
 
+- **beeple-wall** — Beeple's golden city under a kaleidoscope-folded tunnel loop — two live video decks with speed/scrub on faders and the kick punching the levels. params: city.speed, city.scrubbing, city.scrub, tunnel.speed, tunnel.opacity, tunnel.segments, punch _[video, media, beeple, kaleidoscope, audio-reactive]_
 - **fireflies** — Drifting multicolored fireflies that twinkle at their own rates and flare on the kick. params: glow, swarm.size, swarm.speed, blink.twinkle, blink.sparkle, swarm.variety, flare, fx.glitch, swarm.count, fx.trail _[particles, sparkle, audio-reactive, ambient]_
 - **gradient** — Scrolling horizontal gradient across the active palette's five stops. params: speed _[palette, gradient, minimal]_
 - **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
