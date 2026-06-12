@@ -31,30 +31,37 @@ describe("Param.setNormalized", () => {
   });
 });
 
-describe("Param.step", () => {
+describe("Param.cycle", () => {
   it("advances an int and wraps max back to min", () => {
     const m = new Manifest();
-    const p = m.int("source", { default: 1, min: 0, max: 2 });
-    p.step();
-    expect(p.value).toBe(2);
-    p.step();
-    expect(p.value).toBe(0); // wrap
+    const p = m.int("source", { default: 2, min: 1, max: 3 });
+    p.cycle();
+    expect(p.value).toBe(3);
+    p.cycle();
+    expect(p.value).toBe(1); // wrap to min
   });
 
   it("flips bools", () => {
     const m = new Manifest();
     const p = m.bool("on", { default: false });
-    p.step();
+    p.cycle();
     expect(p.value).toBe(true);
-    p.step();
+    p.cycle();
     expect(p.value).toBe(false);
   });
 
   it("holds floats (cycle has no honest float semantics)", () => {
     const m = new Manifest();
     const p = m.float("punch", { default: 1.2, min: 0, max: 3 });
-    p.step();
+    p.cycle();
     expect(p.value).toBe(1.2);
+  });
+
+  it("holds colors (cycle has no honest color semantics)", () => {
+    const m = new Manifest();
+    const p = m.color("tint", { default: "#ff0000" });
+    p.cycle();
+    expect(p.value).toBe("#ff0000");
   });
 });
 

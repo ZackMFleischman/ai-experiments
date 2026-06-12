@@ -87,8 +87,10 @@ export class Param<T> {
   /**
    * One button press (cycle-mode bindings): ints advance and wrap max→min,
    * bools flip, floats/colors hold — a float has no honest "next" value.
+   * Advances by exactly 1 regardless of the spec's declared `step` field
+   * (that field is a slider UI hint, not a cycle increment).
    */
-  step(): void {
+  cycle(): void {
     if (this.type === "bool") {
       this.set(!(this.v as boolean) as unknown as T);
       return;
