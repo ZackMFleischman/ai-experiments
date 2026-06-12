@@ -39,6 +39,7 @@ focused month of evenings.
 | Stdlib tests & robustness (2026-06-11) | headless content/ test root (real BuildCtx + probe uniforms), tier-1 contract + tier-2 extremes sweeps over all 22 modules, golden-pattern scans (caught 2 scenes re-detecting kick), broken-module self-test, tier-3 smoke render | `pnpm test:content` (144 tests) + `validate:stdlib` |
 | M6 Chains half (2026-06-12) | per-instance FX chains (`set_chain`/`save_chain`), wet/dry mix as a bindable param, insert/reorder, scene-default + restore, saved-chain composites | `validate:m6` (chain checks) |
 | Layers (2026-06-11) | `ctx.layer(name, tex)` named nodes: uniform-driven rigs (`<name>.layer.*`, no rebuild), per-node FX chains (`set_chain {node}`, `<name>.fx.*`), `nodes` in manifests, Console node tree, scenes wrapped | `validate:layers` |
+| Projects (2026-06-11) | set lists: save/load named instance sets (values, modulators, root + node chains, tile order) to `content/state/projects/`; audience-safe load (sandboxes, deferred cull after commit); MCP list/save/load (agent save arming-gated); Console switcher + save dialog | `validate:projects` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
@@ -69,33 +70,6 @@ declare a default `chain` and `restoreDefault` resets to it. Output types formal
 (`ModuleOutput`, `ChainableEffect`); `glitch`/`feedback`/`levels` carry `chainParams`.
 M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
 snapshot/restore across reload stays M9.
-
-### Projects — set lists (S/M) *(new 2026-06-11: save/load named instance sets; serializes Layers' per-node chain map)*
-
-**Goal:** prep a set at home, walk it at the gig.
-
-- A **project** = the serialized instance set: `{name, scene, per-instance tuned
-  values, modulators, chain, tile order}` (+ optionally which one is live), saved
-  as plain JSON to `content/state/projects/<name>.json` through the existing
-  state middleware — set lists live in git like all tuned state (NFR-4). Lands
-  right after chains so chains serialize from day one.
-- **Audience-safe load**: loading builds every project instance into sandboxes
-  and never touches LIVE — current output keeps playing until a commit from the
-  newly loaded set; replaced instances cull afterwards. Same trust model as
-  staging: loading is free, only commit changes pixels.
-- **Per-instance values override the per-scene tuned defaults** at load — two
-  differently-tuned `lava` instances can coexist in one project (today's
-  `content/state/values/<scene>.json` is one global tuning per scene).
-- Console: save / load / switcher (header or "+"-tile vicinity).
-  `01-opener`-style naming IS the v1 set list; a real next/prev ordering only if
-  walking it feels clunky in practice.
-- M12's session snapshot/restore builds ON this: crash recovery = autosave of an
-  implicit `_session` project — one serialization path, not two.
-
-**Shipped when:** save → mutate the session → load restores instances, values,
-modulators, chains and tile order with LIVE pixels untouched throughout; projects
-survive restart; agents can list/load via MCP (save is human-gated like commit).
-(`validate:projects`)
 
 ### M9 — Video sources (S) *(moved ahead of Geo: zero dependencies, immediate material)*
 

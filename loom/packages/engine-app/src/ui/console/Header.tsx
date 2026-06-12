@@ -1,4 +1,16 @@
-import { Box, Button, ButtonGroup, NativeSelect, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  ButtonGroup,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  NativeSelect,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import type { PanicMode, SessionSnapshot } from "@loom/sidecar/protocol";
 import { useEngine } from "../hooks";
@@ -55,6 +67,7 @@ export function Header({ session: s, onToggleRack }: Props) {
       <AudioPicker session={s} />
       <MidiStatus midi={s.midi} />
       <Button onClick={onToggleRack} title="input rack (i)">RACK</Button>
+      <ProjectsControl session={s} />
       <Box sx={{ flex: 1 }} />
       <Typography id="fps" title="render rate · frame counter" sx={{ fontFamily: mono, fontSize: 14, fontWeight: 700 }}>
         {s.fps.toFixed(0)}
@@ -70,6 +83,85 @@ export function Header({ session: s, onToggleRack }: Props) {
       </Button>
       <PanicControls session={s} />
     </Stack>
+  );
+}
+
+/**
+ * Projects — set lists: load a saved set (audience-safe: sandboxes only, LIVE
+ * keeps playing until you commit from the loaded set) and save the current one
+ * (in tile order). The select reflects the engine's cached project list.
+ */
+function ProjectsControl({ session: s }: { session: SessionSnapshot }) {
+  const link = useEngine();
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [name, setName] = useState("");
+
+  const load = (n: string) => {
+    if (!n) return;
+    void link.req("load_project", { name: n }).catch(fail);
+  };
+  const save = () => {
+    const n = name.trim();
+    if (!n) return;
+    let tileOrder: string[] = [];
+    try {
+      tileOrder = JSON.parse(localStorage.getItem("loom.tileorder") ?? "[]") as string[];
+    } catch {
+      // engine (creation) order is a fine fallback
+    }
+    void link
+      .req("save_project", { name: n, tileOrder })
+      .then(() => {
+        setSaveOpen(false);
+        setName("");
+      })
+      .catch(fail);
+  };
+
+  return (
+    <>
+      <NativeSelect
+        value=""
+        inputProps={{ id: "projects", title: "load a saved project — sandboxes only, LIVE keeps playing" }}
+        onChange={(e) => load(e.target.value)}
+        sx={{ fontSize: 12 }}
+      >
+        <option value="" disabled>
+          {s.projects.length > 0 ? "load project…" : "(no projects)"}
+        </option>
+        {s.projects.map((p) => (
+          <option key={p} value={p}>{p}</option>
+        ))}
+      </NativeSelect>
+      <Button id="projsave" title="save the current instance set as a project" onClick={() => setSaveOpen(true)}>
+        ⌑ save set
+      </Button>
+      <Dialog open={saveOpen} onClose={() => setSaveOpen(false)}>
+        <DialogTitle sx={{ fontSize: 16 }}>Save project</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            size="small"
+            margin="dense"
+            label='name (e.g. "01-opener")'
+            fullWidth
+            value={name}
+            inputProps={{ id: "projname" }}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+            }}
+            helperText="writes content/state/projects/<name>.json — set lists live in git"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaveOpen(false)}>cancel</Button>
+          <Button id="projsaveok" onClick={save} variant="contained" disabled={name.trim() === ""}>
+            save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 

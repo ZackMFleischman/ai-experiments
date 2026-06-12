@@ -40,6 +40,9 @@ export const RequestType = z.enum([
   "arm_agent_commit",
   "midi_learn",
   "midi_unbind",
+  "list_projects",
+  "save_project",
+  "load_project",
 ]);
 export type RequestType = z.infer<typeof RequestType>;
 
@@ -170,6 +173,46 @@ export type ArmPanicModeArgs = z.infer<typeof ArmPanicModeArgs>;
 /** Designate which existing instance the SAFE SCENE panic cuts to (Console). */
 export const SetPanicInstanceArgs = z.object({ instance: z.string().min(1) });
 export type SetPanicInstanceArgs = z.infer<typeof SetPanicInstanceArgs>;
+
+/**
+ * Projects — set lists (serialized instance sets in content/state/projects/).
+ * Saving captures the current set; agent saves are arming-gated like commit.
+ * Loading builds every project instance into sandboxes and NEVER touches LIVE.
+ */
+export const SaveProjectArgs = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(60)
+    .regex(/^[a-z0-9][a-z0-9_-]*$/i, "letters, digits, - and _ (must start alphanumeric)"),
+  /** Console-supplied tile order; omitted = engine (creation) order. */
+  tileOrder: z.array(z.string()).optional(),
+});
+export type SaveProjectArgs = z.infer<typeof SaveProjectArgs>;
+
+export const LoadProjectArgs = z.object({ name: z.string().min(1) });
+export type LoadProjectArgs = z.infer<typeof LoadProjectArgs>;
+
+export const SaveProjectResult = z.object({
+  saved: z.string(),
+  /** Repo-relative path of the written project file. */
+  path: z.string(),
+  instances: z.number().int(),
+});
+export type SaveProjectResult = z.infer<typeof SaveProjectResult>;
+
+export const LoadProjectResult = z.object({
+  loaded: z.string(),
+  /** Created instance ids, in project tile order. */
+  created: z.array(z.string()),
+  skipped: z.array(z.object({ id: z.string(), scene: z.string(), reason: z.string() })),
+  /** LIVE is untouched by a load — always reported so agents see it held. */
+  live: z.string().nullable(),
+});
+export type LoadProjectResult = z.infer<typeof LoadProjectResult>;
+
+export const ListProjectsResult = z.object({ projects: z.array(z.string()) });
+export type ListProjectsResult = z.infer<typeof ListProjectsResult>;
 
 export const TransportArgs = z.object({
   bpm: z.number().positive().optional(),
@@ -339,6 +382,8 @@ export const SessionSnapshot = z.object({
   availableScenes: z.array(z.string()),
   /** Chainable effects for the "+ effect" picker and `set_chain` (M6). */
   availableEffects: z.array(EffectInfo),
+  /** Saved project names (Projects switcher) — engine-cached, refreshed on list/save/load. */
+  projects: z.array(z.string()).default([]),
   // World
   audioMode: z.string(),
   audioDevices: z.array(AudioDevice),

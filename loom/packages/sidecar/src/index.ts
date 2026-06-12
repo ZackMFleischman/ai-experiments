@@ -11,8 +11,10 @@ import {
   CreateInstanceArgs,
   DEFAULT_WS_PORT,
   InstanceArgs,
+  LoadProjectArgs,
   ModulateParamArgs,
   SaveChainArgs,
+  SaveProjectArgs,
   ScreenshotResult,
   SetChainArgs,
   SetParamArgs,
@@ -297,6 +299,44 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: "list_projects",
+    description:
+      "List saved projects (set lists): named instance sets in content/state/projects/. " +
+      "Load one with load_project; the current set saves with save_project.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "save_project",
+    description:
+      "Save the current instance set as a named project: every non-pinned instance's scene, " +
+      "tuned values, modulators, root + per-node FX chains, in tile order, plus which one is " +
+      "live. Writes content/state/projects/<name>.json (plain JSON in git). Gated like " +
+      "commit: needs agent commit armed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Project name (letters, digits, - and _), e.g. \"01-opener\"." },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "load_project",
+    description:
+      "Load a saved project AUDIENCE-SAFELY: every project instance builds into a sandbox " +
+      "tile with its values, modulators and chains restored — LIVE keeps playing untouched. " +
+      "The pre-load instances stick around until a commit from the loaded set lands, then " +
+      "cull automatically. Stage one of the created instances and commit (or ask the human) " +
+      "to walk into the set.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Project name from list_projects." },
+      },
+      required: ["name"],
+    },
+  },
 ] as const;
 
 const server = new Server({ name: "loom", version: "0.2.0" }, { capabilities: { tools: {} } });
@@ -374,6 +414,19 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       case "commit": {
         const result = await broker.request("commit", { ...CommitArgs.parse(args) });
+        return textResult(result);
+      }
+      case "list_projects": {
+        const result = await broker.request("list_projects", {});
+        return textResult(result);
+      }
+      case "save_project": {
+        const result = await broker.request("save_project", { ...SaveProjectArgs.parse(args) });
+        return textResult(result);
+      }
+      case "load_project": {
+        // Loading builds every project instance — give heavy sets headroom.
+        const result = await broker.request("load_project", { ...LoadProjectArgs.parse(args) }, 20_000);
         return textResult(result);
       }
       default:

@@ -144,11 +144,12 @@ try {
   // 1. Tools + session shape.
   const tools = (await client.listTools()).tools.map((t) => t.name).sort();
   check(
-    "MCP exposes the M3 tools (+ modulators)",
+    "MCP exposes the M3 tools (+ modulators, chains, projects)",
     JSON.stringify(tools) ===
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
-        "get_session", "modulate_param", "save_chain", "screenshot", "set_chain", "set_param", "stage", "unstage",
+        "get_session", "list_projects", "load_project", "modulate_param", "save_chain",
+        "save_project", "screenshot", "set_chain", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),
   );

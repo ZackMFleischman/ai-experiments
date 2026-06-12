@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
@@ -103,6 +103,46 @@ const stateApi: Plugin = {
   },
 };
 
+// State directory listing (Projects): GET /loom/state-list/<dir> returns the
+// JSON basenames under content/state/<dir>/ — the project switcher's source of
+// truth, so a project file dropped in via git shows up too.
+const stateListApi: Plugin = {
+  name: "loom:state-list",
+  configureServer(server) {
+    const stateDir = fileURLToPath(new URL("../../content/state", import.meta.url));
+    server.middlewares.use("/loom/state-list/", (req, res) => {
+      if (req.method !== "GET") {
+        res.statusCode = 405;
+        res.end();
+        return;
+      }
+      const dir = decodeURIComponent((req.url ?? "").replace(/^\//, "").split("?")[0]!);
+      if (!/^[a-zA-Z0-9_-]+$/.test(dir)) {
+        res.statusCode = 400;
+        res.end("bad dir name");
+        return;
+      }
+      const full = normalize(join(stateDir, dir));
+      if (!full.startsWith(normalize(stateDir))) {
+        res.statusCode = 400;
+        res.end("bad dir name");
+        return;
+      }
+      let names: string[] = [];
+      try {
+        names = readdirSync(full)
+          .filter((f) => f.endsWith(".json"))
+          .map((f) => f.replace(/\.json$/, ""))
+          .sort();
+      } catch {
+        // no such dir yet — an empty list, not an error
+      }
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify(names));
+    });
+  },
+};
+
 // Saved chains (M6 "save chain as effect"): POST /loom/effects/<name> writes a
 // data-only content/modules/effects/chains/<name>.chain.json that the effects
 // barrel then offers as a composite. Same belt-and-braces as loom:state: JSON
@@ -150,7 +190,7 @@ const effectsApi: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [watchContent, buildCatalog, stateApi, effectsApi],
+  plugins: [watchContent, buildCatalog, stateApi, stateListApi, effectsApi],
   // Multi-page production build for the static preview deploy (Cloudflare Pages):
   // the Output window (/), the Console cockpit (/console.html), and the staged
   // preview (/staged.html) all ship so the preview is "view + tweak", not just a
