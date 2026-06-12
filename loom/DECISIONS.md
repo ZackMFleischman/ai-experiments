@@ -685,3 +685,34 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - **SHIPPED:** 6 geo modules + render3d, mediafs route, frameMs/fps HUD,
   geo-rave + hippo3d scenes (eyes-on stills verified), `validate:m7` 11/11
   incl. FBX hippo render, contract tests grown a geo branch.
+
+## M8 — Particles (2026-06-11)
+
+- **CPU sim over a GPU-instanced pool** (the validation strategy decided at M7):
+  struct-of-arrays state, swap-with-last culling, spawn-debt accumulator,
+  InstancedMesh of unit octahedra with emissive standard material — runs and
+  VALIDATES on the WebGL2 fallback everywhere. TSL-compute is the WebGPU
+  upgrade path (post-v1), behind the same module surface.
+- **Surface sampling via MeshSurfaceSampler**, lazily acquired so async models
+  (the hippo FBX) emit the moment their geometry arrives; sampling happens in
+  the surface's WORLD space, so spinning/scaling the host mesh steers the
+  emission live. Velocity launches along the world normal.
+- **Determinism, hard-won twice**: (1) `instanceMatrix` needs
+  `DynamicDrawUsage` — without it the WebGL backend re-uploaded the buffer
+  only inside the rAF loop, freezing offline fixture passes (giant
+  identity-matrix octahedron as the tell); (2) `MeshSurfaceSampler` defaults
+  to `Math.random` — `setRandomGenerator(seededPrng)` (runtime API,
+  @types/three omits it) makes replays byte-identical (cross-call diff
+  mean=0, max=0). Also: offline fixture stepping now BINDS the destination
+  RT before each renderFrame — destination-sized passes (render3d/transform/
+  rigs) were sizing off the live loop's leftover target.
+- render3d dropped MSAA (resolve also misbehaved outside rAF; full-res live
+  render keeps edges fine).
+- `hippo-swarm` scene IS the flagship prompt on this rig's own model:
+  particles off the hippo's surface, hats driving turbulence
+  (`turbulence: hats × chaos`), kick punching the key light; the validator
+  commits the swarm through a feedback+paletteMap chain via the REAL
+  set_chain. Eyes-on still verified.
+- **SHIPPED:** particleEmitter module + case + stdlib smoke, hippo-swarm
+  scene, `validate:m8` 9/9 (emission, motion, no-rebuild rides, turbulence
+  whip, chain commit, byte-identical fixture replay, frame-time HUD).

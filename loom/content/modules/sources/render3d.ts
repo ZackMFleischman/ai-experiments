@@ -57,8 +57,11 @@ export const render3d = defineModule(
     const ambient = asSignal(opts.ambient ?? 0.6);
     const key = asSignal(opts.key ?? 1.4);
 
-    // Sized to the destination on first render (like transform); MSAA for edges.
-    const rt = new RenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
+    // Sized to the destination on first render (like transform). No MSAA: the
+    // WebGL backend's multisample resolve proved unreliable outside the rAF
+    // loop (frozen pixels in fixture offline passes) — the full-res live
+    // render keeps edges acceptable without it.
+    const rt = new RenderTarget(1, 1, { type: HalfFloatType });
     const destSize = new Vector2();
     const clearColor = new Color();
 

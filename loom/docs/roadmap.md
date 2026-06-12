@@ -43,6 +43,7 @@ focused month of evenings.
 | M9 Video sources (2026-06-11) | `video` module (speed/scrub/loop as Signals, muted, image-parity placement), `loom:media` middleware (Range/206, registered roots in `media-roots.json`), `beeple-wall` scene on real VJ clips | `validate:m9` |
 | Fixtures (2026-06-11) | deterministic input traces: `record_fixture` → `content/state/fixtures/`, `create_instance({inputs:"fixture:…"})` replay, byte-identical `screenshot({frames})` offline pass; TSL `time` banned from content (frame clock only) | `validate:fixtures` |
 | M7 Geo (2026-06-11) | GeoNode/CamNode, box/sphere/torus/orbitCam/`model` (glTF + FBX, hippo verified), `render3d` bridge into the TexNode chain, `mediafs` path-style serving, per-instance frame-time HUD + screenshot fps, geo-rave + hippo3d scenes | `validate:m7` |
+| M8 Particles (2026-06-11) | `particleEmitter`: mesh-surface sampling (seeded — fixture replays byte-identical), CPU sim over a GPU-instanced pool (WebGL2-validatable; TSL compute = post-v1 upgrade), rate/lifetime/turbulence live; `hippo-swarm` flagship scene (hats → turbulence) committed through feedback+paletteMap via set_chain | `validate:m8` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
@@ -73,20 +74,6 @@ declare a default `chain` and `restoreDefault` resets to it. Output types formal
 (`ModuleOutput`, `ChainableEffect`); `glitch`/`feedback`/`levels` carry `chainParams`.
 M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
 snapshot/restore across reload stays M9.
-
-### M8 — Particles (M) *(second half of the old Geo-&-particles L; depends on M7’s `GeoNode`)*
-
-**Goal:** your flagship prompt works.
-
-- `particleEmitter`: mesh-surface sampling (off M7 geometry), GPU-instanced pool via TSL compute, `rate`/`lifetime`/`turbulence` as Signals/Params; pool state under the rebuild-on-change policy.
-- **Validation strategy decided BEFORE work starts**: TSL compute requires
-  WebGPU, and headless Chromium has no WebGPU adapter — today every validator
-  runs the WebGL2 fallback, so `validate:m8` has no automated path as-is. Pick
-  one up front: SwiftShader-backed WebGPU in headless Chromium, a documented
-  headed run on a GPU machine as the gate, or a degraded non-compute fallback
-  path the validator can exercise.
-
-**Shipped when:** *“create a particle generator that spits out particles from the surface of a 3D skull, hats driving turbulence”* → agent builds it in a sandbox tile, you tweak on MIDI, and commit it through a `feedback`+`paletteMap` post chain — via M6’s real `set_chain` mechanism instead of hand-wiring. (`validate:m8`)
 
 ### M10 — Asset explorer (M)
 

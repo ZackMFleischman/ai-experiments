@@ -42,6 +42,7 @@ pnpm validate:projects  # Projects acceptance: set-list save/load round-trip, au
 pnpm validate:m9        # M9 acceptance: video sources play/freeze/scrub/loop live, media middleware (Range/roots)
 pnpm validate:fixtures  # Fixtures acceptance: record/replay input traces, byte-identical screenshot({frames})
 pnpm validate:m7        # M7 acceptance: geo path — gltf/FBX models, orbitCam, render3d bridge, frame-time HUD
+pnpm validate:m8        # M8 acceptance: particles off mesh surfaces, turbulence, chain commit, fixture determinism
 pnpm validate:modulators # param-modulator acceptance: attach/clear via MCP, FR-4/5/7/10 behavior
 pnpm validate:stdlib    # tier-3 smoke render: every module hot-swapped in, non-black + clean console
 ```

@@ -38,6 +38,7 @@
 - **box** — A box mesh (GeoNode) with live spin/tumble/glow/scale — render via render3d. `box(ctx, { size: [1, 1, 1], spin: 0.8, color: "#3fb7f0" })` _[3d, primitive, mesh, geo]_
 - **model** — A glTF/FBX model file as a GeoNode (auto-centered + height-normalized), spin live. `model(ctx, { url: mediaFsUrl(0, "3DModels/Hippo3D/Hippopotamus 3D Model.fbx"), spin: 0.5 })` _[3d, model, gltf, fbx, mesh, geo]_
 - **orbitCam** — An orbiting perspective camera (CamNode) for render3d — radius/height/speed live. `render3d(ctx, { world: torus(ctx, {}), cam: orbitCam(ctx, { radius: 2.5, speed: 0.4 }) })` _[3d, camera, orbit, geo]_
+- **particleEmitter** — Particles emitted from a mesh's surface (rate/lifetime/speed/turbulence live). `particleEmitter(ctx, { surface: hippo, rate: 400, turbulence: ctx.input("hats") })` _[3d, particles, emitter, surface, audio-reactive, geo]_
 - **sphere** — A sphere mesh (GeoNode) with live spin/tumble/glow/scale — render via render3d. `sphere(ctx, { radius: 0.6, glow: kickEnv, color: "#f03fb7" })` _[3d, primitive, mesh, geo]_
 - **torus** — A torus mesh (GeoNode) with live spin/tumble/glow/scale — render via render3d. `torus(ctx, { radius: 0.7, tube: 0.22, tumble: 0.5 })` _[3d, primitive, mesh, geo]_
 
@@ -47,6 +48,7 @@
 - **fireflies** — Drifting multicolored fireflies that twinkle at their own rates and flare on the kick. params: glow, swarm.size, swarm.speed, blink.twinkle, blink.sparkle, swarm.variety, flare, fx.glitch, swarm.count, fx.trail _[particles, sparkle, audio-reactive, ambient]_
 - **geo-rave** — Three primitives — a tumbling torus, a spinning box, a kick-glowing sphere — under an orbiting camera, smeared through video feedback. params: cam.speed, cam.radius, cam.height, world.spin, world.pulse, trail.amount, trail.zoom _[3d, geo, primitives, audio-reactive, feedback]_
 - **gradient** — Scrolling horizontal gradient across the active palette's five stops. params: speed _[palette, gradient, minimal]_
+- **hippo-swarm** — Glowing particles boil off the 3D hippo's hide — hats whip the swarm into turbulence, the kick punches the key light. params: swarm.rate, swarm.lifetime, swarm.chaos, swarm.lift, hippo.spin, punch, cam.speed _[3d, particles, model, hippo, audio-reactive, flagship]_
 - **hippo3d** — The 3D hippo, height-normalized and slowly turning under an orbiting camera, kick punching the key light, feedback smearing the turn. params: hippo.spin, hippo.size, cam.speed, cam.radius, punch, trail _[3d, geo, model, fbx, hippo, audio-reactive]_
 - **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
 - **mandelbloom** — Mandelbrot with a palette-ramped exterior and a kick-blooming garden inside the black interior; flip palette.source to retint everything. params: zoom.dive, zoom.depth, iter, scroll, garden.warp, garden.amount, garden.bloom, rim, fx.trail, fx.glitch _[fractal, palette, audio-reactive, showcase]_
