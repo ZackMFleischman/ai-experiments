@@ -17,6 +17,7 @@
 - **noodles** — Wavy procedural noodle strands (premultiplied alpha) that undulate and slurp on an energy signal. `noodles(ctx, { count: 9, wiggle: 0.05, energy: kickEnv })` _[noodles, strands, organic, pho, audio-reactive, overlay]_
 - **osc** — Scrolling sinusoidal stripes with optional RGB phase offset. `osc(ctx, { freq: 10, sync: 0.25, offset: 0.1 })` _[pattern, stripes, classic]_
 - **pulseRings** — Concentric ink rings in a soft core with a teal-to-magenta glow palette. `pulseRings(ctx, { energy: kickEnv, hue: lfo(ctx, { periodBeats: 16 }) })` _[rings, radial, audio-reactive, ink]_
+- **render3d** — Renders GeoNodes (meshes/models) through a camera into the TexNode chain. `render3d(ctx, { world: [torus(ctx, { spin: 0.6 })], cam: orbitCam(ctx, {}) })` _[3d, bridge, render, scene, stateful]_
 - **spriteSwarm** — Many flying sprites from a single atlas texture (runtime count, one sampler). `spriteSwarm(ctx, { url: atlasUrl, cols: 3, rows: 2, maxCount: 18, count: amountSig })` _[sprites, atlas, particles, overlay, fun]_
 - **video** — A video clip drawn aspect-correct like image, with live speed/scrub/loop control (muted). `video(ctx, { url: mediaUrl("C:/VJ/clip.mp4"), speed: speedParam.signal() })` _[video, clip, media, texture, base]_
 
@@ -33,11 +34,20 @@
 - **pixelate** — Smooth slider-driven mosaic pixelation; free when amount is 0. `pixelate(ctx, { input: src, amount: 0.4 })` _[pixelate, mosaic, retro, stateful]_
 - **transform** — Moves/spins/3D-tilts/scales/mirrors any input as a layer (live Transform). `transform(ctx, { input: src, x: 0.3, scale: 0.5, rotateY: flipSig })` _[transform, 3d, layout, layer, stateful]_
 
+### geo
+- **box** — A box mesh (GeoNode) with live spin/tumble/glow/scale — render via render3d. `box(ctx, { size: [1, 1, 1], spin: 0.8, color: "#3fb7f0" })` _[3d, primitive, mesh, geo]_
+- **model** — A glTF/FBX model file as a GeoNode (auto-centered + height-normalized), spin live. `model(ctx, { url: mediaFsUrl(0, "3DModels/Hippo3D/Hippopotamus 3D Model.fbx"), spin: 0.5 })` _[3d, model, gltf, fbx, mesh, geo]_
+- **orbitCam** — An orbiting perspective camera (CamNode) for render3d — radius/height/speed live. `render3d(ctx, { world: torus(ctx, {}), cam: orbitCam(ctx, { radius: 2.5, speed: 0.4 }) })` _[3d, camera, orbit, geo]_
+- **sphere** — A sphere mesh (GeoNode) with live spin/tumble/glow/scale — render via render3d. `sphere(ctx, { radius: 0.6, glow: kickEnv, color: "#f03fb7" })` _[3d, primitive, mesh, geo]_
+- **torus** — A torus mesh (GeoNode) with live spin/tumble/glow/scale — render via render3d. `torus(ctx, { radius: 0.7, tube: 0.22, tumble: 0.5 })` _[3d, primitive, mesh, geo]_
+
 ## Scenes (`content/scenes/`)
 
 - **beeple-wall** — Beeple's golden city under a kaleidoscope-folded tunnel loop — two live video decks with speed/scrub on faders and the kick punching the levels. params: city.speed, city.scrubbing, city.scrub, tunnel.speed, tunnel.opacity, tunnel.segments, punch _[video, media, beeple, kaleidoscope, audio-reactive]_
 - **fireflies** — Drifting multicolored fireflies that twinkle at their own rates and flare on the kick. params: glow, swarm.size, swarm.speed, blink.twinkle, blink.sparkle, swarm.variety, flare, fx.glitch, swarm.count, fx.trail _[particles, sparkle, audio-reactive, ambient]_
+- **geo-rave** — Three primitives — a tumbling torus, a spinning box, a kick-glowing sphere — under an orbiting camera, smeared through video feedback. params: cam.speed, cam.radius, cam.height, world.spin, world.pulse, trail.amount, trail.zoom _[3d, geo, primitives, audio-reactive, feedback]_
 - **gradient** — Scrolling horizontal gradient across the active palette's five stops. params: speed _[palette, gradient, minimal]_
+- **hippo3d** — The 3D hippo, height-normalized and slowly turning under an orbiting camera, kick punching the key light, feedback smearing the turn. params: hippo.spin, hippo.size, cam.speed, cam.radius, punch, trail _[3d, geo, model, fbx, hippo, audio-reactive]_
 - **lava** — Slow-breathing ink-blob lava lamp; blobs swell and glow on the kick. params: size, breathe, pulse, speed, wobble, trail _[audio-reactive, organic, lava-lamp]_
 - **mandelbloom** — Mandelbrot with a palette-ramped exterior and a kick-blooming garden inside the black interior; flip palette.source to retint everything. params: zoom.dive, zoom.depth, iter, scroll, garden.warp, garden.amount, garden.bloom, rim, fx.trail, fx.glitch _[fractal, palette, audio-reactive, showcase]_
 - **mandelbrot** — Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll. params: zoom.point, zoom.dive, zoom.depth, iter, color.palette, color.drift, color.cycle, color.bands _[fractal, zoom, palette, generative]_

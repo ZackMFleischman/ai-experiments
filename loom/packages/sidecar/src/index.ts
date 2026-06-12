@@ -440,7 +440,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
             { type: "image" as const, data: shot.base64, mimeType: shot.mime },
             {
               type: "text" as const,
-              text: JSON.stringify({ width: shot.width, height: shot.height, frame: shot.frame }),
+              text: JSON.stringify({ width: shot.width, height: shot.height, frame: shot.frame, fps: shot.fps }),
             },
           ],
         };

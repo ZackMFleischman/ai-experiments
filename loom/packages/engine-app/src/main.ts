@@ -868,6 +868,7 @@ const frameTick = (tMs: number): void => {
           width: canvas.width,
           height: canvas.height,
           frame: f.frame,
+          fps: fps.current,
         };
         for (const w of waiting) w.resolve(shot);
       } catch (err) {

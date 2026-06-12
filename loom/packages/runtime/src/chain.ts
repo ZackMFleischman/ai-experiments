@@ -16,8 +16,13 @@ import { texNode, type TexNode } from "./texnode";
  * plus an automatic `fx.<stepId>.mix` wet/dry that bypasses without a rebuild.
  */
 
-/** The three things a module's factory may return (formalized for M6). */
-export type ModuleOutput = TexNode | Signal<unknown> | Events<unknown>;
+/** What a module's factory may return (formalized for M6; Geo/Cam joined in M7). */
+export type ModuleOutput =
+  | TexNode
+  | Signal<unknown>
+  | Events<unknown>
+  | import("./geo").GeoNode
+  | import("./geo").CamNode;
 
 /** Opts every chainable effect accepts: an `input` TexNode plus signal knobs. */
 export interface ChainEffectOpts {

@@ -138,6 +138,14 @@ through a registered uniform updater that runs each frame (`BuildCtx.uniformOf`)
   silhouette. Explicit-only: unwrapped nodes cost nothing. `get_manifest` and
   `get_session` carry `nodes: [{id, parent, chain}]`; the Console renders node
   groups with per-node "+ effect".
+- Geo (M7): `GeoNode` (`{object: Object3D}`) and `CamNode` (`{camera}`) join
+  `ModuleOutput` — geo modules (content/modules/geo/) return scene-graph
+  fragments animated through `ctx.updaters` (frame-clock). The `render3d`
+  bridge (a source) owns Scene + lights + an MSAA RT and renders world+cam
+  into the TexNode chain; `model` loads glTF/FBX with materials normalized to
+  MeshStandardMaterial (loader-specific materials can throw in the backend).
+  `Instance.frameMs` (EMA CPU submit cost) is the per-instance frame-time HUD
+  (get_session, Console tiles); screenshot metadata carries fps.
 - Fixtures: deterministic input traces. `record_fixture` writes the rack's
   post-detector values (one row per frame, plus bpm) to
   `content/state/fixtures/<name>.json`; `create_instance({inputs:
@@ -265,7 +273,8 @@ save/mutate/load round-trip with LIVE untouched, deferred cull, restart
 survival, agent-save gating), `m9` (video: play/freeze/scrub/loop with no
 rebuild, cover scaling on a video source, media middleware), `fixtures`
 (record/replay determinism: byte-identical screenshots across calls and
-instances), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
+instances), `m7` (geo: gltf sandbox → orbit → post chain → commit, frame-time
+HUD; FBX checks where the local asset exists), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
 mounted in a generated sandbox scene (sources direct, effects over an `osc`,
 controls driving an osc param), hot-swapped in via the `live.scene.ts` pin, and
 must render non-black with a clean console and no NFR-2 freeze.

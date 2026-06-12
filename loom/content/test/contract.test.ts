@@ -1,4 +1,4 @@
-import { Signal, type TexNode } from "@loom/runtime";
+import { isCamNode, isGeoNode, Signal, type TexNode } from "@loom/runtime";
 import { describe, expect, it } from "vitest";
 import { buildCase, CASES } from "./cases";
 import { discoverModules, preservesInputPasses, type ModuleFolder } from "./harness";
@@ -14,6 +14,7 @@ const FOLDER_KIND: Record<ModuleFolder, string> = {
   control: "control",
   sources: "source",
   effects: "effect",
+  geo: "geo",
 };
 
 describe("stdlib discovery", () => {
@@ -54,6 +55,11 @@ describe.each(modules)("tier-1 contract: $name", (d) => {
     const { out } = buildCase(d);
     if (d.factory.meta.kind === "control") {
       expect(out).toBeInstanceOf(Signal);
+      return;
+    }
+    if (d.factory.meta.kind === "geo") {
+      // Geo modules return scene-graph fragments (GeoNode) or camera rigs (CamNode).
+      expect(isGeoNode(out) || isCamNode(out), "geo modules return a GeoNode or CamNode").toBe(true);
       return;
     }
     const tex = out as TexNode;

@@ -81,10 +81,63 @@ const CONTROL_OPTS = {
   lfo: `{ shape: "sine", periodBeats: 2 }`,
 };
 // Sparse/dark-by-design modules get a lower luminance bar (still non-black).
-const MIN_LUM = { fireflies: 0.2, spriteSwarm: 0.2, image: 0.2, noodles: 0.2, flyby: 0.5 };
+const MIN_LUM = {
+  fireflies: 0.2,
+  spriteSwarm: 0.2,
+  image: 0.2,
+  noodles: 0.2,
+  flyby: 0.5,
+  // Geo: one lit mesh over a transparent background — most of the frame is dark.
+  box: 0.5,
+  sphere: 0.5,
+  torus: 0.5,
+  orbitCam: 0.5,
+  model: 0.5,
+  render3d: 0.5,
+};
+
+/** Geo modules mount through the render3d bridge under an orbiting camera. */
+const GEO_WORLD = {
+  box: `box(ctx, { spin: 0.6, color: "#3fb7f0" })`,
+  sphere: `sphere(ctx, { color: "#f0b73f" })`,
+  torus: `torus(ctx, { tumble: 0.5, color: "#b73ff0" })`,
+  // orbitCam's own smoke orbits a box; model loads the committed test cube.
+  orbitCam: `box(ctx, { color: "#3ff0b7" })`,
+  model: `model(ctx, { url: new URL("../assets/test/cube.glb", import.meta.url).href, spin: 0.4 })`,
+};
 
 function sceneSource(folder, name) {
   const scene = `smoke-${name}`;
+  if (folder === "geo") {
+    const needsModel = name === "model";
+    const world = GEO_WORLD[name] ?? `box(ctx, {})`;
+    return `import { defineScene } from "@loom/runtime";
+import { box } from "../modules/geo/box";
+${name !== "box" && name !== "orbitCam" && !needsModel ? `import { ${name} } from "../modules/geo/${name}";` : ""}
+${needsModel ? `import { model } from "../modules/geo/model";` : ""}
+import { orbitCam } from "../modules/geo/orbitCam";
+import { render3d } from "../modules/sources/render3d";
+export default defineScene({
+  name: "${scene}",
+  build(ctx) {
+    return render3d(ctx, { world: ${world}, cam: orbitCam(ctx, { speed: 0.7 }) });
+  },
+});
+`;
+  }
+  if (name === "render3d") {
+    return `import { defineScene } from "@loom/runtime";
+import { box } from "../modules/geo/box";
+import { orbitCam } from "../modules/geo/orbitCam";
+import { render3d } from "../modules/sources/render3d";
+export default defineScene({
+  name: "${scene}",
+  build(ctx) {
+    return render3d(ctx, { world: box(ctx, { spin: 0.6 }), cam: orbitCam(ctx, { speed: 0.7 }) });
+  },
+});
+`;
+  }
   if (folder === "control") {
     return `import { Signal, defineScene } from "@loom/runtime";
 import { ${name} } from "../modules/control/${name}";
@@ -123,9 +176,12 @@ export default defineScene({
 
 function discoverModules() {
   const out = [];
-  for (const folder of ["control", "sources", "effects"]) {
+  for (const folder of ["control", "sources", "effects", "geo"]) {
     for (const file of readdirSync(join(MODULES_DIR, folder))) {
-      if (file.endsWith(".ts")) out.push({ folder, name: file.replace(/\.ts$/, "") });
+      // _-prefixed files are shared helpers, not modules.
+      if (file.endsWith(".ts") && !file.startsWith("_")) {
+        out.push({ folder, name: file.replace(/\.ts$/, "") });
+      }
     }
   }
   return out;
