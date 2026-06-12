@@ -41,6 +41,16 @@ export interface Entry {
   pinned?: "panic";
 }
 
+/** Optional creation-time seed (Projects): chains/values fold into build #1. */
+export interface InstanceInit {
+  /** Root chain steps (overrides the scene's default chain). */
+  chain?: ChainStepInput[];
+  /** Per-node chain steps keyed by layer-node id. */
+  nodeChains?: Record<string, ChainStepInput[]>;
+  /** Per-instance tuned values, applied OVER the per-scene tuned defaults. */
+  values?: Record<string, number | boolean | string>;
+}
+
 export function entryStatus(e: Entry): InstanceStatus {
   if (e.instance.error != null) return "frozen";
   if (e.lastUpdateRejected) return "rejected";
@@ -65,12 +75,19 @@ export class SessionStore {
     private readonly tunedValues?: (scene: string) => Record<string, number | boolean | string> | undefined,
   ) {}
 
-  create(def: SceneDef, id?: string): Entry {
+  create(def: SceneDef, id?: string, init?: InstanceInit): Entry {
     const finalId = id ?? `${def.name}-${++this.counter}`;
     if (this.entries.has(finalId)) throw new Error(`instance "${finalId}" already exists`);
     const chain = new ChainHost(this.effects);
     chain.seed(def.chain); // scene-declared default chain (M6)
+    if (init?.chain) chain.steps = chain.plan(init.chain); // project-restored chain (defaults stay the scene's)
     const nodeChains = new Map<string, ChainHost>();
+    for (const [node, steps] of Object.entries(init?.nodeChains ?? {})) {
+      const host = new ChainHost(this.effects, `${node}.fx`);
+      host.seed([]);
+      host.steps = host.plan(steps);
+      nodeChains.set(node, host);
+    }
     const instance = buildInstance(
       def,
       this.buses,
@@ -79,6 +96,15 @@ export class SessionStore {
     );
     this.applyTuned(instance, def.name);
     chain.applyValues(instance.manifest);
+    for (const host of nodeChains.values()) host.applyValues(instance.manifest);
+    // Per-instance values (Projects) override the per-scene tuned defaults.
+    for (const [path, v] of Object.entries(init?.values ?? {})) {
+      try {
+        instance.manifest.get(path)?.set(v);
+      } catch {
+        // a persisted value that no longer fits — keep the default
+      }
+    }
     const entry: Entry = {
       id: finalId,
       sceneName: def.name,

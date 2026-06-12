@@ -34,10 +34,10 @@ was made, grep `DECISIONS.md`.
   `commit()` (frame-boundary crossfade; PANIC holds the last frame and cancels
   fades). Instances render exactly once per frame to a directive-chosen destination
   (canvas, crossfade leg, or preview target).
-- `packages/sidecar` — agent surface: MCP server over stdio (13 tools: `get_session`,
+- `packages/sidecar` — agent surface: MCP server over stdio (16 tools: `get_session`,
   `get_manifest`, `set_param`, `modulate_param`, `clear_modulation`, `set_chain`,
   `save_chain`, `screenshot`, `create_instance`, `destroy_instance`, `stage`, `unstage`,
-  `commit`) bridged to the
+  `commit`, `list_projects`, `save_project`, `load_project`) bridged to the
   engine over WebSocket (port 7341; `LOOM_WS_PORT` + `?ws=` override for isolation).
   The wire contract is `@loom/sidecar/protocol` (browser-safe, shared with the
   engine via tsconfig path + Vite alias). The sidecar's stdout belongs to MCP — log
@@ -167,11 +167,17 @@ a failed rebuild (including future chain edits) keeps the previous pixels.
 ## State persistence
 
 `content/state/` holds engine-written tuned state (`inputs.json`, `palettes.json`,
-`bindings.json`, `values/<scene>.json`) served by the `loom:state` Vite middleware
-(`GET/POST /loom/state/<name>`), saves debounced engine-side. Per-scene values
+`bindings.json`, `values/<scene>.json`, `projects/<name>.json`) served by the
+`loom:state` Vite middleware (`GET/POST /loom/state/<name>`; `loom:state-list`
+lists a state directory), saves debounced engine-side. Per-scene values
 reapply on create/rebuild (NFR-5's "params reapplied from tuned state").
-`?state=off` disables load+save — all validators boot with it except m5, which
-tests persistence.
+`?state=off` disables ambient load+save — all validators boot with it except m5
+and projects, which test persistence. Projects (set lists) are explicit save/
+load actions through `ProjectStore` (engine-app): serialize the instance set
+(values, modulators, root + per-node chains, tile order, live pointer); loading
+builds sandboxes via `SessionStore.create`'s init seed (chains fold into build
+#1) and NEVER touches the Stage — the pre-load instances cull after a commit
+from the loaded set lands (deferred-cull check in the render loop).
 
 ## Testing & validation
 
@@ -239,7 +245,9 @@ per shipped milestone, kept green forever: `m0` (HMR/never-go-black), `m1`
 (signals/audio/containment), `m2` (MCP e2e), `m3` (stage/commit/PANIC + Console),
 `m4` (pure output/staging UX), `m5` (input rack/persistence/MIDI-learn), `m6`
 (palettes), `layers` (named nodes: rig rides with no rebuild, per-node chains,
-NFR-5 on a throwing node step, Console node tree), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
+NFR-5 on a throwing node step, Console node tree), `projects` (set lists:
+save/mutate/load round-trip with LIVE untouched, deferred cull, restart
+survival, agent-save gating), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
 mounted in a generated sandbox scene (sources direct, effects over an `osc`,
 controls driving an osc param), hot-swapped in via the `live.scene.ts` pin, and
 must render non-black with a clean console and no NFR-2 freeze.

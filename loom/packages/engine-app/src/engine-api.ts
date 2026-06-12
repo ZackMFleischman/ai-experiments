@@ -16,12 +16,14 @@ import {
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
+  LoadProjectArgs,
   MidiTargetArgs,
   ModulateParamArgs,
   PanicArgs,
   PreviewEffectArgs,
   RenameInstanceArgs,
   SaveChainArgs,
+  SaveProjectArgs,
   SetAudioArgs,
   SetChainArgs,
   SetPanicInstanceArgs,
@@ -119,6 +121,19 @@ export interface EngineDeps {
   setPanicInstance(id: string): void;
   /** Id bookkeeping outside the session (main.ts tracks the boot instance). */
   onInstanceRenamed?(from: string, to: string): void;
+  /** Projects — set lists (main.ts owns the store, persistence and the cull). */
+  projects: {
+    /** Refresh from disk and return the saved project names. */
+    list(): Promise<string[]>;
+    /** Last known names (sync, for the session snapshot). */
+    cached(): string[];
+    save(name: string, tileOrder?: string[]): Promise<{ saved: string; path: string; instances: number }>;
+    /** Audience-safe load: sandboxes only, the Stage is never touched. */
+    load(name: string): Promise<{
+      created: string[];
+      skipped: Array<{ id: string; scene: string; reason: string }>;
+    }>;
+  };
 }
 
 /**
@@ -401,6 +416,25 @@ export class EngineApi {
         if (removed) this.deps.persist.bindings();
         return { removed };
       }
+      case "list_projects":
+        return { projects: await this.deps.projects.list() };
+      case "save_project": {
+        // Saving writes a repo file — same trust tier as commit for agents.
+        const { name, tileOrder } = SaveProjectArgs.parse(req.args);
+        if (source === "agent" && !this.agentCommitArmed) {
+          throw new Error(
+            "agent project save is not armed — ask the human to save from the Console, " +
+              "or to arm agent commit",
+          );
+        }
+        return await this.deps.projects.save(name, tileOrder);
+      }
+      case "load_project": {
+        // Audience-safe: builds sandboxes only; LIVE keeps playing untouched.
+        const { name } = LoadProjectArgs.parse(req.args);
+        const out = await this.deps.projects.load(name);
+        return { loaded: name, created: out.created, skipped: out.skipped, live: stage.live };
+      }
     }
   }
 
@@ -520,6 +554,7 @@ export class EngineApi {
       agentCommitArmed: this.agentCommitArmed,
       availableScenes: [...this.deps.getScenes().keys()],
       availableEffects: this.deps.availableEffects(),
+      projects: this.deps.projects.cached(),
       audioMode: this.deps.audio.mode,
       audioDevices: this.deps.audioDevices(),
       inputs: this.deps.inputs.values(),

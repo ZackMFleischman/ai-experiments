@@ -574,3 +574,29 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   nodeChains + `set_chain` node arg; Console node sections; `vinyl-zoom` (dive/
   logo/hippos) + `pho-nebula` (bowl/garnish/badge) wrapped. Gates: typecheck,
   pnpm test (353), `validate:layers` 22/22, full `pnpm validate` green.
+
+## Projects — set lists (2026-06-11)
+
+- **A project is the serialized instance set**: per instance `{scene, values,
+  modulators, root chain, per-node chains}` in tile order + which one was live,
+  written to `content/state/projects/<name>.json` through the existing
+  `loom:state` middleware (set lists live in git, NFR-4). Chain knob values ride
+  in the chain data, never in `values` (same rule as per-scene persistence).
+- **Loading is audience-safe**: every instance builds into a sandbox via a new
+  `SessionStore.create(def, id, init)` seed path (chains + values fold into
+  build #1 — no rebuild storm); the Stage is never touched. The pre-load
+  instances cull only after a commit FROM the loaded set lands (fade complete;
+  deferred-cull check in the render loop). Ids are kept when free, `~n`-suffixed
+  when taken — loading twice is legal.
+- **Per-instance values override per-scene tuned defaults** at load (two
+  differently-tuned instances of one scene can coexist in a project).
+- **Trust tiers**: `load_project`/`list_projects` are ungated (loading is free);
+  agent `save_project` needs arming like commit (it writes a repo file). The
+  Console has a load switcher + save dialog (tile order captured from the grid);
+  the engine caches the project list for the snapshot, `loom:state-list` lists
+  the directory so git-dropped files appear too.
+- Projects save/load deliberately IGNORE `?state=off` — explicit user actions,
+  not ambient persistence (validators still snapshot/restore content/state).
+- **SHIPPED:** engine `ProjectStore` + deferred cull (main.ts), session init
+  seeding, 3 MCP tools, Console header control, `validate:projects` 23/23,
+  engine-app `projects.test.ts` round-trip; full gate green.
