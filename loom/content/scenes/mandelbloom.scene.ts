@@ -1,4 +1,4 @@
-import { defineScene, envelopeSignal, Signal, texNode } from "@loom/runtime";
+import { defineScene, Signal, texNode } from "@loom/runtime";
 import { mix, smoothstep, vec4 } from "three/tsl";
 import { blobs } from "../modules/sources/blobs";
 import { mandelbrot } from "../modules/sources/mandelbrot";
@@ -42,9 +42,9 @@ export default defineScene({
     const pal = ctx.palette;
     pal.own(["#070a1e", "#1b3a6b", "#34d1c9", "#b15be0", "#ffd166"]);
 
-    // Kick envelope: drives interior bloom, glitch burst and a small zoom punch.
-    const kick = ctx.audio.onset({ band: "bass", threshold: 0.2 });
-    const kickEnv = envelopeSignal(kick, { decay: 0.35 });
+    // Kick envelope drives interior bloom, glitch burst and a small zoom punch.
+    // The rack owns kick detection (R6.4) — ride the named channel's envelope.
+    const kickEnv = ctx.input("kick");
     const kickU = ctx.uniformOf(kickEnv);
 
     // Base fractal (grayscale; brightness b = 0 inside the set). Shallow, slow
