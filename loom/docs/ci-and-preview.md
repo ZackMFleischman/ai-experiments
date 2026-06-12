@@ -44,6 +44,14 @@ agent/MCP editing and HMR happen in your dev session here, not on the preview
 Cloudflare gives each PR branch its own preview URL and the sticky comment keeps
 the latest one at the top of the PR.
 
+### Teardown
+
+Cloudflare never deletes preview deployments on its own, so
+`.github/workflows/loom-preview-cleanup.yml` deletes a branch's preview
+deployments (via the Cloudflare API — wrangler can't) when its PR closes. For
+previews that predate the workflow, run it manually: **Actions → LOOM preview
+cleanup → Run workflow** with the branch name.
+
 ### One-time Cloudflare setup
 
 1. **Create the Pages project** (once). With [wrangler](https://developers.cloudflare.com/workers/wrangler/install-and-update/):
