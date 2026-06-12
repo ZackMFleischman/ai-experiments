@@ -36,37 +36,23 @@ focused month of evenings.
 | M6 Color & palettes — palette half (2026-06-11) | color param type, global palettes, `ctx.palette`, source switch with no rebuild | `validate:m6` |
 | Console UI redesign (2026-06-11) | cohesive dense cockpit: brand, tap-BPM, "+" tile w/ live previews, drag-reorder, drop-to-commit, agent commit armed by default, resizable drawer, swatch palettes | `validate:m3`/`m4` (updated) |
 | Housekeeping (2026-06-11) | scene cull (hello/pulse-glitch/vinyl), param groups (fireflies/mandelbrot/mandelbloom + value-key migration), 20 s modulator default, double-click instance rename, 2× tiles, whole-top drop-to-go-live zone | `validate:m3`/`m4` (updated), full suite green |
+| Stdlib tests & robustness (2026-06-11) | headless content/ test root (real BuildCtx + probe uniforms), tier-1 contract + tier-2 extremes sweeps over all 22 modules, golden-pattern scans (caught 2 scenes re-detecting kick), broken-module self-test, tier-3 smoke render | `pnpm test:content` (144 tests) + `validate:stdlib` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
 
 ## Remaining
 
-### Stdlib tests & robustness (M) — unnumbered, can land incrementally
+*(Build order, top to bottom. M-numbers are identities from the original plan,
+not sequence — M9 deliberately builds before M7.)*
 
-Today `pnpm test` covers `runtime` and `sidecar` only; `content/modules/` ships
-with zero tests and is about to grow to ~20 modules (M11). Before that growth:
+### CI (S) — unnumbered, can land alongside anything
 
-- **A vitest root for `content/`** with a mock `BuildCtx` (params, `uniformOf`,
-  inputs, palette) so modules build headlessly without `three/webgpu` needing a
-  GPU.
-- **Per-module unit tests**, three tiers each: (1) metadata/contract — zod
-  metadata parses, declared params appear in the manifest with honest ranges,
-  effects return `[...input.passes, ownPass]`; (2) robustness — a param-extremes
-  sweep (min/max/default of every param, zero-size input) builds without throwing
-  or producing NaN in CPU-side signals; (3) smoke render — build each module in a
-  headless sandbox via the existing Playwright harness and assert non-black
-  pixels + no console errors.
-- **Golden patterns enforced**: audio-reactive modules consume named
-  `ctx.input(...)` channels (no local re-detection); sources normalize to vec4
-  once; stateful effects own pass ordering. Tests encode the conventions the
-  skills currently only describe.
-- New modules merge with their tier-1/2 tests from day one (cross-cutting rule);
-  the smoke-render harness rides the validator infrastructure, not a new one.
-
-**Shipped when:** every existing stdlib module has tier-1/2 coverage and the
-smoke-render sweep runs green in CI alongside `pnpm test`; a deliberately broken
-module (NaN param range, missing pass) is caught by tests, not by eyes.
+Merges are currently gated only by local runs. Minimum: typecheck + `pnpm test`
+(including the content tests) on every PR via GitHub Actions; the full
+`pnpm validate` suite (Playwright + headless Chromium, ~6 min) nightly or behind
+a PR label. The Cloudflare Pages preview already builds per PR
+(`docs/ci-and-preview.md`) — this adds the correctness half.
 
 ### M6 — chains half (M)
 
@@ -90,6 +76,55 @@ makes `fx.glitch-1.*` appear in the manifest and visibly changes the preview; a
 throwing chain step leaves the instance running on previous pixels; reorder
 preserves knob positions. m0–m5 green.
 
+### Projects — set lists (S/M) *(new 2026-06-11: save/load named instance sets)*
+
+**Goal:** prep a set at home, walk it at the gig.
+
+- A **project** = the serialized instance set: `{name, scene, per-instance tuned
+  values, modulators, chain, tile order}` (+ optionally which one is live), saved
+  as plain JSON to `content/state/projects/<name>.json` through the existing
+  state middleware — set lists live in git like all tuned state (NFR-4). Lands
+  right after chains so chains serialize from day one.
+- **Audience-safe load**: loading builds every project instance into sandboxes
+  and never touches LIVE — current output keeps playing until a commit from the
+  newly loaded set; replaced instances cull afterwards. Same trust model as
+  staging: loading is free, only commit changes pixels.
+- **Per-instance values override the per-scene tuned defaults** at load — two
+  differently-tuned `lava` instances can coexist in one project (today's
+  `content/state/values/<scene>.json` is one global tuning per scene).
+- Console: save / load / switcher (header or "+"-tile vicinity).
+  `01-opener`-style naming IS the v1 set list; a real next/prev ordering only if
+  walking it feels clunky in practice.
+- M12's session snapshot/restore builds ON this: crash recovery = autosave of an
+  implicit `_session` project — one serialization path, not two.
+
+**Shipped when:** save → mutate the session → load restores instances, values,
+modulators, chains and tile order with LIVE pixels untouched throughout; projects
+survive restart; agents can list/load via MCP (save is human-gated like commit).
+(`validate:projects`)
+
+### M9 — Video sources (S) *(moved ahead of Geo: zero dependencies, immediate material)*
+
+**Goal:** video clips are usable exactly the way images are.
+
+- `video` source module mirroring `sources/image.ts`: file path in, `HTMLVideoElement` → texture out as a TexNode, with `loop`/`speed`/`scrub` (and mute-by-default audio) as params.
+- Accepted everywhere an image is: same cover/fit scaling, same param surface, same catalog entry shape — a scene swaps `image` for `video` and nothing else changes.
+
+**Shipped when:** a scene plays a looping clip as its source, `set_param` scrubs/retimes it live, and the M4 cover-scaling checks pass against a video source. (`validate:m9`)
+
+### Fixtures — deterministic input traces (S) *(pulled out of M11; everything downstream wants them)*
+
+- Record/replay InputBus traces **including input-channel values**:
+  `create_instance({inputs: "fixture:…"})`; `screenshot({frames:[…]})`
+  deterministic against fixtures. The stdlib harness's `FakeAudioBus` is the
+  hand-rolled precursor; this is its grown-up form.
+- Payoff order: M7/M8 develop against deterministic audio instead of the
+  synthetic kick; validator flakes of the m5-threshold class die; M11's parallel
+  subagent builds and M12's soak test both consume them.
+
+**Shipped when:** a recorded trace replays bit-identically; a validator asserts
+the same screenshot twice from the same fixture + frame list.
+
 ### M7 — Geo (M) *(first half of the old Geo-&-particles L; moved ahead of the library)*
 
 **Goal:** the 3D path opens. Meshes are first-class material.
@@ -97,6 +132,9 @@ preserves knob positions. m0–m5 green.
 - `Geo` type — `GeoNode` joins `ModuleOutput`; `gltf` + primitive loaders; `render(world, cam)` bridge module (scene-in-scene render target → TexNode); `orbitCam` control module.
 - Harness additions for single-module sandboxes: `orbit-cam`, `chain:<scene>@<node>` (mount in situ).
 - Stdlib Geo entries cataloged; *module-authoring* skill extended for Geo kind.
+- **Per-instance frame-time HUD** *(pulled forward from gig hardening)*: M7/M8 and
+  stacked chains are where the perf hazards get created — build the meter before
+  the load, not after. `screenshot` metadata gains fps so agents self-police.
 
 **Shipped when:** a gltf model loads into a sandbox tile, orbits under `orbitCam`, renders through the bridge into the TexNode chain, and commits through a post chain — all without touching the never-go-black layers. (`validate:m7`)
 
@@ -105,17 +143,14 @@ preserves knob positions. m0–m5 green.
 **Goal:** your flagship prompt works.
 
 - `particleEmitter`: mesh-surface sampling (off M7 geometry), GPU-instanced pool via TSL compute, `rate`/`lifetime`/`turbulence` as Signals/Params; pool state under the rebuild-on-change policy.
+- **Validation strategy decided BEFORE work starts**: TSL compute requires
+  WebGPU, and headless Chromium has no WebGPU adapter — today every validator
+  runs the WebGL2 fallback, so `validate:m8` has no automated path as-is. Pick
+  one up front: SwiftShader-backed WebGPU in headless Chromium, a documented
+  headed run on a GPU machine as the gate, or a degraded non-compute fallback
+  path the validator can exercise.
 
 **Shipped when:** *“create a particle generator that spits out particles from the surface of a 3D skull, hats driving turbulence”* → agent builds it in a sandbox tile, you tweak on MIDI, and commit it through a `feedback`+`paletteMap` post chain — via M6’s real `set_chain` mechanism instead of hand-wiring. (`validate:m8`)
-
-### M9 — Video sources (S)
-
-**Goal:** video clips are usable exactly the way images are.
-
-- `video` source module mirroring `sources/image.ts`: file path in, `HTMLVideoElement` → texture out as a TexNode, with `loop`/`speed`/`scrub` (and mute-by-default audio) as params.
-- Accepted everywhere an image is: same cover/fit scaling, same param surface, same catalog entry shape — a scene swaps `image` for `video` and nothing else changes.
-
-**Shipped when:** a scene plays a looping clip as its source, `set_param` scrubs/retimes it live, and the M4 cover-scaling checks pass against a video source. (`validate:m9`)
 
 ### M10 — Asset explorer (M)
 
@@ -127,24 +162,37 @@ preserves knob positions. m0–m5 green.
 
 **Shipped when:** the explorer shows every cataloged module by kind plus a registered external folder; dragging a video from that folder onto a source param plays it live; the folder registration survives restart. (`validate:m10`)
 
-### M11 — Library & parallel build (M) *(old M5 + old-M4’s panels/save-as)*
+### M11 — Library & parallel build (M) *(old M5; panels/save-as split out below)*
 
 **Goal:** the agent composes from vocabulary; subagents build in parallel; the library grows itself.
 
-- Stdlib buildout to ~20 modules (full Control/Source/Effect list from Requirements §6 — Geo/particle entries already cataloged by M7/M8) — every effect `chainParams`-compliant, every audio-reactive module consuming named `ctx.input(...)` channels. The library is born compatible with the rack and chains.
+- Complete the Requirements §6 Control/Source/Effect list (the stdlib already
+  counts 22 modules — the work is §6 *coverage*, not count; Geo/particle entries
+  already cataloged by M7/M8) — every effect `chainParams`-compliant, every
+  audio-reactive module consuming named `ctx.input(...)` channels. The content
+  test root makes each addition mechanical: a `cases.ts` entry + the automatic
+  tier-1/2 sweeps.
 - `CATALOG.md` extended (chainable / inputs-consumed columns) — the AST generator already rides `pnpm typecheck`; this supersedes the old “catalog.json” line. *Library-use* skill: search catalog first, register after writing, tag conventions.
-- Fixtures: record/replay InputBus traces **including input-channel values**; `create_instance({inputs: "fixture:…"})`; `screenshot({frames:[…]})` deterministic against fixtures.
-- Parallel workflow proven: signatures-first convention + `tsc` gate; subagents each get a sandbox instance (own tile) with fixture input.
-- Panel files (R3.5): declarative `{paramPath → widget, midi}` subsets; Console renders open panels; opening activates bindings; *panel-authoring* skill. “Save as” flows (R3.4): persist tuned scene; factor selection into a custom module. Both land here because they compose the params + bindings M5 defined, and the library is what makes saving worth it.
+- Parallel workflow proven: signatures-first convention + `tsc` gate; subagents each get a sandbox instance (own tile) with fixture input (fixtures land earlier, see above).
 
-**Shipped when:** “build me three new scenes in parallel — glitchy, organic, geometric — using the library” lights up three tiles that converge concurrently; a brand-new custom module written today is found and reused by the agent tomorrow via the catalog; the R3.5 panel prompt produces a working bound panel; “save it as bass-tunnel” round-trips through restart. (`validate:m11`)
+**Shipped when:** “build me three new scenes in parallel — glitchy, organic, geometric — using the library” lights up three tiles that converge concurrently; a brand-new custom module written today is found and reused by the agent tomorrow via the catalog. (`validate:m11`)
+
+### Panels & save-as (S/M) *(R3.5 + R3.4, split out of M11 — they only depend on M5’s params + bindings)*
+
+- Panel files (R3.5): declarative `{paramPath → widget, midi}` subsets; Console renders open panels; opening activates bindings; *panel-authoring* skill.
+- “Save as” flows (R3.4): persist tuned scene; factor a selection into a custom module. The library (M11) is what makes saving worth it, so this lands after — but nothing blocks it earlier if wanted.
+
+**Shipped when:** the R3.5 panel prompt produces a working bound panel; “save it as bass-tunnel” round-trips through restart.
 
 ### M12 — Gig hardening (M) *(old M7)*
 
 **Goal:** trust it in a dark room.
 
-- Session snapshot/restore (crash recovery of transport, slots, open panels, values — **and globals tunings, palettes, chains, bindings**).
-- Perf budget: frame-time HUD per instance; `screenshot` metadata includes fps so agents self-police; document a perf-check step in the commit skill.
+- Session snapshot/restore **built on Projects**: crash recovery = autosave of an
+  implicit `_session` project every few seconds (transport, slots, open panels,
+  values, globals tunings, palettes, chains, bindings) — one serialization path.
+- Perf budget: enforce against the per-instance frame-time HUD (built in M7);
+  document a perf-check step in the commit skill.
 - 90-minute soak test on fixtures (memory/VRAM stability, HMR churn, **rack-tuning and chain-edit churn**).
 - A starter set: 8–10 tagged, tuned scenes in the repo **using palettes, chains, and named input channels**; a one-page performer cheatsheet; the §9 magic test executed clean, timed, from fresh clone.
 
@@ -166,6 +214,7 @@ preserves knob positions. m0–m5 green.
 |Browser audio latency/quality (Analyser smoothing)|Acceptable for v1 reactivity; AudioWorklet onset/BPM is a contained M5+ upgrade inside InputBus.                                              |
 |Agent writes sprawling untyped code               |zod-validated metadata + skills with golden examples + catalog-first rule; reject via tsc, not vibes.                                         |
 |Scope creep (this conversation’s natural hazard)  |§8 out-of-scope list is load-bearing. New ideas go to `DECISIONS.md` as post-v1 candidates.                                                   |
+|M8 compute has no headless validation path (headless Chromium lacks a WebGPU adapter; TSL compute won’t run on the WebGL2 fallback)|Decide the `validate:m8` strategy before M8 starts: SwiftShader-backed WebGPU, a documented headed GPU run as the gate, or a non-compute fallback path.|
 
 ## Post-v1 horizon (ordered candidates)
 
