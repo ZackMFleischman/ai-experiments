@@ -84,6 +84,22 @@ export class Param<T> {
     this.set((min + v * (max - min)) as unknown as T);
   }
 
+  /**
+   * One button press (cycle-mode bindings): ints advance and wrap max→min,
+   * bools flip, floats/colors hold — a float has no honest "next" value.
+   */
+  step(): void {
+    if (this.type === "bool") {
+      this.set(!(this.v as boolean) as unknown as T);
+      return;
+    }
+    if (this.type !== "int") return;
+    const min = this.meta.min as number;
+    const max = this.meta.max as number;
+    const next = (this.v as number) + 1;
+    this.set((next > max ? min : next) as unknown as T);
+  }
+
   toJSON(): Record<string, unknown> {
     return { type: this.type, ...this.meta, value: this.v };
   }

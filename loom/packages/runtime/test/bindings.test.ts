@@ -31,6 +31,33 @@ describe("Param.setNormalized", () => {
   });
 });
 
+describe("Param.step", () => {
+  it("advances an int and wraps max back to min", () => {
+    const m = new Manifest();
+    const p = m.int("source", { default: 1, min: 0, max: 2 });
+    p.step();
+    expect(p.value).toBe(2);
+    p.step();
+    expect(p.value).toBe(0); // wrap
+  });
+
+  it("flips bools", () => {
+    const m = new Manifest();
+    const p = m.bool("on", { default: false });
+    p.step();
+    expect(p.value).toBe(true);
+    p.step();
+    expect(p.value).toBe(false);
+  });
+
+  it("holds floats (cycle has no honest float semantics)", () => {
+    const m = new Manifest();
+    const p = m.float("punch", { default: 1.2, min: 0, max: 3 });
+    p.step();
+    expect(p.value).toBe(1.2);
+  });
+});
+
 describe("Manifest.values", () => {
   it("serializes current values flat (for tuned-state persistence)", () => {
     const m = new Manifest();
