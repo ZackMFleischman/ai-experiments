@@ -7,6 +7,7 @@ import {
   Switch,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { useState, type ChangeEvent, type InputHTMLAttributes, type MouseEvent } from "react";
@@ -24,6 +25,8 @@ type Props = {
   label?: string;
   /** Rack rows hide the description to stay one line tall. */
   dense?: boolean;
+  /** Fill the parent's width instead of the fixed dense rack width (FX-chain rows). */
+  fill?: boolean;
 };
 
 /**
@@ -32,7 +35,7 @@ type Props = {
  * data-path lands on the real <input>, data-learn on the learn button with
  * exact text "M" / "···" / "cc<N>".
  */
-export function ParamWidget({ instance, path, p, label, dense }: Props) {
+export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
   const link = useEngine();
   const { session } = useEngineState();
   const [drag, setDrag] = useState<number | null>(null);
@@ -83,11 +86,16 @@ export function ParamWidget({ instance, path, p, label, dense }: Props) {
   const inputAttrs = { "data-path": path } as InputHTMLAttributes<HTMLInputElement>;
 
   return (
-    <Box className={`widget${modulated ? " modulated" : ""}`} sx={{ mb: dense ? 0 : 1.5, width: dense ? 170 : "auto" }}>
+    <Box
+      className={`widget${modulated ? " modulated" : ""}`}
+      sx={{ mb: dense ? (fill ? 1 : 0) : 1.5, width: fill || !dense ? "auto" : 170 }}
+    >
       <Stack direction="row" spacing={0.5} alignItems="center">
-        <Typography variant="body2" noWrap title={path} sx={{ flex: 1, minWidth: 0 }}>
-          {label ?? path}
-        </Typography>
+        <Tooltip title={label ?? path} placement="top" enterDelay={350} disableInteractive>
+          <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
+            {label ?? path}
+          </Typography>
+        </Tooltip>
         {instance !== "globals" && p.type !== "color" && (
           <IconButton
             size="small"

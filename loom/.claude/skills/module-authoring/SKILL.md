@@ -26,6 +26,7 @@ export const myModule = defineModule(
 - Options that should react to the world are `SignalLike` (number | Signal). Bridge them with `ctx.uniformOf(opt ?? default)` — that returns a TSL uniform usable in shader code and keeps stateful signals pulled.
 - **Sources** return `texNode(vec4(...))` — color is strictly vec4; normalize once.
 - **Effects** take `input: TexNode` and must propagate passes: a stateless effect returns `texNode(newColor, input.passes)`; a stateful one (render targets) returns `texNode(color, [...input.passes, ownPass])`. Order is composition order — no scheduler.
+- **Effects should be chain-ready.** Declare the knobs `set_chain` exposes via `meta.chainParams: [{ name, type?, default, min, max, step?, description? }]` — each `name` must match an `Opts` key that's a `SignalLike`, so the chain feeds `param.signal()` straight in. With that, the effect is selectable in any instance's FX chain (the Console picker + MCP `set_chain`) and gets an automatic `fx.<id>.mix` wet/dry. See `glitch`/`feedback`/`levels`. An effect with no `chainParams` still works in scene code but won't appear as a chain step.
 - **Controls** return a `Signal<number>` and run on the CPU; they must be cheap (called every frame).
 - Modules never reach outside `ctx` — no globals, no direct bus access beyond `ctx.audio`/`ctx.time`.
 - Modules may compose other modules (`pulseRings` wraps `noise` for its grain) — just propagate the inner module's passes through your returned `texNode`.

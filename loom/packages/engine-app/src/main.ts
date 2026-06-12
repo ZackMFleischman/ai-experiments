@@ -1,11 +1,15 @@
 import {
   AudioBus,
   BindingStore,
+  BuildCtx,
+  ChainHost,
   Clock,
   InputRegistry,
+  Instance,
   MidiBus,
   PaletteRegistry,
   Stage,
+  texNode,
   TimeBus,
   type FrameCtx,
   type InputsDef,
@@ -13,7 +17,8 @@ import {
   type SceneDef,
 } from "@loom/runtime";
 import { DEFAULT_WS_PORT, type InstanceStatus, type ScreenshotResult } from "@loom/sidecar/protocol";
-import { WebGPURenderer } from "three/webgpu";
+import { texture, vec4 } from "three/tsl";
+import { RenderTarget, WebGPURenderer } from "three/webgpu";
 import inputsDef from "../../../content/inputs";
 import liveScene from "../../../content/scenes/live.scene";
 import panicScene from "../../../content/scenes/panic.scene";
@@ -22,6 +27,7 @@ import { Compositor } from "./compositor";
 import { startConsoleChannel } from "./console-channel";
 import { EngineApi } from "./engine-api";
 import { FpsMeter } from "./fps";
+import { getEffectLibrary } from "./effects";
 import { getScenes } from "./scenes";
 import { entryStatus, SessionStore } from "./session";
 import { StateClient } from "./state";
@@ -58,6 +64,7 @@ declare global {
         builds: number;
         pinned: "panic" | null;
         modulators: Array<{ path: string; type: string; error: string | null }>;
+        chain: Array<{ id: string; effect: string; kind: string; mix: number }>;
       }>;
       /** Input-rack channel values (rack meters / validation). */
       inputs: Record<string, number>;
@@ -160,7 +167,13 @@ const persist = {
   palettes: () => state.save("palettes", () => palettes.manifest.values()),
   scene: (sceneName: string) => {
     const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
-    if (entry) tunedValues.set(sceneName, entry.instance.manifest.values());
+    if (entry) {
+      // Chain knob values (fx.*) live in the chain data, not the per-scene file
+      // (full chain persistence is M9) — keep them out of values/<scene>.json.
+      const vals = entry.instance.manifest.values();
+      for (const k of Object.keys(vals)) if (k.startsWith("fx.")) delete vals[k];
+      tunedValues.set(sceneName, vals);
+    }
     state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
   },
   bindings: () => state.save("bindings", () => bindings.toJSON()),
@@ -213,9 +226,87 @@ midi.onCc((e) => {
   if (learned) persist.bindings();
 });
 
-const session = new SessionStore({ audio, time: timeBus, inputs, palettes }, (scene) =>
-  tunedValues.get(scene),
+// The chainable-effect library (M6). Re-cached on an `./effects` hot-update so a
+// saved chain or an edited effect appears in the picker without a reload.
+let effectsLib = getEffectLibrary();
+
+// Save the live chain to content/modules/effects/chains/<name>.chain.json (the
+// Vite loom:effects middleware writes it; the glob picks it up as a composite).
+async function saveEffectChain(name: string, data: unknown): Promise<{ path: string }> {
+  const res = await fetch(`/loom/effects/${encodeURIComponent(name)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`save failed (${res.status}): ${await res.text().catch(() => "")}`);
+  return { path: `content/modules/effects/chains/${name}.chain.json` };
+}
+
+const session = new SessionStore(
+  { audio, time: timeBus, inputs, palettes },
+  () => effectsLib,
+  (scene) => tunedValues.get(scene),
 );
+
+// Effect-picker previews: fold a candidate effect over an instance's CURRENT
+// output (its already-rendered preview target — no extra scene render, so a live
+// instance's stateful passes are never disturbed) into a throwaway instance,
+// render a few frames in-loop, and read it back as a JPEG. Serviced one per
+// frame from the render loop (the only place the renderer is ours to drive).
+const PREVIEW2_W = 256;
+const PREVIEW2_H = 144;
+const PREVIEW2_FRAMES = 8; // lets stateful candidates (feedback) settle over the still source
+const pendingPreviews: Array<{ run: (f: FrameCtx) => void; done: () => void }> = [];
+
+async function previewEffect(instanceId: string, effect: string): Promise<string> {
+  const e = session.require(instanceId);
+  const outRT = new RenderTarget(PREVIEW2_W, PREVIEW2_H);
+  let preview: Instance;
+  try {
+    const ctx = new BuildCtx(audio, timeBus, inputs, palettes);
+    const chain = new ChainHost(() => effectsLib);
+    chain.seed([{ effect }]);
+    const folded = chain.fold(ctx, texNode(vec4(texture(e.target.texture).rgb, 1)));
+    ctx.finalize();
+    preview = new Instance(`fxpreview:${effect}`, ctx.manifest, ctx.updaters, folded.passes, folded.color);
+  } catch (err) {
+    outRT.dispose();
+    throw new Error(`preview build failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  try {
+    await new Promise<void>((resolve) => {
+      pendingPreviews.push({
+        run: (f) => {
+          for (let i = 0; i < PREVIEW2_FRAMES; i++) preview.renderFrame(renderer, f, outRT);
+        },
+        done: resolve,
+      });
+    });
+    return await readTargetToJpeg(outRT, PREVIEW2_W, PREVIEW2_H);
+  } finally {
+    preview.dispose();
+    outRT.dispose();
+  }
+}
+
+async function readTargetToJpeg(rt: RenderTarget, w: number, h: number): Promise<string> {
+  const buf = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, w, h)) as Uint8Array | Uint8ClampedArray;
+  const pixels = new Uint8ClampedArray(buf.buffer, buf.byteOffset, w * h * 4);
+  const src = document.createElement("canvas");
+  src.width = w;
+  src.height = h;
+  src.getContext("2d")!.putImageData(new ImageData(pixels.slice(), w, h), 0, 0);
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext("2d")!;
+  if ((renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true) {
+    octx.translate(0, h); // WebGL framebuffers read bottom-up
+    octx.scale(1, -1);
+  }
+  octx.drawImage(src, 0, 0);
+  return out.toDataURL("image/jpeg", 0.72);
+}
 const stage = new Stage();
 const compositor = new Compositor(RENDER_W, RENDER_H);
 
@@ -436,6 +527,9 @@ const api = new EngineApi(
     audio,
     time: timeBus,
     getScenes: () => currentScenes(),
+    availableEffects: () => effectsLib.describe(),
+    saveEffectChain,
+    previewEffect,
     latestFrame: () => latestFrame,
     captureCanvas: () =>
       new Promise((resolve, reject) => {
@@ -541,6 +635,20 @@ const frameTick = (tMs: number): void => {
     }
   }
 
+  // One effect-picker preview per frame (bounds cost), AFTER the live screenshot
+  // read so it never disturbs the canvas: the candidate effect is folded over the
+  // instance's preview target, which the compositor just refreshed, then rendered
+  // to its own offscreen RT.
+  if (pendingPreviews.length > 0) {
+    const job = pendingPreviews.shift()!;
+    try {
+      job.run(f);
+    } catch {
+      // a bad preview render must never break the live loop
+    }
+    job.done();
+  }
+
   const liveEntry = stage.live != null ? session.get(stage.live) : undefined;
   const dbg = window.__loom!;
   dbg.sceneName = liveEntry?.sceneName ?? null;
@@ -569,6 +677,7 @@ const frameTick = (tMs: number): void => {
     builds: e.builds,
     pinned: e.pinned ?? null,
     modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
+    chain: e.chain.list(),
   }));
 };
 
@@ -653,5 +762,15 @@ if (import.meta.hot) {
         );
       }
     }
+  });
+
+  // The effect library hot-reloads like scenes: an edited effect or a newly
+  // saved chain (content/modules/effects/**) re-globs through this barrel, so
+  // the "+ effect" picker and future folds see it without a reload. Live chains
+  // keep running on the old code until their next rebuild (NFR-5 unchanged).
+  import.meta.hot.accept("./effects", (mod) => {
+    if (!mod?.getEffectLibrary) return;
+    effectsLib = (mod.getEffectLibrary as typeof getEffectLibrary)();
+    console.info("[loom] effect library reloaded");
   });
 }

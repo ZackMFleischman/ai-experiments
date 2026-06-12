@@ -42,6 +42,7 @@ export const pixelate = defineModule(
     description: "Smooth slider-driven mosaic pixelation; free when amount is 0.",
     tags: ["pixelate", "mosaic", "retro", "stateful"],
     example: 'pixelate(ctx, { input: src, amount: 0.4 })',
+    chainParams: [{ name: "amount", default: 0.4, min: 0, max: 1, description: "mosaic amount (0 = off)" }],
   },
   (ctx: BuildCtx, opts: PixelateOpts): TexNode => {
     const amountIn = opts.amount ?? 0;

@@ -39,6 +39,10 @@ export const feedback = defineModule(
     description: "Ping-pong video feedback with zoomable trails.",
     tags: ["stateful", "trails", "classic"],
     example: 'feedback(ctx, { input: src, amount: 0.9, zoom: 1.01 })',
+    chainParams: [
+      { name: "amount", default: 0.9, min: 0, max: 0.97, description: "trail persistence per frame" },
+      { name: "zoom", default: 1.0, min: 0.9, max: 1.1, step: 0.001, description: "per-frame zoom on history" },
+    ],
   },
   (ctx: BuildCtx, opts: FeedbackOpts): TexNode => {
     const rtA = new RenderTarget(WIDTH, HEIGHT, { type: HalfFloatType });
