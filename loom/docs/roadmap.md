@@ -44,6 +44,7 @@ focused month of evenings.
 | Fixtures (2026-06-11) | deterministic input traces: `record_fixture` → `content/state/fixtures/`, `create_instance({inputs:"fixture:…"})` replay, byte-identical `screenshot({frames})` offline pass; TSL `time` banned from content (frame clock only) | `validate:fixtures` |
 | M7 Geo (2026-06-11) | GeoNode/CamNode, box/sphere/torus/orbitCam/`model` (glTF + FBX, hippo verified), `render3d` bridge into the TexNode chain, `mediafs` path-style serving, per-instance frame-time HUD + screenshot fps, geo-rave + hippo3d scenes | `validate:m7` |
 | M8 Particles (2026-06-11) | `particleEmitter`: mesh-surface sampling (seeded — fixture replays byte-identical), CPU sim over a GPU-instanced pool (WebGL2-validatable; TSL compute = post-v1 upgrade), rate/lifetime/turbulence live; `hippo-swarm` flagship scene (hats → turbulence) committed through feedback+paletteMap via set_chain | `validate:m8` |
+| M11 Library & parallel build (2026-06-12) | stdlib burndown (33 modules + 8 scenes) + catalog ⛓chainable/⚡inputs columns, *library-use* skill, parallel proof: 3 subagents built static-haunt/biolume/prism-array concurrently (types-only coordination), hot-registration + concurrent fixture sandboxes validated | `validate:m11` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
@@ -53,13 +54,17 @@ Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 *(Build order, top to bottom. M-numbers are identities from the original plan,
 not sequence — M9 deliberately builds before M7.)*
 
-### CI (S) — unnumbered, can land alongside anything
+### CI — mostly shipped; remainder optional
 
-Merges are currently gated only by local runs. Minimum: typecheck + `pnpm test`
-(including the content tests) on every PR via GitHub Actions; the full
-`pnpm validate` suite (Playwright + headless Chromium, ~6 min) nightly or behind
-a PR label. The Cloudflare Pages preview already builds per PR
-(`docs/ci-and-preview.md`) — this adds the correctness half.
+`.github/workflows/loom-ci.yml` already runs on every PR **and** push to main:
+the blocking `checks` job (typecheck → `pnpm test` incl. content sweeps →
+production build) plus the Cloudflare Pages preview with scene stills
+(`docs/ci-and-preview.md`). The screenshot validators are **deliberately not in
+CI** (documented decision: flaky on the runners' software GL; the
+never-go-black tests intentionally write broken scenes, which reads as error
+spam) — they run locally on real hardware before merges. Optional remainder:
+a *scheduled* (weekly) `pnpm validate` run on SwiftShader, informational
+rather than blocking, to catch bit-rot between local runs.
 
 ### M6 chains half — SHIPPED 2026-06-12
 
@@ -84,25 +89,6 @@ snapshot/restore across reload stays M9.
 - Selection/drag is the interaction model: anything in the explorer can be selected or dragged onto a tile/param wherever the engine can accept it (image/video paths into source params; scenes into the picker; models once M7 lands).
 
 **Shipped when:** the explorer shows every cataloged module by kind plus a registered external folder; dragging a video from that folder onto a source param plays it live; the folder registration survives restart. (`validate:m10`)
-
-### M11 — Library & parallel build (M) *(old M5; panels/save-as split out below)*
-
-**Goal:** the agent composes from vocabulary; subagents build in parallel; the library grows itself.
-
-- Complete the Requirements §6 Control/Source/Effect list (the stdlib already
-  counts 22 modules — the work is §6 *coverage*, not count; Geo/particle entries
-  already cataloged by M7/M8) — every effect `chainParams`-compliant, every
-  audio-reactive module consuming named `ctx.input(...)` channels. The content
-  test root makes each addition mechanical: a `cases.ts` entry + the automatic
-  tier-1/2 sweeps. **The `docs/stdlib-burndown.md` worklist is COMPLETE
-  (2026-06-12)**: 33 TD-inspired modules + 8 showcase scenes shipped — the
-  catalog stands at 63 modules / 21 scenes. M11's remaining halves: the
-  CATALOG.md chainable/inputs columns, the library-use skill, and the parallel
-  subagent-build proof (`validate:m11`).
-- `CATALOG.md` extended (chainable / inputs-consumed columns) — the AST generator already rides `pnpm typecheck`; this supersedes the old “catalog.json” line. *Library-use* skill: search catalog first, register after writing, tag conventions.
-- Parallel workflow proven: signatures-first convention + `tsc` gate; subagents each get a sandbox instance (own tile) with fixture input (fixtures land earlier, see above).
-
-**Shipped when:** “build me three new scenes in parallel — glitchy, organic, geometric — using the library” lights up three tiles that converge concurrently; a brand-new custom module written today is found and reused by the agent tomorrow via the catalog. (`validate:m11`)
 
 ### Panels & save-as (S/M) *(R3.5 + R3.4, split out of M11 — they only depend on M5’s params + bindings)*
 
