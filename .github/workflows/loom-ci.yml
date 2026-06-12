@@ -66,8 +66,10 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     env:
+      # The token is a credential → Secrets only. The account id isn't sensitive,
+      # so accept it from a Secret or a repo Variable, whichever you set.
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -84,13 +86,24 @@ jobs:
         run: pnpm --filter @loom/engine-app exec vite build
       - name: render scene screenshots into the deploy
         run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs
+      # Self-provision the Pages project so there's no manual dashboard step.
+      # Errors (e.g. "already exists") are ignored.
+      - name: ensure Cloudflare Pages project exists
+        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ env.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
+          workingDirectory: loom
+          command: pages project create loom --production-branch main
       - name: deploy to Cloudflare Pages
         id: deploy
         if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ env.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
           workingDirectory: loom
           command: >-
             pages deploy packages/engine-app/dist
