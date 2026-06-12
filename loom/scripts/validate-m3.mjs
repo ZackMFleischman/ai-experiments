@@ -160,7 +160,7 @@ try {
     `live=${session0.live} scene=${session0.scene}`);
   check(
     "session: catalog scenes available",
-    ["hello", "lava", "pulse"].every((s) => session0.availableScenes.includes(s)),
+    ["gradient", "lava", "pulse"].every((s) => session0.availableScenes.includes(s)),
     session0.availableScenes.join(", "),
   );
 
