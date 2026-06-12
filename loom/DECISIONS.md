@@ -296,3 +296,40 @@ realities (the validators were written for a real GPU + manual WebGPU checks):
   never-go-black smoke); **advisory** (non-blocking) = m1–m6 + modulators. They
   still run every PR for signal but don't gate merge. Full acceptance stays a
   real-GPU / manual exercise, exactly as the validators were designed.
+
+## M6 chains half — per-instance post-effect chains (2026-06-12)
+
+- **Enable/disable is a wet/dry `fx.<id>.mix` float param, not a structural
+  field.** Every step is always built; the fold wraps it as
+  `mix(input.rgb, effect.rgb, mix)`. So toggling/fading an effect is a plain
+  `set_param` (no rebuild, MIDI-bindable, ridable on a fader) and bypassed steps
+  keep their passes running — stateful history (feedback) stays warm. Structural
+  edits (add/remove/reorder/insert) rebuild; mix rides don't.
+- **Chains are runtime data on the session `Entry` (a `ChainHost`), folded inside
+  `buildInstance` before `finalize()`.** A throwing step throws the whole build →
+  NFR-5 rejects it and the previous chain + pixels keep running. No new
+  never-go-black mechanism. Mirrors `ModulatorHost`: instance-scoped, survives
+  rebuilds, reseeded with carry-forward by stable step id (`<effect>-<n>`).
+- **`set_chain` is full-list/idempotent** (the whole desired step list) so
+  add/remove/reorder/insert are one verb. Agent edits to the LIVE chain need the
+  same arming gate as `commit`; sandbox edits are ungated. Humans (Console) are
+  never gated. `restoreDefault` resets to the scene's declared `chain`.
+- **Saved chains are composite effects: data, one level deep.** `save_chain`
+  writes `content/modules/effects/chains/<name>.chain.json` (a `loom:effects` Vite
+  middleware, sibling to `loom:state`); the effects barrel globs them alongside
+  code primitives. A composite folds its inner primitives, namespaced
+  `fx.<id>.<inner>.<param>`. A composite may not contain a composite (cycle guard).
+- **Chain knob values live in the chain data (session-lived), not
+  `values/<scene>.json`** — `fx.*` is filtered out of per-scene persistence. Full
+  chain snapshot/restore across reload stays M9.
+- **Scenes may declare a default chain** (`defineScene({ chain: [...] })`), seeded
+  at create and restorable; scene-code HMR updates the stored default but never
+  clobbers a chain the user/agent has since edited (same rule as tuned params).
+- **SHIPPED:** runtime `ChainHost` + fold (`chain.ts`), `meta.chainParams` on
+  `glitch`/`feedback`/`levels`, engine-app effects barrel + `set_chain`/`save_chain`
+  + Console FX-chain panel (cards, drag-reorder, insertion points, mix faders,
+  picker, save-as, restore). Gates: typecheck + unit (runtime `chain.test.ts`,
+  sidecar protocol) + production build green. `validate:m6` chain checks added but
+  **not run here** — this sandbox is egress-blocked from Playwright's browser and
+  the substituted system Chromium can't do the WebGL readback (the palette half's
+  first screenshot times out too); run it on a real-GPU/CI browser.

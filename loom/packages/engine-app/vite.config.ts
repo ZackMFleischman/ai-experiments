@@ -103,8 +103,54 @@ const stateApi: Plugin = {
   },
 };
 
+// Saved chains (M6 "save chain as effect"): POST /loom/effects/<name> writes a
+// data-only content/modules/effects/chains/<name>.chain.json that the effects
+// barrel then offers as a composite. Same belt-and-braces as loom:state: JSON
+// only, name validated, writes confined to the chains directory.
+const effectsApi: Plugin = {
+  name: "loom:effects",
+  configureServer(server) {
+    const chainsDir = fileURLToPath(
+      new URL("../../content/modules/effects/chains", import.meta.url),
+    );
+    server.middlewares.use("/loom/effects/", (req, res) => {
+      if (req.method !== "POST") {
+        res.statusCode = 405;
+        res.end();
+        return;
+      }
+      const name = decodeURIComponent((req.url ?? "").replace(/^\//, "").split("?")[0]!);
+      if (!/^[a-z][a-zA-Z0-9]*$/.test(name)) {
+        res.statusCode = 400;
+        res.end("bad effect name");
+        return;
+      }
+      const file = normalize(join(chainsDir, `${name}.chain.json`));
+      if (!file.startsWith(normalize(chainsDir))) {
+        res.statusCode = 400;
+        res.end("bad effect name");
+        return;
+      }
+      let raw = "";
+      req.on("data", (chunk) => (raw += chunk));
+      req.on("end", () => {
+        try {
+          JSON.parse(raw); // store JSON only — a corrupt write must never land
+          mkdirSync(chainsDir, { recursive: true });
+          writeFileSync(file, raw);
+          res.statusCode = 204;
+          res.end();
+        } catch {
+          res.statusCode = 400;
+          res.end("body must be JSON");
+        }
+      });
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [watchContent, buildCatalog, stateApi],
+  plugins: [watchContent, buildCatalog, stateApi, effectsApi],
   // Multi-page production build for the static preview deploy (Cloudflare Pages):
   // the Output window (/), the Console cockpit (/console.html), and the staged
   // preview (/staged.html) all ship so the preview is "view + tweak", not just a

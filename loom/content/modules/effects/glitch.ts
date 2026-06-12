@@ -44,6 +44,12 @@ export const glitch = defineModule(
     description: "Slice tearing, RGB split, scanlines and row dropouts over any input.",
     tags: ["glitch", "datamosh", "distortion", "stateful"],
     example: 'glitch(ctx, { input: src, amount: 0.6, burst: kickEnv, split: 0.5 })',
+    chainParams: [
+      { name: "amount", default: 0.6, min: 0, max: 1, description: "tear/scanline/dropout amount" },
+      { name: "burst", default: 0, min: 0, max: 2, description: "transient boost (bind to a kick)" },
+      { name: "slices", type: "int", default: 28, min: 1, max: 64, description: "tear band count" },
+      { name: "split", default: 0.5, min: 0, max: 1, description: "RGB channel separation" },
+    ],
   },
   (ctx: BuildCtx, opts: GlitchOpts): TexNode => {
     const rt = new RenderTarget(WIDTH, HEIGHT, { type: HalfFloatType });

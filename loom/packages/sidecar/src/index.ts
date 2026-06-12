@@ -12,7 +12,9 @@ import {
   DEFAULT_WS_PORT,
   InstanceArgs,
   ModulateParamArgs,
+  SaveChainArgs,
   ScreenshotResult,
+  SetChainArgs,
   SetParamArgs,
 } from "./protocol";
 
@@ -157,6 +159,63 @@ const TOOLS = [
     },
   },
   {
+    name: "set_chain",
+    description:
+      "CRUD an instance's post-effect chain in one idempotent call: pass the FULL desired " +
+      "list of steps (so add/remove/reorder/insert are all expressed by what you send). Each " +
+      "step is { effect, id?, params?, mix? }: keep a surviving step's id to preserve its " +
+      "knobs across a reorder; omit id for a new step. `effect` is a name from get_session's " +
+      "availableEffects (code primitives + saved chains). After the rebuild, tune step knobs " +
+      "with set_param on fx.<id>.<param>; fx.<id>.mix is the wet/dry (0 bypassed · 1 full), " +
+      "ride it without a rebuild. restoreDefault:true resets to the scene's declared chain. " +
+      "A throwing step is rejected and the previous chain + pixels keep running (NFR-5). " +
+      "Editing the LIVE chain needs agent-commit armed (sandbox instances are ungated).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        steps: {
+          type: "array",
+          description: "The full desired step list, in source→output order.",
+          items: {
+            type: "object",
+            properties: {
+              effect: { type: "string", description: "Effect name from availableEffects." },
+              id: { type: "string", description: "Keep a surviving step's id; omit for a new one." },
+              params: {
+                type: "object",
+                description: "Initial knob values keyed by sub-path (e.g. amount, mix); omit to carry/ default.",
+              },
+              mix: { type: "number", description: "Wet/dry 0..1 (default 1)." },
+            },
+            required: ["effect"],
+          },
+        },
+        restoreDefault: {
+          type: "boolean",
+          description: "Reset to the scene's declared default chain (ignores steps).",
+        },
+      },
+    },
+  },
+  {
+    name: "save_chain",
+    description:
+      "Save the instance's current chain as a reusable composite effect — a data-only file " +
+      "under content/modules/effects/chains/ that then appears in availableEffects and can be " +
+      "dropped into any chain like a primitive. The chain must contain only primitive effects " +
+      "(saved chains are one level deep). Live knob values are captured into the saved data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        name: { type: "string", description: "lowerCamelCase name for the new effect." },
+        description: { type: "string", description: "Optional one-line description." },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "screenshot",
     description:
       "Capture an instance's output as a PNG — your eyes on what is actually rendering. " +
@@ -256,6 +315,18 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       case "clear_modulation": {
         const result = await broker.request("clear_modulation", { ...ClearModulationArgs.parse(args) });
+        return textResult(result);
+      }
+      case "set_chain": {
+        const result = await broker.request(
+          "set_chain",
+          { ...SetChainArgs.parse(args) },
+          10_000, // a chain rebuild can outlast the default timeout
+        );
+        return textResult(result);
+      }
+      case "save_chain": {
+        const result = await broker.request("save_chain", { ...SaveChainArgs.parse(args) });
         return textResult(result);
       }
       case "screenshot": {

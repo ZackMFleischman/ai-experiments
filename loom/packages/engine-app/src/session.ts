@@ -1,7 +1,10 @@
 import {
   buildInstance,
+  ChainHost,
   ModulatorHost,
   type AudioBusLike,
+  type ChainStepInput,
+  type EffectRegistry,
   type FrameCtx,
   type InputRegistry,
   type Instance,
@@ -28,6 +31,8 @@ export interface Entry {
   lastUpdateRejected: boolean;
   /** Run-time param modulators — per instance, surviving rebuilds (FR-3/FR-4). */
   readonly modulators: ModulatorHost;
+  /** Post-effect chain — per instance, folded into every build (M6). */
+  readonly chain: ChainHost;
   /** Successful builds of this entry (1 on create) — validators assert "no rebuild" against this. */
   builds: number;
 }
@@ -50,6 +55,8 @@ export class SessionStore {
 
   constructor(
     private readonly buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry; palettes?: PaletteRegistry },
+    /** The chainable-effect library (M6) — a getter so it tracks `./effects` HMR. */
+    private readonly effects: () => EffectRegistry,
     /** Tuned per-scene values (NFR-5: params reapplied from tuned state). */
     private readonly tunedValues?: (scene: string) => Record<string, number | boolean | string> | undefined,
   ) {}
@@ -57,8 +64,11 @@ export class SessionStore {
   create(def: SceneDef, id?: string): Entry {
     const finalId = id ?? `${def.name}-${++this.counter}`;
     if (this.entries.has(finalId)) throw new Error(`instance "${finalId}" already exists`);
-    const instance = buildInstance(def, this.buses);
+    const chain = new ChainHost(this.effects);
+    chain.seed(def.chain); // scene-declared default chain (M6)
+    const instance = buildInstance(def, this.buses, (ctx, tex) => chain.fold(ctx, tex));
     this.applyTuned(instance, def.name);
+    chain.applyValues(instance.manifest);
     const entry: Entry = {
       id: finalId,
       sceneName: def.name,
@@ -67,6 +77,7 @@ export class SessionStore {
       target: new RenderTarget(PREVIEW_W, PREVIEW_H),
       lastUpdateRejected: false,
       modulators: new ModulatorHost({ bpm: () => this.buses.time.bpm, audio: this.buses.audio }),
+      chain,
       builds: 1,
     };
     this.entries.set(finalId, entry);
@@ -77,9 +88,36 @@ export class SessionStore {
   rebuild(id: string, def: SceneDef): boolean {
     const e = this.entries.get(id);
     if (!e) return false;
+    e.chain.captureValues(e.instance.manifest); // preserve live chain knobs across the scene rebuild
+    return this.swap(e, def);
+  }
+
+  /**
+   * M6: replace the post-effect chain (full-list semantics — add/remove/reorder/
+   * insert in one idempotent verb) and rebuild. A throwing step rejects the
+   * rebuild and keeps the previous chain AND pixels (NFR-5). `"default"` restores
+   * the scene's declared chain. Throws on an unknown effect (chain untouched).
+   */
+  setChain(id: string, input: ChainStepInput[] | "default"): boolean {
+    const e = this.require(id);
+    const prev = e.chain.steps;
+    e.chain.captureValues(e.instance.manifest); // so carry-forward sees live knob values
+    const candidate = input === "default" ? e.chain.toDefault() : e.chain.plan(input);
+    e.chain.steps = candidate;
+    const ok = this.swap(e, e.def);
+    if (!ok) {
+      e.chain.steps = prev; // a step failed to build — restore the old chain; old pixels still live
+      throw new Error(`chain edit rejected on "${e.id}" — a step failed to build; previous chain kept`);
+    }
+    return ok;
+  }
+
+  /** Build a fresh instance (folding the entry's chain) and swap it in; NFR-5 on throw. */
+  private swap(e: Entry, def: SceneDef): boolean {
     try {
-      const next = buildInstance(def, this.buses);
+      const next = buildInstance(def, this.buses, (ctx, tex) => e.chain.fold(ctx, tex));
       this.applyTuned(next, def.name);
+      e.chain.applyValues(next.manifest);
       e.instance.dispose();
       e.instance = next;
       e.sceneName = def.name;
@@ -90,7 +128,7 @@ export class SessionStore {
       return true;
     } catch (err) {
       e.lastUpdateRejected = true;
-      console.error(`[loom] rebuild of "${id}" (${def.name}) rejected; previous still running`, err);
+      console.error(`[loom] rebuild of "${e.id}" (${def.name}) rejected; previous still running`, err);
       return false;
     }
   }

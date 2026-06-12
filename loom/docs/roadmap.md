@@ -34,33 +34,26 @@ focused month of evenings.
 | Param modulators (2026-06-10) | runtime LFO/follower attach on any param | `validate:modulators` |
 | Console React+MUI rebuild (2026-06-11) | cockpit pages on React 19 + MUI 7, EngineLink | all validators |
 | M6 Color & palettes — palette half (2026-06-11) | color param type, global palettes, `ctx.palette`, source switch with no rebuild | `validate:m6` |
+| M6 Chains half (2026-06-12) | per-instance FX chains (`set_chain`/`save_chain`), wet/dry mix as a bindable param, insert/reorder, scene-default + restore, saved-chain composites | `validate:m6` (chain checks) |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
 
 ## Remaining
 
-### M6 — chains half (M)
+### M6 chains half — SHIPPED 2026-06-12
 
-Per-instance post-effect chains: `chain: ChainStep[]` (`{ id, effect, params }`,
-stable step ids) as data on the session entry, folded after the scene build
-(`tex = effect(ctx, { input: tex, … })` per step — effects already own pass
-ordering). **Chain edit = rebuild via NFR-5** — a throwing step rejects the rebuild
-and the previous pixels keep running. Effects declare chain knobs via optional
-`meta.chainParams`; step params live at `fx.<stepId>.<param>` (stable across
-reorder), values stored in the chain data and re-applied after every rebuild. One
-new command + MCP tool: `set_chain { instance, steps }` (full-list semantics —
-attach/detach/reorder in one idempotent verb). Humans may edit the LIVE chain
-directly; **agents need the arming gate to touch the LIVE chain** (non-live is
-ungated). Console: collapsible FX-chain section in the param panel — step cards
-with drag-reorder, "+ effect" fed by an effects barrel, per-step widgets grouped by
-prefix. Output types formalized: `ModuleOutput = TexNode | Signal | Events` and a
-`ChainableEffect` alias; retrofit `glitch`/`feedback`/`levels` with `chainParams`.
-
-**Shipped when:** the chain half of `validate:m6` — `set_chain` appending glitch
-makes `fx.glitch-1.*` appear in the manifest and visibly changes the preview; a
-throwing chain step leaves the instance running on previous pixels; reorder
-preserves knob positions. m0–m5 green.
+Shipped (see the table above and `DECISIONS.md`), with scope pulled forward beyond
+the original sketch: per-instance chains (`chain: ChainStep[]` on the session entry,
+folded inside `buildInstance` via `ChainHost`); **enable/disable is a wet/dry
+`fx.<id>.mix` float param, not a structural field** (bypass with no rebuild,
+MIDI-bindable, ride on a fader); insert-anywhere + drag-reorder; `set_chain`
+(full-list/idempotent, arming-gated on the LIVE chain) and `save_chain` (saved-chain
+**composites** under `content/modules/effects/chains/`, one level deep); scenes may
+declare a default `chain` and `restoreDefault` resets to it. Output types formalized
+(`ModuleOutput`, `ChainableEffect`); `glitch`/`feedback`/`levels` carry `chainParams`.
+M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
+snapshot/restore across reload stays M9.
 
 ### M7 — Library & parallel build (M) *(old M5 + old-M4’s panels/save-as)*
 

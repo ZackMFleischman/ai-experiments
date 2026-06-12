@@ -20,6 +20,7 @@ import { Compositor } from "./compositor";
 import { startConsoleChannel } from "./console-channel";
 import { EngineApi } from "./engine-api";
 import { FpsMeter } from "./fps";
+import { getEffectLibrary } from "./effects";
 import { getScenes } from "./scenes";
 import { entryStatus, SessionStore } from "./session";
 import { StateClient } from "./state";
@@ -46,6 +47,7 @@ declare global {
         status: InstanceStatus;
         builds: number;
         modulators: Array<{ path: string; type: string; error: string | null }>;
+        chain: Array<{ id: string; effect: string; kind: string; mix: number }>;
       }>;
       /** Input-rack channel values (rack meters / validation). */
       inputs: Record<string, number>;
@@ -146,7 +148,13 @@ const persist = {
   palettes: () => state.save("palettes", () => palettes.manifest.values()),
   scene: (sceneName: string) => {
     const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
-    if (entry) tunedValues.set(sceneName, entry.instance.manifest.values());
+    if (entry) {
+      // Chain knob values (fx.*) live in the chain data, not the per-scene file
+      // (full chain persistence is M9) — keep them out of values/<scene>.json.
+      const vals = entry.instance.manifest.values();
+      for (const k of Object.keys(vals)) if (k.startsWith("fx.")) delete vals[k];
+      tunedValues.set(sceneName, vals);
+    }
     state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
   },
   bindings: () => state.save("bindings", () => bindings.toJSON()),
@@ -174,8 +182,26 @@ midi.onCc((e) => {
   if (learned) persist.bindings();
 });
 
-const session = new SessionStore({ audio, time: timeBus, inputs, palettes }, (scene) =>
-  tunedValues.get(scene),
+// The chainable-effect library (M6). Re-cached on an `./effects` hot-update so a
+// saved chain or an edited effect appears in the picker without a reload.
+let effectsLib = getEffectLibrary();
+
+// Save the live chain to content/modules/effects/chains/<name>.chain.json (the
+// Vite loom:effects middleware writes it; the glob picks it up as a composite).
+async function saveEffectChain(name: string, data: unknown): Promise<{ path: string }> {
+  const res = await fetch(`/loom/effects/${encodeURIComponent(name)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`save failed (${res.status}): ${await res.text().catch(() => "")}`);
+  return { path: `content/modules/effects/chains/${name}.chain.json` };
+}
+
+const session = new SessionStore(
+  { audio, time: timeBus, inputs, palettes },
+  () => effectsLib,
+  (scene) => tunedValues.get(scene),
 );
 const stage = new Stage();
 const compositor = new Compositor(RENDER_W, RENDER_H);
@@ -308,6 +334,8 @@ const api = new EngineApi(
     audio,
     time: timeBus,
     getScenes: () => currentScenes(),
+    availableEffects: () => effectsLib.describe(),
+    saveEffectChain,
     latestFrame: () => latestFrame,
     captureCanvas: () =>
       new Promise((resolve, reject) => {
@@ -401,6 +429,7 @@ renderer.setAnimationLoop((tMs) => {
     status: entryStatus(e),
     builds: e.builds,
     modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
+    chain: e.chain.list(),
   }));
 });
 
@@ -464,5 +493,15 @@ if (import.meta.hot) {
         );
       }
     }
+  });
+
+  // The effect library hot-reloads like scenes: an edited effect or a newly
+  // saved chain (content/modules/effects/**) re-globs through this barrel, so
+  // the "+ effect" picker and future folds see it without a reload. Live chains
+  // keep running on the old code until their next rebuild (NFR-5 unchanged).
+  import.meta.hot.accept("./effects", (mod) => {
+    if (!mod?.getEffectLibrary) return;
+    effectsLib = (mod.getEffectLibrary as typeof getEffectLibrary)();
+    console.info("[loom] effect library reloaded");
   });
 }

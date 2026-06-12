@@ -12,7 +12,7 @@ import type { InputRegistry } from "./inputs";
 import type { PaletteRegistry } from "./palette";
 import type { Manifest } from "./param";
 import type { SceneDef } from "./scene";
-import type { ColorNode, Pass } from "./texnode";
+import type { ColorNode, Pass, TexNode } from "./texnode";
 
 /**
  * A running scene graph. NFR-2: any exception inside render freezes this
@@ -70,12 +70,19 @@ export class Instance {
 export function buildInstance(
   scene: SceneDef,
   buses: { audio: AudioBusLike; time: TimeBus; inputs?: InputRegistry; palettes?: PaletteRegistry },
+  /**
+   * Optional post-effect fold (M6 chains): wraps the scene's output before the
+   * manifest finalizes, so chain params land on the same manifest and a throwing
+   * step throws the whole build (NFR-5 keeps the previous pixels).
+   */
+  fold?: (ctx: BuildCtx, tex: TexNode) => TexNode,
 ): Instance {
   const ctx = new BuildCtx(buses.audio, buses.time, buses.inputs, buses.palettes);
-  const out = scene.build(ctx);
-  ctx.finalize();
+  let out = scene.build(ctx);
   if (out?.color == null) {
     throw new Error(`scene "${scene.name}": build() must return a TexNode`);
   }
+  if (fold) out = fold(ctx, out);
+  ctx.finalize();
   return new Instance(scene.name, ctx.manifest, ctx.updaters, out.passes, out.color);
 }

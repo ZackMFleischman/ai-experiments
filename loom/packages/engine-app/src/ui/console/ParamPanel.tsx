@@ -3,6 +3,7 @@ import {
 } from "@mui/material";
 import { useState } from "react";
 import type { ParamDesc } from "../engine-link";
+import { FxChain } from "./FxChain";
 import { ParamWidget } from "./ParamWidget";
 
 const GROUP_OPEN_KEY = "loom.pgroups.open";
@@ -42,6 +43,7 @@ export function ParamPanel({ instance, manifest }: Props) {
   const flat: Array<[string, ParamDesc]> = [];
   const groups = new Map<string, Array<[string, ParamDesc]>>();
   for (const [path, p] of Object.entries(manifest ?? {})) {
+    if (path.startsWith("fx.")) continue; // chain knobs render inside the FX CHAIN section
     const dot = path.indexOf(".");
     if (dot < 0) {
       flat.push([path, p]);
@@ -108,6 +110,7 @@ export function ParamPanel({ instance, manifest }: Props) {
                 </AccordionDetails>
               </Accordion>
             ))}
+            {instance !== "globals" && <FxChain instance={instance} manifest={manifest} />}
           </>
         )}
       </Box>

@@ -19,6 +19,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
 const SCENE = join(ROOT, "content", "scenes", "live.scene.ts");
 const STATE_DIR = join(ROOT, "content", "state");
+const TMP_CHAIN = join(ROOT, "content", "modules", "effects", "chains", "validatorTmp.chain.json");
 const PORT = 5203;
 const WS_PORT = 7346;
 // State persistence stays ON here (no state=off) — palette persistence is under test.
@@ -270,6 +271,111 @@ try {
   check("stage-strip selector flips palette.source", true);
   await consolePage.screenshot({ path: join(ARTIFACTS, "m6-3-source-selector.png") });
 
+  // ---- chain half (M6): per-instance post-effect chains ----
+
+  // 11. The library exposes chainable effects (code primitives + the saved composite).
+  const session1 = toolJson(await callOk(client, "get_session", {}));
+  const effNames = new Set(session1.availableEffects.map((e) => e.name));
+  check(
+    "availableEffects lists primitives + a saved composite",
+    ["glitch", "feedback", "levels", "bloomTrails"].every((n) => effNames.has(n)),
+    [...effNames].join(", "),
+  );
+  check(
+    "bloomTrails is reported as a composite",
+    session1.availableEffects.find((e) => e.name === "bloomTrails")?.kind === "composite",
+  );
+
+  // 12. set_chain appends glitch → fx.glitch-1.* appears and the preview changes.
+  const fx = toolJson(await callOk(client, "create_instance", { scene: "gradient" }));
+  await sleep(400);
+  const fxBase = avgColor(await callOk(client, "screenshot", { instance: fx.instance }));
+  await callOk(client, "set_chain", {
+    instance: fx.instance,
+    steps: [{ effect: "glitch", params: { amount: 1, burst: 1 } }],
+  });
+  const fxManifest = toolJson(await callOk(client, "get_manifest", { instance: fx.instance }));
+  check(
+    "set_chain glitch exposes fx.glitch-1.amount + fx.glitch-1.mix",
+    fxManifest.params["fx.glitch-1.amount"]?.type === "float" &&
+      fxManifest.params["fx.glitch-1.mix"]?.type === "float",
+  );
+  const fxChain = toolJson(await callOk(client, "get_session", {})).instances.find(
+    (x) => x.id === fx.instance,
+  ).chain;
+  check("get_session reports the chain step", fxChain[0]?.effect === "glitch" && fxChain[0]?.id === "glitch-1");
+  const afterGlitch = await waitFor(async () => {
+    const c = avgColor(await callOk(client, "screenshot", { instance: fx.instance }));
+    return dist(fxBase, c) > 8 ? c : null;
+  }, 5_000, "glitch to change the preview").catch(async () =>
+    avgColor(await callOk(client, "screenshot", { instance: fx.instance })),
+  );
+  check("appending glitch visibly changes the preview", dist(fxBase, afterGlitch) > 8, `Δ=${dist(fxBase, afterGlitch).toFixed(1)}`);
+
+  // 13. Wet/dry mix is a live param: mix=0 bypasses to the input, no rebuild.
+  const buildsAfterAppend = await buildsOf(fx.instance);
+  await callOk(client, "set_param", { instance: fx.instance, path: "fx.glitch-1.mix", value: 0 });
+  const bypassed = await waitFor(async () => {
+    const c = avgColor(await callOk(client, "screenshot", { instance: fx.instance }));
+    return dist(fxBase, c) < 8 ? c : null;
+  }, 5_000, "mix=0 to bypass back to source").catch(async () =>
+    avgColor(await callOk(client, "screenshot", { instance: fx.instance })),
+  );
+  check("fx.<id>.mix=0 bypasses to the source pixels", dist(fxBase, bypassed) < 8, `Δ=${dist(fxBase, bypassed).toFixed(1)}`);
+  check("riding the mix caused no rebuild", (await buildsOf(fx.instance)) === buildsAfterAppend);
+
+  // 14. Reorder preserves knob positions (stable fx.<id> across the rebuild).
+  await callOk(client, "set_chain", {
+    instance: fx.instance,
+    steps: [{ id: "glitch-1", effect: "glitch" }, { effect: "levels" }],
+  });
+  await callOk(client, "set_param", { instance: fx.instance, path: "fx.glitch-1.amount", value: 0.13 });
+  const levelsId = toolJson(await callOk(client, "get_session", {})).instances
+    .find((x) => x.id === fx.instance)
+    .chain.find((s) => s.effect === "levels").id;
+  await callOk(client, "set_chain", {
+    instance: fx.instance,
+    steps: [{ id: levelsId, effect: "levels" }, { id: "glitch-1", effect: "glitch" }],
+  });
+  const reordered = toolJson(await callOk(client, "get_manifest", { instance: fx.instance }));
+  check(
+    "reorder preserves the glitch knob value",
+    Math.abs(reordered.params["fx.glitch-1.amount"].value - 0.13) < 1e-6,
+    `amount=${reordered.params["fx.glitch-1.amount"].value}`,
+  );
+
+  // 15. A composite step folds its inner primitives under fx.<id>.<inner>.<param>.
+  await callOk(client, "set_chain", { instance: fx.instance, steps: [{ effect: "bloomTrails" }] });
+  const compId = toolJson(await callOk(client, "get_session", {})).instances
+    .find((x) => x.id === fx.instance)
+    .chain.find((s) => s.effect === "bloomTrails").id;
+  const comp = toolJson(await callOk(client, "get_manifest", { instance: fx.instance }));
+  check(
+    "composite step namespaces inner params",
+    comp.params[`fx.${compId}.feedback-1.amount`]?.type === "float" &&
+      comp.params[`fx.${compId}.mix`]?.type === "float",
+    Object.keys(comp.params).filter((p) => p.startsWith("fx.")).join(", "),
+  );
+
+  // 16. save_chain writes a reusable composite that the library then offers.
+  await callOk(client, "set_chain", {
+    instance: fx.instance,
+    steps: [{ effect: "glitch", params: { amount: 0.7 } }, { effect: "levels" }],
+  });
+  await callOk(client, "save_chain", { instance: fx.instance, name: "validatorTmp" });
+  const grew = await waitFor(async () => {
+    const s = toolJson(await callOk(client, "get_session", {}));
+    return s.availableEffects.some((e) => e.name === "validatorTmp" && e.kind === "composite") ? true : null;
+  }, 6_000, "saved chain to appear in the library").catch(() => false);
+  check("save_chain registers a new composite effect", grew === true);
+
+  // 17. restoreDefault resets to the scene's declared chain (gradient: none).
+  await callOk(client, "set_chain", { instance: fx.instance, restoreDefault: true });
+  const restored = toolJson(await callOk(client, "get_session", {})).instances.find(
+    (x) => x.id === fx.instance,
+  ).chain;
+  check("restoreDefault clears a chain with no scene default", restored.length === 0);
+
   // 10. Persistence: palettes.json round-trips a reload (state is ON in this run).
   await output.reload();
   await waitForFps(output);
@@ -296,6 +402,7 @@ try {
     vite.kill("SIGTERM");
   }
   writeFileSync(SCENE, originalScene);
+  rmSync(TMP_CHAIN, { force: true }); // the save_chain test artifact
   rmSync(STATE_DIR, { recursive: true, force: true });
   for (const [rel, content] of stateBackup) {
     const file = join(STATE_DIR, rel);

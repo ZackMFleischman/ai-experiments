@@ -21,6 +21,8 @@ export const RequestType = z.enum([
   "set_param",
   "modulate_param",
   "clear_modulation",
+  "set_chain",
+  "save_chain",
   "screenshot",
   "create_instance",
   "destroy_instance",
@@ -82,6 +84,43 @@ export const CreateInstanceArgs = z.object({
   id: z.string().min(1).optional(),
 });
 export type CreateInstanceArgs = z.infer<typeof CreateInstanceArgs>;
+
+/** One desired chain step. `id` is omitted for a new step, kept for a surviving one. */
+export const ChainStepInputSchema = z.object({
+  id: z.string().min(1).optional(),
+  effect: z.string().min(1),
+  /** Initial knob values (sub-paths under fx.<id>); omitted = carry forward / defaults. */
+  params: z.record(z.string(), z.union([z.number(), z.boolean()])).optional(),
+  /** Wet/dry 0..1; omitted = carry forward or 1. */
+  mix: z.number().min(0).max(1).optional(),
+});
+export type ChainStepInputSchema = z.infer<typeof ChainStepInputSchema>;
+
+/**
+ * Full-list chain edit (M6): the whole desired step list, so attach/detach/
+ * reorder/insert are one idempotent verb. `restoreDefault` resets to the scene's
+ * declared chain (ignores `steps`). Agent edits to the LIVE chain need arming.
+ */
+export const SetChainArgs = z
+  .object({
+    instance: z.string().default("live"),
+    steps: z.array(ChainStepInputSchema).optional(),
+    restoreDefault: z.boolean().optional(),
+  })
+  .refine((a) => a.restoreDefault === true || a.steps != null, {
+    message: "set_chain needs steps[] (or restoreDefault: true)",
+  });
+export type SetChainArgs = z.infer<typeof SetChainArgs>;
+
+/** Save the instance's current chain as a reusable composite effect (data file). */
+export const SaveChainArgs = z.object({
+  instance: z.string().default("live"),
+  name: z
+    .string()
+    .regex(/^[a-z][a-zA-Z0-9]*$/, "saved-chain names are lowerCamelCase identifiers"),
+  description: z.string().optional(),
+});
+export type SaveChainArgs = z.infer<typeof SaveChainArgs>;
 
 export const CommitArgs = z.object({
   durationFrames: z.number().int().min(0).max(600).default(60),
@@ -147,6 +186,16 @@ export const ModulatorSummary = z.object({
 });
 export type ModulatorSummary = z.infer<typeof ModulatorSummary>;
 
+/** One folded chain step, for `get_session`. Knob values come from `get_manifest`. */
+export const ChainStepInfo = z.object({
+  id: z.string(),
+  effect: z.string(),
+  kind: z.enum(["primitive", "composite"]),
+  /** Current wet/dry mix 0..1. */
+  mix: z.number(),
+});
+export type ChainStepInfo = z.infer<typeof ChainStepInfo>;
+
 export const InstanceInfo = z.object({
   id: z.string(),
   scene: z.string(),
@@ -154,10 +203,20 @@ export const InstanceInfo = z.object({
   error: z.string().nullable(),
   paramPaths: z.array(z.string()),
   modulators: z.array(ModulatorSummary),
+  /** Post-effect chain steps in order (M6). */
+  chain: z.array(ChainStepInfo),
   /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
   builds: z.number().int(),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfo>;
+
+/** A chainable effect offered by the library (code primitive or saved composite). */
+export const EffectInfo = z.object({
+  name: z.string(),
+  kind: z.enum(["primitive", "composite"]),
+  description: z.string().optional(),
+});
+export type EffectInfo = z.infer<typeof EffectInfo>;
 
 export const SessionSnapshot = z.object({
   // Live-instance views (kept flat for M2 compatibility and quick reads).
@@ -174,6 +233,8 @@ export const SessionSnapshot = z.object({
   panicked: z.boolean(),
   agentCommitArmed: z.boolean(),
   availableScenes: z.array(z.string()),
+  /** Chainable effects for the "+ effect" picker and `set_chain` (M6). */
+  availableEffects: z.array(EffectInfo),
   // World
   audioMode: z.string(),
   audioDevices: z.array(AudioDevice),
@@ -231,6 +292,20 @@ export const ClearModulationResult = z.object({
   cleared: z.boolean(),
 });
 export type ClearModulationResult = z.infer<typeof ClearModulationResult>;
+
+export const SetChainResult = z.object({
+  instance: z.string(),
+  chain: z.array(ChainStepInfo),
+});
+export type SetChainResult = z.infer<typeof SetChainResult>;
+
+export const SaveChainResult = z.object({
+  saved: z.string(),
+  /** Repo-relative path of the written composite. */
+  path: z.string(),
+  steps: z.number().int(),
+});
+export type SaveChainResult = z.infer<typeof SaveChainResult>;
 
 export const ScreenshotResult = z.object({
   mime: z.literal("image/png"),

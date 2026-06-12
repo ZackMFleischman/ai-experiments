@@ -9,6 +9,8 @@ import {
   ModulateParamArgs,
   RequestMsg,
   ResponseMsg,
+  SaveChainArgs,
+  SetChainArgs,
   SetParamArgs,
   TransportArgs,
 } from "../src/protocol";
@@ -18,6 +20,7 @@ describe("RequestMsg", () => {
     const types = [
       "get_session", "get_manifest", "set_param", "modulate_param", "clear_modulation",
       "screenshot", "create_instance", "destroy_instance", "stage", "unstage", "commit",
+      "set_chain", "save_chain",
       "panic", "resume", "set_transport", "arm_agent_commit",
       "midi_learn", "midi_unbind",
     ];
@@ -132,5 +135,29 @@ describe("modulator args", () => {
   it("ClearModulationArgs requires a path", () => {
     expect(ClearModulationArgs.parse({ path: "trail" }).instance).toBe("live");
     expect(() => ClearModulationArgs.parse({})).toThrow();
+  });
+});
+
+describe("chain args (M6)", () => {
+  it("SetChainArgs accepts a full step list and defaults instance to live", () => {
+    const a = SetChainArgs.parse({
+      steps: [{ effect: "glitch" }, { id: "levels-2", effect: "levels", params: { gain: 1.2 }, mix: 0.5 }],
+    });
+    expect(a.instance).toBe("live");
+    expect(a.steps?.[0]!.effect).toBe("glitch");
+    expect(a.steps?.[1]!.mix).toBe(0.5);
+  });
+
+  it("SetChainArgs accepts restoreDefault without steps, but needs one or the other", () => {
+    expect(SetChainArgs.parse({ restoreDefault: true }).restoreDefault).toBe(true);
+    expect(() => SetChainArgs.parse({})).toThrow();
+    expect(() => SetChainArgs.parse({ steps: [{}] })).toThrow(); // a step needs an effect
+    expect(() => SetChainArgs.parse({ steps: [{ effect: "glitch", mix: 2 }] })).toThrow(); // mix 0..1
+  });
+
+  it("SaveChainArgs requires a lowerCamelCase name", () => {
+    expect(SaveChainArgs.parse({ name: "vhsStack" }).instance).toBe("live");
+    expect(() => SaveChainArgs.parse({})).toThrow();
+    expect(() => SaveChainArgs.parse({ name: "VHS Stack" })).toThrow();
   });
 });
