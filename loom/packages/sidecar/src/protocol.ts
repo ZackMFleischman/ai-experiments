@@ -23,6 +23,7 @@ export const RequestType = z.enum([
   "clear_modulation",
   "set_chain",
   "save_chain",
+  "preview_effect",
   "screenshot",
   "create_instance",
   "destroy_instance",
@@ -122,6 +123,16 @@ export const SetChainArgs = z
     message: "set_chain needs steps[] (or restoreDefault: true)",
   });
 export type SetChainArgs = z.infer<typeof SetChainArgs>;
+
+/**
+ * Render a candidate effect over an instance's current output for the picker
+ * grid (Console-only — not an MCP tool). Returns a JPEG data URL.
+ */
+export const PreviewEffectArgs = z.object({
+  instance: z.string().default("live"),
+  effect: z.string().min(1),
+});
+export type PreviewEffectArgs = z.infer<typeof PreviewEffectArgs>;
 
 /** Save the instance's current chain as a reusable composite effect (data file). */
 export const SaveChainArgs = z.object({

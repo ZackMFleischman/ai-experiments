@@ -17,6 +17,7 @@ import {
   InstanceArgs,
   MidiTargetArgs,
   ModulateParamArgs,
+  PreviewEffectArgs,
   RenameInstanceArgs,
   SaveChainArgs,
   SetAudioArgs,
@@ -85,6 +86,8 @@ export interface EngineDeps {
   availableEffects(): EffectInfo[];
   /** Write the instance's current chain as a composite effect file; returns its repo path. */
   saveEffectChain(name: string, data: unknown): Promise<{ path: string }>;
+  /** Render a candidate effect over an instance's current output → JPEG data URL (picker grid). */
+  previewEffect(instanceId: string, effect: string): Promise<string>;
   latestFrame(): FrameCtx;
   /** Same-task canvas capture, resolved by the render loop (live output only). */
   captureCanvas(): Promise<ScreenshotResult>;
@@ -225,6 +228,11 @@ export class EngineApi {
         session.setChain(e.id, restoreDefault ? "default" : (steps ?? []));
         this.deps.persist.scene(e.sceneName);
         return { instance: e.id, chain: e.chain.list() };
+      }
+      case "preview_effect": {
+        const { instance, effect } = PreviewEffectArgs.parse(req.args);
+        const e = session.require(this.resolveId(instance));
+        return { effect, image: await this.deps.previewEffect(e.id, effect) };
       }
       case "save_chain": {
         const { instance, name, description } = SaveChainArgs.parse(req.args);

@@ -20,7 +20,7 @@ describe("RequestMsg", () => {
     const types = [
       "get_session", "get_manifest", "set_param", "modulate_param", "clear_modulation",
       "screenshot", "create_instance", "destroy_instance", "stage", "unstage", "commit",
-      "set_chain", "save_chain",
+      "set_chain", "save_chain", "preview_effect",
       "panic", "resume", "set_transport", "arm_agent_commit",
       "midi_learn", "midi_unbind",
     ];

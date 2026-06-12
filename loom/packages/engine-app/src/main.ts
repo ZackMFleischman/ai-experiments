@@ -1,18 +1,23 @@
 import {
   AudioBus,
   BindingStore,
+  BuildCtx,
+  ChainHost,
   Clock,
   InputRegistry,
+  Instance,
   MidiBus,
   PaletteRegistry,
   Stage,
+  texNode,
   TimeBus,
   type FrameCtx,
   type InputsDef,
   type SceneDef,
 } from "@loom/runtime";
 import { DEFAULT_WS_PORT, type InstanceStatus, type ScreenshotResult } from "@loom/sidecar/protocol";
-import { WebGPURenderer } from "three/webgpu";
+import { texture, vec4 } from "three/tsl";
+import { RenderTarget, WebGPURenderer } from "three/webgpu";
 import inputsDef from "../../../content/inputs";
 import liveScene from "../../../content/scenes/live.scene";
 import { startBridge } from "./bridge";
@@ -208,6 +213,66 @@ const session = new SessionStore(
   () => effectsLib,
   (scene) => tunedValues.get(scene),
 );
+
+// Effect-picker previews: fold a candidate effect over an instance's CURRENT
+// output (its already-rendered preview target — no extra scene render, so a live
+// instance's stateful passes are never disturbed) into a throwaway instance,
+// render a few frames in-loop, and read it back as a JPEG. Serviced one per
+// frame from the render loop (the only place the renderer is ours to drive).
+const PREVIEW2_W = 256;
+const PREVIEW2_H = 144;
+const PREVIEW2_FRAMES = 8; // lets stateful candidates (feedback) settle over the still source
+const pendingPreviews: Array<{ run: (f: FrameCtx) => void; done: () => void }> = [];
+
+async function previewEffect(instanceId: string, effect: string): Promise<string> {
+  const e = session.require(instanceId);
+  const outRT = new RenderTarget(PREVIEW2_W, PREVIEW2_H);
+  let preview: Instance;
+  try {
+    const ctx = new BuildCtx(audio, timeBus, inputs, palettes);
+    const chain = new ChainHost(() => effectsLib);
+    chain.seed([{ effect }]);
+    const folded = chain.fold(ctx, texNode(vec4(texture(e.target.texture).rgb, 1)));
+    ctx.finalize();
+    preview = new Instance(`fxpreview:${effect}`, ctx.manifest, ctx.updaters, folded.passes, folded.color);
+  } catch (err) {
+    outRT.dispose();
+    throw new Error(`preview build failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  try {
+    await new Promise<void>((resolve) => {
+      pendingPreviews.push({
+        run: (f) => {
+          for (let i = 0; i < PREVIEW2_FRAMES; i++) preview.renderFrame(renderer, f, outRT);
+        },
+        done: resolve,
+      });
+    });
+    return await readTargetToJpeg(outRT, PREVIEW2_W, PREVIEW2_H);
+  } finally {
+    preview.dispose();
+    outRT.dispose();
+  }
+}
+
+async function readTargetToJpeg(rt: RenderTarget, w: number, h: number): Promise<string> {
+  const buf = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, w, h)) as Uint8Array | Uint8ClampedArray;
+  const pixels = new Uint8ClampedArray(buf.buffer, buf.byteOffset, w * h * 4);
+  const src = document.createElement("canvas");
+  src.width = w;
+  src.height = h;
+  src.getContext("2d")!.putImageData(new ImageData(pixels.slice(), w, h), 0, 0);
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext("2d")!;
+  if ((renderer.backend as { isWebGLBackend?: boolean }).isWebGLBackend === true) {
+    octx.translate(0, h); // WebGL framebuffers read bottom-up
+    octx.scale(1, -1);
+  }
+  octx.drawImage(src, 0, 0);
+  return out.toDataURL("image/jpeg", 0.72);
+}
 const stage = new Stage();
 const compositor = new Compositor(RENDER_W, RENDER_H);
 
@@ -343,6 +408,7 @@ const api = new EngineApi(
     getScenes: () => currentScenes(),
     availableEffects: () => effectsLib.describe(),
     saveEffectChain,
+    previewEffect,
     latestFrame: () => latestFrame,
     captureCanvas: () =>
       new Promise((resolve, reject) => {
@@ -433,6 +499,20 @@ const frameTick = (tMs: number): void => {
         for (const w of waiting) w.reject(e);
       }
     }
+  }
+
+  // One effect-picker preview per frame (bounds cost), AFTER the live screenshot
+  // read so it never disturbs the canvas: the candidate effect is folded over the
+  // instance's preview target, which the compositor just refreshed, then rendered
+  // to its own offscreen RT.
+  if (pendingPreviews.length > 0) {
+    const job = pendingPreviews.shift()!;
+    try {
+      job.run(f);
+    } catch {
+      // a bad preview render must never break the live loop
+    }
+    job.done();
   }
 
   const liveEntry = stage.live != null ? session.get(stage.live) : undefined;

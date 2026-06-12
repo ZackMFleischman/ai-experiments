@@ -12,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChainStepInfo } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
@@ -58,6 +58,24 @@ export function FxChain({ instance, manifest }: Props) {
   const effects = session?.availableEffects ?? [];
   const primitives = effects.filter((e) => e.kind === "primitive");
   const composites = effects.filter((e) => e.kind === "composite");
+
+  // Hover-lazy picker previews: render the effect over THIS instance's current
+  // output. Cached per effect; invalidated when the selected instance changes.
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const inflight = useRef(new Set<string>());
+  useEffect(() => {
+    setPreviews({});
+    inflight.current.clear();
+  }, [instance]);
+  const requestPreview = (name: string) => {
+    if (previews[name] != null || inflight.current.has(name)) return;
+    inflight.current.add(name);
+    void link
+      .req("preview_effect", { instance, effect: name })
+      .then((r) => setPreviews((p) => ({ ...p, [name]: (r as { image: string }).image })))
+      .catch(() => {})
+      .finally(() => inflight.current.delete(name));
+  };
 
   // Every structural edit is a full-list set_chain; ids are kept so surviving
   // steps keep their knobs (params/mix omitted → the engine carries them forward).
@@ -280,35 +298,42 @@ export function FxChain({ instance, manifest }: Props) {
                       key={e.name}
                       data-fxpick={e.name}
                       onClick={() => insert(e.name, pick!.index)}
+                      onMouseEnter={() => requestPreview(e.name)}
                       title={e.description ?? e.name}
                       sx={{
                         border: 1,
                         borderColor: "divider",
                         borderRadius: 1,
-                        p: 0.75,
+                        p: 0.5,
                         cursor: "pointer",
                         bgcolor: "background.default",
                         "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
                       }}
                     >
+                      <Box
+                        sx={{
+                          aspectRatio: "16 / 9",
+                          borderRadius: 0.5,
+                          mb: 0.5,
+                          bgcolor: "#000",
+                          backgroundImage: previews[e.name] != null ? `url(${previews[e.name]})` : undefined,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {previews[e.name] == null && (
+                          <Typography variant="caption" sx={{ color: "text.disabled", fontSize: 9 }}>
+                            hover ▸ preview
+                          </Typography>
+                        )}
+                      </Box>
                       <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
                         {g.mark}
                         {e.name}
                       </Typography>
-                      {e.description != null && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {e.description}
-                        </Typography>
-                      )}
                     </Box>
                   ))}
                 </Box>
