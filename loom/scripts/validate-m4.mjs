@@ -11,6 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { glArgs } from "./_browser.mjs";
 import { PNG } from "pngjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -126,9 +127,7 @@ try {
   browser = await chromium.launch({
     headless: true,
     args: [
-      "--enable-unsafe-webgpu",
-      "--enable-features=Vulkan",
-      "--use-angle=d3d11",
+      ...glArgs,
       "--autoplay-policy=no-user-gesture-required",
       // set_audio's mic path needs a (fake) capture device in headless.
       "--use-fake-device-for-media-stream",

@@ -1,2 +1,4 @@
 # Validator screenshots/evidence — local scratch, regenerable by any validate:m* run.
 artifacts/
+# CI-generated preview comment body (built fresh each run by scripts/preview-comment.mjs).
+preview-comment.md

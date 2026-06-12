@@ -1,2 +1,6 @@
 packages:
   - packages/*
+# pnpm 10 read this from package.json's pnpm.onlyBuiltDependencies; pnpm 11 reads
+# it here. tsx needs esbuild's native binary, so its install script must run.
+allowBuilds:
+  esbuild: true

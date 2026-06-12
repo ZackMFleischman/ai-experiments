@@ -105,6 +105,19 @@ const stateApi: Plugin = {
 
 export default defineConfig({
   plugins: [watchContent, buildCatalog, stateApi],
+  // Multi-page production build for the static preview deploy (Cloudflare Pages):
+  // the Output window (/), the Console cockpit (/console.html), and the staged
+  // preview (/staged.html) all ship so the preview is "view + tweak", not just a
+  // projector. The dev server is unaffected — it already serves every root HTML.
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        console: fileURLToPath(new URL("./console.html", import.meta.url)),
+        staged: fileURLToPath(new URL("./staged.html", import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: {
       // Single source of truth for runtime resolution so content/ scenes

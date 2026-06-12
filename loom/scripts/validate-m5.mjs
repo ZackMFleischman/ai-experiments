@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { glArgs } from "./_browser.mjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ARTIFACTS = join(ROOT, "artifacts");
@@ -135,9 +136,7 @@ try {
   browser = await chromium.launch({
     headless: true,
     args: [
-      "--enable-unsafe-webgpu",
-      "--enable-features=Vulkan",
-      "--use-angle=d3d11",
+      ...glArgs,
       "--autoplay-policy=no-user-gesture-required",
       "--use-fake-device-for-media-stream",
       "--use-fake-ui-for-media-stream",

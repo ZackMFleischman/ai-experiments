@@ -244,3 +244,30 @@ merging the registry's manifest with the input rack's, routed by path prefix
 - **`artifacts/` gitignored** — supersedes the M0 "validation artifacts committed as evidence" decision; the evidence is the validator's pass/fail output, screenshots are regenerable local scratch.
 - **`loom:catalog` Vite plugin**: the dev server regenerates `content/CATALOG.md` on every module/scene save (debounced, failures logged and swallowed), closing the gap where live sessions never run `pnpm typecheck` and the library's search surface went stale exactly when agents needed it.
 - Spec: `docs/superpowers/specs/2026-06-11-docs-refactor-design.md`. The in-flight `m6-color-chains` worktree predates this layout — on rebase, redirect its doc steps (ship entry → DECISIONS, guide edits → new paths).
+
+## 2026-06-12 — CI on GitHub Actions + Cloudflare Pages preview + PR screenshots
+
+- **First production build target.** The standing decision was "Vite dev server =
+  the deploy mechanism" (no build step). For phone-openable PR previews we added a
+  static multi-page `vite build` (Output `/` + Console `/console.html` + Staged
+  `/staged.html`) in `engine-app/vite.config.ts`. Dev server, HMR, and never-go-black
+  are untouched — the build is a *parallel* artifact, not the live runtime. The
+  static bundle is "view + tweak" only: the sidecar WS is absent and the bridge's
+  reconnect loop no-ops harmlessly; live agent/MCP editing stays in the dev session.
+- **Validators are now Linux-portable.** They hardcoded `--use-angle=d3d11` (Windows).
+  Centralized GL flags in `scripts/_browser.mjs` (`glArgs`), chosen by platform and
+  overridable with `LOOM_GL`; Linux/CI defaults to SwiftShader, the software GL that
+  drives the same WebGL2 fallback the checks already assert against.
+- **pnpm 11 portability.** `pnpm.onlyBuiltDependencies` (read by pnpm 10 from
+  package.json) moved to `pnpm-workspace.yaml` `allowBuilds: { esbuild: true }`;
+  pinned `packageManager: pnpm@11.6.0` for reproducible installs (corepack + CI).
+- **Preview + screenshots ride the same deploy.** `scripts/shoot.mjs` renders scenes
+  to PNG (same spawn-vite + headless-Chromium pattern as the validators, restores
+  `live.scene.ts`); the preview job shoots into the deploy's `shots/` and
+  `scripts/preview-comment.mjs` embeds them inline in a sticky PR comment — no git
+  binaries. Durable in-diff stills go to the tracked `preview/screenshots/` when
+  authoring a visual.
+- Cloudflare deploy/comment steps skip gracefully until `CLOUDFLARE_API_TOKEN` +
+  `CLOUDFLARE_ACCOUNT_ID` secrets exist; the build still runs so the bundle stays
+  tested. Setup: `docs/ci-and-preview.md`. Gates: typecheck + unit tests green
+  locally; validators run in CI (no GPU in this dev container to run them here).

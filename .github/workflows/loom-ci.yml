@@ -1,0 +1,110 @@
+name: LOOM CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: loom-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write # the preview job upserts a sticky comment
+
+defaults:
+  run:
+    working-directory: loom
+
+jobs:
+  # ── Contract gate + acceptance: the "tests pass" the PR is judged on. ──────────
+  checks:
+    name: typecheck · unit · validators
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: loom/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: loom/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Chromium + system libs for the screenshot-based validators. They assert
+      # against three's WebGL2 fallback driven by SwiftShader (LOOM_GL default on
+      # Linux — see scripts/_browser.mjs); headless Chromium has no WebGPU adapter.
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: typecheck (regenerates CATALOG.md, then tsc --noEmit)
+        run: pnpm typecheck
+      - name: unit tests
+        run: pnpm test
+      - name: acceptance validators
+        run: |
+          set -e
+          for v in m0 m1 m2 m3 m4 m5 m6 modulators; do
+            echo "::group::validate:$v"
+            pnpm "validate:$v"
+            echo "::endgroup::"
+          done
+      - name: upload validator screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validator-artifacts
+          path: loom/artifacts/
+          if-no-files-found: ignore
+
+  # ── Static preview on Cloudflare Pages + inline screenshots in the PR. ────────
+  # Runs in parallel with checks so a phone-friendly link lands fast. The build
+  # itself always runs (validates the static bundle); deploy/comment steps are
+  # skipped gracefully until the two Cloudflare secrets are present.
+  preview:
+    name: cloudflare preview
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: loom/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: loom/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: build static app (Output + Console + Staged)
+        run: pnpm --filter @loom/engine-app exec vite build
+      - name: render scene screenshots into the deploy
+        run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs
+      - name: deploy to Cloudflare Pages
+        id: deploy
+        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: loom
+          command: >-
+            pages deploy packages/engine-app/dist
+            --project-name=loom
+            --branch=${{ github.head_ref }}
+      - name: build preview comment
+        if: steps.deploy.outcome == 'success'
+        run: node scripts/preview-comment.mjs "${{ steps.deploy.outputs.deployment-url }}" packages/engine-app/dist/shots > preview-comment.md
+      - name: upsert preview comment
+        if: steps.deploy.outcome == 'success'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: loom-preview
+          path: loom/preview-comment.md
+      - name: notice when Cloudflare secrets are missing
+        if: env.CF_API_TOKEN == '' || env.CF_ACCOUNT_ID == ''
+        run: echo "::notice::Cloudflare secrets not set — built the static bundle but skipped deploy. See loom/docs/ci-and-preview.md."
