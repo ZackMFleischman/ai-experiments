@@ -377,6 +377,8 @@ export const ChainStepInfo = z.object({
   kind: z.enum(["primitive", "composite"]),
   /** Current wet/dry mix 0..1. */
   mix: z.number(),
+  /** The step's on/off toggle (`fx.<id>.enabled`) — off fades to bypass. */
+  enabled: z.boolean().default(true),
 });
 export type ChainStepInfo = z.infer<typeof ChainStepInfo>;
 

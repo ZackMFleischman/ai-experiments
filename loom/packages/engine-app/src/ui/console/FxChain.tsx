@@ -25,7 +25,10 @@ type Props = {
   node?: string;
 };
 
-/** A step's manifest knobs (everything under <prefix><id>. except the wet/dry mix). */
+/**
+ * A step's manifest knobs: everything under <prefix><id>. except mix and
+ * enabled, which render as dedicated rows at the top of the card.
+ */
 function stepKnobs(
   manifest: Record<string, ParamDesc>,
   prefix: string,
@@ -33,7 +36,7 @@ function stepKnobs(
 ): Array<[string, ParamDesc]> {
   const head = `${prefix}${id}.`;
   return Object.entries(manifest)
-    .filter(([path]) => path.startsWith(head) && path !== `${head}mix`)
+    .filter(([path]) => path.startsWith(head) && path !== `${head}mix` && path !== `${head}enabled`)
     .map(([path, p]) => [path, p] as [string, ParamDesc]);
 }
 
@@ -193,7 +196,9 @@ export function FxChain({ instance, manifest, node }: Props) {
       {inserter(0)}
       {chain.map((step, i) => {
         const mix = manifest[`${prefix}${step.id}.mix`];
-        const dim = typeof mix?.value === "number" && mix.value < 0.02;
+        const enabledP = manifest[`${prefix}${step.id}.enabled`];
+        const en = enabledP?.value !== false;
+        const dim = (typeof mix?.value === "number" && mix.value < 0.02) || !en;
         return (
           <Box key={step.id}>
             <Box
@@ -234,6 +239,20 @@ export function FxChain({ instance, manifest, node }: Props) {
                   {step.kind === "composite" ? "✦ " : ""}
                   {step.effect}
                 </Typography>
+                {enabledP != null && (
+                  <Tooltip title={en ? "disable (fades to bypass over fade)" : "enable"}>
+                    <IconButton
+                      size="small"
+                      data-fxpower={step.id}
+                      onClick={() =>
+                        link.sendParam(instance, `${prefix}${step.id}.enabled`, !en)
+                      }
+                      sx={{ color: en ? "primary.main" : "text.secondary", fontSize: 13, p: 0.25 }}
+                    >
+                      ⏻
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="remove from chain">
                   <IconButton
                     size="small"
@@ -247,6 +266,16 @@ export function FxChain({ instance, manifest, node }: Props) {
               </Stack>
               {mix != null && (
                 <ParamWidget instance={instance} path={`${prefix}${step.id}.mix`} p={mix} label="mix" dense fill />
+              )}
+              {enabledP != null && (
+                <ParamWidget
+                  instance={instance}
+                  path={`${prefix}${step.id}.enabled`}
+                  p={enabledP}
+                  label="enabled"
+                  dense
+                  fill
+                />
               )}
               {stepKnobs(manifest, prefix, step.id).map(([path, p]) => (
                 <ParamWidget
