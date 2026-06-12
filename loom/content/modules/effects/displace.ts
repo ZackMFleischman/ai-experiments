@@ -1,6 +1,6 @@
-import { asSignal, BuildCtx, defineModule, Signal, texNode, type Pass, type SignalLike, type TexNode } from "@loom/runtime";
+import { asSignal, BuildCtx, defineModule, integrateSignal, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { mx_fractal_noise_float, texture, uv, vec2, vec3, vec4 } from "three/tsl";
-import { HalfFloatType, MeshBasicNodeMaterial, NoBlending, QuadMesh, RenderTarget, Vector2, type WebGPURenderer } from "three/webgpu";
+import { bufferPass } from "../_shared";
 
 export interface DisplaceOpts {
   input: TexNode;
@@ -35,14 +35,7 @@ export const displace = defineModule(
   },
   (ctx: BuildCtx, opts: DisplaceOpts): TexNode => {
     const amount = ctx.uniformOf(opts.amount ?? 0.06);
-    const rt = new RenderTarget(1, 1, { type: HalfFloatType });
-    const destSize = new Vector2();
-
-    const srcMaterial = new MeshBasicNodeMaterial();
-    srcMaterial.colorNode = opts.input.color;
-    srcMaterial.transparent = true;
-    srcMaterial.blending = NoBlending;
-    const srcQuad = new QuadMesh(srcMaterial);
+    const { rt, pass } = bufferPass(opts.input);
 
     let offset;
     if (opts.map) {
@@ -52,8 +45,7 @@ export const displace = defineModule(
       // Built-in displacer: two decorrelated fractal-noise fields on the frame clock.
       const scale = ctx.uniformOf(opts.scale ?? 3);
       const speedSig = asSignal(opts.speed ?? 0.4);
-      let t = 0;
-      const phase = ctx.uniformOf(new Signal((f) => (t += speedSig.get(f) * f.dt)));
+      const phase = ctx.uniformOf(integrateSignal(speedSig));
       const p = vec3(uv().mul(scale), phase);
       offset = vec2(
         mx_fractal_noise_float(p, 2),
@@ -63,22 +55,6 @@ export const displace = defineModule(
 
     const duv = uv().add(offset.mul(amount));
     const s = texture(rt.texture, duv);
-
-    const pass: Pass = {
-      render(renderer: WebGPURenderer) {
-        const prev = renderer.getRenderTarget();
-        if (prev) destSize.set(prev.width, prev.height);
-        else renderer.getDrawingBufferSize(destSize);
-        if (rt.width !== destSize.x || rt.height !== destSize.y) rt.setSize(destSize.x, destSize.y);
-        renderer.setRenderTarget(rt);
-        srcQuad.render(renderer);
-        renderer.setRenderTarget(prev);
-      },
-      dispose() {
-        rt.dispose();
-        srcMaterial.dispose();
-      },
-    };
 
     const passes = opts.map ? [...opts.input.passes, ...opts.map.passes, pass] : [...opts.input.passes, pass];
     return texNode(vec4(s.rgb, s.a), passes);

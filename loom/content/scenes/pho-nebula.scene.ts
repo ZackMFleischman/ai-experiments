@@ -1,4 +1,4 @@
-import { Signal, defineScene } from "@loom/runtime";
+import { Signal, defineScene, integrateSignal } from "@loom/runtime";
 import { lfo } from "../modules/control/lfo";
 import { colorize } from "../modules/effects/colorize";
 import { feedback } from "../modules/effects/feedback";
@@ -14,15 +14,6 @@ import { spriteSwarm } from "../modules/sources/spriteSwarm";
 // the swarm can go deep without hitting WebGL2's sampler cap.
 const ATLAS_URL = new URL("../assets/pho/garnish-atlas.png", import.meta.url).href;
 const BADGE_URL = new URL("../assets/pho/pho-badge.png", import.meta.url).href;
-
-/** Accumulate a rate signal (units/sec) into a running total — rate changes never jump phase. */
-function integrate(rate: Signal<number>): Signal<number> {
-  let acc = 0;
-  return new Signal((f) => {
-    acc += rate.get(f) * f.dt;
-    return acc;
-  });
-}
 
 export default defineScene({
   name: "pho-nebula",
@@ -83,7 +74,7 @@ export default defineScene({
     // The bowl: fold the broth into a slowly stirring mandala; bass breathes
     // the zoom so the whole bowl swells with the low end.
     const spinSig = spin.signal();
-    const stir = integrate(new Signal((f) => spinSig.get(f)));
+    const stir = integrateSignal(new Signal((f) => spinSig.get(f)));
     const swellSig = swell.signal();
     const zoom = new Signal((f) => 1 + bass.get(f) * swellSig.get(f));
     const bowl = kaleido(ctx, {

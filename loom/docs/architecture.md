@@ -34,10 +34,10 @@ was made, grep `DECISIONS.md`.
   `commit()` (frame-boundary crossfade; PANIC holds the last frame and cancels
   fades). Instances render exactly once per frame to a directive-chosen destination
   (canvas, crossfade leg, or preview target).
-- `packages/sidecar` — agent surface: MCP server over stdio (16 tools: `get_session`,
+- `packages/sidecar` — agent surface: MCP server over stdio (17 tools: `get_session`,
   `get_manifest`, `set_param`, `modulate_param`, `clear_modulation`, `set_chain`,
   `save_chain`, `screenshot`, `create_instance`, `destroy_instance`, `stage`, `unstage`,
-  `commit`, `list_projects`, `save_project`, `load_project`) bridged to the
+  `commit`, `record_fixture`, `list_projects`, `save_project`, `load_project`) bridged to the
   engine over WebSocket (port 7341; `LOOM_WS_PORT` + `?ws=` override for isolation).
   The wire contract is `@loom/sidecar/protocol` (browser-safe, shared with the
   engine via tsconfig path + Vite alias). The sidecar's stdout belongs to MCP — log

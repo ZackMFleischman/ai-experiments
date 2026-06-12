@@ -131,6 +131,7 @@ snapshot/restore across reload stays M9.
 
 ## Post-v1 horizon (ordered candidates)
 
+1. **Module packs** — third-party repos of modules/scenes imported into projects (`feature-requests/module-packs.md`; the catalog/tests/golden-pattern machinery already generalizes)
 1. Embedded perform-mode chat pane (Claude Agent SDK client on the existing MCP/WS boundary)
 1. NDI out (forces the Electron/native-shim decision)
 1. AudioWorklet beat tracking + look-ahead quantization

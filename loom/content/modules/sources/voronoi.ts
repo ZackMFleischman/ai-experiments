@@ -1,5 +1,6 @@
-import { asSignal, BuildCtx, defineModule, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
+import { asSignal, BuildCtx, defineModule, integrateSignal, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { add, cos, float, floor, fract, length, min, sin, uv, vec2, vec3, vec4 } from "three/tsl";
+import { surfaceAspect } from "../_shared";
 import type { Node } from "three/webgpu";
 
 export interface VoronoiOpts {
@@ -34,10 +35,9 @@ export const voronoi = defineModule(
     const jitter = ctx.uniformOf(opts.jitter ?? 1);
     // Frame-clock animation phase (never TSL time).
     const speedSig = asSignal(opts.speed ?? 0.4);
-    let t = 0;
-    const phase = ctx.uniformOf(new Signal((f) => (t += speedSig.get(f) * f.dt)));
+    const phase = ctx.uniformOf(integrateSignal(speedSig));
 
-    const p = uv().mul(vec2(16 / 9, 1)).mul(scale.max(0.5));
+    const p = uv().mul(vec2(surfaceAspect(), 1)).mul(scale.max(0.5));
     const cell = floor(p);
     const frac = fract(p);
 

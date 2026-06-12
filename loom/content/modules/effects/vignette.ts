@@ -1,5 +1,6 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { length, smoothstep, uv, vec2, vec4 } from "three/tsl";
+import { surfaceAspect } from "../_shared";
 
 export interface VignetteOpts {
   input: TexNode;
@@ -30,7 +31,7 @@ export const vignette = defineModule(
     const radius = ctx.uniformOf(opts.radius ?? 0.7);
     const softness = ctx.uniformOf(opts.softness ?? 0.5);
     const c = opts.input.color;
-    const d = length(uv().sub(0.5).mul(vec2(16 / 9, 1)));
+    const d = length(uv().sub(0.5).mul(vec2(surfaceAspect(), 1)));
     const fall = smoothstep(radius, radius.add(softness.max(0.01)), d);
     const dim = fall.mul(amount).oneMinus();
     return texNode(vec4(c.rgb.mul(dim), c.a), opts.input.passes);

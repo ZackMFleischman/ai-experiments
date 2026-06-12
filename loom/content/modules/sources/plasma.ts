@@ -1,5 +1,6 @@
-import { asSignal, BuildCtx, defineModule, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
+import { asSignal, BuildCtx, defineModule, integrateSignal, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { add, cos, length, sin, uv, vec2 } from "three/tsl";
+import { surfaceAspect } from "../_shared";
 
 export interface PlasmaOpts {
   /** Field scale (bigger = tighter interference). */
@@ -24,10 +25,9 @@ export const plasma = defineModule(
     const scale = ctx.uniformOf(opts.scale ?? 3);
     // Frame-clock evolution (never TSL time).
     const speedSig = asSignal(opts.speed ?? 0.5);
-    let t = 0;
-    const phase = ctx.uniformOf(new Signal((f) => (t += speedSig.get(f) * f.dt)));
+    const phase = ctx.uniformOf(integrateSignal(speedSig));
 
-    const p = uv().mul(vec2(16 / 9, 1)).mul(scale.max(0.1));
+    const p = uv().mul(vec2(surfaceAspect(), 1)).mul(scale.max(0.1));
     const v = add(
       add(sin(p.x.add(phase)), sin(p.y.add(phase.mul(1.31)))),
       add(sin(add(p.x, p.y).mul(0.7).add(phase.mul(0.7))), sin(length(p.sub(vec2(0.9, 0.5))).mul(2.1).sub(phase))),

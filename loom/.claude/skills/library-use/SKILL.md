@@ -31,6 +31,9 @@ always current in a live session (the dev server rebuilds it on every save).
 - Need it in an FX chain? It must be ⛓chainable (declares `chainParams`).
   Two-input effects (`mixer`, `over`, `displace`-with-map) can never be chain
   steps — chains carry one input; those are scene-composition modules.
+- Saved chains (composites) are ONE level deep: a composite may contain only
+  primitives, never another composite. Its inner knobs namespace as
+  `fx.<id>.<innerId>.<param>`.
 - Need 3D? `geo` modules return GeoNodes/CamNodes; only `render3d` makes pixels.
 
 ## Register after writing

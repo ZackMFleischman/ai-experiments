@@ -765,3 +765,43 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   trace. The roadmap's stale CI section corrected: PR/push CI (typecheck +
   tests + build + Pages preview) has existed all along; validators stay
   local-on-real-GPU by documented decision.
+
+## Spring cleaning (2026-06-12)
+
+- **content/modules/_shared.ts** is the new shared plumbing (deliberately
+  outside the kind folders so discovery never sweeps it): `bufferPass()` —
+  the buffer-the-input-and-resample skeleton previously copy-pasted across 9
+  effects (transform/mirror/tile/rgbSplit/crt/displace/blur/bloom/pixelate,
+  with hooks for idle gates, sibling targets and extra quad passes);
+  `surfaceAspect()` (moved from transform) and `parseHex()`. History-keeping
+  effects (feedback/echo/glitch) intentionally keep FIXED-size buffers and
+  stay custom.
+- **GPU-side `16/9` is gone**: gradient/checker/plasma/voronoi/shape/vignette
+  now use `surfaceAspect()` — modules track whatever surface they render to.
+  CPU-layout modules (fireflies/blobs/spriteSwarm/pulseRings) keep an explicit
+  `aspect` opt by necessity (JS math can't read a shader node).
+- **`integrateSignal(rate, {wrap})` joins the runtime** (the `integrate()`
+  helper every scene kept re-writing); `wrap` fixes a real float-precision
+  hazard in hour-long sets. Scenes + module phase accumulators migrated.
+- **engine-app readback.ts** unifies the three readRenderTargetPixelsAsync→
+  canvas→dataURL copies (engine-api, main, fixture shots); SessionStore's
+  create/swap share `reapplyValues`.
+- **Test gaps closed** (the review's top tier): engine-api.test.ts (agent
+  live-chain arming, commit gating, NFR-5 chain revert keeps the instance,
+  reserved-name renames, MIDI target resolution incl. bool/action rejects,
+  snapshot shape, liveStep wrap/mash-guard) and content behavior.test.ts
+  (control CHOPs do what they claim: envelope asymmetry, spring overshoot,
+  gate hysteresis, counter edge+wrap, sampleHold, remap curves) +
+  integrateSignal unit tests. engine-app's vitest config gained the runtime/
+  protocol aliases (value imports need them; type-only imports had hidden it).
+- **Docs/skills debt from the review**: architecture tool count (17),
+  ci-and-preview validator list (17 suites), module-authoring gains the M7/M8
+  gotchas (DynamicDrawUsage, sampler seeding, material normalization,
+  bufferPass/surfaceAspect guidance), scene-composition gains the fixtures
+  iteration loop, library-use gains the composite-depth rule, and a NEW
+  validator-authoring skill encodes the isolation contract + flake patterns.
+- **Module packs** (third-party module/scene repos) sketched in
+  feature-requests/module-packs.md and added to the post-v1 horizon.
+- Follow-up left open: the ~800 lines of copied validator boilerplate
+  (check/waitForServer/waitFor/spawn) want a shared scripts/_validate.mjs —
+  mechanical but touches all 17 suites at once; do it as its own change.

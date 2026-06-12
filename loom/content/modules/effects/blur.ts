@@ -1,6 +1,7 @@
-import { BuildCtx, defineModule, texNode, type Pass, type SignalLike, type TexNode } from "@loom/runtime";
+import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { add, float, screenSize, texture, uv, vec2, vec4 } from "three/tsl";
-import { HalfFloatType, MeshBasicNodeMaterial, NoBlending, QuadMesh, RenderTarget, Vector2, type WebGPURenderer } from "three/webgpu";
+import { HalfFloatType, MeshBasicNodeMaterial, NoBlending, QuadMesh, RenderTarget } from "three/webgpu";
+import { bufferPass } from "../_shared";
 
 export interface BlurOpts {
   input: TexNode;
@@ -39,44 +40,27 @@ export const blur = defineModule(
   },
   (ctx: BuildCtx, opts: BlurOpts): TexNode => {
     const radius = ctx.uniformOf(opts.radius ?? 8);
-    const rtSrc = new RenderTarget(1, 1, { type: HalfFloatType });
+    // Second target for the horizontal pass, co-sized with the input buffer.
     const rtH = new RenderTarget(1, 1, { type: HalfFloatType });
-    const destSize = new Vector2();
-
-    const srcMaterial = new MeshBasicNodeMaterial();
-    srcMaterial.colorNode = opts.input.color;
-    srcMaterial.transparent = true;
-    srcMaterial.blending = NoBlending;
-    const srcQuad = new QuadMesh(srcMaterial);
-
     const hMaterial = new MeshBasicNodeMaterial();
-    hMaterial.colorNode = vec4(taps(rtSrc, [1, 0], radius));
     hMaterial.transparent = true;
     hMaterial.blending = NoBlending;
     const hQuad = new QuadMesh(hMaterial);
 
-    const pass: Pass = {
-      render(renderer: WebGPURenderer) {
+    const { rt: rtSrc, pass } = bufferPass(opts.input, {
+      onResize: (w, h) => rtH.setSize(w, h),
+      afterRender: (renderer) => {
         const prev = renderer.getRenderTarget();
-        if (prev) destSize.set(prev.width, prev.height);
-        else renderer.getDrawingBufferSize(destSize);
-        if (rtSrc.width !== destSize.x || rtSrc.height !== destSize.y) {
-          rtSrc.setSize(destSize.x, destSize.y);
-          rtH.setSize(destSize.x, destSize.y);
-        }
-        renderer.setRenderTarget(rtSrc);
-        srcQuad.render(renderer);
         renderer.setRenderTarget(rtH);
         hQuad.render(renderer);
         renderer.setRenderTarget(prev);
       },
-      dispose() {
-        rtSrc.dispose();
+      onDispose: () => {
         rtH.dispose();
-        srcMaterial.dispose();
         hMaterial.dispose();
       },
-    };
+    });
+    hMaterial.colorNode = vec4(taps(rtSrc, [1, 0], radius));
 
     const out = taps(rtH, [0, 1], radius);
     return texNode(vec4(out.rgb, out.a.add(float(0))), [...opts.input.passes, pass]);

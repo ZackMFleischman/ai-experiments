@@ -1,19 +1,10 @@
-import {
-  BuildCtx,
-  defineModule,
-  texNode,
-  type FrameCtx,
-  type Pass,
-  type SignalLike,
-  type TexNode,
-} from "@loom/runtime";
+import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import {
   abs,
   cos,
   cross,
   dot,
   float,
-  screenSize,
   sign,
   sin,
   step,
@@ -23,20 +14,8 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import {
-  HalfFloatType,
-  MeshBasicNodeMaterial,
-  NoBlending,
-  QuadMesh,
-  RenderTarget,
-  Vector2,
-  type Node,
-  type WebGPURenderer,
-} from "three/webgpu";
-
-// The aspect of whatever surface is being rendered — canvas, preview target,
-// or an upstream effect's buffer — resolved on the GPU per draw, never assumed.
-const surfaceAspect = () => screenSize.x.div(screenSize.y);
+import type { Node } from "three/webgpu";
+import { bufferPass, surfaceAspect } from "../_shared";
 
 /** A live 2D/3D placement: every field is a signal, so transforms animate for free. */
 export interface Transform {
@@ -149,39 +128,13 @@ export const transform = defineModule(
     ],
   },
   (ctx: BuildCtx, opts: TransformOpts): TexNode => {
-    // Sized to match the live destination on first render — no assumed resolution.
-    const rt = new RenderTarget(1, 1, { type: HalfFloatType });
-    const destSize = new Vector2();
-
-    const srcMaterial = new MeshBasicNodeMaterial();
-    srcMaterial.colorNode = opts.input.color;
-    // Raw RGBA write: transparent layers must keep their alpha in the buffer.
-    srcMaterial.transparent = true;
-    srcMaterial.blending = NoBlending;
-    const srcQuad = new QuadMesh(srcMaterial);
+    const { rt, pass } = bufferPass(opts.input);
 
     const l = localSpace(ctx, opts)(uv());
     const suv = l.div(vec2(surfaceAspect(), 1)).add(0.5);
     const d = abs(suv.sub(0.5));
     const inside = step(d.x, 0.5).mul(step(d.y, 0.5));
     const s = texture(rt.texture, suv);
-
-    const pass: Pass = {
-      render(renderer: WebGPURenderer, _f: FrameCtx) {
-        const prev = renderer.getRenderTarget();
-        // Track the destination's actual resolution so the buffer is 1:1.
-        if (prev) destSize.set(prev.width, prev.height);
-        else renderer.getDrawingBufferSize(destSize);
-        if (rt.width !== destSize.x || rt.height !== destSize.y) rt.setSize(destSize.x, destSize.y);
-        renderer.setRenderTarget(rt);
-        srcQuad.render(renderer);
-        renderer.setRenderTarget(prev);
-      },
-      dispose() {
-        rt.dispose();
-        srcMaterial.dispose();
-      },
-    };
 
     return texNode(vec4(s.rgb.mul(inside), s.a.mul(inside)), [...opts.input.passes, pass]);
   },

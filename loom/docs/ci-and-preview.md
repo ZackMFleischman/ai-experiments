@@ -14,16 +14,18 @@ Two jobs:
 
 `checks` is the required gate — fast and deterministic.
 
-The screenshot **acceptance validators** (`validate:m0`…`m6`, `validate:modulators`)
-are **not run in CI**. They were built for a **real GPU + manual WebGPU
-verification** (see `DECISIONS.md`) and are flaky on headless **software** GL — and
-their never-go-black tests intentionally log Vite `PARSE_ERROR`s (they write an
-invalid scene to prove a broken edit can't blank the output), which reads as scary
-noise in CI logs. Run them locally on real hardware instead:
+The screenshot **acceptance validators** (all 17 suites in `package.json`'s
+`validate` chain: `m0`–`m9`, `m11`, `layers`, `projects`, `fixtures`,
+`modulators`, `panic`, `stdlib`) are **not run in CI**. They were built for a
+**real GPU + manual WebGPU verification** (see `DECISIONS.md`) and are flaky on
+headless **software** GL — and their never-go-black tests intentionally log
+Vite `PARSE_ERROR`s (they write an invalid scene to prove a broken edit can't
+blank the output), which reads as scary noise in CI logs. Run them locally on
+real hardware instead:
 
 ```sh
 pnpm exec playwright install chromium   # once
-pnpm validate:m0   # … m1 … m6, validate:modulators
+pnpm validate            # the full suite (~10 min), or any pnpm validate:<x> alone
 # reproduce the CI render path: LOOM_GL=swiftshader LOOM_RES=640x360 pnpm validate:m0
 ```
 
