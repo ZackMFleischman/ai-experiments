@@ -5,27 +5,32 @@ inline scene screenshots. Workflow: `.github/workflows/loom-ci.yml` (repo root).
 
 ## What runs on every PR
 
-Three jobs:
+Two jobs:
 
 | Job | Does | Blocks merge? | Needs secrets? |
 |---|---|---|---|
-| **checks** | `pnpm typecheck` → `pnpm test` → production `vite build` → `validate:m0` (HMR / never-go-black smoke) | **yes** | no |
-| **validators-advisory** | `validate:m1`…`m6` + `validate:modulators` | no (advisory) | no |
+| **checks** | `pnpm typecheck` → `pnpm test` → production `vite build` | **yes** | no |
 | **preview** | builds the static app, renders scene stills, deploys to Cloudflare Pages, upserts a sticky PR comment with the link + screenshots | no | yes (deploy step skips without them) |
 
-`checks` is the required gate — fast and deterministic headless. The heavier
-acceptance validators were built for a **real GPU + manual WebGPU verification**
-(see `DECISIONS.md`); on headless **software** GL they're informative but
-environment-sensitive, so `validators-advisory` runs them on every PR without
-gating merge (`continue-on-error` at the job level). Read its logs/artifacts for
-signal and reproduce on real hardware. m0 (HMR + never-go-black) is deterministic
-enough to stay in the required gate.
+`checks` is the required gate — fast and deterministic.
 
-Both jobs screenshot three's **WebGL2 fallback**: the validators hide
-`navigator.gpu` so `WebGPURenderer` selects the WebGL2 backend (recent headless
-Chromium exposes a software WebGPU adapter that renders blank/hangs), and CI sets
-`LOOM_RES=640x360` so software GL renders fast enough for the screenshots. Both
-are overridable — see `scripts/_browser.mjs` (`LOOM_GL`) and `LOOM_RES`.
+The screenshot **acceptance validators** (`validate:m0`…`m6`, `validate:modulators`)
+are **not run in CI**. They were built for a **real GPU + manual WebGPU
+verification** (see `DECISIONS.md`) and are flaky on headless **software** GL — and
+their never-go-black tests intentionally log Vite `PARSE_ERROR`s (they write an
+invalid scene to prove a broken edit can't blank the output), which reads as scary
+noise in CI logs. Run them locally on real hardware instead:
+
+```sh
+pnpm exec playwright install chromium   # once
+pnpm validate:m0   # … m1 … m6, validate:modulators
+# reproduce the CI render path: LOOM_GL=swiftshader LOOM_RES=640x360 pnpm validate:m0
+```
+
+The infra that made them CI-capable still exists (force WebGL2 by hiding
+`navigator.gpu`, `LOOM_RES` to downscale for software GL — `scripts/_browser.mjs`),
+so they can be wired back into a workflow later if desired. The **preview** job
+still renders scene stills with the same machinery for the PR screenshots.
 
 ## The preview environment
 

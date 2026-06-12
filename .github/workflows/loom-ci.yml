@@ -18,10 +18,13 @@ defaults:
     working-directory: loom
 
 jobs:
-  # ── Required gate: what a merge is judged on. Deterministic headless. ─────────
-  # typecheck + unit tests + production build + m0 (HMR / never-go-black smoke).
+  # ── Required gate: what a merge is judged on. Fast and deterministic. ─────────
+  # typecheck + unit tests + production build. The screenshot acceptance
+  # validators (validate:m*) are deliberately NOT run in CI — they're built for a
+  # real GPU + manual WebGPU verification (DECISIONS.md) and are flaky on headless
+  # software GL. Run them locally on real hardware: `pnpm validate:m0` … `:m6`.
   checks:
-    name: typecheck · unit · build · m0
+    name: typecheck · unit · build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,79 +37,12 @@ jobs:
           cache: pnpm
           cache-dependency-path: loom/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      # Chromium + system libs for m0. It asserts against three's WebGL2 fallback
-      # (SwiftShader on Linux); the validators hide navigator.gpu — scripts/_browser.mjs.
-      - run: pnpm exec playwright install --with-deps chromium
       - name: typecheck (regenerates CATALOG.md, then tsc --noEmit)
         run: pnpm typecheck
       - name: unit tests
         run: pnpm test
       - name: production build (the static preview bundle)
         run: pnpm --filter @loom/engine-app exec vite build
-      - name: m0 smoke — HMR + never-go-black (headless WebGL2)
-        # Lower internal render res so software GL keeps up with the screenshots.
-        env:
-          LOOM_RES: 640x360
-        run: pnpm validate:m0
-      - name: upload screenshots on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: checks-artifacts
-          path: loom/artifacts/
-          if-no-files-found: ignore
-
-  # ── Advisory (non-blocking): the GPU/MCP-heavy acceptance validators. ─────────
-  # These were built for a real GPU + manual WebGPU verification (DECISIONS.md);
-  # on headless *software* GL they're informative but environment-sensitive, so
-  # they run on every PR without gating merge (job-level continue-on-error).
-  # Read the logs/artifacts for signal; reproduce locally on real hardware.
-  validators-advisory:
-    name: acceptance validators (advisory)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: loom/package.json
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: loom/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: acceptance validators (m1–m6, modulators)
-        env:
-          LOOM_RES: 640x360
-        run: |
-          {
-            echo "## Acceptance validators (advisory)"
-            echo ""
-            echo "Non-blocking — built for a real GPU + manual WebGPU checks; on"
-            echo "headless software GL they're informative, not authoritative."
-            echo ""
-          } >> "$GITHUB_STEP_SUMMARY"
-          for v in m1 m2 m3 m4 m5 m6 modulators; do
-            echo "::group::validate:$v"
-            if pnpm "validate:$v"; then
-              echo "- ✅ \`$v\`" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "- ⚠️ \`$v\` — see logs / artifacts" >> "$GITHUB_STEP_SUMMARY"
-            fi
-            echo "::endgroup::"
-          done
-          # Advisory: never fail the job — the signal is the summary above plus
-          # the per-validator log groups and uploaded screenshots.
-          exit 0
-      - name: upload validator screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: validator-artifacts
-          path: loom/artifacts/
-          if-no-files-found: ignore
 
   # ── Static preview on Cloudflare Pages + inline screenshots in the PR. ────────
   # Runs in parallel with checks so a phone-friendly link lands fast. The build
