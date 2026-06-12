@@ -102,7 +102,7 @@ export function TileGrid({ session: s, selected, solo, onSelect, onSolo, onCreat
       sx={{
         flex: 1,
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))",
         gap: 1,
         p: 1,
         alignContent: "start",
