@@ -24,16 +24,18 @@ export default defineScene({
     "Mandelbrot with a palette-ramped exterior and a kick-blooming garden inside the black interior; flip palette.source to retint everything.",
   tags: ["fractal", "palette", "audio-reactive", "showcase"],
   build(ctx) {
-    const dive = ctx.float("dive", { default: 0.05, min: -0.5, max: 0.5, description: "zoom speed (octaves/sec, ping-pongs)" });
-    const depth = ctx.float("depth", { default: 3, min: 0.5, max: 10, description: "zoom depth (octaves); low keeps the interior on screen" });
+    // Dotted paths form collapsible Console groups: zoom / garden / fx.
+    // iter (quality), scroll (the exterior's one knob) and rim stay flat.
+    const dive = ctx.float("zoom.dive", { default: 0.05, min: -0.5, max: 0.5, description: "zoom speed (octaves/sec, ping-pongs)" });
+    const depth = ctx.float("zoom.depth", { default: 3, min: 0.5, max: 10, description: "zoom depth (octaves); low keeps the interior on screen" });
     const iter = ctx.int("iter", { default: 200, min: 40, max: 500, description: "escape-time iteration cap (detail vs cost)" });
     const scroll = ctx.float("scroll", { default: 0.05, min: -0.5, max: 0.5, description: "exterior ramp scroll speed" });
-    const warp = ctx.float("warp", { default: 3, min: 0.5, max: 8, description: "interior texture scale (garden busyness)" });
-    const garden = ctx.float("garden", { default: 1, min: 0, max: 2, description: "interior element intensity" });
-    const bloom = ctx.float("bloom", { default: 1, min: 0, max: 3, description: "kick accent bloom strength" });
+    const warp = ctx.float("garden.warp", { default: 3, min: 0.5, max: 8, description: "interior texture scale (garden busyness)" });
+    const garden = ctx.float("garden.amount", { default: 1, min: 0, max: 2, description: "interior element intensity" });
+    const bloom = ctx.float("garden.bloom", { default: 1, min: 0, max: 3, description: "kick accent bloom strength" });
     const rim = ctx.float("rim", { default: 0.05, min: 0.005, max: 0.2, description: "set-boundary rim width" });
-    const trail = ctx.float("trail", { default: 0.6, min: 0, max: 0.93, description: "feedback trail persistence" });
-    const glitchAmt = ctx.float("glitch", { default: 0.12, min: 0, max: 1, description: "kick glitch burst amount" });
+    const trail = ctx.float("fx.trail", { default: 0.6, min: 0, max: 0.93, description: "feedback trail persistence" });
+    const glitchAmt = ctx.float("fx.glitch", { default: 0.12, min: 0, max: 1, description: "kick glitch burst amount" });
 
     // Authored default stops (roles above). own() boots this look; flipping
     // palette.source to primary/secondary retints filaments, garden and rim together.

@@ -15,16 +15,18 @@ export default defineScene({
   description: "Drifting multicolored fireflies that twinkle at their own rates and flare on the kick.",
   tags: ["particles", "sparkle", "audio-reactive", "ambient"],
   build(ctx) {
+    // Dotted paths form collapsible Console groups: swarm / blink / fx.
+    // glow + flare stay flat — the two knobs you ride live.
     const glow = ctx.float("glow", { default: 1, min: 0, max: 3, description: "overall swarm brightness" });
-    const size = ctx.float("size", { default: 0.035, min: 0.01, max: 0.12, description: "firefly glow radius" });
-    const speed = ctx.float("speed", { default: 0.4, min: 0, max: 2, description: "drift speed" });
-    const twinkle = ctx.float("twinkle", { default: 1, min: 0.1, max: 4, description: "blink rate" });
-    const sparkle = ctx.float("sparkle", { default: 4, min: 1, max: 10, description: "blink sharpness: breathe → glint" });
-    const variety = ctx.float("variety", { default: 0.4, min: 0, max: 1, description: "per-fly color scatter" });
+    const size = ctx.float("swarm.size", { default: 0.035, min: 0.01, max: 0.12, description: "firefly glow radius" });
+    const speed = ctx.float("swarm.speed", { default: 0.4, min: 0, max: 2, description: "drift speed" });
+    const twinkle = ctx.float("blink.twinkle", { default: 1, min: 0.1, max: 4, description: "blink rate" });
+    const sparkle = ctx.float("blink.sparkle", { default: 4, min: 1, max: 10, description: "blink sharpness: breathe → glint" });
+    const variety = ctx.float("swarm.variety", { default: 0.4, min: 0, max: 1, description: "per-fly color scatter" });
     const flare = ctx.float("flare", { default: 1.2, min: 0, max: 3, description: "kick flare strength" });
-    const glitchAmt = ctx.float("glitch", { default: 0.15, min: 0, max: 1, description: "glitch intensity" });
-    const count = ctx.int("count", { default: 40, min: 1, max: 80, description: "number of active fireflies" });
-    const trail = ctx.float("trail", { default: 0.78, min: 0.5, max: 0.96, description: "afterglow persistence" });
+    const glitchAmt = ctx.float("fx.glitch", { default: 0.15, min: 0, max: 1, description: "glitch intensity" });
+    const count = ctx.int("swarm.count", { default: 40, min: 1, max: 80, description: "number of active fireflies" });
+    const trail = ctx.float("fx.trail", { default: 0.78, min: 0.5, max: 0.96, description: "afterglow persistence" });
 
     const kickEnv = ctx.input("kick"); // rack channel: bass onsets → envelope
     const energy = ctx.input("energy"); // rack channel: overall level
