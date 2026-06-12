@@ -422,3 +422,16 @@ realities (the validators were written for a real GPU + manual WebGPU checks):
   never-go-black smoke); **advisory** (non-blocking) = m1–m6 + modulators. They
   still run every PR for signal but don't gate merge. Full acceptance stays a
   real-GPU / manual exercise, exactly as the validators were designed.
+
+## 2026-06-11 — Raw-MIDI monitor in the session snapshot (first real-controller debugging)
+
+A nanoKONTROL2 in a non-default mode (relative knob ticks, non-CC faders) looked
+simply "dead" to MIDI-learn: the engine acts on Control Change only and dropped
+everything else without a trace, making the failure undiagnosable from inside
+LOOM. `MidiBus` now keeps the last 16 raw messages — including the traffic it
+ignores, minus realtime keepalives (clock/active-sensing) — surfaced as
+`midi.recent` in the session snapshot (`.default([])` keeps older engines
+parseable) and as a live monitor dialog behind the Console header's MIDI status.
+The engine still *acts* on CC only; the monitor is eyes, not new routing.
+Hardware lesson for the books: constant repeated CC values or pitch-bend faders
+mean the controller needs a factory reset to CC mode, not an engine fix.

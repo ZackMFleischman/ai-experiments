@@ -335,6 +335,7 @@ const api = new EngineApi(
     bindings,
     midiStatus: () => midi.status,
     midiDevices: () => midi.devices,
+    midiRecent: () => midi.recent,
     persist,
     // live.scene.ts hot-swaps must keep landing on the boot instance even
     // after the human renames its tile.

@@ -22,6 +22,7 @@ import {
   SetParamArgs,
   TransportArgs,
   type AudioDevice,
+  type MidiMessageLog,
   type RequestMsg,
   type ScreenshotResult,
   type SessionSnapshot,
@@ -67,6 +68,8 @@ export interface EngineDeps {
   bindings: BindingStore;
   midiStatus(): "off" | "ready";
   midiDevices(): string[];
+  /** Raw-message monitor (incl. non-CC traffic the engine ignores). */
+  midiRecent(): MidiMessageLog[];
   /** Tuned-state persistence triggers (debounced engine-side). */
   persist: {
     globals(): void;
@@ -369,6 +372,7 @@ export class EngineApi {
         status: this.deps.midiStatus(),
         devices: this.deps.midiDevices(),
         learning: this.deps.bindings.learning,
+        recent: this.deps.midiRecent(),
       },
       bindings: this.deps.bindings.toJSON(),
       bpm: this.deps.time.bpm,

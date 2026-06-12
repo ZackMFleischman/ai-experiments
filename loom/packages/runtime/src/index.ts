@@ -13,7 +13,7 @@ export { Stage, type StageDirective } from "./stage";
 export { TimeBus } from "./inputbus/time";
 export { AudioBus, type AudioBusLike, type AudioMode, type BandName } from "./inputbus/audio";
 export { OnsetDetector, bandEnergy, type OnsetOpts } from "./inputbus/analysis";
-export { MidiBus, type MidiBusLike, type MidiAccessLike, type MidiInputLike, type CcEvent } from "./inputbus/midi";
+export { MidiBus, type MidiBusLike, type MidiAccessLike, type MidiInputLike, type CcEvent, type MidiMessageLog } from "./inputbus/midi";
 export {
   defineInputs,
   InputRegistry,

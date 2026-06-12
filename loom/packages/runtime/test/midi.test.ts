@@ -122,6 +122,36 @@ describe("MidiBus", () => {
     expect(seen).toHaveLength(1);
   });
 
+  it("logs recent raw messages, including non-CC traffic the bus filters", async () => {
+    const access = fakeAccess();
+    access.plug("a", "nanoKONTROL2");
+    const bus = new MidiBus();
+    await bus.init(() => Promise.resolve(access));
+    access.emit("a", [0xb0, 21, 64]); // CC — handled
+    access.emit("a", [0xe3, 0x00, 0x40]); // pitch bend ch 3 — filtered, still logged
+    access.emit("a", [0x90, 60, 100]); // note on — filtered, still logged
+    expect(bus.ccValue(60)).toBe(0);
+    expect(bus.recent).toEqual([
+      { kind: "cc", ch: 0, data: [0xb0, 21, 64] },
+      { kind: "pitchbend", ch: 3, data: [0xe3, 0x00, 0x40] },
+      { kind: "noteon", ch: 0, data: [0x90, 60, 100] },
+    ]);
+  });
+
+  it("caps the recent log and ignores realtime keepalive spam", async () => {
+    const access = fakeAccess();
+    access.plug("a", "K");
+    const bus = new MidiBus();
+    await bus.init(() => Promise.resolve(access));
+    access.emit("a", [0xf8]); // clock
+    access.emit("a", [0xfe]); // active sensing
+    expect(bus.recent).toEqual([]);
+    for (let i = 0; i < 20; i++) access.emit("a", [0xb0, 21, i]);
+    expect(bus.recent).toHaveLength(16);
+    expect(bus.recent[15]!.data).toEqual([0xb0, 21, 19]); // newest last
+    expect(bus.recent[0]!.data).toEqual([0xb0, 21, 4]); // oldest dropped
+  });
+
   it("inject() feeds the same path as real messages (mocked hardware)", () => {
     const bus = new MidiBus(); // no init at all
     const seen: number[] = [];

@@ -4,6 +4,7 @@ import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import { useEngine } from "../hooks";
 import { mono } from "../theme";
 import { fail, primeMidiPermission } from "../util";
+import { MidiMonitorDialog } from "./MidiMonitorDialog";
 
 type Props = { session: SessionSnapshot; onToggleRack: () => void };
 
@@ -118,6 +119,7 @@ function AudioPicker({ session: s }: { session: SessionSnapshot }) {
 }
 
 function MidiStatus({ midi }: { midi: SessionSnapshot["midi"] }) {
+  const [monitorOpen, setMonitorOpen] = useState(false);
   let text: string;
   let title: string;
   if (midi.status !== "ready") {
@@ -125,24 +127,31 @@ function MidiStatus({ midi }: { midi: SessionSnapshot["midi"] }) {
     title = "click to grant MIDI access (Chrome prompts once per site)";
   } else if (midi.devices.length === 0) {
     text = "MIDI: no devices";
-    title = "access granted — plug in a controller, it hot-plugs";
+    title = "access granted — plug in a controller, it hot-plugs · click for the monitor";
   } else {
     text = `MIDI ${midi.devices.join(" · ")}`;
-    title = "connected MIDI inputs";
+    title = "connected MIDI inputs · click for the monitor";
   }
   return (
-    <Typography
-      id="midistat"
-      variant="caption"
-      title={title}
-      onClick={primeMidiPermission}
-      sx={{
-        color: midi.status !== "ready" ? "warning.main" : midi.devices.length === 0 ? "text.secondary" : "text.primary",
-        cursor: midi.status !== "ready" ? "pointer" : "default",
-        textDecoration: midi.status !== "ready" ? "underline dotted" : "none",
-      }}
-    >
-      {text}
-    </Typography>
+    <>
+      <Typography
+        id="midistat"
+        variant="caption"
+        title={title}
+        onClick={() => {
+          // No access yet? This click IS the user gesture — pop the prompt too.
+          if (midi.status !== "ready") primeMidiPermission();
+          setMonitorOpen(true);
+        }}
+        sx={{
+          color: midi.status !== "ready" ? "warning.main" : midi.devices.length === 0 ? "text.secondary" : "text.primary",
+          cursor: "pointer",
+          textDecoration: midi.status !== "ready" ? "underline dotted" : "none",
+        }}
+      >
+        {text}
+      </Typography>
+      <MidiMonitorDialog midi={midi} open={monitorOpen} onClose={() => setMonitorOpen(false)} />
+    </>
   );
 }

@@ -141,12 +141,26 @@ export const MidiBinding = z.object({
 });
 export type MidiBinding = z.infer<typeof MidiBinding>;
 
+/** One raw incoming MIDI message (mirrors @loom/runtime's MidiMessageLog). */
+export const MidiMessageLog = z.object({
+  kind: z.string(),
+  ch: z.number().nullable(),
+  data: z.array(z.number()),
+});
+export type MidiMessageLog = z.infer<typeof MidiMessageLog>;
+
 export const MidiStatus = z.object({
   /** "off" = no WebMIDI access yet (Chrome gates it behind a permission). */
   status: z.enum(["off", "ready"]),
   devices: z.array(z.string()),
   /** Armed MIDI-learn target, or null. */
   learning: z.object({ scene: z.string(), path: z.string() }).nullable(),
+  /**
+   * Raw-message monitor (newest last), including non-CC traffic the engine
+   * ignores — the eyes for "this control does nothing" (default [] so an
+   * older engine snapshot still parses).
+   */
+  recent: z.array(MidiMessageLog).default([]),
 });
 export type MidiStatus = z.infer<typeof MidiStatus>;
 

@@ -13,6 +13,16 @@ export interface CcEvent {
   value: number;
 }
 
+/** One raw incoming message, decoded just enough to be diagnosable. */
+export interface MidiMessageLog {
+  /** Status decode: "cc" | "noteon" | "noteoff" | "pitchbend" | "program" | … */
+  kind: string;
+  /** MIDI channel 0..15, or null for system messages. */
+  ch: number | null;
+  /** Raw bytes as received. */
+  data: number[];
+}
+
 export interface MidiInputLike {
   name?: string | null;
   onmidimessage: ((e: { data: Uint8Array | null }) => void) | null;
@@ -39,6 +49,15 @@ export class MidiBus implements MidiBusLike {
    * a dead controller).
    */
   status: "off" | "ready" = "off";
+
+  /**
+   * Last few raw messages (newest last), INCLUDING traffic the bus filters
+   * out. The bus only acts on CC, so a controller stuck in a DAW/Mackie mode
+   * (faders → pitch bend, knobs → relative ticks) looks dead with no trace —
+   * this log is what makes "moving it does nothing" diagnosable from the
+   * session snapshot. Realtime keepalives (clock/active-sensing) are skipped.
+   */
+  readonly recent: MidiMessageLog[] = [];
 
   private access: MidiAccessLike | null = null;
   private readonly perChannel = new Map<string, number>();
@@ -102,10 +121,35 @@ export class MidiBus implements MidiBusLike {
   }
 
   private handleMessage(data: Uint8Array | null): void {
-    if (!data || data.length < 3) return;
+    if (!data || data.length === 0) return;
+    this.record(data);
+    if (data.length < 3) return;
     const status = data[0]!;
     if ((status & 0xf0) !== 0xb0) return; // control change only
     this.emit(data[1]!, status & 0x0f, data[2]! / 127);
+  }
+
+  private static readonly KINDS: Record<number, string> = {
+    0x80: "noteoff",
+    0x90: "noteon",
+    0xa0: "polytouch",
+    0xb0: "cc",
+    0xc0: "program",
+    0xd0: "channelpressure",
+    0xe0: "pitchbend",
+  };
+
+  private record(data: Uint8Array): void {
+    const status = data[0]!;
+    if (status >= 0xf8) return; // realtime keepalives would drown the log
+    const hi = status & 0xf0;
+    const system = hi === 0xf0;
+    this.recent.push({
+      kind: system ? "system" : (MidiBus.KINDS[hi] ?? "unknown"),
+      ch: system ? null : status & 0x0f,
+      data: [...data],
+    });
+    if (this.recent.length > 16) this.recent.shift();
   }
 
   private emit(cc: number, ch: number, value: number): void {
