@@ -29,6 +29,7 @@ import {
   TransportArgs,
   type AudioDevice,
   type EffectInfo,
+  type LayerNode,
   type MidiMessageLog,
   type PanicMode,
   type PanicSceneInfo,
@@ -204,7 +205,7 @@ export class EngineApi {
           return { instance: GLOBALS, params: this.globalsJson() };
         }
         const e = session.require(this.resolveId(instance));
-        return { instance: e.id, params: this.manifestJson(e) };
+        return { instance: e.id, params: this.manifestJson(e), nodes: this.nodesJson(e) };
       }
       case "set_param": {
         const { instance, path, value } = SetParamArgs.parse(req.args);
@@ -245,13 +246,14 @@ export class EngineApi {
         return { instance: e.id, path, cleared: e.modulators.clear(path) };
       }
       case "set_chain": {
-        const { instance, steps, restoreDefault } = SetChainArgs.parse(req.args);
+        const { instance, node, steps, restoreDefault } = SetChainArgs.parse(req.args);
         const e = session.require(this.resolveId(instance));
         this.guardLiveChain(source, e.id);
-        // Throws on an unknown effect or a rejected build (chain unchanged / NFR-5).
-        session.setChain(e.id, restoreDefault ? "default" : (steps ?? []));
+        // Throws on an unknown effect/node or a rejected build (chain unchanged / NFR-5).
+        session.setChain(e.id, restoreDefault ? "default" : (steps ?? []), node);
         this.deps.persist.scene(e.sceneName);
-        return { instance: e.id, chain: e.chain.list() };
+        const host = node == null ? e.chain : e.nodeChains.get(node);
+        return { instance: e.id, node: node ?? null, chain: host?.list() ?? [] };
       }
       case "preview_effect": {
         const { instance, effect } = PreviewEffectArgs.parse(req.args);
@@ -504,6 +506,7 @@ export class EngineApi {
         paramPaths: e.instance.manifest.paths(),
         modulators: e.modulators.list().map((m) => ({ path: m.path, type: m.spec.type, error: m.error })),
         chain: e.chain.list(),
+        nodes: this.nodesJson(e),
         builds: e.builds,
         pinned: e.pinned ?? null,
       })),
@@ -543,6 +546,15 @@ export class EngineApi {
     }
     manifests[GLOBALS] = this.globalsJson(); // the rack's widgets + palettes
     return { session: this.snapshot(), manifests };
+  }
+
+  /** Layer nodes (Layers): id, immediate parent, and each node's chain steps. */
+  private nodesJson(e: Entry): LayerNode[] {
+    return e.instance.nodes.map((n) => ({
+      id: n.id,
+      parent: n.parent,
+      chain: e.nodeChains.get(n.id)?.list() ?? [],
+    }));
   }
 
   /** Manifest JSON with each param's active modulator config (or null) — FR-8. */

@@ -44,6 +44,19 @@ build(ctx) {
 - Combining several signals (e.g. `energy = kickEnv * punch + bass * 0.6`)? Build one derived signal: `new Signal((f) => kickEnv.get(f) * punchSig.get(f) + bass.get(f) * 0.6)` and pass it to a module opt — pulling it through `uniformOf` keeps every stateful input ticking.
 - Scene throws at build are contained but waste an iteration: prefer typecheck-clean saves.
 
+## Layer nodes — wrap the grabbables
+
+`ctx.layer("name", tex)` wraps any TexNode as a named node the human (and you) can grab later without new scene code: rig params appear at `<name>.layer.x/y/scale/rotate/opacity` (identity defaults, plain `set_param`, never a rebuild) and `set_chain { node: "<name>" }` chains FX onto just that node (knobs at `<name>.fx.<step>.<param>`).
+
+```ts
+const badge = ctx.layer("logo", image(ctx, { url: LOGO_URL }));   // a grabbable logo
+return over(ctx, { input: ctx.layer("core", composed), overlay: badge });
+```
+
+- **Wrap the obvious grabbables**: every `image`/`video` source and each major compositional stage. Skip throwaway intermediates — each wrap costs one buffer pass; unwrapped nodes cost nothing.
+- Names are per-scene unique, letter-first (`logo`, `bowl`, `flock`); reusing a param-group name (`logo.*`) merges node + group into one Console section — usually what you want.
+- Node FX recolor within the node's silhouette (the chain's wet/dry carries the layer's alpha). Silhouette-expanding FX (feedback halos, trails) go *inside* the wrap (`ctx.layer("x", feedback(ctx, {...}))`) or on the root chain.
+
 ## Palettes (R7)
 
 Two global 5-stop palettes (`primary`/`secondary`) live on the `"globals"` manifest and retint every consuming scene at once. Consume them instead of hardcoding colors so the human can recolor a scene live:

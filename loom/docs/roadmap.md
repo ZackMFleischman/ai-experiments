@@ -38,6 +38,7 @@ focused month of evenings.
 | Housekeeping (2026-06-11) | scene cull (hello/pulse-glitch/vinyl), param groups (fireflies/mandelbrot/mandelbloom + value-key migration), 20 s modulator default, double-click instance rename, 2× tiles, whole-top drop-to-go-live zone | `validate:m3`/`m4` (updated), full suite green |
 | Stdlib tests & robustness (2026-06-11) | headless content/ test root (real BuildCtx + probe uniforms), tier-1 contract + tier-2 extremes sweeps over all 22 modules, golden-pattern scans (caught 2 scenes re-detecting kick), broken-module self-test, tier-3 smoke render | `pnpm test:content` (144 tests) + `validate:stdlib` |
 | M6 Chains half (2026-06-12) | per-instance FX chains (`set_chain`/`save_chain`), wet/dry mix as a bindable param, insert/reorder, scene-default + restore, saved-chain composites | `validate:m6` (chain checks) |
+| Layers (2026-06-11) | `ctx.layer(name, tex)` named nodes: uniform-driven rigs (`<name>.layer.*`, no rebuild), per-node FX chains (`set_chain {node}`, `<name>.fx.*`), `nodes` in manifests, Console node tree, scenes wrapped | `validate:layers` |
 
 Details: `DECISIONS.md` (rationale), `docs/history/agent-updates-m0-m6.md`
 (build diary), git history.
@@ -68,42 +69,6 @@ declare a default `chain` and `restoreDefault` resets to it. Output types formal
 (`ModuleOutput`, `ChainableEffect`); `glitch`/`feedback`/`levels` carry `chainParams`.
 M7 inherits the now-shipped "save as" mechanism for *scenes*; full chain
 snapshot/restore across reload stays M9.
-
-### Layers — named nodes, per-node rigs & chains (S/M) *(new 2026-06-12: FX at arbitrary points in a scene)*
-
-**Goal:** grab anything inside a scene — transform it, fade it, chain FX onto it —
-without the scene author having pre-surfaced params for it.
-
-- **One new BuildCtx primitive: `ctx.layer(name, tex)`** — wraps any TexNode at
-  any point in the build and does three things there: registers the node's
-  identity (name required → ids are always stable), folds a **uniform-driven
-  layer rig** (transform + opacity; params auto-declared at
-  `<name>.layer.x/y/scale/rotate/opacity`, identity by default — `set_param`
-  never rebuilds), and folds that node's **FX chain** (`ChainHost` becomes a
-  per-node map; same NFR-5 semantics as the root chain, which becomes just the
-  root node's chain).
-- `set_chain` grows a `node` arg (default root — fully back-compatible);
-  per-node chain params live at `<name>.fx.<stepId>.<param>`.
-- The manifest stays **flat** — paths encode the tree, so modulators, MIDI-learn,
-  tuned persistence and Projects all work on layer params unchanged.
-  `get_manifest` gains a `nodes` listing (`{id, module, parent}`) so agents and
-  the Console can render the tree without parsing paths; the Console param panel
-  grows node headers, each with its own "+ effect".
-- **Explicit-only by design**: unwrapped nodes cost nothing (no GPU overhead, no
-  manifest growth, no id-stability problem). "Arbitrary points" stays honest
-  because hot-reload is the deploy mechanism — an agent adds `ctx.layer(...)`
-  around anything mid-session in one line, protected by never-go-black.
-  *Implicit capture of every module call is the deliberate follow-up if wrapping
-  proves to be friction (auto-nodes with anonymous ids; `ctx.layer` becomes the
-  stabilized form) — the addressing model is shared, so nothing is wasted.*
-- Skills convention: wrap the obvious grabbables (every `image`/`video`, each
-  major compositional stage); one pass over the existing scenes wrapping theirs.
-
-**Shipped when:** an unmodified scene gains a wrapped `logo` layer in one live
-edit; `set_param logo.layer.scale` moves it with no rebuild; `set_chain
-{node:"logo"}` pixelates just that node (NFR-5 on a throwing step); layer params
-modulate and MIDI-bind like any other; the Console shows the node tree.
-(`validate:layers`)
 
 ### Projects — set lists (S/M) *(new 2026-06-11: save/load named instance sets; serializes Layers' per-node chain map)*
 

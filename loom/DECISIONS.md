@@ -544,3 +544,33 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   **not run here** — this sandbox is egress-blocked from Playwright's browser and
   the substituted system Chromium can't do the WebGL readback (the palette half's
   first screenshot times out too); run it on a real-GPU/CI browser.
+
+## Layers — named nodes, per-node rigs & chains (2026-06-11)
+
+- **`ctx.layer(name, tex)` is the one new BuildCtx primitive.** It folds a
+  uniform-driven rig (`<name>.layer.x/y/scale/rotate/opacity`, identity defaults,
+  2D affine + opacity through one RT pass mirroring `transform`'s mechanics —
+  `set_param` never rebuilds) and the node's FX chain via a session-injected
+  `foldNode` hook. Explicit-only: unwrapped nodes cost nothing. Duplicate /
+  reserved / malformed names throw (NFR-5 contains them).
+- **Parentage is detected via marker passes**: wraps register bottom-up; an outer
+  wrap claims any not-yet-parented node whose rig pass is in its input's pass
+  list. Works through pass-merging composition (`over`).
+- **Per-node chains are `ChainHost`s with a path prefix** (`<node>.fx` vs root
+  `fx`) in an `Entry.nodeChains` map, lazily created on first `set_chain {node}`;
+  node chains have no scene default (restoreDefault clears). Same NFR-5 + arming
+  semantics as root.
+- **Node-chain wet/dry preserves the INPUT's alpha** (root keeps M6's lock-to-1):
+  most stdlib effects emit alpha 1, which would make a chained overlay-node
+  full-frame opaque. Consequence: node FX recolor within the node's silhouette;
+  silhouette-expanding FX (feedback halos) belong inside the wrap or on the root.
+  Revisit by auditing effect alpha propagation if it pinches.
+- **Manifest stays flat** — paths encode the tree; modulators, MIDI-learn, tuned
+  persistence work on layer params unchanged. `get_manifest`/`get_session` gain
+  `nodes: [{id, parent, chain}]`; the Console renders node groups (⬚, parent
+  annotation) each with its own FX chain. MIDI e2e intentionally not re-validated
+  (path-generic, m5 covers the mechanics).
+- **SHIPPED:** runtime `layer.ts` + `BuildCtx.layer` + ChainHost prefix; session
+  nodeChains + `set_chain` node arg; Console node sections; `vinyl-zoom` (dive/
+  logo/hippos) + `pho-nebula` (bowl/garnish/badge) wrapped. Gates: typecheck,
+  pnpm test (353), `validate:layers` 22/22, full `pnpm validate` green.

@@ -3,9 +3,11 @@ import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
 import type { InputRegistry } from "./inputs";
+import { layerRig, NODE_NAME_RE, RESERVED_NODE_NAMES, type LayerHooks, type LayerNodeInfo } from "./layer";
 import { PaletteCtxImpl, type PaletteRegistry } from "./palette";
 import { Manifest, type BoolParamSpec, type RangedParamSpec, type Param } from "./param";
 import { Signal, type SignalLike } from "./signal";
+import type { Pass, TexNode } from "./texnode";
 
 /**
  * Handed to scene/module build functions. Collects the manifest and the
@@ -15,13 +17,18 @@ import { Signal, type SignalLike } from "./signal";
 export class BuildCtx {
   readonly manifest = new Manifest();
   readonly updaters: Array<(f: FrameCtx) => void> = [];
+  /** Named nodes registered by ctx.layer() during this build, in wrap order. */
+  readonly nodes: LayerNodeInfo[] = [];
   private paletteCtx: PaletteCtxImpl | null = null;
+  /** Each node's rig pass — containment in a later wrap's input = parentage. */
+  private readonly nodeMarkers = new Map<string, Pass>();
 
   constructor(
     readonly audio: AudioBusLike,
     readonly time: TimeBus,
     readonly inputs?: InputRegistry,
     readonly palettes?: PaletteRegistry,
+    private readonly layerHooks?: LayerHooks,
   ) {}
 
   /**
@@ -37,6 +44,37 @@ export class BuildCtx {
   /** Declare deferred params (palette.source). buildInstance calls this after build(). */
   finalize(): void {
     this.paletteCtx?.finalize();
+  }
+
+  /**
+   * Wrap any TexNode as a named, grabbable node (Layers): registers a stable
+   * identity, folds the uniform-driven layer rig (`<name>.layer.x/y/scale/
+   * rotate/opacity` params, identity by default — `set_param` never rebuilds),
+   * and folds the node's FX chain when the session injected one. Names must be
+   * unique per build; a duplicate throws (NFR-5 contains it).
+   */
+  layer(name: string, tex: TexNode): TexNode {
+    if (!NODE_NAME_RE.test(name)) {
+      throw new Error(`ctx.layer: invalid node name "${name}" (letters, digits, - and _; must start with a letter)`);
+    }
+    if (RESERVED_NODE_NAMES.has(name)) {
+      throw new Error(`ctx.layer: "${name}" is a reserved name`);
+    }
+    if (this.nodeMarkers.has(name)) {
+      throw new Error(`ctx.layer: duplicate node name "${name}" — node ids must be unique per scene`);
+    }
+    let out = layerRig(this, name, tex);
+    const marker = out.passes[out.passes.length - 1]!;
+    out = this.layerHooks?.foldNode?.(this, name, out) ?? out;
+    // Wraps register bottom-up, so any not-yet-parented node whose rig pass is
+    // inside this wrap's input gets this node as its immediate parent.
+    for (const n of this.nodes) {
+      const m = this.nodeMarkers.get(n.id);
+      if (n.parent == null && m != null && tex.passes.includes(m)) n.parent = name;
+    }
+    this.nodes.push({ id: name, parent: null });
+    this.nodeMarkers.set(name, marker);
+    return out;
   }
 
   /**

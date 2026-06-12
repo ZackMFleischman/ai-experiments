@@ -126,6 +126,18 @@ through a registered uniform updater that runs each frame (`BuildCtx.uniformOf`)
   (primitives) with saved chains under `content/modules/effects/chains/*.chain.json`
   (composites — one level deep, namespaced `fx.<id>.<inner>.<param>`); `save_chain`
   writes one via the `loom:effects` Vite middleware.
+- Layers: `ctx.layer(name, tex)` wraps any TexNode as a named, grabbable node —
+  it registers a stable identity (`Instance.nodes`, `{id, parent}` with parents
+  detected via rig marker passes), folds a **uniform-driven rig**
+  (`<name>.layer.x/y/scale/rotate/opacity`, identity defaults, one RT pass — a
+  rig `set_param` never rebuilds), and folds the node's **FX chain** through a
+  session-injected `foldNode` hook. Per-node chains are `ChainHost`s with a
+  `<node>.fx` path prefix in `Entry.nodeChains` (lazy on first
+  `set_chain {node}`; no scene default). The node-chain wet/dry preserves the
+  input's ALPHA (root locks to 1) so chained overlay-nodes keep their
+  silhouette. Explicit-only: unwrapped nodes cost nothing. `get_manifest` and
+  `get_session` carry `nodes: [{id, parent, chain}]`; the Console renders node
+  groups with per-node "+ effect".
 - Modulators: `modulate_param` attaches a runtime LFO/stepper/follower to any
   non-color param (sine/triangle/ramp/square/random/drift/cycle/audio;
   `periodSeconds` or BPM-tracking `periodBeats`). Phase is a dt-accumulator ticked
@@ -226,7 +238,8 @@ its own Vite (and, where needed, its own sidecar) — the eyes-on layer. One sui
 per shipped milestone, kept green forever: `m0` (HMR/never-go-black), `m1`
 (signals/audio/containment), `m2` (MCP e2e), `m3` (stage/commit/PANIC + Console),
 `m4` (pure output/staging UX), `m5` (input rack/persistence/MIDI-learn), `m6`
-(palettes), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
+(palettes), `layers` (named nodes: rig rides with no rebuild, per-node chains,
+NFR-5 on a throwing node step, Console node tree), `modulators`, and `stdlib` — the tier-3 smoke render: every module is
 mounted in a generated sandbox scene (sources direct, effects over an `osc`,
 controls driving an osc param), hot-swapped in via the `live.scene.ts` pin, and
 must render non-black with a clean console and no NFR-2 freeze.

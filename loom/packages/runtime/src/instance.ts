@@ -9,6 +9,7 @@ import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
 import type { InputRegistry } from "./inputs";
+import type { LayerHooks, LayerNodeInfo } from "./layer";
 import type { PaletteRegistry } from "./palette";
 import type { Manifest } from "./param";
 import type { SceneDef } from "./scene";
@@ -31,6 +32,8 @@ export class Instance {
     private readonly updaters: ReadonlyArray<(f: FrameCtx) => void>,
     private readonly passes: readonly Pass[],
     output: ColorNode,
+    /** Named nodes registered by ctx.layer() during this build (Layers). */
+    readonly nodes: ReadonlyArray<LayerNodeInfo> = [],
   ) {
     this.material.colorNode = output;
     this.quad = new QuadMesh(this.material);
@@ -76,13 +79,15 @@ export function buildInstance(
    * step throws the whole build (NFR-5 keeps the previous pixels).
    */
   fold?: (ctx: BuildCtx, tex: TexNode) => TexNode,
+  /** Per-node hooks (Layers): lets the session fold node chains at the wrap point. */
+  layerHooks?: LayerHooks,
 ): Instance {
-  const ctx = new BuildCtx(buses.audio, buses.time, buses.inputs, buses.palettes);
+  const ctx = new BuildCtx(buses.audio, buses.time, buses.inputs, buses.palettes, layerHooks);
   let out = scene.build(ctx);
   if (out?.color == null) {
     throw new Error(`scene "${scene.name}": build() must return a TexNode`);
   }
   if (fold) out = fold(ctx, out);
   ctx.finalize();
-  return new Instance(scene.name, ctx.manifest, ctx.updaters, out.passes, out.color);
+  return new Instance(scene.name, ctx.manifest, ctx.updaters, out.passes, out.color, ctx.nodes);
 }

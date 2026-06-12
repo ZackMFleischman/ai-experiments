@@ -76,7 +76,9 @@ const TOOLS = [
     name: "get_manifest",
     description:
       "The live instance's param manifest: every tweakable param with type, range, default, " +
-      "description, and current value. Read this before set_param.",
+      "description, and current value. Read this before set_param. Also lists the instance's " +
+      "layer nodes ({id, parent, chain}) — named grabbables wrapped with ctx.layer() whose rig " +
+      "params live at <id>.layer.x/y/scale/rotate/opacity and chain knobs at <id>.fx.<step>.<param>.",
     inputSchema: { type: "object", properties: { ...INSTANCE_PROP } },
   },
   {
@@ -171,11 +173,17 @@ const TOOLS = [
       "with set_param on fx.<id>.<param>; fx.<id>.mix is the wet/dry (0 bypassed · 1 full), " +
       "ride it without a rebuild. restoreDefault:true resets to the scene's declared chain. " +
       "A throwing step is rejected and the previous chain + pixels keep running (NFR-5). " +
+      "Pass node:<id> (a layer node from get_manifest's nodes) to chain FX onto just that " +
+      "node — its knobs then live at <node>.fx.<step>.<param>. " +
       "Editing the LIVE chain needs agent-commit armed (sandbox instances are ungated).",
     inputSchema: {
       type: "object",
       properties: {
         ...INSTANCE_PROP,
+        node: {
+          type: "string",
+          description: "Target a named layer node's chain (from get_manifest nodes); omit for the root chain.",
+        },
         steps: {
           type: "array",
           description: "The full desired step list, in source→output order.",

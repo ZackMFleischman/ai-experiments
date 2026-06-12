@@ -69,6 +69,12 @@ export function ParamPanel({ instance, manifest, session }: Props) {
     });
   };
 
+  // Layer nodes (Layers): each gets a node-marked group with its own FX chain;
+  // its chain knobs (<node>.fx.*) render inside that chain, not as widgets.
+  const nodes = session?.instances.find((i) => i.id === instance)?.nodes ?? [];
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const parentOf = new Map(nodes.map((n) => [n.id, n.parent]));
+
   const flat: Array<[string, ParamDesc]> = [];
   const groups = new Map<string, Array<[string, ParamDesc]>>();
   for (const [path, p] of Object.entries(manifest ?? {})) {
@@ -80,10 +86,14 @@ export function ParamPanel({ instance, manifest, session }: Props) {
       flat.push([path, p]);
     } else {
       const g = path.slice(0, dot);
+      if (nodeIds.has(g) && path.slice(dot + 1).startsWith("fx.")) continue; // node chain knobs
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g)!.push([path, p]);
     }
   }
+  // A wrapped node always has rig params, but make sure every node gets a
+  // section even if a manifest snapshot lags behind the session's node list.
+  for (const id of nodeIds) if (!groups.has(id)) groups.set(id, []);
   const ready = instance != null && manifest != null;
 
   return (
@@ -140,39 +150,53 @@ export function ParamPanel({ instance, manifest, session }: Props) {
             {flat.map(([path, p]) => (
               <ParamWidget key={path} instance={instance} path={path} p={p} />
             ))}
-            {[...groups.entries()].map(([group, entries]) => (
-              <Accordion
-                key={group}
-                variant="outlined"
-                disableGutters
-                expanded={open[group] ?? false}
-                onChange={(_, x) => toggle(group, x)}
-                sx={{ mb: 1.5, bgcolor: "transparent" }}
-              >
-                <AccordionSummary
-                  sx={{
-                    minHeight: 36,
-                    fontSize: 12,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "text.secondary",
-                  }}
+            {[...groups.entries()].map(([group, entries]) => {
+              const isNode = nodeIds.has(group);
+              const parent = parentOf.get(group);
+              return (
+                <Accordion
+                  key={group}
+                  data-node={isNode ? group : undefined}
+                  variant="outlined"
+                  disableGutters
+                  expanded={open[group] ?? false}
+                  onChange={(_, x) => toggle(group, x)}
+                  sx={{ mb: 1.5, bgcolor: "transparent" }}
                 >
-                  {group}
-                </AccordionSummary>
-                <AccordionDetails>
-                  {entries.map(([path, p]) => (
-                    <ParamWidget
-                      key={path}
-                      instance={instance}
-                      path={path}
-                      p={p}
-                      label={path.slice(group.length + 1)}
-                    />
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            ))}
+                  <AccordionSummary
+                    sx={{
+                      minHeight: 36,
+                      fontSize: 12,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "text.secondary",
+                    }}
+                  >
+                    {isNode ? "⬚ " : ""}
+                    {group}
+                    {isNode && parent != null && (
+                      <Typography component="span" variant="caption" sx={{ ml: 0.5, opacity: 0.6 }}>
+                        ⊂ {parent}
+                      </Typography>
+                    )}
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {entries.map(([path, p]) => (
+                      <ParamWidget
+                        key={path}
+                        instance={instance}
+                        path={path}
+                        p={p}
+                        label={path.slice(group.length + 1)}
+                      />
+                    ))}
+                    {isNode && instance !== "globals" && (
+                      <FxChain instance={instance} manifest={manifest} node={group} />
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })}
             {instance !== "globals" && <FxChain instance={instance} manifest={manifest} />}
           </>
         )}
