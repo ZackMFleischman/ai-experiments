@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { channelsToHex, COLOR_CHANNELS, hexToChannels, type ColorSpace } from "./colorspace";
 import { Signal } from "./signal";
 
 export type ParamType = "float" | "int" | "bool" | "color";
@@ -65,6 +66,14 @@ export class Param<T> {
   /** The author-declared baseline, for reset and "is this overridden?" checks. */
   private readonly declaredLo?: number;
   private readonly declaredHi?: number;
+  /**
+   * Color decomposition (R7.4): "hex" is a plain pickable color; "hsv"/"rgb"
+   * means the live value is recomposed each read from three channel params
+   * (each an ordinary modulatable/MIDI-bindable float). Set via
+   * Manifest.setColorSpace, which owns the channel params' lifecycle.
+   */
+  private colorSpaceVal: ColorSpace = "hex";
+  private channelParams: Param<number>[] | null = null;
 
   constructor(
     readonly path: string,
@@ -80,11 +89,46 @@ export class Param<T> {
   }
 
   get value(): T {
+    // Decomposed color: the channels are the source of truth (a modulator or
+    // MIDI may be driving them) — recompose on every read.
+    if (this.channelParams && this.colorSpaceVal !== "hex") {
+      return channelsToHex(this.colorSpaceVal, [
+        this.channelParams[0]!.value,
+        this.channelParams[1]!.value,
+        this.channelParams[2]!.value,
+      ]) as unknown as T;
+    }
     return this.v;
   }
 
   set(next: T): void {
+    // Editing a decomposed color (the picker) writes back through its channels
+    // so the channel sliders, modulators and bindings stay in sync.
+    if (this.channelParams && this.colorSpaceVal !== "hex") {
+      const hex = this.clampFn(next) as unknown as string;
+      const ch = hexToChannels(hex, this.colorSpaceVal);
+      for (let i = 0; i < 3; i++) this.channelParams[i]!.set(ch[i]!);
+      this.v = hex as unknown as T;
+      return;
+    }
     this.v = this.clamp(next);
+  }
+
+  /** Current color decomposition ("hex" when not decomposed). */
+  get colorSpace(): ColorSpace {
+    return this.colorSpaceVal;
+  }
+
+  /** Bind this color to three channel params (Manifest.setColorSpace owns this). */
+  attachChannels(space: "hsv" | "rgb", channels: Param<number>[]): void {
+    this.colorSpaceVal = space;
+    this.channelParams = channels;
+  }
+
+  /** Collapse back to a plain pickable color. */
+  detachChannels(): void {
+    this.colorSpaceVal = "hex";
+    this.channelParams = null;
   }
 
   /** Clamp to the live effective range (numeric) or the type's clamp (bool/color). */
@@ -184,10 +228,14 @@ export class Param<T> {
   }
 
   toJSON(): Record<string, unknown> {
-    const out: Record<string, unknown> = { type: this.type, ...this.meta, value: this.v };
+    // `value` reads through the getter so a decomposed color reports its live
+    // recomposed hex (the channels may be modulating it).
+    const out: Record<string, unknown> = { type: this.type, ...this.meta, value: this.value };
     // Only carried when widened/narrowed — keeps the default manifest shape (and
     // its tests) untouched, and doubles as the UI's "range is overridden" flag.
     if (this.rangeOverridden) out.defaultRange = [this.declaredLo, this.declaredHi];
+    // The UI's expand/collapse state for a color param (channels render inline).
+    if (this.type === "color") out.colorSpace = this.colorSpaceVal;
     return out;
   }
 }
@@ -224,6 +272,87 @@ export class Manifest {
       return hex;
     };
     return this.add(path, new Param<string>(path, "color", clamp, specMeta({ ...s, default: def }), def));
+  }
+
+  /**
+   * Decompose a color param into three 0..1 channel params (space "hsv"/"rgb"),
+   * or collapse it back to a plain pickable color ("hex") — R7.4. Channels are
+   * materialized at `<path>.<h|s|v|r|g|b>`, seeded from the color's live value,
+   * and from then on are ordinary float params: modulatable, MIDI-bindable,
+   * range-editable. The color recomposes from them on every read. Returns the
+   * channel paths added and removed so the caller can clean up modulators and
+   * bindings on the ones that vanished.
+   */
+  setColorSpace(path: string, space: ColorSpace): { added: string[]; removed: string[] } {
+    const base = this.params.get(path);
+    if (!base) throw new Error(`unknown param "${path}"`);
+    if (base.type !== "color") {
+      throw new Error(`"${path}" is ${base.type} — only color params decompose into channels`);
+    }
+    const liveHex = base.value as string; // recomposed if currently decomposed
+    const removed: string[] = [];
+    if (base.colorSpace !== "hex") {
+      for (const ch of COLOR_CHANNELS[base.colorSpace]) {
+        const cp = `${path}.${ch}`;
+        if (this.params.delete(cp)) removed.push(cp);
+      }
+      base.detachChannels();
+    }
+    base.set(liveHex); // park the live color on the plain param (hex mode source)
+    const added: string[] = [];
+    if (space !== "hex") {
+      const vals = hexToChannels(liveHex, space);
+      const channels: Param<number>[] = [];
+      COLOR_CHANNELS[space].forEach((ch, i) => {
+        const cp = `${path}.${ch}`;
+        const p = new Param<number>(
+          cp,
+          "float",
+          (v) => v,
+          specMeta({
+            default: vals[i],
+            min: 0,
+            max: 1,
+            step: 1 / 255,
+            description: `${ch} channel of ${path}`,
+            channelOf: path,
+            channel: ch,
+          }),
+          vals[i]!,
+        );
+        this.add(cp, p as unknown as Param<unknown>);
+        channels.push(p);
+        added.push(cp);
+      });
+      base.attachChannels(space, channels);
+    }
+    return { added, removed };
+  }
+
+  /** Paths of currently-decomposed color params → their space (persisted shape). */
+  colorSpaces(): Record<string, "hsv" | "rgb"> {
+    const out: Record<string, "hsv" | "rgb"> = {};
+    for (const [path, p] of this.params) {
+      if (p.type === "color" && p.colorSpace !== "hex") out[path] = p.colorSpace;
+    }
+    return out;
+  }
+
+  /**
+   * Re-apply persisted color decompositions (tuned state / Projects / HMR).
+   * Apply BEFORE values() so the channel params exist to receive saved values.
+   * Unknown or non-color paths are skipped.
+   */
+  applyColorSpaces(map: Record<string, unknown> | null | undefined): void {
+    if (!map) return;
+    for (const [path, space] of Object.entries(map)) {
+      if (space !== "hsv" && space !== "rgb") continue;
+      try {
+        this.setColorSpace(path, space);
+      } catch {
+        // a persisted decomposition whose color no longer exists — skip it
+      }
+    }
   }
 
   get(path: string): Param<unknown> | undefined {

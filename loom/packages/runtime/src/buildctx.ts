@@ -1,11 +1,13 @@
 import { uniform } from "three/tsl";
+import { Color } from "three/webgpu";
+import type { Node } from "three/webgpu";
 import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
 import type { InputProvider } from "./fixture";
 import { layerRig, NODE_NAME_RE, RESERVED_NODE_NAMES, type LayerHooks, type LayerNodeInfo } from "./layer";
 import { PaletteCtxImpl, type PaletteRegistry } from "./palette";
-import { Manifest, type BoolParamSpec, type RangedParamSpec, type Param } from "./param";
+import { Manifest, type BoolParamSpec, type ColorParamSpec, type RangedParamSpec, type Param } from "./param";
 import { Signal, type SignalLike } from "./signal";
 import type { Pass, TexNode } from "./texnode";
 
@@ -112,6 +114,22 @@ export class BuildCtx {
 
   bool(path: string, spec: BoolParamSpec) {
     return this.manifest.bool(path, spec);
+  }
+
+  /**
+   * Declare a color param and bridge it onto the GPU as a vec3 uniform that
+   * re-reads every frame (R7.4). The human can pick it flat, or expand it into
+   * H/S/V or R/G/B channels in the Console — each channel then modulates and
+   * MIDI-binds like any float, and this uniform follows the recomposed color
+   * with no rebuild.
+   */
+  color(path: string, spec: ColorParamSpec): Node<"vec3"> {
+    const param = this.manifest.color(path, spec);
+    const u = uniform(new Color(param.value));
+    this.updaters.push(() => {
+      (u.value as Color).set(param.value);
+    });
+    return u as unknown as Node<"vec3">;
   }
 
   /**
