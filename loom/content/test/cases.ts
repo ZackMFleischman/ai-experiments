@@ -56,6 +56,7 @@ import { noodles } from "../modules/sources/noodles";
 import { osc } from "../modules/sources/osc";
 import { pulseRings } from "../modules/sources/pulseRings";
 import { spriteSwarm } from "../modules/sources/spriteSwarm";
+import { starAnise } from "../modules/sources/starAnise";
 import { video } from "../modules/sources/video";
 import { box } from "../modules/geo/box";
 import { model } from "../modules/geo/model";
@@ -100,6 +101,7 @@ export const CASES: Record<string, ModuleCase> = {
   osc: (ctx) => osc(ctx, {}),
   pulseRings: (ctx) => pulseRings(ctx, { energy: ctx.input("kick") }),
   spriteSwarm: (ctx) => spriteSwarm(ctx, { url: ASSET, cols: 3, rows: 2 }),
+  starAnise: (ctx) => starAnise(ctx, { energy: ctx.input("kick") }),
   video: (ctx) => video(ctx, { url: CLIP }),
   render3d: (ctx) => render3d(ctx, { world: box(ctx, { spin: 0.5 }), cam: orbitCam(ctx, {}) }),
   solid: (ctx) => solid(ctx, { paletteStop: 2 }),
