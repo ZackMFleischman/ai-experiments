@@ -838,3 +838,24 @@ runtime, not a hard wall.
   (validate:m5/m6) not run — this environment's egress blocks Playwright's
   browser download; they exercise the rack/param widgets touched here and
   should be run where a browser is available.
+
+## soft-serve scene — color-chooser param + reversed kaleidoZoom (2026-06-13)
+
+- **First scene-level `color` param** (`cream.color`, soft-serve.scene):
+  declared via `ctx.manifest.color(...)` — BuildCtx has no `color` shorthand
+  and adding one is runtime territory (human-reviewed), so the scene reaches
+  through the public `manifest`. Bridged to the GPU as three per-channel
+  Signals reading `param.value` behind a cached `parseHex`, so a color
+  `set_param` retints live with no rebuild; the catalog's AST param extractor
+  only sweeps `ctx.float/int/bool`, so `cream.color` is absent from the scene's
+  catalog line (runtime manifest is correct).
+- **Infinite zoom-OUT reuses `kaleidoZoom`**: integrating a negative rate walks
+  the octave handoff backwards, so "spirals forever as it zooms out" needed no
+  new effect — composition over new code. Kick thrust subtracts (outward).
+- New premultiplied-alpha overlay sources: `softServe` (coil-phase cone +
+  dispenser ribbon) and `sprinkles` (edge-launched tumbling rods; `count`
+  rides a kick envelope + beat LFO for bursts/cadence — speed stays
+  phase-stable so bursts never teleport sprinkles).
+- Gates: typecheck + `pnpm test` (633) green. validate:stdlib not run here —
+  this environment's egress blocks Playwright's browser download; run it
+  (plus an eyes-on screenshot pass) where a browser is available.
