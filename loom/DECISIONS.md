@@ -915,3 +915,19 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
 - Gates: typecheck + `pnpm test` green. validate:stdlib still blocked by
   egress; the PR's Cloudflare preview screenshots the booted scene as the
   eyes-on check.
+
+## noise module — TouchDesigner-style noiseField + noiseSignal (2026-06-13)
+
+- **Noise basis is a compile-time menu, the rest is live** (`noiseField`): the
+  noise `type` (perlin/ridged/worley/cell) selects a different per-octave TSL
+  function, so switching it rebuilds — matching TouchDesigner's Noise "Type"
+  menu. Everything else (scale, gain, lacunarity, exponent, amplitude, offset,
+  3D flow) is a live uniform. `octaves` is a JS-loop count (compile-time, like
+  the stdlib `noise`) so gain/lacunarity can stay live uniforms inside the
+  summation. `mx_worley_noise_float`'s third (metric) arg is dropped —
+  @types/three only types `(texcoord, jitter)`. `noiseSignal` is the CHOP-side
+  companion: CPU value-noise fbm on the frame clock (deterministic for fixtures),
+  for patching into any `SignalLike` param. Scenes: noise-flow (noise-as-image)
+  and noise-warp (noise-as-displacement/rotation). Gates: typecheck + pnpm test
+  green; GPU validators (validate:stdlib) not run — sandbox blocks the
+  Playwright chromium download.
