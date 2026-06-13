@@ -48,6 +48,7 @@ import { transform } from "../modules/effects/transform";
 import { blobs } from "../modules/sources/blobs";
 import { fireflies } from "../modules/sources/fireflies";
 import { image } from "../modules/sources/image";
+import { julia } from "../modules/sources/julia";
 import { mandelbrot } from "../modules/sources/mandelbrot";
 import { noise } from "../modules/sources/noise";
 import { noodles } from "../modules/sources/noodles";
@@ -91,6 +92,7 @@ export const CASES: Record<string, ModuleCase> = {
   blobs: (ctx) => blobs(ctx, {}),
   fireflies: (ctx) => fireflies(ctx, {}),
   image: (ctx) => image(ctx, { url: ASSET }),
+  julia: (ctx) => julia(ctx, {}),
   mandelbrot: (ctx) => mandelbrot(ctx, {}),
   noise: (ctx) => noise(ctx, {}),
   noodles: (ctx) => noodles(ctx, { energy: ctx.input("kick") }),
