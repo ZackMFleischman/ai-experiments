@@ -494,7 +494,7 @@ try {
       JSON.stringify([
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
         "get_session", "list_projects", "load_project", "modulate_param", "record_fixture", "save_chain",
-        "save_project", "screenshot", "set_chain", "set_param", "stage", "unstage",
+        "save_project", "screenshot", "set_chain", "set_modulation_enabled", "set_param", "stage", "unstage",
       ]),
     tools.join(", "),
   );

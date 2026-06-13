@@ -1,4 +1,14 @@
 import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   Box,
   Button,
   Dialog,
@@ -12,7 +22,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChainStepInfo } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
@@ -25,7 +35,10 @@ type Props = {
   node?: string;
 };
 
-/** A step's manifest knobs (everything under <prefix><id>. except the wet/dry mix). */
+/**
+ * A step's manifest knobs: everything under <prefix><id>. except mix and
+ * enabled, which render as dedicated rows at the top of the card.
+ */
 function stepKnobs(
   manifest: Record<string, ParamDesc>,
   prefix: string,
@@ -33,7 +46,7 @@ function stepKnobs(
 ): Array<[string, ParamDesc]> {
   const head = `${prefix}${id}.`;
   return Object.entries(manifest)
-    .filter(([path]) => path.startsWith(head) && path !== `${head}mix`)
+    .filter(([path]) => path.startsWith(head) && path !== `${head}mix` && path !== `${head}enabled`)
     .map(([path, p]) => [path, p] as [string, ParamDesc]);
 }
 
@@ -47,8 +60,6 @@ function stepKnobs(
 export function FxChain({ instance, manifest, node }: Props) {
   const link = useEngine();
   const { session } = useEngineState();
-  const [drag, setDrag] = useState<number | null>(null);
-  const [over, setOver] = useState<number | null>(null);
   const [pick, setPick] = useState<{ anchor: HTMLElement; index: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -108,6 +119,16 @@ export function FxChain({ instance, manifest, node }: Props) {
     next.splice(to, 0, moved!);
     apply(next);
   };
+
+  // Step cards reorder via dnd-kit (handle-only — the cards are full of
+  // sliders). This DndContext nests inside ConsoleApp's tile context; the
+  // handles register only here, so a step drag never arms the stage zone.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const onDragEnd = (e: DragEndEvent) => {
+    const from = chain.findIndex((s) => s.id === e.active.id);
+    const to = e.over != null ? chain.findIndex((s) => s.id === e.over!.id) : -1;
+    if (from >= 0 && to >= 0) reorder(from, to);
+  };
   const restore = () => {
     setErr(null);
     void link
@@ -126,6 +147,42 @@ export function FxChain({ instance, manifest, node }: Props) {
       })
       .catch((e: Error) => setErr(e.message));
   };
+
+  // One sortable step card; hands its drag-handle props to the children so
+  // only the ⠿ grip starts a drag.
+  function SortableStep({
+    id,
+    dim,
+    children,
+  }: {
+    id: string;
+    dim: boolean;
+    children: (handleProps: Record<string, unknown>) => ReactNode;
+  }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+      id,
+    });
+    return (
+      <Box
+        data-fxstep={id}
+        ref={setNodeRef}
+        style={{ transform: CSS.Transform.toString(transform), transition }}
+        sx={{
+          border: 1,
+          borderColor: isDragging ? "primary.main" : "divider",
+          borderRadius: 1,
+          p: 0.75,
+          mb: 0.25,
+          bgcolor: "background.default",
+          opacity: isDragging ? 0.8 : dim ? 0.55 : 1,
+          position: "relative",
+          zIndex: isDragging ? 2 : undefined,
+        }}
+      >
+        {children({ ...attributes, ...listeners })}
+      </Box>
+    );
+  }
 
   // A thin insertion affordance between/around cards.
   const inserter = (index: number) => (
@@ -191,42 +248,23 @@ export function FxChain({ instance, manifest, node }: Props) {
       )}
 
       {inserter(0)}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext items={chain.map((s) => s.id)} strategy={verticalListSortingStrategy}>
       {chain.map((step, i) => {
         const mix = manifest[`${prefix}${step.id}.mix`];
-        const dim = typeof mix?.value === "number" && mix.value < 0.02;
+        const enabledP = manifest[`${prefix}${step.id}.enabled`];
+        const en = enabledP?.value !== false;
+        const dim = (typeof mix?.value === "number" && mix.value < 0.02) || !en;
         return (
           <Box key={step.id}>
-            <Box
-              data-fxstep={step.id}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setOver(i);
-              }}
-              onDrop={() => {
-                if (drag != null) reorder(drag, i);
-                setDrag(null);
-                setOver(null);
-              }}
-              sx={{
-                border: 1,
-                borderColor: over === i ? "primary.main" : "divider",
-                borderRadius: 1,
-                p: 0.75,
-                mb: 0.25,
-                bgcolor: "background.default",
-                opacity: dim ? 0.55 : 1,
-              }}
-            >
+            <SortableStep id={step.id} dim={dim}>
+              {(handleProps) => (
+                <>
               <Stack direction="row" alignItems="center" spacing={0.5}>
                 <Box
-                  draggable
-                  onDragStart={() => setDrag(i)}
-                  onDragEnd={() => {
-                    setDrag(null);
-                    setOver(null);
-                  }}
+                  {...handleProps}
                   title="drag to reorder"
-                  sx={{ cursor: "grab", color: "text.secondary", fontSize: 14, px: 0.25 }}
+                  sx={{ cursor: "grab", touchAction: "none", color: "text.secondary", fontSize: 14, px: 0.25 }}
                 >
                   ⠿
                 </Box>
@@ -234,6 +272,20 @@ export function FxChain({ instance, manifest, node }: Props) {
                   {step.kind === "composite" ? "✦ " : ""}
                   {step.effect}
                 </Typography>
+                {enabledP != null && (
+                  <Tooltip title={en ? "disable (fades to bypass over fade)" : "enable"}>
+                    <IconButton
+                      size="small"
+                      data-fxpower={step.id}
+                      onClick={() =>
+                        link.sendParam(instance, `${prefix}${step.id}.enabled`, !en)
+                      }
+                      sx={{ color: en ? "primary.main" : "text.secondary", fontSize: 13, p: 0.25 }}
+                    >
+                      ⏻
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="remove from chain">
                   <IconButton
                     size="small"
@@ -248,6 +300,16 @@ export function FxChain({ instance, manifest, node }: Props) {
               {mix != null && (
                 <ParamWidget instance={instance} path={`${prefix}${step.id}.mix`} p={mix} label="mix" dense fill />
               )}
+              {enabledP != null && (
+                <ParamWidget
+                  instance={instance}
+                  path={`${prefix}${step.id}.enabled`}
+                  p={enabledP}
+                  label="enabled"
+                  dense
+                  fill
+                />
+              )}
               {stepKnobs(manifest, prefix, step.id).map(([path, p]) => (
                 <ParamWidget
                   key={path}
@@ -259,11 +321,15 @@ export function FxChain({ instance, manifest, node }: Props) {
                   fill
                 />
               ))}
-            </Box>
+                </>
+              )}
+            </SortableStep>
             {i < chain.length - 1 && inserter(i + 1)}
           </Box>
         );
       })}
+      </SortableContext>
+      </DndContext>
 
       {chain.length === 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>

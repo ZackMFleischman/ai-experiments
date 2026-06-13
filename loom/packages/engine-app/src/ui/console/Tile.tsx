@@ -1,3 +1,5 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Box, Button, Card, IconButton, Stack, Typography } from "@mui/material";
 import { alpha, type Theme } from "@mui/material/styles";
 import {
@@ -20,10 +22,6 @@ type Props = {
   solo: boolean;
   onSelect: (id: string) => void;
   onSolo: (id: string) => void;
-  /** Grid-level drag bookkeeping: which tile is being dragged (null on end). */
-  onDragId: (id: string | null) => void;
-  /** Reorder the dragged tile before this one (fires on drag-over). */
-  onReorderOver: (overId: string) => void;
   /** The engine accepted a rename — keep order/selection pointing at the new id. */
   onRenamed: (from: string, to: string) => void;
 };
@@ -42,7 +40,9 @@ const badgeSx = {
 /**
  * One instance tile. DOM contract: .tile[data-id], child <img> (src only once
  * a thumb arrives), .live-badge/.staged-badge with a "show" class, .stagebtn
- * with exact text "stage"/"unstage", drag carries "text/loom-instance".
+ * with exact text "stage"/"unstage". The whole card is a dnd-kit sortable
+ * (pointer drags after an 8px slop, so click/double-click still select/solo);
+ * the same drag released on the stage bar goes live.
  *
  * Two visual channels that never compete: stage status is the INNER ring
  * (red LIVE / amber STAGED, hugging the card) + chip; selection is an OUTER
@@ -50,7 +50,7 @@ const badgeSx = {
  * reads as "red ring inside a green halo".
  */
 export function Tile({
-  inst, isLive, isStaged, selected, solo, onSelect, onSolo, onDragId, onReorderOver, onRenamed,
+  inst, isLive, isStaged, selected, solo, onSelect, onSolo, onRenamed,
 }: Props) {
   const link = useEngine();
   const thumb = useThumb(inst.id);
@@ -60,6 +60,10 @@ export function Tile({
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(inst.id);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: inst.id,
+    disabled: editing,
+  });
   const startRename = () => {
     setDraft(inst.id);
     setEditing(true);
@@ -94,23 +98,17 @@ export function Tile({
       className="tile"
       data-id={inst.id}
       variant="outlined"
-      draggable={!editing}
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      {...attributes}
+      {...listeners}
       onClick={() => onSelect(inst.id)}
       onDoubleClick={() => onSolo(inst.id)}
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/loom-instance", inst.id);
-        e.dataTransfer.effectAllowed = "move";
-        onDragId(inst.id);
-      }}
-      onDragEnd={() => onDragId(null)}
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("text/loom-instance")) return;
-        e.preventDefault();
-        onReorderOver(inst.id);
-      }}
       sx={(t) => ({
         position: "relative",
         cursor: "grab",
+        opacity: isDragging ? 0.6 : 1,
+        zIndex: isDragging ? 2 : undefined,
         bgcolor: "background.paper",
         borderColor: isLive
           ? "error.main"

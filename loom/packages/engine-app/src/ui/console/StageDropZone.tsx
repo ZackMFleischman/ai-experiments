@@ -1,66 +1,28 @@
+import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { Box, Typography } from "@mui/material";
-import { useEffect, useState, type ReactNode } from "react";
-import { useEngine } from "../hooks";
-import { fail } from "../util";
+import type { ReactNode } from "react";
+
+/** The droppable id ConsoleApp's onDragEnd matches to stage + commit. */
+export const STAGE_ZONE_ID = "stage-zone";
 
 /**
  * Drop-to-go-live target spanning the whole console top (header + stage
  * strip — the strip alone was too thin to hit mid-set): dropping a tile
  * anywhere up top stages AND commits (R9.3; the human-sourced commit is
- * never gated). The zone arms (outline + label) the moment a tile drag
- * starts ANYWHERE — document-level dragstart/dragend, since React only
- * sees events over its own subtree — and intensifies while hovered.
- * Drag events from children bubble here; #stagestrip keeps its id as the
- * validators' dispatch target.
+ * never gated). A dnd-kit droppable inside ConsoleApp's DndContext — it
+ * arms (outline + label) the moment any tile drag starts and intensifies
+ * while hovered; the actual stage+commit fires in ConsoleApp's onDragEnd.
+ * #stagestrip keeps its id as the validators' dispatch target.
  */
 export function StageDropZone({ children }: { children: ReactNode }) {
-  const link = useEngine();
-  const [armed, setArmed] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-
-  useEffect(() => {
-    const start = (e: DragEvent) => {
-      if (e.dataTransfer?.types.includes("text/loom-instance")) setArmed(true);
-    };
-    const end = () => {
-      setArmed(false);
-      setDragOver(false);
-    };
-    document.addEventListener("dragstart", start);
-    document.addEventListener("dragend", end); // fires on the source after drop OR cancel
-    document.addEventListener("drop", end);
-    return () => {
-      document.removeEventListener("dragstart", start);
-      document.removeEventListener("dragend", end);
-      document.removeEventListener("drop", end);
-    };
-  }, []);
+  const { setNodeRef, isOver } = useDroppable({ id: STAGE_ZONE_ID });
+  // Any active drag in this context is a tile drag (FX chains run their own
+  // DndContext inside the param panel — those never arm the zone).
+  const armed = useDndContext().active != null;
 
   return (
     <Box
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("text/loom-instance")) return;
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={(e) => {
-        // Children fire leave events while the drag crosses them — only an
-        // exit from the zone itself ends the hover emphasis.
-        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-        setDragOver(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        const id = e.dataTransfer.getData("text/loom-instance");
-        // One gesture, all the way: drop = stage + commit.
-        if (id) {
-          void link
-            .req("stage", { instance: id })
-            .then(() => link.req("commit", {}))
-            .catch(fail);
-        }
-      }}
+      ref={setNodeRef}
       sx={{
         position: "relative",
         flex: "0 0 auto",
@@ -78,7 +40,7 @@ export function StageDropZone({ children }: { children: ReactNode }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            bgcolor: dragOver ? "#000c" : "#0007",
+            bgcolor: isOver ? "#000c" : "#0007",
             color: "warning.main",
             fontWeight: 700,
             letterSpacing: ".1em",

@@ -1,104 +1,111 @@
 import { BuildCtx, defineModule, texNode, type SignalLike, type TexNode } from "@loom/runtime";
-import { float, sin, smoothstep, uv, vec3, vec4 } from "three/tsl";
+import { clamp, float, max, mix, pow, sin, smoothstep, uv, vec3, vec4 } from "three/tsl";
 import { surfaceAspect } from "../_shared";
 
 const TAU = Math.PI * 2;
 
 export interface SoftServeOpts {
-  /** Cream tint as three 0..1 r/g/b SignalLikes (wire a color param's channels). */
+  /** Vanilla cream rgb as three 0..1 SignalLikes (wire a color param's channels). */
   tint?: readonly [SignalLike, SignalLike, SignalLike];
-  /** Coil ridges stacked up the pile. */
-  coils?: SignalLike;
-  /** Pour speed — the coil spirals upward as fresh cream lands (cycles/sec). */
-  flow?: SignalLike;
-  /** Side-to-side sway of the pile axis (uv units at the tip). */
-  sway?: SignalLike;
-  /** Coil depth: how bulgy the swirl silhouette is (0 = smooth cone). */
-  ridge?: SignalLike;
-  /** Specular sheen strength on each coil's crest. */
-  gloss?: SignalLike;
-  /** Pile height as a fraction of frame height. */
-  height?: SignalLike;
-  /** Base half-width of the pile in uv-height units. */
+  /** Swirl base (where it meets the cone mouth) in uv-y — compile-time layout. */
+  baseY?: number;
+  /** Swirl tip in uv-y — compile-time layout. */
+  tipY?: number;
+  /** Base half-width in aspect-corrected x units. */
   width?: SignalLike;
-  /** Dispenser ribbon pouring from the frame top onto the tip: 0 = none. */
+  /** Coil wraps stacked up the pile (fewer = thicker, soft-serve-like). */
+  coils?: SignalLike;
+  /** Coil climb speed — the swirl perpetually spirals up as fresh cream lands. */
+  flow?: SignalLike;
+  /** Gentle axis sway. */
+  sway?: SignalLike;
+  /** Tip lean — the floppy soft-serve peak curl. */
+  hook?: SignalLike;
+  /** Coil bulge depth on the silhouette (0 = smooth cone). */
+  ridge?: SignalLike;
+  /** Crest sheen strength. */
+  gloss?: SignalLike;
+  /** Dispenser ribbon pouring from the frame top onto the tip (0 = none). */
   stream?: SignalLike;
   /** Wobble drive — feed a bass/kick signal so the cream shivers. */
   energy?: SignalLike;
 }
 
 /**
- * A soft-serve pile: a cone-profiled tower whose silhouette and shading are a
- * helical coil — the phase rides upward with `flow`, so the swirl forever
- * spirals up as if fresh cream keeps landing, while a wiggling dispenser
- * ribbon pours down from the frame top onto the tip. Premultiplied alpha so
- * it drops onto any backdrop via `over`. Pure (no passes), frame-clocked.
+ * An upright soft-serve swirl: a teardrop pile (wide base → hooked tip) built
+ * from fat helical coil bands whose phase climbs forever, so it reads as cream
+ * perpetually spiraling up while a dispenser ribbon pours onto the peak — an
+ * ice cream that's always getting more added. Vanilla by default, shaded with
+ * a crest highlight and base occlusion. Premultiplied alpha (drops onto a cone
+ * via `over`), pure, frame-clocked. The base/tip layout is shared with
+ * `wafffleCone` and `sprinkles` so a scene can stack them into one cone.
  */
 export const softServe = defineModule(
   {
     name: "softServe",
     kind: "source",
     description:
-      "Soft-serve ice cream pile: a swaying cone of spiraling coil ridges with a pour ribbon from the top (premultiplied alpha).",
-    tags: ["ice-cream", "swirl", "spiral", "organic", "overlay", "audio-reactive"],
-    example: 'softServe(ctx, { coils: 9, flow: 0.55, energy: bassSig })',
+      "Upright vanilla soft-serve swirl: a hooked teardrop of fat coil bands climbing forever, with a pour ribbon on top (premultiplied alpha).",
+    tags: ["ice-cream", "swirl", "spiral", "vanilla", "overlay", "audio-reactive"],
+    example: 'softServe(ctx, { coils: 4, flow: 0.4, energy: bassSig })',
   },
   (ctx: BuildCtx, opts: SoftServeOpts = {}): TexNode => {
-    const tint = opts.tint ?? [0.97, 0.8, 0.88];
+    const tint = opts.tint ?? [0.97, 0.92, 0.7];
     const tintU = vec3(ctx.uniformOf(tint[0]), ctx.uniformOf(tint[1]), ctx.uniformOf(tint[2]));
-    const coils = ctx.uniformOf(opts.coils ?? 9);
-    const flow = ctx.uniformOf(opts.flow ?? 0.55);
-    const sway = ctx.uniformOf(opts.sway ?? 0.05);
-    const ridge = ctx.uniformOf(opts.ridge ?? 0.55);
-    const gloss = ctx.uniformOf(opts.gloss ?? 0.8);
-    const height = ctx.uniformOf(opts.height ?? 0.74);
-    const width = ctx.uniformOf(opts.width ?? 0.34);
-    const stream = ctx.uniformOf(opts.stream ?? 0.7);
+    const baseY = opts.baseY ?? 0.34;
+    const tipY = opts.tipY ?? 0.82;
+    const width = ctx.uniformOf(opts.width ?? 0.3);
+    const coils = ctx.uniformOf(opts.coils ?? 4);
+    const flow = ctx.uniformOf(opts.flow ?? 0.4);
+    const sway = ctx.uniformOf(opts.sway ?? 0.03);
+    const hook = ctx.uniformOf(opts.hook ?? 0.1);
+    const ridge = ctx.uniformOf(opts.ridge ?? 0.5);
+    const gloss = ctx.uniformOf(opts.gloss ?? 0.7);
+    const stream = ctx.uniformOf(opts.stream ?? 0.6);
     const energy = ctx.uniformOf(opts.energy ?? 0);
 
     // Frame-clock time, NOT TSL `time` (wall clock) — keeps fixture replays deterministic.
     const t = ctx.uniformOf(ctx.time.now);
+    const live = energy.mul(0.6).add(1);
     const x = uv().x.sub(0.5).mul(surfaceAspect());
     const y = uv().y;
+    const span = float(tipY - baseY);
+    const s = y.sub(baseY).div(span); // 0 at base, 1 at tip (outside the band beyond)
+    const sc = clamp(s, 0, 1);
 
-    const live = energy.mul(0.8).add(1); // audio wobble multiplies sway + coil depth
-    const h = height.max(0.2);
-    const yn = y.div(h).clamp(0, 1); // 0 at the base, 1 at the tip
+    // Centerline + taper profile — MUST stay in sync with sprinkles.ts placement.
+    const xc = sin(sc.mul(3).add(t.mul(0.5))).mul(sway).mul(sc).mul(live)
+      .add(hook.mul(smoothstep(float(0.6), float(1), sc)));
+    const taper = pow(max(float(1).sub(sc), float(0)), float(0.55));
 
-    // Pile axis sways, anchored at the base.
-    const xc = sin(yn.mul(2.6).add(t.mul(0.45))).mul(sway).mul(yn).mul(live);
+    const xn0 = x.sub(xc).div(width.mul(taper).max(1e-3));
+    // Coil bands climb with time (cream being added), sheared into a diagonal wrap.
+    const ph = sc.mul(coils).sub(t.mul(flow)).mul(TAU).sub(xn0.mul(0.9));
+    const coil = sin(ph);
+    const w = width.mul(taper).mul(coil.mul(ridge).mul(0.18).mul(live).add(1)).max(1e-3);
 
-    // Coil phase: crests climb the pile as t grows — the upward spiral.
-    const ph = yn.mul(coils).sub(t.mul(flow)).mul(TAU);
-    const wave = sin(ph);
-
-    // Silhouette: cone profile bulged by the coil wave, rounded off at the tip.
-    const profile = float(1).sub(yn).pow(0.72);
-    const w = width.mul(profile).mul(wave.mul(ridge).mul(0.22).mul(live).add(1)).max(1e-4);
     const dx = x.sub(xc).abs();
-    const capTop = float(1).sub(smoothstep(h.mul(0.985), h.mul(1.025), y));
-    const body = smoothstep(w, w.mul(0.9), dx).mul(capTop);
+    const inY = smoothstep(float(-0.02), float(0.02), s).mul(smoothstep(float(1.04), float(0.95), s));
+    const body = smoothstep(w, w.mul(0.84), dx).mul(inY);
 
-    // Shading: lateral roundness, coil ridges sheared diagonally (the wrap),
-    // and a glossy crest highlight.
-    const nx = dx.div(w).clamp(0, 1);
-    const round = float(1).sub(nx.mul(nx).mul(0.62));
-    const coil = sin(ph.add(x.sub(xc).div(w).mul(0.85)));
-    const shade = coil.mul(0.16).add(0.86);
-    const spec = coil.max(0.0).pow(6).mul(float(1).sub(nx).max(0)).mul(gloss).mul(0.5);
-    const creamCol = tintU.mul(round.mul(shade)).add(vec3(1.0, 0.98, 0.95).mul(spec));
+    const nx = clamp(dx.div(w), 0, 1);
+    const round = float(1).sub(nx.mul(nx).mul(0.55));
+    // Bright crest, shadowed valley, plus a darker groove line between wraps.
+    const groove = smoothstep(float(-0.85), float(-0.2), coil).mul(0.22).add(0.78);
+    const shade = coil.mul(0.24).add(0.74).mul(groove);
+    const spec = pow(max(coil, float(0)), float(7)).mul(float(1).sub(nx).max(0)).mul(gloss).mul(0.6);
+    const ao = smoothstep(float(0), float(0.16), s).mul(0.28).add(0.72); // contact shadow at the cone
+    const cream = mix(tintU.mul(0.7), tintU, round.mul(shade)).mul(ao).add(vec3(1, 0.98, 0.9).mul(spec));
 
-    // Dispenser ribbon: pours DOWN from the frame top onto the tip.
-    const tipX = sin(float(2.6).add(t.mul(0.45))).mul(sway).mul(live);
-    const sx = tipX.add(sin(y.mul(26).add(t.mul(flow).mul(7))).mul(0.012));
-    const ws = width.mul(0.14).mul(stream.clamp(0, 1)).max(1e-4);
-    const above = smoothstep(h.mul(0.9), h.mul(1.02), y);
-    const sBody = smoothstep(ws, ws.mul(0.55), x.sub(sx).abs()).mul(above).mul(stream.clamp(0, 1));
-    const sShade = sin(y.mul(34).add(t.mul(flow).mul(9))).mul(0.12).add(0.88);
-    const streamCol = tintU.mul(sShade);
+    // Dispenser ribbon: a wobbling cream stream from the frame top onto the tip.
+    const xcTip = sin(float(3).add(t.mul(0.5))).mul(sway).mul(live).add(hook);
+    const sx = xcTip.add(sin(y.mul(30).add(t.mul(flow).mul(8))).mul(0.01));
+    const ws = width.mul(0.12).mul(stream.clamp(0, 1)).max(1e-3);
+    const above = smoothstep(tipY, float(1.02), y);
+    const sBody = smoothstep(ws, ws.mul(0.5), x.sub(sx).abs()).mul(above).mul(stream.clamp(0, 1));
+    const sCol = tintU.mul(sin(y.mul(36).add(t.mul(flow).mul(10))).mul(0.12).add(0.88));
 
-    // Premultiplied composite: pile in front of the ribbon where they meet.
-    const rgb = creamCol.mul(body).add(streamCol.mul(sBody).mul(float(1).sub(body)));
+    const rgb = cream.mul(body).add(sCol.mul(sBody).mul(float(1).sub(body)));
     const alpha = body.add(sBody.mul(float(1).sub(body))).clamp(0, 1);
     return texNode(vec4(rgb, alpha));
   },

@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import { BuildCtx } from "../src/buildctx";
 import {
   ChainHost,
+  chainWetSignal,
   type EffectEntry,
   type EffectRegistry,
   type PrimitiveEffectEntry,
 } from "../src/chain";
+import type { FrameCtx } from "../src/frame";
 import { defineModule } from "../src/module";
+import { Signal } from "../src/signal";
 import { texNode, type TexNode } from "../src/texnode";
 
 // Bare BuildCtx: chain params never touch audio/time, so minimal fakes suffice.
@@ -133,6 +136,79 @@ describe("ChainHost.serialize", () => {
     const host = new ChainHost(() => registry(glitch, composite));
     host.steps = host.plan([{ effect: "combo" }]);
     expect(() => host.serialize()).toThrow(/only primitive effects/);
+  });
+});
+
+describe("chain step enable/disable with fade", () => {
+  it("fold declares fx.<id>.enabled (bool, default on) and fx.<id>.fade", () => {
+    const host = new ChainHost(() => registry(glitch));
+    host.steps = host.plan([{ effect: "glitch" }]);
+    const c = ctx();
+    host.fold(c, base());
+    const enabled = c.manifest.get("fx.glitch-1.enabled");
+    const fade = c.manifest.get("fx.glitch-1.fade");
+    expect(enabled?.type).toBe("bool");
+    expect(enabled?.value).toBe(true);
+    expect(fade?.type).toBe("float");
+    expect(fade?.value).toBe(0);
+  });
+
+  it("rejects an effect that declares a reserved chain param name", () => {
+    const bad = prim(
+      "bad",
+      defineModule({ name: "bad", kind: "effect", description: "x" }, passInput),
+      [{ name: "enabled", type: "bool", default: true }],
+    );
+    const host = new ChainHost(() => registry(bad));
+    host.steps = host.plan([{ effect: "bad" }]);
+    expect(() => host.fold(ctx(), base())).toThrow(/reserved chain param "enabled"/);
+  });
+
+  it("list() reports enabled (true by default, false once toggled)", () => {
+    const host = new ChainHost(() => registry(glitch));
+    host.steps = host.plan([{ effect: "glitch" }]);
+    expect(host.list()[0]!.enabled).toBe(true);
+    const c = ctx();
+    host.fold(c, base());
+    c.manifest.get("fx.glitch-1.enabled")!.set(false);
+    host.captureValues(c.manifest);
+    expect(host.list()[0]!.enabled).toBe(false);
+  });
+
+  const frames = (n: number, dt: number): FrameCtx[] =>
+    Array.from({ length: n }, (_, i) => ({ frame: i + 1, now: (i + 1) * dt, dt }));
+
+  it("fade 0 cuts instantly between mix and 0", () => {
+    let enabled = true;
+    const wet = chainWetSignal(Signal.of(0.8), new Signal(() => enabled), Signal.of(0));
+    const [f1, f2] = frames(2, 1 / 60);
+    expect(wet.get(f1!)).toBeCloseTo(0.8);
+    enabled = false;
+    expect(wet.get(f2!)).toBeCloseTo(0);
+  });
+
+  it("fade > 0 ramps linearly toward the new state", () => {
+    let enabled = true;
+    const wet = chainWetSignal(Signal.of(1), new Signal(() => enabled), Signal.of(1));
+    const fs = frames(12, 0.1); // dt 0.1 s, fade 1 s → 0.1 per frame
+    expect(wet.get(fs[0]!)).toBe(1); // starts at the current state, no fade-in on build
+    enabled = false;
+    expect(wet.get(fs[1]!)).toBeCloseTo(0.9);
+    expect(wet.get(fs[2]!)).toBeCloseTo(0.8);
+    enabled = true; // flip mid-ramp: reverses from where it is
+    expect(wet.get(fs[3]!)).toBeCloseTo(0.9);
+    for (const f of fs.slice(4)) wet.get(f);
+    expect(wet.get(fs[11]!)).toBe(1); // clamps at the target, no overshoot
+  });
+
+  it("the envelope scales the mix knob", () => {
+    let enabled = true;
+    const wet = chainWetSignal(Signal.of(0.5), new Signal(() => enabled), Signal.of(1));
+    const fs = frames(3, 0.5);
+    expect(wet.get(fs[0]!)).toBeCloseTo(0.5);
+    enabled = false;
+    expect(wet.get(fs[1]!)).toBeCloseTo(0.25); // env 0.5 × mix 0.5
+    expect(wet.get(fs[2]!)).toBeCloseTo(0);
   });
 });
 
