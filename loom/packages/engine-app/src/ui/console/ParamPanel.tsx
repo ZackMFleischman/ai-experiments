@@ -6,6 +6,7 @@ import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
 import { useEngine } from "../hooks";
 import { fail } from "../util";
+import { gatherChannels } from "./ColorChannels";
 import { FxChain } from "./FxChain";
 import { ParamWidget } from "./ParamWidget";
 
@@ -92,6 +93,7 @@ export function ParamPanel({ instance, manifest, session }: Props) {
   const groups = new Map<string, Array<[string, ParamDesc]>>();
   for (const [path, p] of Object.entries(manifest ?? {})) {
     if (path.startsWith("fx.")) continue; // chain knobs render inside the FX CHAIN section
+    if (p.channelOf != null) continue; // color channels render inside their color widget
     const dot = path.indexOf(".");
     // palette.source is the scene's palette switch (R7.2) — too load-bearing
     // to bury in a collapsed accordion, so it stays on the flat top level.
@@ -233,7 +235,13 @@ export function ParamPanel({ instance, manifest, session }: Props) {
         {ready && (
           <>
             {flat.map(([path, p]) => (
-              <ParamWidget key={path} instance={instance} path={path} p={p} />
+              <ParamWidget
+                key={path}
+                instance={instance}
+                path={path}
+                p={p}
+                colorChannels={p.type === "color" ? gatherChannels(manifest, path) : []}
+              />
             ))}
             {[...groups.entries()].map(([group, entries]) => {
               const isNode = nodeIds.has(group);
@@ -281,6 +289,7 @@ export function ParamPanel({ instance, manifest, session }: Props) {
                         path={path}
                         p={p}
                         label={path.slice(group.length + 1)}
+                        colorChannels={p.type === "color" ? gatherChannels(manifest, path) : []}
                       />
                     ))}
                     {rig.length > 0 && (

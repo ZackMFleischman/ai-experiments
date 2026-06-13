@@ -1,8 +1,9 @@
-import { Box, Button, NativeSelect, Stack, Typography } from "@mui/material";
-import type { ChangeEvent } from "react";
+import { Box, Button, IconButton, NativeSelect, Stack, Typography } from "@mui/material";
+import { useState, type ChangeEvent } from "react";
 import type { ParamDesc } from "../engine-link";
 import { useEngine } from "../hooks";
 import { getPreset, listPresets, matchPreset, savePreset, type PaletteStops } from "../palette-presets";
+import { ColorChannels, gatherChannels } from "./ColorChannels";
 
 /**
  * The two global palettes as rows of five bare color swatches (R7) — no index
@@ -32,10 +33,19 @@ function PaletteRow({
   globals: Record<string, ParamDesc>;
 }) {
   const link = useEngine();
+  const [open, setOpen] = useState<Set<number>>(new Set());
   const stops = [0, 1, 2, 3, 4].map((i) => globals[`palette.${source}.${i}`]);
   if (stops.some((p) => p == null)) return null;
   const hexes = stops.map((p) => String(p!.value));
   const current = matchPreset(hexes);
+  // A stop shows its channels when toggled open, or whenever it's decomposed.
+  const isOpen = (i: number) => open.has(i) || (stops[i]!.colorSpace ?? "hex") !== "hex";
+  const toggle = (i: number) =>
+    setOpen((s) => {
+      const next = new Set(s);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
 
   const apply = (name: string) => {
     const preset = getPreset(name);
@@ -48,37 +58,64 @@ function PaletteRow({
   };
 
   return (
-    <Stack
-      direction="row"
-      className="paletterow"
-      data-name={source}
-      spacing={0.75}
-      alignItems="center"
-      sx={{ py: 0.5 }}
-    >
-      <Typography sx={{ width: 70, flex: "0 0 auto", fontWeight: 700 }}>{source}</Typography>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <Swatch key={i} path={`palette.${source}.${i}`} p={stops[i]!} />
-      ))}
-      <NativeSelect
-        value={current ?? ""}
-        sx={{ ml: 1, fontSize: 12 }}
-        inputProps={{ title: "apply a named palette" }}
-        onChange={(e) => apply(e.target.value)}
-      >
-        <option value="" disabled>
-          {current ?? "custom…"}
-        </option>
-        {listPresets().map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
+    <Box className="paletterow" data-name={source} sx={{ py: 0.5 }}>
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <Typography sx={{ width: 70, flex: "0 0 auto", fontWeight: 700 }}>{source}</Typography>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Stack key={i} alignItems="center" spacing={0.25}>
+            <Swatch path={`palette.${source}.${i}`} p={stops[i]!} />
+            <IconButton
+              size="small"
+              data-expand={`palette.${source}.${i}`}
+              title={isOpen(i) ? "hide channels" : "split into HSV / RGB channels (modulate · MIDI)"}
+              onClick={() => toggle(i)}
+              sx={{
+                p: 0,
+                fontSize: 12,
+                lineHeight: 1,
+                color: (stops[i]!.colorSpace ?? "hex") !== "hex" ? "warning.main" : "text.secondary",
+              }}
+            >
+              ∿
+            </IconButton>
+          </Stack>
         ))}
-      </NativeSelect>
-      <Button onClick={saveAs} title="name the current stops as a preset" sx={{ fontSize: 11 }}>
-        save as…
-      </Button>
-    </Stack>
+        <NativeSelect
+          value={current ?? ""}
+          sx={{ ml: 1, fontSize: 12 }}
+          inputProps={{ title: "apply a named palette" }}
+          onChange={(e) => apply(e.target.value)}
+        >
+          <option value="" disabled>
+            {current ?? "custom…"}
+          </option>
+          {listPresets().map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </NativeSelect>
+        <Button onClick={saveAs} title="name the current stops as a preset" sx={{ fontSize: 11 }}>
+          save as…
+        </Button>
+      </Stack>
+      {[0, 1, 2, 3, 4].filter(isOpen).map((i) => {
+        const path = `palette.${source}.${i}`;
+        return (
+          <Box key={i} sx={{ mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {source} · stop {i}
+            </Typography>
+            <ColorChannels
+              instance="globals"
+              path={path}
+              p={stops[i]!}
+              channels={gatherChannels(globals, path)}
+            />
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
 
