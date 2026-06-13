@@ -167,6 +167,17 @@ tryDefineInputs(inputsDef);
 // the same "globals" pseudo-instance and persisted like the rack tunings.
 const palettes = new PaletteRegistry();
 
+// Modulators for decomposed global palette color CHANNELS (R7.4): the input
+// rack stays hand-tuned, but a stop expanded into HSV/RGB exposes channel
+// params an LFO or MIDI fader can drive. Ticked each frame before any leg
+// reads the stops; phase freezes under PANIC hold like instance modulators.
+const globalsModulators = new ModulatorHost({ bpm: () => timeBus.bpm, audio });
+
+/** Globals modulator specs for persistence ([] when none attached). */
+function serializeGlobalsMods(): Array<{ path: string; spec: unknown; enabled: boolean }> {
+  return globalsModulators.list().map((m) => ({ path: m.path, spec: m.spec, enabled: m.enabled }));
+}
+
 const bindings = new BindingStore();
 // `?state=off` keeps validation runs from reading/writing tuned state.
 const state = new StateClient(qs.get("state") !== "off");
@@ -174,13 +185,21 @@ const tunedValues = new Map<string, Record<string, number | boolean | string>>()
 // Per-scene slider range overrides (path → [min, max]); persisted next to values
 // and reapplied before them on every build, so a widened bound holds across HMR.
 const tunedRanges = new Map<string, Record<string, [number, number]>>();
+// Per-scene color decompositions (path → "hsv"|"rgb"); reapplied before values
+// on every build so a stop expanded into channels survives HMR (R7.4).
+const tunedColorSpaces = new Map<string, Record<string, "hsv" | "rgb">>();
 
 const persist = {
   globals: () => {
     state.save("inputs", () => inputs.manifest.values());
     state.save("input-ranges", () => inputs.manifest.rangeOverrides());
   },
-  palettes: () => state.save("palettes", () => palettes.manifest.values()),
+  palettes: () => {
+    state.save("palettes", () => palettes.manifest.values());
+    // Color decomposition + channel modulators travel with the palette tunings.
+    state.save("palette-spaces", () => palettes.manifest.colorSpaces());
+    state.save("palette-mods", () => serializeGlobalsMods());
+  },
   scene: (sceneName: string) => {
     const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
     if (entry) {
@@ -192,9 +211,11 @@ const persist = {
       const ranges = entry.instance.manifest.rangeOverrides();
       for (const k of Object.keys(ranges)) if (k.startsWith("fx.")) delete ranges[k];
       tunedRanges.set(sceneName, ranges);
+      tunedColorSpaces.set(sceneName, entry.instance.manifest.colorSpaces());
     }
     state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
     state.save(`ranges/${sceneName}`, () => tunedRanges.get(sceneName) ?? {});
+    state.save(`color-spaces/${sceneName}`, () => tunedColorSpaces.get(sceneName) ?? {});
   },
   bindings: () => state.save("bindings", () => bindings.toJSON()),
   panicScene: () => state.save("panic", () => ({ scene: panicSceneName })),
@@ -233,6 +254,12 @@ function writeParam(scene: string, path: string, apply: (p: Param<unknown>) => v
 // "mod:<paramPath>" bindings pause/resume that param's modulator on every
 // instance of the scene (toggleEnabled is a safe no-op when none is attached).
 function setModEnabled(scene: string, paramPath: string, to: "toggle" | boolean): void {
+  if (scene === "globals") {
+    if (to === "toggle") globalsModulators.toggleEnabled(paramPath);
+    else if (globalsModulators.get(paramPath) != null) globalsModulators.setEnabled(paramPath, to);
+    persist.palettes();
+    return;
+  }
   for (const entry of session.entries.values()) {
     if (entry.sceneName !== scene) continue;
     if (to === "toggle") entry.modulators.toggleEnabled(paramPath);
@@ -279,6 +306,7 @@ const session = new SessionStore(
   () => effectsLib,
   (scene) => tunedValues.get(scene),
   (scene) => tunedRanges.get(scene),
+  (scene) => tunedColorSpaces.get(scene),
 );
 
 // Effect-picker previews: fold a candidate effect over an instance's CURRENT
@@ -657,6 +685,12 @@ if (state.enabled) {
       }
     }
   }
+  // Color decompositions load BEFORE values so the channel params exist to
+  // receive their saved channel values (R7.4).
+  const savedPaletteSpaces = await state.load("palette-spaces");
+  if (savedPaletteSpaces && typeof savedPaletteSpaces === "object") {
+    palettes.manifest.applyColorSpaces(savedPaletteSpaces as Record<string, unknown>);
+  }
   const savedPalettes = await state.load("palettes");
   if (savedPalettes && typeof savedPalettes === "object") {
     for (const [path, v] of Object.entries(savedPalettes as Record<string, unknown>)) {
@@ -664,6 +698,19 @@ if (state.enabled) {
         palettes.manifest.get(path)?.set(v as never);
       } catch {
         // corrupt entry — keep the default
+      }
+    }
+  }
+  // Re-attach channel modulators last (their target channels now exist).
+  const savedPaletteMods = await state.load("palette-mods");
+  if (Array.isArray(savedPaletteMods)) {
+    for (const m of savedPaletteMods as Array<{ path?: unknown; spec?: unknown; enabled?: unknown }>) {
+      if (typeof m.path !== "string") continue;
+      try {
+        globalsModulators.attach(palettes.manifest, m.path, m.spec);
+        if (m.enabled === false) globalsModulators.setEnabled(m.path, false);
+      } catch {
+        // channel gone or bad spec — drop it
       }
     }
   }
@@ -676,6 +723,10 @@ if (state.enabled) {
     const ranges = await state.load(`ranges/${scene}`);
     if (ranges && typeof ranges === "object") {
       tunedRanges.set(scene, ranges as Record<string, [number, number]>);
+    }
+    const spaces = await state.load(`color-spaces/${scene}`);
+    if (spaces && typeof spaces === "object") {
+      tunedColorSpaces.set(scene, spaces as Record<string, "hsv" | "rgb">);
     }
   }
   const savedPanic = await state.load("panic");
@@ -770,6 +821,7 @@ const api = new EngineApi(
     refreshAudioDevices: () => void refreshAudioDevices(),
     inputs,
     palettes,
+    globalsModulators,
     bindings,
     midiStatus: () => midi.status,
     midiDevices: () => midi.devices,
@@ -857,6 +909,9 @@ const frameTick = (tMs: number): void => {
   // scene-panic pauses only the suspended live instance (FR-5/FR-10).
   if (directive.mode === "panic-scene") session.tickModulators(f, directive.live);
   else if (directive.mode !== "hold") session.tickModulators(f);
+  // Global palette color-channel modulators (R7.4) write the stops before any
+  // leg reads them; hold freezes their phase like instance modulators (FR-10).
+  if (directive.mode !== "hold") globalsModulators.tick(palettes.manifest, f);
   compositor.render(renderer, f, directive, session);
   api.captureLiveMirror(directive.mode); // same-task canvas read for the live tile
   fps.tick();
