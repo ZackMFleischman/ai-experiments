@@ -4,6 +4,7 @@ import { envelope } from "../modules/control/envelope";
 import { gate } from "../modules/control/gate";
 import { lag } from "../modules/control/lag";
 import { lfo } from "../modules/control/lfo";
+import { noiseSignal } from "../modules/control/noiseSignal";
 import { remap } from "../modules/control/remap";
 import { sampleHold } from "../modules/control/sampleHold";
 import { spring } from "../modules/control/spring";
@@ -51,6 +52,7 @@ import { image } from "../modules/sources/image";
 import { julia } from "../modules/sources/julia";
 import { mandelbrot } from "../modules/sources/mandelbrot";
 import { noise } from "../modules/sources/noise";
+import { noiseField } from "../modules/sources/noiseField";
 import { noodles } from "../modules/sources/noodles";
 import { osc } from "../modules/sources/osc";
 import { pulseRings } from "../modules/sources/pulseRings";
@@ -88,6 +90,7 @@ export const CASES: Record<string, ModuleCase> = {
   sampleHold: (ctx) => sampleHold(ctx, { input: lfo(ctx, { periodBeats: 3 }), trigger: ctx.input("kick") }),
   gate: (ctx) => gate(ctx, { input: ctx.input("bass"), threshold: 0.4 }),
   counter: (ctx) => counter(ctx, { trigger: ctx.input("kick"), wrap: 4 }),
+  noiseSignal: (ctx) => noiseSignal(ctx, { rate: 0.3 }),
   // sources
   blobs: (ctx) => blobs(ctx, {}),
   fireflies: (ctx) => fireflies(ctx, {}),
@@ -95,6 +98,7 @@ export const CASES: Record<string, ModuleCase> = {
   julia: (ctx) => julia(ctx, {}),
   mandelbrot: (ctx) => mandelbrot(ctx, {}),
   noise: (ctx) => noise(ctx, {}),
+  noiseField: (ctx) => noiseField(ctx, { type: "perlin" }),
   noodles: (ctx) => noodles(ctx, { energy: ctx.input("kick") }),
   osc: (ctx) => osc(ctx, {}),
   pulseRings: (ctx) => pulseRings(ctx, { energy: ctx.input("kick") }),
