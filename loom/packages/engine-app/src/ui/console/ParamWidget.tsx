@@ -21,6 +21,7 @@ import { useEngine, useEngineState } from "../hooks";
 import { fail, primeMidiPermission } from "../util";
 import { BindPopover } from "./BindPopover";
 import { ModPopover } from "./ModPopover";
+import { PaletteChoice } from "./PaletteChoice";
 import { RangePopover } from "./RangePopover";
 
 type Props = {
@@ -341,6 +342,9 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
             </Typography>
           ))}
       </Stack>
+      {isSlider && p.swatches != null && (
+        <PaletteChoice instance={instance} path={path} p={p} />
+      )}
       {instance !== "globals" && (
         <ModPopover
           instance={instance}

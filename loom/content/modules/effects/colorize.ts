@@ -23,6 +23,33 @@ export const PALETTES: PalettePreset[] = [
   { name: "ice", a: [0.5, 0.5, 0.6], b: [0.4, 0.4, 0.5], c: [1, 0.7, 0.4], d: [0.55, 0.6, 0.7] },
 ];
 
+const hex2 = (v: number) =>
+  Math.max(0, Math.min(255, Math.round(v * 255)))
+    .toString(16)
+    .padStart(2, "0");
+
+/** Sample one cosine preset into `n` ordered "#rrggbb" stops across t in 0..1. */
+export function paletteSwatch(preset: PalettePreset, n = 6): string[] {
+  const stops: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0 : i / (n - 1);
+    const rgb = [0, 1, 2].map((k) => {
+      const v = preset.a[k]! + preset.b[k]! * Math.cos(2 * Math.PI * (preset.c[k]! * t + preset.d[k]!));
+      return v;
+    });
+    stops.push(`#${hex2(rgb[0]!)}${hex2(rgb[1]!)}${hex2(rgb[2]!)}`);
+  }
+  return stops;
+}
+
+/**
+ * Color previews for the cosine PALETTES, one gradient per preset — feed this
+ * to a `ctx.float("…palette", { swatches: PALETTE_SWATCHES })` so the Console
+ * draws a visual palette chooser instead of a bare numeric slider (R7.3).
+ * Option index lines up with the integer palette index colorize consumes.
+ */
+export const PALETTE_SWATCHES: string[][] = PALETTES.map((p) => paletteSwatch(p));
+
 export interface ColorizeOpts {
   input: TexNode;
   /** Fractional index into PALETTES — 1.5 is halfway between presets 1 and 2; wraps. */

@@ -192,4 +192,23 @@ describe("Param / Manifest", () => {
       expect(m2.get("size")!.range()).toEqual([0, 20]);
     });
   });
+
+  describe("palette-index swatches", () => {
+    it("carries swatches metadata into the manifest JSON", () => {
+      const m = new Manifest();
+      const swatches = [
+        ["#000000", "#ffffff"],
+        ["#ff0000", "#00ff00", "#0000ff"],
+      ];
+      m.float("color.palette", { default: 0, min: 0, max: 2, swatches });
+      expect((m.toJSON()["color.palette"] as { swatches?: unknown }).swatches).toEqual(swatches);
+    });
+
+    it("rejects a swatch stop that is not #rrggbb", () => {
+      const m = new Manifest();
+      expect(() =>
+        m.float("color.palette", { default: 0, min: 0, max: 1, swatches: [["#000000", "nope"]] }),
+      ).toThrow();
+    });
+  });
 });

@@ -23,6 +23,14 @@ const RangedSpec = z
     step: z.number().positive().optional(),
     /** Optional value names for int selectors (index = value - min); UI renders a toggle. */
     labels: z.array(z.string().min(1)).optional(),
+    /**
+     * Optional color previews for a palette-index slider: one ordered list of
+     * "#rrggbb" stops per selectable option (option k = the gradient at value
+     * floor(min)+k). When present, the Console renders a palette chooser — a
+     * column of gradient swatches you pick visually — over the bare slider, so
+     * you never select a palette by number to discover its colors (R7.3).
+     */
+    swatches: z.array(z.array(z.string().refine((s) => HEX_RE.test(s.trim()), 'swatch stops must be "#rrggbb"')).min(2)).optional(),
     description: z.string().optional(),
   })
   .refine((s) => s.min <= s.max, { message: "min must be <= max" })
