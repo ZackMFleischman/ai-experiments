@@ -17,6 +17,7 @@ import {
   CommitArgs,
   CreateInstanceArgs,
   InstanceArgs,
+  LiveStepArgs,
   LoadProjectArgs,
   MidiTargetArgs,
   ModulateParamArgs,
@@ -56,6 +57,7 @@ export type Source = "agent" | "human";
 // mid-set (it isn't an MCP tool either — this is the belt to that braces).
 // MIDI-learn is a physical-controller gesture, so it's human-only too.
 const HUMAN_ONLY: ReadonlySet<string> = new Set([
+  "live_step",
   "panic",
   "resume",
   "arm_panic_mode",
@@ -425,6 +427,15 @@ export class EngineApi {
         const to = stage.staged;
         stage.commit(this.deps.latestFrame(), durationFrames);
         return { from, to, durationFrames };
+      }
+      case "live_step": {
+        // Same deck-ring step the MIDI prev/next buttons fire — now also
+        // reachable as a real Console button (mash-safe: a no-op mid-fade /
+        // under PANIC / with <2 healthy tiles).
+        const { dir } = LiveStepArgs.parse(req.args);
+        const before = stage.live;
+        this.liveStep(dir);
+        return { dir, from: before, live: stage.live };
       }
       case "panic": {
         // Execute the armed mode (an explicit override is allowed). Scene mode

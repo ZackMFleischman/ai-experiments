@@ -1,14 +1,17 @@
 import {
-  Accordion, AccordionDetails, AccordionSummary, Box, Stack, Typography,
+  Accordion, AccordionDetails, AccordionSummary, Box, Button, Stack, Typography,
 } from "@mui/material";
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
+import { useEngine } from "../hooks";
+import { fail } from "../util";
 import { FxChain } from "./FxChain";
 import { ParamWidget } from "./ParamWidget";
 
 const GROUP_OPEN_KEY = "loom.pgroups.open";
 const PANEL_W_KEY = "loom.panelw";
+const PANEL_COLLAPSED_KEY = "loom.panelcollapsed";
 
 function loadOpen(): Record<string, boolean> {
   try {
@@ -30,7 +33,17 @@ type Props = {
  * persists per group name (collapsed until the human opens it).
  */
 export function ParamPanel({ instance, manifest, session }: Props) {
+  const link = useEngine();
   const [open, setOpen] = useState<Record<string, boolean>>(loadOpen);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(PANEL_COLLAPSED_KEY) === "1");
+  const setCollapsedPersist = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      localStorage.setItem(PANEL_COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      // collapse state just won't persist across reloads
+    }
+  };
   const [w, setW] = useState(() => {
     const n = Number(localStorage.getItem(PANEL_W_KEY));
     return Number.isFinite(n) && n >= 240 ? n : 320;
@@ -95,6 +108,44 @@ export function ParamPanel({ instance, manifest, session }: Props) {
   // section even if a manifest snapshot lags behind the session's node list.
   for (const id of nodeIds) if (!groups.has(id)) groups.set(id, []);
   const ready = instance != null && manifest != null;
+  const isLive = ready && session?.live === instance;
+  const isStaged = ready && session?.staged === instance;
+
+  // Collapsed: a thin tap target (one-handed on mobile) that reveals the
+  // drawer. Keeps #panel mounted so layout/contract holds; widgets unmount.
+  if (collapsed) {
+    return (
+      <Box
+        component="aside"
+        id="panel"
+        data-collapsed="1"
+        onClick={() => setCollapsedPersist(false)}
+        title="show params"
+        sx={{
+          flex: "0 0 auto",
+          width: 30,
+          bgcolor: "background.paper",
+          borderLeft: 1,
+          borderColor: "divider",
+          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 1,
+          pt: 1,
+          "&:hover": { bgcolor: "action.hover" },
+        }}
+      >
+        <Typography sx={{ fontSize: 16, lineHeight: 1, color: "text.secondary" }}>‹</Typography>
+        <Typography
+          variant="caption"
+          sx={{ writingMode: "vertical-rl", color: "text.secondary", letterSpacing: "0.08em", mt: 0.5 }}
+        >
+          PARAMS{ready ? ` · ${instance}` : ""}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Stack direction="row" sx={{ flex: "0 0 auto" }}>
@@ -122,28 +173,62 @@ export function ParamPanel({ instance, manifest, session }: Props) {
           overflowY: "auto",
         }}
       >
-      <Stack direction="row" spacing={0.75} alignItems="baseline" sx={{ mb: 1.5 }}>
-        <Typography id="paneltitle" variant="subtitle2" noWrap>
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 1 }}>
+        <Typography id="paneltitle" variant="subtitle2" noWrap sx={{ minWidth: 0 }}>
           {ready ? instance : "no instance selected"}
         </Typography>
         {ready && (
-          <>
-            <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>
-              {session?.instances.find((i) => i.id === instance)?.scene ?? ""}
-            </Typography>
-            {session?.live === instance && (
-              <Typography variant="caption" sx={{ color: "error.main", fontWeight: 700 }}>
-                LIVE
-              </Typography>
-            )}
-            {session?.staged === instance && (
-              <Typography variant="caption" sx={{ color: "warning.main", fontWeight: 700 }}>
-                STAGED
-              </Typography>
-            )}
-          </>
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+            {session?.instances.find((i) => i.id === instance)?.scene ?? ""}
+          </Typography>
         )}
+        <Box sx={{ flex: 1 }} />
+        {isLive && (
+          <Typography variant="caption" sx={{ color: "error.main", fontWeight: 700 }}>LIVE</Typography>
+        )}
+        {isStaged && (
+          <Typography variant="caption" sx={{ color: "warning.main", fontWeight: 700 }}>STAGED</Typography>
+        )}
+        <Button
+          onClick={() => setCollapsedPersist(true)}
+          title="hide params"
+          sx={{ minWidth: 0, px: 0.5, py: 0, fontSize: 16, lineHeight: 1, color: "text.secondary" }}
+        >
+          ›
+        </Button>
       </Stack>
+      {/* Stage actions for the selected scene — no hunting for the tile's tiny
+          buttons. GO LIVE stages + crossfades in one tap (human-sourced, ungated). */}
+      {instance != null && instance !== "globals" && (
+        <Stack direction="row" spacing={0.75} sx={{ mb: 1.5 }}>
+          <Button
+            id="panel-stage"
+            variant="outlined"
+            fullWidth
+            disabled={isLive}
+            onClick={() =>
+              void link.req(isStaged ? "unstage" : "stage", isStaged ? {} : { instance }).catch(fail)
+            }
+            sx={{ fontSize: 12, py: 0.25 }}
+          >
+            {isStaged ? "unstage" : "stage"}
+          </Button>
+          <Button
+            id="panel-golive"
+            variant="contained"
+            color="error"
+            fullWidth
+            disabled={isLive || session?.panicked}
+            title="stage this scene and crossfade it LIVE now"
+            onClick={() =>
+              void link.req("stage", { instance }).then(() => link.req("commit", {})).catch(fail)
+            }
+            sx={{ fontSize: 12, fontWeight: 700, py: 0.25 }}
+          >
+            {isLive ? "LIVE" : "GO LIVE"}
+          </Button>
+        </Stack>
+      )}
       <Box id="widgets">
         {ready && (
           <>

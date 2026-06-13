@@ -242,4 +242,24 @@ describe("EngineApi state serialization", () => {
     expect(stage.staged).toBe("a");
     void deps;
   });
+
+  it("the live_step command steps LIVE for humans and rejects agents", async () => {
+    const { api, session, stage } = world();
+    session.create(scene, "a");
+    stage.adoptLive("a");
+    session.create(scene, "b");
+
+    // Human Console button: stages the neighbor and reports the move.
+    const res = (await api.handleRequest(req("live_step", { dir: 1 }), "human")) as {
+      dir: number;
+      from: string | null;
+      live: string | null;
+    };
+    expect(res).toMatchObject({ dir: 1, from: "a" });
+    for (let i = 1; i <= 61; i++) stage.tick({ frame: i, now: i / 60, dt: 1 / 60 });
+    expect(stage.live).toBe("b");
+
+    // Stage navigation is a performance gesture — human-only, like panic.
+    await expect(api.handleRequest(req("live_step", { dir: -1 }), "agent")).rejects.toThrow(/human-only/);
+  });
 });

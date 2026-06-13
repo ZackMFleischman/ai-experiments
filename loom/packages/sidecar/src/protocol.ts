@@ -33,6 +33,7 @@ export const RequestType = z.enum([
   "stage",
   "unstage",
   "commit",
+  "live_step",
   "panic",
   "resume",
   "arm_panic_mode",
@@ -237,6 +238,10 @@ export type CommitArgs = z.infer<typeof CommitArgs>;
 
 export const ArmAgentCommitArgs = z.object({ armed: z.boolean() });
 export type ArmAgentCommitArgs = z.infer<typeof ArmAgentCommitArgs>;
+
+/** Step LIVE to the next (+1) or previous (-1) healthy tile in the deck ring. */
+export const LiveStepArgs = z.object({ dir: z.union([z.literal(1), z.literal(-1)]) });
+export type LiveStepArgs = z.infer<typeof LiveStepArgs>;
 
 /** PANIC behavior: hold the last frame, or cut to the designated safe scene. */
 export const PanicMode = z.enum(["hold", "scene"]);
