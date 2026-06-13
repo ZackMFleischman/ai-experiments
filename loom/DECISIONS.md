@@ -876,6 +876,48 @@ sub-group, dnd-kit DnD. Gates: typecheck, pnpm test (387+201+27+17),
 validate m4/m5/m6/layers/projects/modulators green. Deviations: exact
 MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
 
+## soft-serve scene — color-chooser param + reversed kaleidoZoom (2026-06-13)
+
+- **First scene-level `color` param** (`cream.color`, soft-serve.scene):
+  declared via `ctx.manifest.color(...)` — BuildCtx has no `color` shorthand
+  and adding one is runtime territory (human-reviewed), so the scene reaches
+  through the public `manifest`. Bridged to the GPU as three per-channel
+  Signals reading `param.value` behind a cached `parseHex`, so a color
+  `set_param` retints live with no rebuild; the catalog's AST param extractor
+  only sweeps `ctx.float/int/bool`, so `cream.color` is absent from the scene's
+  catalog line (runtime manifest is correct).
+- New premultiplied-alpha overlay sources: `softServe` (coil-phase cone +
+  dispenser ribbon) and `sprinkles` (edge-launched tumbling rods; `count`
+  rides a kick envelope + beat LFO for bursts/cadence — speed stays
+  phase-stable so bursts never teleport sprinkles).
+- Gates: typecheck + `pnpm test` (633) green. validate:stdlib not run here —
+  this environment's egress blocks Playwright's browser download; run it
+  (plus an eyes-on screenshot pass) where a browser is available.
+
+## soft-serve rev2 — literal cone, sticky sprinkles, no kaleido (2026-06-13)
+
+- Human feedback on the preview screenshot: the swirl read upside-down, had
+  no cone, was too thin, the cream should be vanilla (pale yellow + thicker),
+  and the kaleidoZoom fold "didn't work" (it shredded the cone silhouette).
+  Reworked toward a literal, readable ice-cream cone "constantly getting more
+  added":
+  - `softServe` rebuilt: an upright teardrop swirl (wide base → hooked tip),
+    fat coil bands (default 4) shaded with crest highlight + valley AO, coils
+    perpetually climbing (the "more being added" read), pale-vanilla default.
+  - New `wafffleCone` source: a downward waffle cone (diamond cross-hatch,
+    golden, premult alpha) sized to meet the swirl base.
+  - `sprinkles` reworked to toss-AND-stick: each rod flies in from an edge
+    angle, lands on the swirl surface (placed via the SAME profile math the
+    scene feeds both modules) and then rides the coil scroll — so they stick
+    to the cream instead of fading in mid-air.
+  - Dropped kaleidoZoom from the scene; "spirals forever / more added" now
+    comes from the endless coil climb + dispenser ribbon, not a fractal fold.
+- Gates: typecheck + `pnpm test` green. validate:stdlib still blocked by
+  egress; the PR's Cloudflare preview screenshots the booted scene as the
+  eyes-on check.
+
+## noise module — TouchDesigner-style noiseField + noiseSignal (2026-06-13)
+
 - **Noise basis is a compile-time menu, the rest is live** (`noiseField`): the
   noise `type` (perlin/ridged/worley/cell) selects a different per-octave TSL
   function, so switching it rebuilds — matching TouchDesigner's Noise "Type"
@@ -887,5 +929,5 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   companion: CPU value-noise fbm on the frame clock (deterministic for fixtures),
   for patching into any `SignalLike` param. Scenes: noise-flow (noise-as-image)
   and noise-warp (noise-as-displacement/rotation). Gates: typecheck + pnpm test
-  (666) green; GPU validators (validate:stdlib) not run — sandbox blocks the
+  green; GPU validators (validate:stdlib) not run — sandbox blocks the
   Playwright chromium download.
