@@ -16,6 +16,7 @@ import { hsv } from "../modules/effects/hsv";
 import { invert } from "../modules/effects/invert";
 import { key } from "../modules/effects/key";
 import { mirror } from "../modules/effects/mirror";
+import { neon } from "../modules/effects/neon";
 import { mixer } from "../modules/effects/mixer";
 import { posterize } from "../modules/effects/posterize";
 import { rgbSplit } from "../modules/effects/rgbSplit";
@@ -147,6 +148,7 @@ export const CASES: Record<string, ModuleCase> = {
   rgbSplit: (ctx, input) => rgbSplit(ctx, { input }),
   vignette: (ctx, input) => vignette(ctx, { input }),
   crt: (ctx, input) => crt(ctx, { input }),
+  neon: (ctx, input) => neon(ctx, { input, intensity: ctx.input("kick") }),
 };
 
 export interface BuiltCase {
