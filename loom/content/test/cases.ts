@@ -54,7 +54,10 @@ import { noise } from "../modules/sources/noise";
 import { noodles } from "../modules/sources/noodles";
 import { osc } from "../modules/sources/osc";
 import { pulseRings } from "../modules/sources/pulseRings";
+import { softServe } from "../modules/sources/softServe";
+import { sprinkles } from "../modules/sources/sprinkles";
 import { spriteSwarm } from "../modules/sources/spriteSwarm";
+import { wafffleCone } from "../modules/sources/wafffleCone";
 import { video } from "../modules/sources/video";
 import { box } from "../modules/geo/box";
 import { model } from "../modules/geo/model";
@@ -98,6 +101,9 @@ export const CASES: Record<string, ModuleCase> = {
   noodles: (ctx) => noodles(ctx, { energy: ctx.input("kick") }),
   osc: (ctx) => osc(ctx, {}),
   pulseRings: (ctx) => pulseRings(ctx, { energy: ctx.input("kick") }),
+  softServe: (ctx) => softServe(ctx, { energy: ctx.input("bass") }),
+  sprinkles: (ctx) => sprinkles(ctx, { count: 12, burst: ctx.input("kick") }),
+  wafffleCone: (ctx) => wafffleCone(ctx, {}),
   spriteSwarm: (ctx) => spriteSwarm(ctx, { url: ASSET, cols: 3, rows: 2 }),
   video: (ctx) => video(ctx, { url: CLIP }),
   render3d: (ctx) => render3d(ctx, { world: box(ctx, { spin: 0.5 }), cam: orbitCam(ctx, {}) }),
