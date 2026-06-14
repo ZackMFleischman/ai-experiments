@@ -439,6 +439,14 @@ export const InstanceInfo = z.object({
   fixture: z.string().nullable().default(null),
   /** Smoothed per-frame render cost in ms (M7 frame-time HUD). */
   frameMs: z.number().default(0),
+  /**
+   * Costliest CPU signals this instance pulls, by smoothed ms (descending) —
+   * per-signal attribution of frameMs. Labelled by param path / "palette" /
+   * "input.<name>" (else "uniform#<i>"). Empty when profiling is off.
+   */
+  slowSignals: z
+    .array(z.object({ label: z.string(), ms: z.number() }))
+    .default([]),
   /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
   builds: z.number().int(),
   /** Pinned role, if any: "panic" = the always-warm safe-scene instance. */

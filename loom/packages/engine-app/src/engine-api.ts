@@ -722,6 +722,7 @@ export class EngineApi {
         nodes: this.nodesJson(e),
         fixture: e.fixture?.name ?? null,
         frameMs: Math.round(e.instance.frameMs * 100) / 100,
+        slowSignals: e.instance.slowSignals(),
         builds: e.builds,
         pinned: e.pinned ?? null,
       })),

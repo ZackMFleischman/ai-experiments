@@ -990,3 +990,35 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   gradient chips over the bare slider (the slider still rides fractional
   blends). The cosine PALETTES (`color.palette`) and the global palettes (R7)
   stay distinct systems — the chooser targets the former.
+
+## 2026-06-14 — signal robustness (cost attribution + loop guard)
+
+Two engine-level defenses for slow / non-halting CPU signals (the synchronous
+pull runs on the render thread, so a heavy or runaway `Signal.fn` degrades or
+wedges the whole loop; NFR-2 only contains *throws*, not slowness).
+
+- **Per-signal cost attribution (always on).** `Signal` carries an optional
+  `label`; `Param.signal()` stamps the param path, `ctx.input()` stamps
+  `input.<name>`, `ctx.color`/palette label their own updaters. `ctx.uniformOf`
+  inherits the signal's label (or takes an explicit one), so the GPU-bridge
+  updater knows which signal it pulls. `Updater` is `((f)=>void) & {label?}` —
+  plain `ctx.updaters.push((f)=>…)` callers are unchanged (assignable). `Instance`
+  times each updater (EMA) when `Instance.profilingEnabled` (default on; `?profile=0`
+  opts out — overhead is microseconds and it only measures, so fixtures stay
+  byte-identical) and exposes `slowSignals(n)`, surfaced in `get_session`'s
+  `InstanceInfo.slowSignals` and `window.__loom`. Turns "the scene is choppy"
+  into "param X is 14 ms".
+- **Loop-guard transform (`packages/runtime/src/loopguard.ts`, Vite `loom:loop-guard`,
+  `enforce:"pre"`, content/ only).** A TS-AST pass injects a per-loop-entry
+  iteration budget (`DEFAULT_LOOP_BUDGET` 5e6); a runaway loop *throws* (prefix
+  `[loom] loop guard: `) which NFR-2 then contains — converting "never halts"
+  into "never go black". **Count-based, not time-based, on purpose:** same
+  throw/no-throw on every machine and replay, so deterministic fixture playback
+  is preserved (a wall-clock deadline would not). Each loop gets its own counter
+  reset on entry (big-but-finite loops and per-frame re-entry are fine; only
+  unbounded iteration trips). Labels kept on the loop so `break/continue <label>`
+  still resolve. The transform is **not** exported from `@loom/runtime`'s index
+  (it imports `typescript` — node-only; must never reach the browser bundle).
+  Plugin is defensive (any failure → untransformed passthrough). Limitation:
+  TS-printer output drops sourcemaps for guarded files (acceptable v1); loops
+  inside the content build only — runtime/engine code is never rewritten.
