@@ -1,35 +1,39 @@
 import { Signal, defineScene } from "@loom/runtime";
 import { colorize, PALETTES, PALETTE_SWATCHES } from "../modules/effects/colorize";
 import { levels } from "../modules/effects/levels";
-import { mandelbrot } from "../modules/sources/mandelbrot";
+import { julia } from "../modules/sources/julia";
 
-/** Classic zoom destinations — shallow enough for float32 GPU precision. */
-const POINTS = [
-  { name: "overview", x: -0.6, y: 0 },
-  { name: "seahorse valley", x: -0.74364388703, y: 0.13182590421 },
-  { name: "elephant valley", x: 0.2549870375144766, y: 0.0005679790528465 },
-  { name: "double spiral", x: -0.745428, y: 0.113009 },
-  { name: "misiurewicz branch", x: -0.1011, y: 0.9563 },
+/** Classic Julia constants — each (x,y) is a different, named fractal. */
+const CONSTANTS = [
+  { name: "dendrite", x: -0.4, y: 0.6 },
+  { name: "spiral", x: -0.8, y: 0.156 },
+  { name: "douady rabbit", x: -0.123, y: 0.745 },
+  { name: "san marco", x: -0.75, y: 0 },
+  { name: "siegel disk", x: -0.391, y: -0.587 },
+  { name: "frost fern", x: 0.285, y: 0.01 },
+  { name: "lightning", x: -0.70176, y: -0.3842 },
+  { name: "galaxy", x: 0.355, y: 0.355 },
 ];
 
 export default defineScene({
-  name: "mandelbrot",
+  name: "julia",
   description:
-    "Mandelbrot dive: ping-pong zooms into pickable interesting points while cosine palettes morph and scroll.",
-  tags: ["fractal", "zoom", "palette", "generative"],
+    "Julia morph: pick a classic constant and let c orbit so the whole filigree breathes, while cosine palettes drift and scroll.",
+  tags: ["fractal", "morph", "palette", "generative"],
   build(ctx) {
-    // Dotted paths form collapsible Console groups: zoom / color. iter stays flat (quality knob).
-    const point = ctx.int("zoom.point", {
+    // Dotted paths form collapsible Console groups: shape / color. iter stays flat (quality knob).
+    const point = ctx.int("shape.constant", {
       default: 1,
       min: 0,
-      max: POINTS.length - 1,
-      description: `zoom target: ${POINTS.map((p, i) => `${i}=${p.name}`).join(", ")}`,
+      max: CONSTANTS.length - 1,
+      description: `Julia constant: ${CONSTANTS.map((p, i) => `${i}=${p.name}`).join(", ")}`,
     });
-    const dive = ctx.float("zoom.dive", { default: 0.35, min: -2, max: 2, description: "zoom speed (octaves/sec, ping-pongs)" });
-    const depth = ctx.float("zoom.depth", { default: 14, min: 1, max: 18, description: "max zoom depth in octaves (f32 limit ~18)" });
+    const morph = ctx.float("shape.morph", { default: 0.04, min: -0.4, max: 0.4, description: "c orbit speed (revolutions/sec) — the breathing" });
+    const radius = ctx.float("shape.radius", { default: 0.04, min: 0, max: 0.2, description: "c orbit radius (tiny = subtle morph; big = wild)" });
+    const zoom = ctx.float("shape.zoom", { default: 1.4, min: 0.3, max: 3, description: "view half-extent (smaller = closer in)" });
     const iter = ctx.int("iter", { default: 250, min: 40, max: 500, description: "escape-time iteration cap (detail vs cost)" });
     const palette = ctx.float("color.palette", {
-      default: 0,
+      default: 3,
       min: 0,
       max: PALETTES.length,
       swatches: PALETTE_SWATCHES,
@@ -40,8 +44,6 @@ export default defineScene({
     const bands = ctx.float("color.bands", { default: 2.5, min: 0.25, max: 8, description: "palette cycles across the brightness range" });
 
     const pointSig = point.signal();
-    const diveSig = dive.signal();
-    const depthSig = depth.signal();
     const paletteSig = palette.signal();
     const driftSig = drift.signal();
     const cycleSig = cycle.signal();
@@ -58,12 +60,13 @@ export default defineScene({
       return phaseAcc;
     });
 
-    const fractal = mandelbrot(ctx, {
-      cx: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.x),
-      cy: new Signal((f) => POINTS[Math.round(pointSig.get(f))]!.y),
+    const fractal = julia(ctx, {
+      cx: new Signal((f) => CONSTANTS[Math.round(pointSig.get(f))]!.x),
+      cy: new Signal((f) => CONSTANTS[Math.round(pointSig.get(f))]!.y),
       glide: 1.2,
-      dive: diveSig,
-      depth: depthSig,
+      morph: morph.signal(),
+      morphRadius: radius.signal(),
+      scale: zoom.signal(),
       iterations: iter.signal(),
     });
     const colored = colorize(ctx, {

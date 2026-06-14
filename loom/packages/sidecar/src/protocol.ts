@@ -23,6 +23,7 @@ export const RequestType = z.enum([
   "modulate_param",
   "clear_modulation",
   "set_modulation_enabled",
+  "set_color_space",
   "set_chain",
   "save_chain",
   "preview_effect",
@@ -33,6 +34,7 @@ export const RequestType = z.enum([
   "stage",
   "unstage",
   "commit",
+  "live_step",
   "panic",
   "resume",
   "arm_panic_mode",
@@ -115,6 +117,18 @@ export const SetModulationEnabledArgs = z.object({
   enabled: z.boolean(),
 });
 export type SetModulationEnabledArgs = z.infer<typeof SetModulationEnabledArgs>;
+
+/**
+ * Decompose a color param into H/S/V or R/G/B channel sliders (each then
+ * modulatable + MIDI-bindable), or collapse it back to a plain picker ("hex").
+ * Works on instance color params and the "globals" palette stops (R7.4).
+ */
+export const SetColorSpaceArgs = z.object({
+  instance: z.string().default("live"),
+  path: z.string().min(1),
+  space: z.enum(["hex", "hsv", "rgb"]),
+});
+export type SetColorSpaceArgs = z.infer<typeof SetColorSpaceArgs>;
 
 export const CreateInstanceArgs = z.object({
   scene: z.string().min(1),
@@ -237,6 +251,10 @@ export type CommitArgs = z.infer<typeof CommitArgs>;
 
 export const ArmAgentCommitArgs = z.object({ armed: z.boolean() });
 export type ArmAgentCommitArgs = z.infer<typeof ArmAgentCommitArgs>;
+
+/** Step LIVE to the next (+1) or previous (-1) healthy tile in the deck ring. */
+export const LiveStepArgs = z.object({ dir: z.union([z.literal(1), z.literal(-1)]) });
+export type LiveStepArgs = z.infer<typeof LiveStepArgs>;
 
 /** PANIC behavior: hold the last frame, or cut to the designated safe scene. */
 export const PanicMode = z.enum(["hold", "scene"]);

@@ -2,6 +2,16 @@ export { Clock, type FrameCtx } from "./frame";
 export { Signal, asSignal, type SignalLike } from "./signal";
 export { Events } from "./events";
 export { Manifest, Param, normalizeHex, type ParamType, type RangedParamSpec, type BoolParamSpec, type ColorParamSpec } from "./param";
+export {
+  COLOR_CHANNELS,
+  channelsToHex,
+  hexToChannels,
+  hexToRgb01,
+  rgb01ToHex,
+  hsvToRgb,
+  rgbToHsv,
+  type ColorSpace,
+} from "./colorspace";
 export { fillRamp, PALETTE_SOURCES, PALETTE_STOPS, PaletteCtxImpl, PaletteRegistry, type PaletteSource } from "./palette";
 export {
   defineModule,

@@ -5,6 +5,7 @@ import {
   defineScene,
   Events,
   InputRegistry,
+  ModulatorHost,
   PaletteRegistry,
   Signal,
   Stage,
@@ -66,6 +67,7 @@ function world() {
   const time = new TimeBus(120);
   const inputs = new InputRegistry({ audio: silentAudio });
   const palettes = new PaletteRegistry();
+  const globalsModulators = new ModulatorHost({ bpm: () => time.bpm, audio: silentAudio });
   const session = new SessionStore({ audio: silentAudio, time, inputs, palettes }, () => registry);
   const stage = new Stage();
   const bindings = new BindingStore();
@@ -79,6 +81,7 @@ function world() {
     time,
     inputs,
     palettes,
+    globalsModulators,
     bindings,
     midiStatus: () => "off",
     midiDevices: () => [],
@@ -202,6 +205,55 @@ describe("EngineApi MIDI target resolution", () => {
   });
 });
 
+describe("EngineApi global palette color channels (R7.4)", () => {
+  it("decomposes a stop, modulates a channel, and guards manual set", async () => {
+    const { api, deps } = world();
+
+    // Expand primary stop 0 into HSV channels.
+    const res = (await api.handleRequest(
+      req("set_color_space", { instance: "globals", path: "palette.primary.0", space: "hsv" }),
+      "human",
+    )) as { added: string[]; removed: string[] };
+    expect(res.added).toEqual(["palette.primary.0.h", "palette.primary.0.s", "palette.primary.0.v"]);
+    expect(deps.palettes.manifest.get("palette.primary.0.h")).toBeDefined();
+
+    // The globals manifest reports the decomposition + channel params.
+    const man = (await api.handleRequest(
+      req("get_manifest", { instance: "globals" }),
+      "agent",
+    )) as { params: Record<string, { type: string; colorSpace?: string; channelOf?: string }> };
+    expect(man.params["palette.primary.0"]!.colorSpace).toBe("hsv");
+    expect(man.params["palette.primary.0.v"]!.channelOf).toBe("palette.primary.0");
+
+    // The bare stop (still a color) can't be modulated; only its channels.
+    await expect(
+      api.handleRequest(
+        req("modulate_param", { instance: "globals", path: "palette.primary.0", modulator: { type: "sine", periodSeconds: 2 } }),
+        "agent",
+      ),
+    ).rejects.toThrow(/expand a palette stop/);
+
+    // The channel modulates, and manual set is then guarded.
+    await api.handleRequest(
+      req("modulate_param", { instance: "globals", path: "palette.primary.0.v", modulator: { type: "sine", periodSeconds: 2 } }),
+      "agent",
+    );
+    expect(deps.globalsModulators.active("palette.primary.0.v")).toBe(true);
+    await expect(
+      api.handleRequest(req("set_param", { instance: "globals", path: "palette.primary.0.v", value: 0.5 }), "agent"),
+    ).rejects.toThrow(/modulated/);
+
+    // Collapsing back to hex removes the channels and clears the modulator.
+    const back = (await api.handleRequest(
+      req("set_color_space", { instance: "globals", path: "palette.primary.0", space: "hex" }),
+      "human",
+    )) as { removed: string[] };
+    expect(back.removed).toContain("palette.primary.0.v");
+    expect(deps.palettes.manifest.get("palette.primary.0.v")).toBeUndefined();
+    expect(deps.globalsModulators.get("palette.primary.0.v")).toBeUndefined();
+  });
+});
+
 describe("EngineApi state serialization", () => {
   it("snapshot carries the full per-instance shape", async () => {
     const { api, session, stage } = world();
@@ -241,5 +293,25 @@ describe("EngineApi state serialization", () => {
     api.liveStep(1); // ...and a mid-fade mash is ignored
     expect(stage.staged).toBe("a");
     void deps;
+  });
+
+  it("the live_step command steps LIVE for humans and rejects agents", async () => {
+    const { api, session, stage } = world();
+    session.create(scene, "a");
+    stage.adoptLive("a");
+    session.create(scene, "b");
+
+    // Human Console button: stages the neighbor and reports the move.
+    const res = (await api.handleRequest(req("live_step", { dir: 1 }), "human")) as {
+      dir: number;
+      from: string | null;
+      live: string | null;
+    };
+    expect(res).toMatchObject({ dir: 1, from: "a" });
+    for (let i = 1; i <= 61; i++) stage.tick({ frame: i, now: i / 60, dt: 1 / 60 });
+    expect(stage.live).toBe("b");
+
+    // Stage navigation is a performance gesture — human-only, like panic.
+    await expect(api.handleRequest(req("live_step", { dir: -1 }), "agent")).rejects.toThrow(/human-only/);
   });
 });
