@@ -3,6 +3,8 @@
 // Usage:
 //   node scripts/shoot.mjs                      # the current boot scene -> boot.png
 //   node scripts/shoot.mjs pulse lava fireflies # named scenes (content/scenes/<name>.scene.ts)
+//   node scripts/shoot.mjs pulse --console      # also shoot the Console cockpit -> console.png
+//   node scripts/shoot.mjs --console            # only the Console (no scene shot)
 //
 // Env:
 //   SHOOT_OUT   output dir (default: loom/preview/screenshots)
@@ -38,7 +40,9 @@ const RES = process.env.SHOOT_RES ?? process.env.LOOM_RES ?? "1280x720";
 const URL = `http://localhost:${PORT}/?state=off&audio=test&bpm=120&res=${RES}&ws=${WS_PORT}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const args = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
+const shootConsoleUI = rawArgs.includes("--console");
+const args = rawArgs.filter((a) => a !== "--console"); // scene names only
 
 async function waitForServer(url, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
@@ -104,8 +108,9 @@ try {
     return false;
   };
 
-  // No args: shoot whatever the boot scene currently is, named for that scene.
-  const targets = args.length ? args : [bootSceneName(originalLive)];
+  // Scene names if given; else the boot scene — UNLESS this is a console-only
+  // run (then we shoot just the cockpit, no scene).
+  const targets = args.length ? args : shootConsoleUI ? [] : [bootSceneName(originalLive)];
   for (const name of targets) {
     if (args.length) {
       consoleLines.length = 0;
@@ -122,6 +127,34 @@ try {
     } catch (err) {
       // One slow/broken scene shouldn't sink the rest (or the preview deploy).
       console.error(`skip ${name}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  // Console cockpit shot: a second page at /console.html. With no Output window
+  // saying hello in this context, the Console self-boots an embedded engine
+  // (hidden iframe) and renders its tiles — so the shot is self-contained.
+  if (shootConsoleUI) {
+    const consoleUrl = `http://localhost:${PORT}/console.html?ws=${WS_PORT}`;
+    const cpage = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+    try {
+      await forceWebGL2(cpage);
+      await cpage.goto(consoleUrl);
+      // Wait for the embedded engine to boot a tile (it embeds after a short
+      // grace period when no external Output window appears).
+      await cpage.waitForFunction(() => document.querySelector(".tile[data-id]") != null, null, {
+        timeout: 40_000,
+      });
+      // Select the boot tile so the param panel + FX chain are on screen.
+      await cpage.evaluate(() => document.querySelector('.tile[data-id="boot"]')?.click());
+      await sleep(SETTLE); // let a thumbnail render and the panel populate
+      const path = join(OUT, "console.png");
+      await cpage.screenshot({ path, timeout: 90_000 });
+      shots.push(path);
+      console.log(`shot console -> ${path}`);
+    } catch (err) {
+      console.error(`skip console: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      await cpage.close();
     }
   }
 } finally {
