@@ -4,7 +4,7 @@ import {
   type RenderTarget,
   type WebGPURenderer,
 } from "three/webgpu";
-import { BuildCtx } from "./buildctx";
+import { BuildCtx, type Updater } from "./buildctx";
 import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
@@ -25,13 +25,29 @@ export class Instance {
   /** Smoothed renderFrame cost in ms — the per-instance frame-time HUD (M7). */
   frameMs = 0;
 
+  /**
+   * Per-updater cost attribution (EMA ms), keyed by the updater's label (a param
+   * path, "palette", "input.kick", …) or `uniform#<i>` for unlabeled ones.
+   * Populated only while {@link Instance.profilingEnabled} is on; lets a frame's
+   * time be traced to the specific signal that drove it (slow/heavy-signal hunt).
+   */
+  private readonly signalCost = new Map<string, number>();
+
+  /**
+   * Global toggle for per-signal profiling. On by default — the timing overhead
+   * (two `performance.now()` reads per updater) is microseconds against the
+   * frame budget, and it only measures, never changes values, so fixture
+   * replays stay byte-identical. The engine sets it from `?profile=0`.
+   */
+  static profilingEnabled = true;
+
   private readonly material = new MeshBasicNodeMaterial();
   private readonly quad: QuadMesh;
 
   constructor(
     readonly sceneName: string,
     readonly manifest: Manifest,
-    private readonly updaters: ReadonlyArray<(f: FrameCtx) => void>,
+    private readonly updaters: ReadonlyArray<Updater>,
     private readonly passes: readonly Pass[],
     output: ColorNode,
     /** Named nodes registered by ctx.layer() during this build (Layers). */
@@ -50,7 +66,8 @@ export class Instance {
     if (this.error != null) return; // frozen: hold the last good frame
     const t0 = performance.now();
     try {
-      for (const update of this.updaters) update(f);
+      if (Instance.profilingEnabled) this.runUpdatersProfiled(f);
+      else for (const update of this.updaters) update(f);
       for (const pass of this.passes) pass.render(renderer, f);
       const prev = renderer.getRenderTarget();
       renderer.setRenderTarget(target);
@@ -63,6 +80,31 @@ export class Instance {
     // CPU-side submit cost (GPU time is opaque here) — still the early-warning
     // meter for heavy scenes: stacked chains, geo worlds, particle pools.
     this.frameMs = this.frameMs * 0.9 + (performance.now() - t0) * 0.1;
+  }
+
+  /** Run every updater, folding each one's cost into the EMA attribution map. */
+  private runUpdatersProfiled(f: FrameCtx): void {
+    const updaters = this.updaters;
+    for (let i = 0; i < updaters.length; i++) {
+      const u = updaters[i]!;
+      const u0 = performance.now();
+      u(f);
+      const key = u.label ?? `uniform#${i}`;
+      const prev = this.signalCost.get(key) ?? 0;
+      this.signalCost.set(key, prev * 0.9 + (performance.now() - u0) * 0.1);
+    }
+  }
+
+  /**
+   * The costliest CPU signals this instance is pulling, by smoothed ms,
+   * descending. Empty when profiling is off or nothing has rendered yet —
+   * the agent's window into "which signal is eating the frame".
+   */
+  slowSignals(limit = 5): Array<{ label: string; ms: number }> {
+    return [...this.signalCost.entries()]
+      .map(([label, ms]) => ({ label, ms: Math.round(ms * 1000) / 1000 }))
+      .sort((a, b) => b.ms - a.ms)
+      .slice(0, limit);
   }
 
   dispose(): void {

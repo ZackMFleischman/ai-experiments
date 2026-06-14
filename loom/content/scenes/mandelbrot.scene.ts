@@ -1,5 +1,5 @@
 import { Signal, defineScene } from "@loom/runtime";
-import { colorize, PALETTES } from "../modules/effects/colorize";
+import { colorize, PALETTES, PALETTE_SWATCHES } from "../modules/effects/colorize";
 import { levels } from "../modules/effects/levels";
 import { mandelbrot } from "../modules/sources/mandelbrot";
 
@@ -32,6 +32,7 @@ export default defineScene({
       default: 0,
       min: 0,
       max: PALETTES.length,
+      swatches: PALETTE_SWATCHES,
       description: `palette: ${PALETTES.map((p, i) => `${i}=${p.name}`).join(", ")} (fractional blends, wraps)`,
     });
     const drift = ctx.float("color.drift", { default: 0.02, min: -0.3, max: 0.3, description: "auto palette morph speed (palettes/sec)" });

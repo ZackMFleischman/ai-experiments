@@ -5,6 +5,7 @@ import type {
   FrameCtx,
   InputRegistry,
   Manifest,
+  ModulatorHost,
   PaletteRegistry,
   SceneDef,
   Stage,
@@ -31,6 +32,7 @@ import {
   ScreenshotArgs,
   SetAudioArgs,
   SetChainArgs,
+  SetColorSpaceArgs,
   SetModulationEnabledArgs,
   SetPanicInstanceArgs,
   SetParamArgs,
@@ -93,6 +95,8 @@ export interface EngineDeps {
   inputs: InputRegistry;
   /** Global color palettes (R7): second globals-side manifest, path prefix "palette.". */
   palettes: PaletteRegistry;
+  /** Modulators for decomposed global palette color channels (R7.4). */
+  globalsModulators: ModulatorHost;
   /** MIDI bindings + learn state; CC routing itself lives in main.ts. */
   bindings: BindingStore;
   midiStatus(): "off" | "ready";
@@ -247,6 +251,13 @@ export class EngineApi {
         if (instance === GLOBALS) {
           const isPalette = path.startsWith("palette.");
           const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
+          const gmod = this.deps.globalsModulators.get(path);
+          if (gmod != null && gmod.error == null && gmod.enabled) {
+            throw new Error(
+              `"${path}" on "globals" is modulated (${gmod.spec.type}) — call clear_modulation ` +
+                "or set_modulation_enabled false (∿ in the Console) to take manual control",
+            );
+          }
           param.set(value);
           if (isPalette) this.deps.persist.palettes();
           else this.deps.persist.globals();
@@ -345,6 +356,13 @@ export class EngineApi {
       }
       case "modulate_param": {
         const { instance, path, modulator } = ModulateParamArgs.parse(req.args);
+        if (instance === GLOBALS) {
+          const manifest = this.globalsManifest(path);
+          this.requireGlobalsChannel(manifest, path);
+          const spec = this.deps.globalsModulators.attach(manifest, path, modulator);
+          this.deps.persist.palettes();
+          return { instance: GLOBALS, path, modulator: spec };
+        }
         const e = session.require(this.resolveId(instance));
         if (!e.instance.manifest.get(path)) {
           const have = e.instance.manifest.paths().join(", ") || "(none)";
@@ -355,14 +373,48 @@ export class EngineApi {
       }
       case "clear_modulation": {
         const { instance, path } = ClearModulationArgs.parse(req.args);
+        if (instance === GLOBALS) {
+          const cleared = this.deps.globalsModulators.clear(path);
+          if (cleared) this.deps.persist.palettes();
+          return { instance: GLOBALS, path, cleared };
+        }
         const e = session.require(this.resolveId(instance));
         return { instance: e.id, path, cleared: e.modulators.clear(path) };
       }
       case "set_modulation_enabled": {
         const { instance, path, enabled } = SetModulationEnabledArgs.parse(req.args);
+        if (instance === GLOBALS) {
+          const info = this.deps.globalsModulators.setEnabled(path, enabled);
+          this.deps.persist.palettes();
+          return { instance: GLOBALS, path, enabled: info.enabled };
+        }
         const e = session.require(this.resolveId(instance));
         const info = e.modulators.setEnabled(path, enabled); // throws when nothing is attached
         return { instance: e.id, path, enabled: info.enabled };
+      }
+      case "set_color_space": {
+        const { instance, path, space } = SetColorSpaceArgs.parse(req.args);
+        if (instance === GLOBALS) {
+          const manifest = this.globalsManifest(path);
+          const { added, removed } = manifest.setColorSpace(path, space);
+          for (const cp of removed) {
+            this.deps.globalsModulators.clear(cp);
+            this.deps.bindings.unbind({ scene: GLOBALS, path: cp });
+          }
+          this.deps.persist.palettes();
+          if (removed.length > 0) this.deps.persist.bindings();
+          return { instance: GLOBALS, path, space, added, removed };
+        }
+        const e = session.require(this.resolveId(instance));
+        this.requireParam(e.instance.manifest, path, e.id);
+        const { added, removed } = e.instance.manifest.setColorSpace(path, space);
+        for (const cp of removed) {
+          e.modulators.clear(cp);
+          this.deps.bindings.unbind({ scene: e.sceneName, path: cp });
+        }
+        this.deps.persist.scene(e.sceneName);
+        if (removed.length > 0) this.deps.persist.bindings();
+        return { instance: e.id, path, space, added, removed };
       }
       case "set_chain": {
         const { instance, node, steps, restoreDefault } = SetChainArgs.parse(req.args);
@@ -652,11 +704,14 @@ export class EngineApi {
     // "mod:<paramPath>" toggles that param's modulator on/off (a button press
     // pauses/resumes the wave without detaching). Always edge-triggered.
     if (path.startsWith("mod:")) {
+      const paramPath = path.slice("mod:".length);
       if (instance === GLOBALS) {
-        throw new Error("modulators live on instances — globals params can't be modulated");
+        // Only a decomposed palette color channel carries a modulator on globals.
+        this.requireGlobalsChannel(this.globalsManifest(paramPath), paramPath);
+        return { scene: GLOBALS, path, mode: "cycle" };
       }
       const e = this.deps.session.require(this.resolveId(instance));
-      this.requireParam(e.instance.manifest, path.slice("mod:".length), e.id);
+      this.requireParam(e.instance.manifest, paramPath, e.id);
       return { scene: e.sceneName, path, mode: "cycle" };
     }
     let scene: string;
@@ -686,8 +741,35 @@ export class EngineApi {
     return path.startsWith("palette.") ? this.deps.palettes.manifest : this.deps.inputs.manifest;
   }
 
+  /**
+   * Only a decomposed palette color CHANNEL modulates/binds on "globals" — the
+   * input-rack tunings and the (still-color) stops stay hand-driven. Returns
+   * the channel param or throws a pointer to set_color_space.
+   */
+  private requireGlobalsChannel(manifest: Manifest, path: string) {
+    const param = this.requireParam(manifest, path, GLOBALS);
+    const channelOf = (param.toJSON() as { channelOf?: unknown }).channelOf;
+    if (channelOf == null) {
+      throw new Error(
+        `"${path}" on "globals" isn't a color channel — expand a palette stop into HSV/RGB ` +
+          "(set_color_space) first, then modulate/bind its h/s/v or r/g/b channel",
+      );
+    }
+    return param;
+  }
+
   private globalsJson(): Record<string, unknown> {
-    return { ...this.deps.inputs.manifest.toJSON(), ...this.deps.palettes.manifest.toJSON() };
+    const out = {
+      ...(this.deps.inputs.manifest.toJSON() as Record<string, Record<string, unknown>>),
+      ...(this.deps.palettes.manifest.toJSON() as Record<string, Record<string, unknown>>),
+    };
+    // Carry each channel's modulator config (FR-8 parity with instance manifests).
+    for (const m of this.deps.globalsModulators.list()) {
+      if (out[m.path] != null) {
+        out[m.path]!.modulator = m.error == null ? { ...m.spec, enabled: m.enabled } : null;
+      }
+    }
+    return out;
   }
 
   private requireParam(manifest: Manifest, path: string, owner: string) {
@@ -720,6 +802,7 @@ export class EngineApi {
         nodes: this.nodesJson(e),
         fixture: e.fixture?.name ?? null,
         frameMs: Math.round(e.instance.frameMs * 100) / 100,
+        slowSignals: e.instance.slowSignals(),
         builds: e.builds,
         pinned: e.pinned ?? null,
       })),

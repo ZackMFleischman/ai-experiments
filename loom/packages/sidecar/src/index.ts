@@ -23,6 +23,7 @@ import {
   ScreenshotFramesResult,
   ScreenshotResult,
   SetChainArgs,
+  SetColorSpaceArgs,
   SetModulationEnabledArgs,
   SetParamArgs,
   SetParamsArgs,
@@ -209,6 +210,28 @@ const TOOLS = [
         enabled: { type: "boolean", description: "false = pause (hold), true = resume." },
       },
       required: ["path", "enabled"],
+    },
+  },
+  {
+    name: "set_color_space",
+    description:
+      "Decompose a color param into channel sliders, or collapse it back. space:\"hsv\" exposes " +
+      "<path>.h/.s/.v, space:\"rgb\" exposes <path>.r/.g/.b — each an ordinary 0..1 float you can " +
+      "modulate_param or MIDI-bind to retint live. space:\"hex\" removes the channels (clearing " +
+      "their modulators/bindings) and restores a plain color. Works on instance color params and " +
+      'the "globals" palette stops (palette.primary.<i> / palette.secondary.<i>).',
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        path: { type: "string", description: 'Color param path (e.g. "palette.primary.2").' },
+        space: {
+          type: "string",
+          enum: ["hex", "hsv", "rgb"],
+          description: "hsv/rgb expand into channels; hex collapses back to a picker.",
+        },
+      },
+      required: ["path", "space"],
     },
   },
   {
@@ -513,6 +536,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const result = await broker.request("set_modulation_enabled", {
           ...SetModulationEnabledArgs.parse(args),
         });
+        return textResult(result);
+      }
+      case "set_color_space": {
+        const result = await broker.request("set_color_space", { ...SetColorSpaceArgs.parse(args) });
         return textResult(result);
       }
       case "set_chain": {

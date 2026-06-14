@@ -3,6 +3,31 @@ import { createReadStream, mkdirSync, readdirSync, readFileSync, statSync, write
 import { dirname, extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
+import { injectLoopGuards } from "../runtime/src/loopguard";
+
+// Loop-guard (signal robustness): every loop in agent-authored content/ gets an
+// iteration budget injected at build time, so a runaway/infinite loop in a
+// scene or module THROWS instead of wedging the single render thread — and a
+// throw is already contained (NFR-2 freezes that instance, never-go-black
+// holds). Count-based (deterministic), so fixture replays stay byte-identical.
+// Defensive: any transform failure falls through to the untransformed source —
+// the guard must never itself break the dev server.
+const loopGuard: Plugin = {
+  name: "loom:loop-guard",
+  enforce: "pre",
+  transform(code, id) {
+    const file = id.split("?")[0]!; // skip ?raw and other query imports below
+    if (id.includes("?")) return null;
+    if (!file.endsWith(".ts") || file.endsWith(".d.ts")) return null;
+    if (!normalize(file).includes(`${sep}content${sep}`)) return null;
+    if (!/\b(for|while|do)\b/.test(code)) return null; // nothing to guard
+    try {
+      return { code: injectLoopGuards(code, { fileName: file }), map: null };
+    } catch {
+      return null; // never-go-black: a broken transform must not break the build
+    }
+  },
+};
 
 // content/ sits outside this package's root, so Vite's watcher never learns
 // about NEW files created there: import.meta.glob("../../../content/scenes/*")
@@ -319,7 +344,7 @@ const effectsApi: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [watchContent, buildCatalog, stateApi, stateListApi, mediaApi, effectsApi],
+  plugins: [loopGuard, watchContent, buildCatalog, stateApi, stateListApi, mediaApi, effectsApi],
   // Multi-page production build for the static preview deploy (Cloudflare Pages):
   // the Output window (/), the Console cockpit (/console.html), and the staged
   // preview (/staged.html) all ship so the preview is "view + tweak", not just a

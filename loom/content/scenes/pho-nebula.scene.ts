@@ -1,6 +1,6 @@
 import { Signal, defineScene, integrateSignal } from "@loom/runtime";
 import { lfo } from "../modules/control/lfo";
-import { colorize } from "../modules/effects/colorize";
+import { colorize, PALETTE_SWATCHES } from "../modules/effects/colorize";
 import { feedback } from "../modules/effects/feedback";
 import { kaleido } from "../modules/effects/kaleido";
 import { levels } from "../modules/effects/levels";
@@ -25,7 +25,7 @@ export default defineScene({
     const simmer = ctx.float("broth.simmer", { default: 0.22, min: 0, max: 1.5, description: "broth churn speed (noise evolution)" });
     const chunk = ctx.float("broth.chunk", { default: 2.4, min: 0.5, max: 8, description: "broth texture scale (bigger = busier)" });
     const heat = ctx.float("broth.heat", { default: 0.9, min: 0, max: 3, description: "kick-driven broth flare strength" });
-    const palette = ctx.float("broth.palette", { default: 4, min: 0, max: 5, description: "cosine palette index (4 = fire/golden broth; fractional blends)" });
+    const palette = ctx.float("broth.palette", { default: 4, min: 0, max: 5, swatches: PALETTE_SWATCHES, description: "cosine palette index (4 = fire/golden broth; fractional blends)" });
     const drift = ctx.float("broth.drift", { default: 0.35, min: 0, max: 1, description: "how far the palette hue wanders over 64 beats" });
     const segments = ctx.int("swirl.segments", { default: 8, min: 2, max: 16, description: "mandala wedge count (the bowl from above)" });
     const spin = ctx.float("swirl.spin", { default: 0.06, min: -0.6, max: 0.6, description: "mandala stir speed (rad/sec, negative = counter-stir)" });

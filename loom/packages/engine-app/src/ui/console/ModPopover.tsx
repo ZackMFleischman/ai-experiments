@@ -42,7 +42,10 @@ export function ModPopover({ instance, path, p, anchorEl, onClose }: Props) {
   // "mod:<path>" namespace (cycle = flip per press), keyed by scene like
   // any param binding.
   const modPath = `mod:${path}`;
-  const scene = session?.instances.find((i) => i.id === instance)?.scene ?? null;
+  const scene =
+    instance === "globals"
+      ? "globals"
+      : (session?.instances.find((i) => i.id === instance)?.scene ?? null);
   const modBinding =
     scene != null
       ? (session?.bindings.find((b) => b.scene === scene && b.path === modPath) ?? null)
