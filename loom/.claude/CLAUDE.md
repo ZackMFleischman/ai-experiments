@@ -29,7 +29,7 @@ The engine must be running (`pnpm dev`) for tools to work. `?audio=test` on the 
 
 ## Rules
 
-1. **Params before rewrites.** To change feel (speed, intensity, color balance), first check `get_manifest` and use `set_param`. Only edit code when the structure itself is wrong. When code must change, expose the new knob as a param.
+1. **Params before rewrites — and batch them.** To change feel (speed, intensity, color balance), first check `get_manifest`, then tune params, not code. When you're setting **more than one knob, reach for `set_params`** (the whole cluster in one frame, one round-trip) rather than a stream of `set_param`; when the work spans different tools or instances, wrap it in a **`batch`**. Single `set_param` is for a one-off nudge in a tweak→screenshot loop. Only edit code when the structure itself is wrong; when code must change, expose the new knob as a param.
 2. **Never touch `packages/runtime/`** (or `packages/engine-app/`, `packages/sidecar/`) during a session. Your territory is `content/` — scenes and modules. Engine changes are human-reviewed work, not session work.
 3. **Signatures first.** When building multiple modules (especially in parallel), write each module's exported interface + metadata stub first, make `pnpm typecheck` pass, then fill in implementations. Types are the coordination protocol.
 4. **Trust the safety net, verify with eyes.** A bad save never blanks the output (compile errors are withheld; build throws keep the previous scene; render throws freeze the instance). After a save, `get_session` tells you if your instance errored, and `screenshot` shows what's actually rendering.
@@ -70,7 +70,14 @@ Key kernel facts:
 1. `get_session` + `screenshot` — know the starting state.
 2. Write/edit the scene in `content/scenes/`, point `live.scene.ts` at it, save.
 3. `get_session` — check `instanceError` is null. `screenshot` — compare against intent.
-4. Iterate on code until the structure is right, then converge on feel with `set_param`.
+4. Iterate on code until the structure is right, then converge on feel with `set_params` — set the whole cluster of knobs at once, not one at a time. To change-and-look in a single round-trip, `batch` the tweak with its screenshot:
+
+   ```
+   batch({ calls: [
+     { tool: "set_params", args: { values: { trail: 0.8, punch: 2, drift: 1.02 } } },
+     { tool: "screenshot" },
+   ]})
+   ```
 5. Report the manifest knobs you exposed so the human knows what they can ride.
 
 See skills: **module-authoring** (writing a new module), **scene-composition** (writing/wiring scenes).

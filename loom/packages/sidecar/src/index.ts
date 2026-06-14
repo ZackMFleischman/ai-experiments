@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { WebSocketServer, type WebSocket } from "ws";
 import { Broker } from "./broker";
+import { ToolMetrics } from "./metrics";
 import {
   BatchArgs,
   BatchResult,
@@ -464,10 +465,24 @@ const TOOLS = [
 
 const server = new Server({ name: "loom", version: "0.2.0" }, { capabilities: { tools: {} } });
 
+// Tool-usage instrumentation: are agents reaching for set_params/batch, or
+// still streaming single set_param calls? A digest hits stderr every 25 calls
+// (and on shutdown) — read it from the MCP server logs. Off the hot path.
+const metrics = new ToolMetrics();
+const METRICS_EVERY = 25;
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.on(sig, () => {
+    log("tool metrics:", metrics.format());
+    process.exit(0);
+  });
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...TOOLS] }));
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args = {} } = req.params;
+  metrics.record(name, args);
+  if (metrics.summary().total % METRICS_EVERY === 0) log("tool metrics:", metrics.format());
   try {
     switch (name) {
       case "get_session": {
