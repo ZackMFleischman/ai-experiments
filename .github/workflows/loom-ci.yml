@@ -39,6 +39,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: typecheck (regenerates CATALOG.md, then tsc --noEmit)
         run: pnpm typecheck
+      - name: lint (Biome — errors fail, warnings are advisory)
+        run: pnpm lint
       - name: unit tests
         run: pnpm test
       - name: production build (the static preview bundle)
