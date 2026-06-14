@@ -141,7 +141,9 @@ export class Param<T> {
 
   /** Live view of the param; reflects later set() calls. */
   signal(): Signal<T> {
-    return new Signal(() => this.v);
+    const s = new Signal(() => this.v);
+    s.label = this.path; // so uniformOf attributes cost to this param path
+    return s;
   }
 
   /**
