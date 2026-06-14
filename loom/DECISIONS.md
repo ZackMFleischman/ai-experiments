@@ -931,3 +931,32 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   and noise-warp (noise-as-displacement/rotation). Gates: typecheck + pnpm test
   green; GPU validators (validate:stdlib) not run — sandbox blocks the
   Playwright chromium download.
+
+## batch + set_params MCP tools (2026-06-14)
+
+- **Latency win is collapsing model round-trips, not WS hops.** Each MCP tool
+  call is a full LLM turn; the localhost sidecar↔engine WS round-trip is sub-ms.
+  So `batch`/`set_params` pay off by letting the agent express many edits in ONE
+  tool call (fewer turns, denser tokens), not by speeding the wire.
+- **Both fan out engine-side, reusing `handleRequest` by recursion.** `batch`
+  re-enters the same dispatch per sub-call, so every per-type Zod parse AND every
+  gate (HUMAN_ONLY verbs, live-chain/commit arming) is enforced exactly as a
+  direct call would be — no second copy of the gate logic. `batch` rejects
+  nesting (one level deep, bounds the work per request).
+- **Serial-only for v1.** `mode` is accepted for forward-compat but the only ops
+  that would benefit from parallelism (screenshot/create_instance/previews) are
+  renderer-bound and unsafe to run concurrently against the shared WebGPU
+  renderer; pure-CPU ops (set_param) gain nothing. Parallel is a deliberate
+  non-goal until an async-safe subset is carved out.
+- **`set_params` applies all paths in one handler call → same frame, one persist
+  flush.** Partial success (bad path → `errors[]`, good ones still land) so a
+  single typo doesn't sink a bulk tweak. Same modulation guard and globals/
+  palette routing as `set_param`.
+- **MCP boundary stays JSON, not a YAML string.** A YAML blob would have to be a
+  JSON-escaped string inside the tool args (more tokens, not fewer); the savings
+  come from one call replacing N and from `set_params`' flat path→value map.
+- **Sidecar unwraps screenshots taken inside a batch** into MCP image content
+  (base64 stripped from the text echo), mirroring the single-screenshot path.
+  Batch WS timeout = Σ per-call budgets + base, reusing the single-dispatch
+  budgets. Gates: typecheck + `pnpm test` (417) green; validate:m2's tool-list
+  check passes, browser e2e blocked by the sandbox Playwright download.

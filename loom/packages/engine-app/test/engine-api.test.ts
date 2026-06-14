@@ -182,6 +182,75 @@ describe("EngineApi audience-safety gates", () => {
   });
 });
 
+describe("EngineApi set_params (batched param writes)", () => {
+  it("applies every good path, persists once, and reports bad paths without dropping the rest", async () => {
+    const { api, session } = world();
+    const e = session.create(scene, "sandbox");
+    e.modulators.attach(e.instance.manifest, "speed", { type: "sine", periodSeconds: 2 });
+
+    const res = (await api.handleRequest(
+      req("set_params", { instance: "sandbox", values: { flag: true, speed: 0.9, nope: 1 } }),
+      "agent",
+    )) as { instance: string; set: Array<{ path: string; value: unknown }>; errors: Array<{ path: string; error: string }> };
+
+    expect(res.instance).toBe("sandbox");
+    expect(res.set).toEqual([{ path: "flag", value: true }]); // speed is modulated, nope is unknown
+    const byPath = Object.fromEntries(res.errors.map((x) => [x.path, x.error]));
+    expect(byPath.speed).toMatch(/modulated/);
+    expect(byPath.nope).toMatch(/unknown param/);
+    expect(e.instance.manifest.get("flag")!.value).toBe(true);
+  });
+});
+
+describe("EngineApi batch", () => {
+  it("runs calls serially, re-applies per-call gates, and reports each result", async () => {
+    const { api, session, stage } = world();
+    session.create(scene, "boot");
+    stage.adoptLive("boot");
+
+    const res = (await api.handleRequest(
+      req("batch", {
+        calls: [
+          { tool: "set_params", args: { instance: "boot", values: { flag: true } } },
+          { tool: "set_chain", args: { instance: "boot", steps: [{ effect: "glitch" }] } }, // LIVE chain, unarmed → gated
+          { tool: "get_session" },
+        ],
+      }),
+      "agent",
+    )) as { mode: string; results: Array<{ ok: boolean; tool: string; error?: string }> };
+
+    expect(res.mode).toBe("serial");
+    expect(res.results[0]).toMatchObject({ ok: true, tool: "set_params" });
+    expect(res.results[1]!.ok).toBe(false); // arming gate still fires inside the batch
+    expect(res.results[1]!.error).toMatch(/arming|arm agent commit/);
+    expect(res.results[2]).toMatchObject({ ok: true, tool: "get_session" });
+  });
+
+  it("rejects nested batch and honors stopOnError", async () => {
+    const { api, session } = world();
+    session.create(scene, "sandbox");
+
+    const nested = (await api.handleRequest(
+      req("batch", { calls: [{ tool: "batch", args: { calls: [{ tool: "get_session" }] } }] }),
+      "agent",
+    )) as { results: Array<{ ok: boolean; error?: string }> };
+    expect(nested.results[0]).toMatchObject({ ok: false });
+    expect(nested.results[0]!.error).toMatch(/cannot nest/);
+
+    const stopped = (await api.handleRequest(
+      req("batch", {
+        stopOnError: true,
+        calls: [
+          { tool: "set_param", args: { instance: "sandbox", path: "nope", value: 1 } }, // throws
+          { tool: "get_session" }, // must NOT run
+        ],
+      }),
+      "agent",
+    )) as { results: unknown[] };
+    expect(stopped.results).toHaveLength(1);
+  });
+});
+
 describe("EngineApi MIDI target resolution", () => {
   it("resolves an instance to its scene, rejects set-bindings on bool params and unknown actions", async () => {
     const { api, session, bindings } = world();

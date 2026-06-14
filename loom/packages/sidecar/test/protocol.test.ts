@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ArmAgentCommitArgs,
+  BatchArgs,
   ClearModulationArgs,
   CommitArgs,
   CreateInstanceArgs,
@@ -12,17 +13,18 @@ import {
   SaveChainArgs,
   SetChainArgs,
   SetParamArgs,
+  SetParamsArgs,
   TransportArgs,
 } from "../src/protocol";
 
 describe("RequestMsg", () => {
   it("parses every request type", () => {
     const types = [
-      "get_session", "get_manifest", "set_param", "set_param_range", "modulate_param", "clear_modulation",
+      "get_session", "get_manifest", "set_param", "set_params", "set_param_range", "modulate_param", "clear_modulation",
       "screenshot", "create_instance", "destroy_instance", "stage", "unstage", "commit",
       "set_chain", "save_chain", "preview_effect",
       "panic", "resume", "set_transport", "arm_agent_commit",
-      "midi_learn", "midi_unbind",
+      "midi_learn", "midi_unbind", "batch",
     ];
     for (const type of types) {
       const msg = RequestMsg.parse({ id: "r1", kind: "req", type, args: {} });
@@ -72,6 +74,39 @@ describe("SetParamArgs", () => {
   it("rejects non-scalar values", () => {
     expect(() => SetParamArgs.parse({ path: "p", value: { v: 1 } })).toThrow();
     expect(() => SetParamArgs.parse({ path: "p", value: [1, 2] })).toThrow();
+  });
+});
+
+describe("SetParamsArgs", () => {
+  it("defaults instance to live and takes a path→value map", () => {
+    const a = SetParamsArgs.parse({ values: { trail: 0.8, flag: true, "palette.primary.0": "#ff0000" } });
+    expect(a.instance).toBe("live");
+    expect(a.values.trail).toBe(0.8);
+    expect(a.values.flag).toBe(true);
+    expect(a.values["palette.primary.0"]).toBe("#ff0000");
+  });
+
+  it("rejects an empty values map and non-scalar values", () => {
+    expect(() => SetParamsArgs.parse({ values: {} })).toThrow();
+    expect(() => SetParamsArgs.parse({ values: { p: { v: 1 } } })).toThrow();
+    expect(() => SetParamsArgs.parse({})).toThrow();
+  });
+});
+
+describe("BatchArgs", () => {
+  it("defaults mode to serial and stopOnError to false, and fills per-call args", () => {
+    const a = BatchArgs.parse({
+      calls: [{ tool: "set_params", args: { values: { trail: 0.5 } } }, { tool: "get_session" }],
+    });
+    expect(a.mode).toBe("serial");
+    expect(a.stopOnError).toBe(false);
+    expect(a.calls[1]!.args).toEqual({}); // args default to {}
+  });
+
+  it("rejects an empty call list, unknown tools, and a parallel mode (serial-only)", () => {
+    expect(() => BatchArgs.parse({ calls: [] })).toThrow();
+    expect(() => BatchArgs.parse({ calls: [{ tool: "format_disk" }] })).toThrow();
+    expect(() => BatchArgs.parse({ mode: "parallel", calls: [{ tool: "get_session" }] })).toThrow();
   });
 });
 

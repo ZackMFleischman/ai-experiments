@@ -6,6 +6,8 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { WebSocketServer, type WebSocket } from "ws";
 import { Broker } from "./broker";
 import {
+  BatchArgs,
+  BatchResult,
   ClearModulationArgs,
   CommitArgs,
   CreateInstanceArgs,
@@ -22,6 +24,7 @@ import {
   SetChainArgs,
   SetModulationEnabledArgs,
   SetParamArgs,
+  SetParamsArgs,
 } from "./protocol";
 
 const log = (...args: unknown[]) => console.error("[loom-sidecar]", ...args);
@@ -104,6 +107,29 @@ const TOOLS = [
         },
       },
       required: ["path", "value"],
+    },
+  },
+  {
+    name: "set_params",
+    description:
+      "Set MANY params on one instance in a single call — the batched form of set_param. Pass " +
+      '`values` as a path→value map, e.g. {"trail":0.8,"speed":2}. Every knob is applied in one ' +
+      "engine step so they all land on the SAME frame (no tearing) and one round-trip replaces N. " +
+      "Prefer this over multiple set_param calls whenever you change more than one knob. Each value " +
+      "clamps to its param's range. Partial success: a bad/unknown/modulated path is reported in " +
+      "the result's `errors[]` without dropping the others. Works on \"globals\" too (rack + palette stops).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...INSTANCE_PROP,
+        values: {
+          type: "object",
+          description:
+            "Map of param path → new value. Numbers clamp to [min, max] (ints round); bools/colors as-is.",
+          additionalProperties: { type: ["number", "boolean", "string"] },
+        },
+      },
+      required: ["values"],
     },
   },
   {
@@ -389,6 +415,51 @@ const TOOLS = [
       required: ["name"],
     },
   },
+  {
+    name: "batch",
+    description:
+      "Run several of these tools in ONE call — the lowest-latency way to make many changes at " +
+      "once (one round-trip instead of one per tool). Pass `calls` as a list of { tool, args }; " +
+      "they run serially in order. Each call's args are exactly what you'd pass that tool directly " +
+      "(e.g. { tool: \"set_params\", args: { values: { trail: 0.8 } } }). Results come back as a " +
+      "list aligned to `calls`, each { ok, result } or { ok:false, error }; screenshots taken in a " +
+      "batch return their images alongside the JSON summary. `stopOnError: true` aborts the rest on " +
+      "the first failure (default false runs them all). Per-call gates still apply — human-only verbs " +
+      "and live-commit arming are enforced inside the batch — and `batch` cannot nest.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mode: {
+          type: "string",
+          enum: ["serial"],
+          description: "Execution order. Serial-only for now (default serial).",
+        },
+        stopOnError: {
+          type: "boolean",
+          description: "Abort the remaining calls on the first failure (default false).",
+        },
+        calls: {
+          type: "array",
+          description: "The tool calls to run, in order.",
+          items: {
+            type: "object",
+            properties: {
+              tool: {
+                type: "string",
+                description: 'A tool name to invoke (e.g. "set_params", "set_chain", "screenshot"). Cannot be "batch".',
+              },
+              args: {
+                type: "object",
+                description: "Arguments for that tool — the same shape as calling it directly.",
+              },
+            },
+            required: ["tool"],
+          },
+        },
+      },
+      required: ["calls"],
+    },
+  },
 ] as const;
 
 const server = new Server({ name: "loom", version: "0.2.0" }, { capabilities: { tools: {} } });
@@ -409,6 +480,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       case "set_param": {
         const result = await broker.request("set_param", { ...SetParamArgs.parse(args) });
+        return textResult(result);
+      }
+      case "set_params": {
+        const result = await broker.request("set_params", { ...SetParamsArgs.parse(args) });
         return textResult(result);
       }
       case "modulate_param": {
@@ -511,6 +586,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const result = await broker.request("record_fixture", { ...a }, Math.ceil((a.frames / 60) * 1000) + 10_000);
         return textResult(result);
       }
+      case "batch": {
+        const parsed = BatchArgs.parse(args);
+        // The engine runs the calls serially, so its wall time is bounded by the
+        // sum of the sub-calls' budgets; give the round-trip that headroom + base.
+        const timeout = parsed.calls.reduce((ms, c) => ms + budgetFor(c.tool, c.args), 2_000);
+        const raw = await broker.request("batch", { ...parsed }, timeout);
+        return batchContent(BatchResult.parse(raw));
+      }
       default:
         return errorResult(`unknown tool: ${name}`);
     }
@@ -521,6 +604,68 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
 function textResult(result: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+}
+
+/** Per-tool WS budget (ms), mirroring the single-dispatch timeouts above, so a
+ *  batch's overall deadline is the sum of what its calls would each get. */
+function budgetFor(tool: string, args: Record<string, unknown>): number {
+  switch (tool) {
+    case "screenshot":
+      return Array.isArray((args as { frames?: unknown }).frames) ? 30_000 : 10_000;
+    case "set_chain":
+    case "create_instance":
+      return 10_000;
+    case "load_project":
+      return 20_000;
+    case "record_fixture": {
+      const frames = Number((args as { frames?: unknown }).frames) || 0;
+      return Math.ceil((frames / 60) * 1000) + 10_000;
+    }
+    default:
+      return 5_000;
+  }
+}
+
+type ImageContent = { type: "image"; data: string; mimeType: string };
+
+/** Turn a batch result into MCP content: any screenshots taken inside the batch
+ *  surface as image blocks (their base64 stripped from the text echo to stay
+ *  small), followed by the JSON summary aligned to the calls. */
+function batchContent(out: BatchResult) {
+  const images: ImageContent[] = [];
+  const results = out.results.map((r) =>
+    r.ok
+      ? { tool: r.tool, ok: true as const, result: extractImages(r.result, images) }
+      : { tool: r.tool, ok: false as const, error: r.error },
+  );
+  return {
+    content: [
+      ...images,
+      { type: "text" as const, text: JSON.stringify({ mode: out.mode, results }, null, 2) },
+    ],
+  };
+}
+
+/** Pull screenshot images (single shot or fixture frames) out of a sub-result
+ *  into `images`, returning a base64-free echo for the text summary. */
+function extractImages(result: unknown, images: ImageContent[]): unknown {
+  if (result == null || typeof result !== "object") return result;
+  const r = result as Record<string, unknown>;
+  if (typeof r.base64 === "string" && r.mime === "image/png") {
+    images.push({ type: "image", data: r.base64, mimeType: "image/png" });
+    return { width: r.width, height: r.height, frame: r.frame, fps: r.fps };
+  }
+  if (
+    Array.isArray(r.frames) &&
+    r.frames.every((f) => f != null && typeof f === "object" && typeof (f as { base64?: unknown }).base64 === "string")
+  ) {
+    const frames = (r.frames as Array<Record<string, unknown>>).map((f) => {
+      images.push({ type: "image", data: f.base64 as string, mimeType: "image/png" });
+      return { frame: f.frame, width: f.width, height: f.height };
+    });
+    return { fixture: r.fixture, frames };
+  }
+  return result;
 }
 
 function errorResult(message: string) {
