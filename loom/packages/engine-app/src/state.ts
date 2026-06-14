@@ -16,6 +16,10 @@ export const StateKey = {
   inputRanges: "input-ranges",
   /** Global palette stops (`palette.<source>.<i>`). */
   palettes: "palettes",
+  /** Per-stop color-space decomposition (R7.4) — travels with the palette tunings. */
+  paletteSpaces: "palette-spaces",
+  /** Channel modulators on decomposed global palette colors (R7.4). */
+  paletteMods: "palette-mods",
   /** MIDI-learn bindings keyed by scene. */
   bindings: "bindings",
   /** The designated Panic Scene name. */
@@ -24,6 +28,8 @@ export const StateKey = {
   sceneValues: (scene: string): string => `values/${scene}`,
   /** Per-scene slider range overrides — load BEFORE the matching `sceneValues`. */
   sceneRanges: (scene: string): string => `ranges/${scene}`,
+  /** Per-scene color-space decomposition of `ctx.color` params (R7.4). */
+  sceneColorSpaces: (scene: string): string => `color-spaces/${scene}`,
 } as const;
 
 /** State subdirectories addressed as `<dir>/<name>` keys (and listed via /loom/state-list/<dir>). */

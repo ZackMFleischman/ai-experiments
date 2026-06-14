@@ -17,6 +17,7 @@ import { hsv } from "../modules/effects/hsv";
 import { invert } from "../modules/effects/invert";
 import { key } from "../modules/effects/key";
 import { mirror } from "../modules/effects/mirror";
+import { neon } from "../modules/effects/neon";
 import { mixer } from "../modules/effects/mixer";
 import { posterize } from "../modules/effects/posterize";
 import { rgbSplit } from "../modules/effects/rgbSplit";
@@ -56,9 +57,11 @@ import { noiseField } from "../modules/sources/noiseField";
 import { noodles } from "../modules/sources/noodles";
 import { osc } from "../modules/sources/osc";
 import { pulseRings } from "../modules/sources/pulseRings";
+import { ripples } from "../modules/sources/ripples";
 import { softServe } from "../modules/sources/softServe";
 import { sprinkles } from "../modules/sources/sprinkles";
 import { spriteSwarm } from "../modules/sources/spriteSwarm";
+import { starAnise } from "../modules/sources/starAnise";
 import { wafffleCone } from "../modules/sources/wafffleCone";
 import { video } from "../modules/sources/video";
 import { box } from "../modules/geo/box";
@@ -105,10 +108,12 @@ export const CASES: Record<string, ModuleCase> = {
   noodles: (ctx) => noodles(ctx, { energy: ctx.input("kick") }),
   osc: (ctx) => osc(ctx, {}),
   pulseRings: (ctx) => pulseRings(ctx, { energy: ctx.input("kick") }),
+  ripples: (ctx) => ripples(ctx, { energy: ctx.input("kick") }),
   softServe: (ctx) => softServe(ctx, { energy: ctx.input("bass") }),
   sprinkles: (ctx) => sprinkles(ctx, { count: 12, burst: ctx.input("kick") }),
   wafffleCone: (ctx) => wafffleCone(ctx, {}),
   spriteSwarm: (ctx) => spriteSwarm(ctx, { url: ASSET, cols: 3, rows: 2 }),
+  starAnise: (ctx) => starAnise(ctx, { energy: ctx.input("kick") }),
   video: (ctx) => video(ctx, { url: CLIP }),
   render3d: (ctx) => render3d(ctx, { world: box(ctx, { spin: 0.5 }), cam: orbitCam(ctx, {}) }),
   solid: (ctx) => solid(ctx, { paletteStop: 2 }),
@@ -157,6 +162,7 @@ export const CASES: Record<string, ModuleCase> = {
   rgbSplit: (ctx, input) => rgbSplit(ctx, { input }),
   vignette: (ctx, input) => vignette(ctx, { input }),
   crt: (ctx, input) => crt(ctx, { input }),
+  neon: (ctx, input) => neon(ctx, { input, intensity: ctx.input("kick") }),
 };
 
 export interface BuiltCase {

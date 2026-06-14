@@ -23,6 +23,7 @@ export const RequestType = z.enum([
   "modulate_param",
   "clear_modulation",
   "set_modulation_enabled",
+  "set_color_space",
   "set_chain",
   "save_chain",
   "preview_effect",
@@ -116,6 +117,18 @@ export const SetModulationEnabledArgs = z.object({
   enabled: z.boolean(),
 });
 export type SetModulationEnabledArgs = z.infer<typeof SetModulationEnabledArgs>;
+
+/**
+ * Decompose a color param into H/S/V or R/G/B channel sliders (each then
+ * modulatable + MIDI-bindable), or collapse it back to a plain picker ("hex").
+ * Works on instance color params and the "globals" palette stops (R7.4).
+ */
+export const SetColorSpaceArgs = z.object({
+  instance: z.string().default("live"),
+  path: z.string().min(1),
+  space: z.enum(["hex", "hsv", "rgb"]),
+});
+export type SetColorSpaceArgs = z.infer<typeof SetColorSpaceArgs>;
 
 export const CreateInstanceArgs = z.object({
   scene: z.string().min(1),
@@ -426,6 +439,14 @@ export const InstanceInfo = z.object({
   fixture: z.string().nullable().default(null),
   /** Smoothed per-frame render cost in ms (M7 frame-time HUD). */
   frameMs: z.number().default(0),
+  /**
+   * Costliest CPU signals this instance pulls, by smoothed ms (descending) —
+   * per-signal attribution of frameMs. Labelled by param path / "palette" /
+   * "input.<name>" (else "uniform#<i>"). Empty when profiling is off.
+   */
+  slowSignals: z
+    .array(z.object({ label: z.string(), ms: z.number() }))
+    .default([]),
   /** Successful builds (1 on create, ++ per rebuild) — validators assert "no rebuild". */
   builds: z.number().int(),
   /** Pinned role, if any: "panic" = the always-warm safe-scene instance. */

@@ -192,4 +192,117 @@ describe("Param / Manifest", () => {
       expect(m2.get("size")!.range()).toEqual([0, 20]);
     });
   });
+
+  describe("color channel decomposition", () => {
+    it("materializes three channel params seeded from the color", () => {
+      const m = new Manifest();
+      m.color("tint", { default: "#ff0000" });
+      const { added, removed } = m.setColorSpace("tint", "hsv");
+      expect(added).toEqual(["tint.h", "tint.s", "tint.v"]);
+      expect(removed).toEqual([]);
+      expect(m.get("tint.h")!.value).toBeCloseTo(0, 5);
+      expect(m.get("tint.s")!.value).toBeCloseTo(1, 5);
+      expect(m.get("tint.v")!.value).toBeCloseTo(1, 5);
+      // The base recomposes from the channels.
+      expect(m.get("tint")!.value).toBe("#ff0000");
+    });
+
+    it("a channel write retints the color (modulator/MIDI path)", () => {
+      const m = new Manifest();
+      m.color("tint", { default: "#ff0000" });
+      m.setColorSpace("tint", "hsv");
+      m.get("tint.h")!.set(1 / 3); // rotate hue red → green
+      expect(m.get("tint")!.value).toBe("#00ff00");
+    });
+
+    it("channel params advertise their color and letter", () => {
+      const m = new Manifest();
+      m.color("tint", { default: "#336699" });
+      m.setColorSpace("tint", "rgb");
+      const j = m.get("tint.g")!.toJSON();
+      expect(j.type).toBe("float");
+      expect(j.channelOf).toBe("tint");
+      expect(j.channel).toBe("g");
+      expect(j.min).toBe(0);
+      expect(j.max).toBe(1);
+    });
+
+    it("editing the color picker writes back through the channels", () => {
+      const m = new Manifest();
+      m.color("tint", { default: "#000000" });
+      m.setColorSpace("tint", "rgb");
+      m.get("tint")!.set("#8040c0");
+      expect(m.get("tint.r")!.value).toBeCloseTo(0x80 / 255, 5);
+      expect(m.get("tint.g")!.value).toBeCloseTo(0x40 / 255, 5);
+      expect(m.get("tint.b")!.value).toBeCloseTo(0xc0 / 255, 5);
+    });
+
+    it("switching space swaps channels and keeps the live color", () => {
+      const m = new Manifest();
+      m.color("tint", { default: "#2ec4b6" });
+      m.setColorSpace("tint", "hsv");
+      m.get("tint.v")!.set(0.5); // darken
+      const dark = m.get("tint")!.value;
+      const { added, removed } = m.setColorSpace("tint", "rgb");
+      expect(removed).toEqual(["tint.h", "tint.s", "tint.v"]);
+      expect(added).toEqual(["tint.r", "tint.g", "tint.b"]);
+      expect(m.get("tint.h")).toBeUndefined();
+      expect(m.get("tint")!.value).toBe(dark); // color survived the swap
+    });
+
+    it("collapsing to hex removes the channels and parks the live color", () => {
+      const m = new Manifest();
+      m.color("tint", { default: "#ff0000" });
+      m.setColorSpace("tint", "hsv");
+      m.get("tint.h")!.set(2 / 3); // → blue
+      const { removed } = m.setColorSpace("tint", "hex");
+      expect(removed).toEqual(["tint.h", "tint.s", "tint.v"]);
+      expect(m.paths()).toEqual(["tint"]);
+      expect(m.get("tint")!.value).toBe("#0000ff");
+      m.get("tint")!.set("#abcdef"); // plain picker still works
+      expect(m.get("tint")!.value).toBe("#abcdef");
+    });
+
+    it("persists and reapplies decomposition (colorSpaces round-trip)", () => {
+      const m = new Manifest();
+      m.color("tint", { default: "#2ec4b6" });
+      m.setColorSpace("tint", "hsv");
+      m.get("tint.s")!.set(0.25);
+      expect(m.colorSpaces()).toEqual({ tint: "hsv" });
+      const savedSpaces = m.colorSpaces();
+      const savedValues = m.values();
+
+      const m2 = new Manifest();
+      m2.color("tint", { default: "#2ec4b6" });
+      m2.applyColorSpaces(savedSpaces); // before values, so channels exist
+      for (const [path, v] of Object.entries(savedValues)) m2.get(path)?.set(v as never);
+      expect(m2.get("tint.s")!.value).toBeCloseTo(0.25, 5);
+      expect(m2.get("tint")!.value).toBe(m.get("tint")!.value);
+    });
+
+    it("rejects decomposing a non-color param", () => {
+      const m = new Manifest();
+      m.float("speed", { default: 1, min: 0, max: 2 });
+      expect(() => m.setColorSpace("speed", "hsv")).toThrow(/only color params/);
+    });
+  });
+
+  describe("palette-index swatches", () => {
+    it("carries swatches metadata into the manifest JSON", () => {
+      const m = new Manifest();
+      const swatches = [
+        ["#000000", "#ffffff"],
+        ["#ff0000", "#00ff00", "#0000ff"],
+      ];
+      m.float("color.palette", { default: 0, min: 0, max: 2, swatches });
+      expect((m.toJSON()["color.palette"] as { swatches?: unknown }).swatches).toEqual(swatches);
+    });
+
+    it("rejects a swatch stop that is not #rrggbb", () => {
+      const m = new Manifest();
+      expect(() =>
+        m.float("color.palette", { default: 0, min: 0, max: 1, swatches: [["#000000", "nope"]] }),
+      ).toThrow();
+    });
+  });
 });

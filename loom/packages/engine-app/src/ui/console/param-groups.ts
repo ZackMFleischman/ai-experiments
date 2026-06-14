@@ -37,6 +37,7 @@ export function groupParams(
   const groups = new Map<string, ParamEntry[]>();
   for (const [path, p] of Object.entries(manifest ?? {})) {
     if (isFxPath(path)) continue; // chain knobs render inside the FX CHAIN section
+    if (p.channelOf != null) continue; // color channels render inside their color widget (R7.4)
     const dot = path.indexOf(".");
     if (dot < 0 || path === PALETTE_SOURCE_PATH) {
       flat.push([path, p]);

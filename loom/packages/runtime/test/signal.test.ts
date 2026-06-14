@@ -32,4 +32,11 @@ describe("Signal", () => {
     const s = Signal.of(9);
     expect(asSignal(s)).toBe(s);
   });
+
+  it("named() stamps a cost-attribution label, map() inherits it", () => {
+    const s = new Signal(() => 1).named("warp.curl");
+    expect(s.label).toBe("warp.curl");
+    expect(s.map((v) => v + 1).label).toBe("warp.curl");
+    expect(new Signal(() => 0).label).toBeUndefined();
+  });
 });

@@ -5,6 +5,7 @@ import {
   defineScene,
   Events,
   InputRegistry,
+  ModulatorHost,
   PaletteRegistry,
   Signal,
   Stage,
@@ -66,6 +67,7 @@ function world() {
   const time = new TimeBus(120);
   const inputs = new InputRegistry({ audio: silentAudio });
   const palettes = new PaletteRegistry();
+  const globalsModulators = new ModulatorHost({ bpm: () => time.bpm, audio: silentAudio });
   const session = new SessionStore({ audio: silentAudio, time, inputs, palettes }, () => registry);
   const stage = new Stage();
   const bindings = new BindingStore();
@@ -79,6 +81,7 @@ function world() {
     time,
     inputs,
     palettes,
+    globalsModulators,
     bindings,
     midiStatus: () => "off",
     midiDevices: () => [],
@@ -199,6 +202,55 @@ describe("EngineApi MIDI target resolution", () => {
     await expect(
       api.handleRequest(req("midi_learn", { instance: "boot", path: "nope" }), "human"),
     ).rejects.toThrow(/unknown param/);
+  });
+});
+
+describe("EngineApi global palette color channels (R7.4)", () => {
+  it("decomposes a stop, modulates a channel, and guards manual set", async () => {
+    const { api, deps } = world();
+
+    // Expand primary stop 0 into HSV channels.
+    const res = (await api.handleRequest(
+      req("set_color_space", { instance: "globals", path: "palette.primary.0", space: "hsv" }),
+      "human",
+    )) as { added: string[]; removed: string[] };
+    expect(res.added).toEqual(["palette.primary.0.h", "palette.primary.0.s", "palette.primary.0.v"]);
+    expect(deps.palettes.manifest.get("palette.primary.0.h")).toBeDefined();
+
+    // The globals manifest reports the decomposition + channel params.
+    const man = (await api.handleRequest(
+      req("get_manifest", { instance: "globals" }),
+      "agent",
+    )) as { params: Record<string, { type: string; colorSpace?: string; channelOf?: string }> };
+    expect(man.params["palette.primary.0"]!.colorSpace).toBe("hsv");
+    expect(man.params["palette.primary.0.v"]!.channelOf).toBe("palette.primary.0");
+
+    // The bare stop (still a color) can't be modulated; only its channels.
+    await expect(
+      api.handleRequest(
+        req("modulate_param", { instance: "globals", path: "palette.primary.0", modulator: { type: "sine", periodSeconds: 2 } }),
+        "agent",
+      ),
+    ).rejects.toThrow(/expand a palette stop/);
+
+    // The channel modulates, and manual set is then guarded.
+    await api.handleRequest(
+      req("modulate_param", { instance: "globals", path: "palette.primary.0.v", modulator: { type: "sine", periodSeconds: 2 } }),
+      "agent",
+    );
+    expect(deps.globalsModulators.active("palette.primary.0.v")).toBe(true);
+    await expect(
+      api.handleRequest(req("set_param", { instance: "globals", path: "palette.primary.0.v", value: 0.5 }), "agent"),
+    ).rejects.toThrow(/modulated/);
+
+    // Collapsing back to hex removes the channels and clears the modulator.
+    const back = (await api.handleRequest(
+      req("set_color_space", { instance: "globals", path: "palette.primary.0", space: "hex" }),
+      "human",
+    )) as { removed: string[] };
+    expect(back.removed).toContain("palette.primary.0.v");
+    expect(deps.palettes.manifest.get("palette.primary.0.v")).toBeUndefined();
+    expect(deps.globalsModulators.get("palette.primary.0.v")).toBeUndefined();
   });
 });
 

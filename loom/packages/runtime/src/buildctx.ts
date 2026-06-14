@@ -1,4 +1,6 @@
 import { uniform } from "three/tsl";
+import { Color } from "three/webgpu";
+import type { Node } from "three/webgpu";
 import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { TimeBus } from "./inputbus/time";
@@ -6,9 +8,20 @@ import type { InputProvider } from "./fixture";
 import { layerRig, NODE_NAME_RE, RESERVED_NODE_NAMES, type LayerHooks, type LayerNodeInfo } from "./layer";
 import { PaletteCtxImpl, type PaletteRegistry } from "./palette";
 import { inputTrimPath } from "./paths";
-import { Manifest, type BoolParamSpec, type RangedParamSpec, type Param } from "./param";
+import { Manifest, type BoolParamSpec, type ColorParamSpec, type RangedParamSpec, type Param } from "./param";
 import { Signal, type SignalLike } from "./signal";
 import type { Pass, TexNode } from "./texnode";
+
+/**
+ * A per-frame uniform updater. It is just a function `(FrameCtx) => void`, so
+ * existing `ctx.updaters.push((f) => …)` callers are unchanged — but it may
+ * carry a `label` (usually a param path) that `Instance` uses to attribute
+ * per-frame cost back to the signal that drove it.
+ */
+export interface Updater {
+  (f: FrameCtx): void;
+  label?: string;
+}
 
 /**
  * Handed to scene/module build functions. Collects the manifest and the
@@ -17,7 +30,7 @@ import type { Pass, TexNode } from "./texnode";
  */
 export class BuildCtx {
   readonly manifest = new Manifest();
-  readonly updaters: Array<(f: FrameCtx) => void> = [];
+  readonly updaters: Array<Updater> = [];
   /** Named nodes registered by ctx.layer() during this build, in wrap order. */
   readonly nodes: LayerNodeInfo[] = [];
   private paletteCtx: PaletteCtxImpl | null = null;
@@ -100,7 +113,7 @@ export class BuildCtx {
       });
     const chan = reg.signal(name);
     const trimSig = trim.signal();
-    return new Signal((f) => chan.get(f) * trimSig.get(f));
+    return new Signal((f) => chan.get(f) * trimSig.get(f)).named(`input.${name}`);
   }
 
   float(path: string, spec: RangedParamSpec) {
@@ -116,15 +129,38 @@ export class BuildCtx {
   }
 
   /**
+   * Declare a color param and bridge it onto the GPU as a vec3 uniform that
+   * re-reads every frame (R7.4). The human can pick it flat, or expand it into
+   * H/S/V or R/G/B channels in the Console — each channel then modulates and
+   * MIDI-binds like any float, and this uniform follows the recomposed color
+   * with no rebuild.
+   */
+  color(path: string, spec: ColorParamSpec): Node<"vec3"> {
+    const param = this.manifest.color(path, spec);
+    const u = uniform(new Color(param.value));
+    const upd: Updater = () => {
+      (u.value as Color).set(param.value);
+    };
+    upd.label = path;
+    this.updaters.push(upd);
+    return u as unknown as Node<"vec3">;
+  }
+
+  /**
    * Bridge a number Signal (or constant) into a TSL uniform that updates
    * every frame. This is also what guarantees stateful signals get pulled.
+   * An optional `label` (else the signal's own `.label`, e.g. a param path)
+   * attributes this updater's per-frame cost in the profiler.
    */
-  uniformOf(value: SignalLike | Signal<number>) {
+  uniformOf(value: SignalLike | Signal<number>, label?: string) {
     if (typeof value === "number") return uniform(value);
     const u = uniform(0);
-    this.updaters.push((f) => {
+    const upd: Updater = (f) => {
       u.value = value.get(f);
-    });
+    };
+    const lbl = label ?? value.label;
+    if (lbl !== undefined) upd.label = lbl;
+    this.updaters.push(upd);
     return u;
   }
 }

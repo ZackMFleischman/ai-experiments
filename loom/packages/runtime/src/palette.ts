@@ -1,7 +1,7 @@
 import { texture, uniform, vec2 } from "three/tsl";
 import { Color, DataTexture, LinearFilter, SRGBColorSpace } from "three/webgpu";
 import type { Node } from "three/webgpu";
-import type { FrameCtx } from "./frame";
+import type { Updater } from "./buildctx";
 import { Manifest, normalizeHex, type Param } from "./param";
 import { PALETTE_SOURCE_PATH, paletteStopPath } from "./paths";
 
@@ -91,7 +91,7 @@ export class PaletteCtxImpl {
 
   constructor(
     private readonly manifest: Manifest,
-    private readonly updaters: Array<(f: FrameCtx) => void>,
+    private readonly updaters: Array<Updater>,
     private readonly registry?: PaletteRegistry,
   ) {}
 
@@ -155,7 +155,7 @@ export class PaletteCtxImpl {
       description: "active palette: primary / secondary / own (scene defaults)",
     });
     let lastKey = "";
-    this.updaters.push(() => {
+    const upd: Updater = () => {
       const name = PALETTE_SOURCES[source.value] ?? "primary";
       const stops =
         name === "own"
@@ -169,6 +169,8 @@ export class PaletteCtxImpl {
         fillRamp(this.rampData, stops);
         this.rampTex.needsUpdate = true;
       }
-    });
+    };
+    upd.label = "palette";
+    this.updaters.push(upd);
   }
 }

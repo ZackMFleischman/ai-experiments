@@ -6,6 +6,7 @@ import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
 import { useEngine } from "../hooks";
 import { fail } from "../util";
+import { gatherChannels } from "./ColorChannels";
 import { FxChain } from "./FxChain";
 import { groupParams, splitRig } from "./param-groups";
 import { ParamWidget } from "./ParamWidget";
@@ -214,7 +215,13 @@ export function ParamPanel({ instance, manifest, session }: Props) {
         {ready && (
           <>
             {flat.map(([path, p]) => (
-              <ParamWidget key={path} instance={instance} path={path} p={p} />
+              <ParamWidget
+                key={path}
+                instance={instance}
+                path={path}
+                p={p}
+                colorChannels={p.type === "color" ? gatherChannels(manifest, path) : []}
+              />
             ))}
             {[...groups.entries()].map(([group, entries]) => {
               const isNode = nodeIds.has(group);
@@ -257,6 +264,7 @@ export function ParamPanel({ instance, manifest, session }: Props) {
                         path={path}
                         p={p}
                         label={path.slice(group.length + 1)}
+                        colorChannels={p.type === "color" ? gatherChannels(manifest, path) : []}
                       />
                     ))}
                     {rig.length > 0 && (

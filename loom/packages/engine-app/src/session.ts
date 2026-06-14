@@ -82,6 +82,8 @@ export class SessionStore {
     private readonly tunedValues?: (scene: string) => Record<string, number | boolean | string> | undefined,
     /** Per-scene slider range overrides, reapplied before values on every build. */
     private readonly tunedRanges?: (scene: string) => Record<string, [number, number]> | undefined,
+    /** Per-scene color decompositions, reapplied before values so channels exist (R7.4). */
+    private readonly tunedColorSpaces?: (scene: string) => Record<string, "hsv" | "rgb"> | undefined,
   ) {}
 
   create(def: SceneDef, id?: string, init?: InstanceInit): Entry {
@@ -235,6 +237,9 @@ export class SessionStore {
     // on it is reapplied (a value saved outside the declared range).
     const ranges = this.tunedRanges?.(sceneName);
     if (ranges) instance.manifest.applyRanges(ranges);
+    // Color decompositions before values: the channel params must exist to take
+    // their saved channel values (and for modulator reattach to find them).
+    instance.manifest.applyColorSpaces(this.tunedColorSpaces?.(sceneName));
     this.applyTuned(instance, sceneName);
     chain.applyValues(instance.manifest);
     for (const host of nodeChains.values()) host.applyValues(instance.manifest);

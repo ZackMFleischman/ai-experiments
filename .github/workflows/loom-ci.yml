@@ -61,6 +61,9 @@ jobs:
       CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so affected-shots.mjs can diff HEAD against the PR base.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: loom/package.json
@@ -73,13 +76,21 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - name: build static app (Output + Console + Staged)
         run: pnpm --filter @loom/engine-app exec vite build
-      - name: render scene screenshots into the deploy
+      - name: pick contextual screenshots from the diff
+        id: shots
+        # Maps the PR's changed files to scenes (directly-changed + modules they
+        # fan out to) and a --console flag; empty = boot-scene fallback.
+        run: |
+          args="$(node scripts/affected-shots.mjs || true)"
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+          echo "shoot args: ${args:-<boot fallback>}"
+      - name: render screenshots into the deploy
         # Best-effort: a failed/slow shot must not block the preview link itself.
         continue-on-error: true
-        timeout-minutes: 4
+        timeout-minutes: 6
         env:
           LOOM_RES: 640x360 # software WebGL2 on CI needs the lighter render
-        run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs
+        run: SHOOT_OUT="$PWD/packages/engine-app/dist/shots" node scripts/shoot.mjs ${{ steps.shots.outputs.args }}
       # Deploy with a globally-installed wrangler, run from the repo root. npm -g
       # is isolated from the repo's pnpm workspace — earlier attempts that ran
       # pnpm (blocks workerd's build) or npm (chokes on pnpm's node_modules
