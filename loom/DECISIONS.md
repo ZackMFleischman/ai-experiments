@@ -999,3 +999,20 @@ sceneValues/sceneRanges builders), `StateDir` (projects/fixtures), and the
   fetch URLs; repoStatePath used only for display paths in tool results).
 - Gates: typecheck + `pnpm test` (670) + `pnpm lint` green. validate not run
   (sandbox egress; CI/preview is the eyes-on check).
+
+## Architecture refactor — Phase 4: handleRequest handlers (2026-06-14)
+
+Phase 4 of 7 (Phase 3 main.ts decomposition + Phase 6 TSL seam DEFERRED — they
+touch the never-go-black render path and can't be validated in the sandbox; do
+them when validators run on real hardware).
+
+Splits engine-api's ~300-line `handleRequest` switch into a thin dispatcher
+(the HUMAN_ONLY gate + source-tagging) delegating to one focused private method
+per command (`setParam`, `setChain`, `commit`, …). Each handler owns its
+arg-parsing, validation, and work — individually readable and testable.
+- Behaviour-preserving: every case body moved verbatim; throws still propagate
+  to the transport as ok:false. `liveStepCmd` named to avoid the existing
+  `liveStep` method; handlers take `source` only where the trust gate needs it
+  (set_chain, commit, save_project).
+- Gates: typecheck + `pnpm test` (670, incl. the 18 engine-app/engine-api
+  dispatch tests) + `pnpm lint` green. validate not run (sandbox egress).

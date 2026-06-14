@@ -225,303 +225,373 @@ export class EngineApi {
     }
   }
 
+  /**
+   * Dispatch one command to its handler. The HUMAN_ONLY gate and source-tagging
+   * live here; each handler owns its arg-parsing, validation, and the work.
+   * A throw becomes an ok:false response at the transport — never a crash.
+   */
   async handleRequest(req: RequestMsg, source: Source): Promise<unknown> {
     if (source === "agent" && HUMAN_ONLY.has(req.type)) {
       throw new Error(`${req.type} is a human-only control (Console)`);
     }
-    const { session, stage } = this.deps;
     switch (req.type) {
-      case "get_session":
-        return this.snapshot();
-      case "get_manifest": {
-        const { instance } = InstanceArgs.parse(req.args);
-        if (instance === GLOBALS) {
-          return { instance: GLOBALS, params: this.globalsJson() };
-        }
-        const e = session.require(this.resolveId(instance));
-        return { instance: e.id, params: this.manifestJson(e), nodes: this.nodesJson(e) };
+      case "get_session": return this.snapshot();
+      case "get_manifest": return this.getManifest(req.args);
+      case "set_param": return this.setParam(req.args);
+      case "set_param_range": return this.setParamRange(req.args);
+      case "modulate_param": return this.modulateParam(req.args);
+      case "clear_modulation": return this.clearModulation(req.args);
+      case "set_modulation_enabled": return this.setModulationEnabled(req.args);
+      case "set_chain": return this.setChain(req.args, source);
+      case "preview_effect": return this.previewEffect(req.args);
+      case "save_chain": return this.saveChain(req.args);
+      case "screenshot": return this.screenshot(req.args);
+      case "create_instance": return this.createInstance(req.args);
+      case "record_fixture": return this.recordFixture(req.args);
+      case "destroy_instance": return this.destroyInstance(req.args);
+      case "rename_instance": return this.renameInstance(req.args);
+      case "stage": return this.stageInstance(req.args);
+      case "unstage": return this.unstage();
+      case "commit": return this.commit(req.args, source);
+      case "live_step": return this.liveStepCmd(req.args);
+      case "panic": return this.panic(req.args);
+      case "resume": return this.resume();
+      case "arm_panic_mode": return this.armPanicMode(req.args);
+      case "set_panic_instance": return this.setPanicInstance(req.args);
+      case "set_transport": return this.setTransport(req.args);
+      case "set_audio": return this.setAudio(req.args);
+      case "arm_agent_commit": return this.armAgentCommit(req.args);
+      case "midi_learn": return this.midiLearn(req.args);
+      case "midi_unbind": return this.midiUnbind(req.args);
+      case "list_projects": return this.listProjects();
+      case "save_project": return this.saveProject(req.args, source);
+      case "load_project": return this.loadProject(req.args);
+    }
+  }
+
+  private getManifest(args: unknown): unknown {
+    const { instance } = InstanceArgs.parse(args);
+    if (instance === GLOBALS) {
+      return { instance: GLOBALS, params: this.globalsJson() };
+    }
+    const e = this.deps.session.require(this.resolveId(instance));
+    return { instance: e.id, params: this.manifestJson(e), nodes: this.nodesJson(e) };
+  }
+
+  private setParam(args: unknown): unknown {
+    const { instance, path, value } = SetParamArgs.parse(args);
+    if (instance === GLOBALS) {
+      const isPalette = isPalettePath(path);
+      const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
+      param.set(value);
+      if (isPalette) this.deps.persist.palettes();
+      else this.deps.persist.globals();
+      return { instance: GLOBALS, path, value: param.value as number | boolean | string };
+    }
+    const e = this.deps.session.require(this.resolveId(instance));
+    const param = this.requireParam(e.instance.manifest, path, e.id);
+    const mod = e.modulators.get(path);
+    if (mod != null && mod.error == null && mod.enabled) {
+      throw new Error(
+        `"${path}" on "${e.id}" is modulated (${mod.spec.type}) — call clear_modulation ` +
+          "or set_modulation_enabled false (∿ in the Console) to take manual control",
+      );
+    }
+    param.set(value);
+    this.deps.persist.scene(e.sceneName);
+    return { instance: e.id, path, value: param.value as number | boolean | string };
+  }
+
+  private setParamRange(args: unknown): unknown {
+    const { instance, path, min, max, restoreDefault } = SetParamRangeArgs.parse(args);
+    const retune = (param: ReturnType<typeof this.requireParam>) => {
+      if (!param.rangeable) {
+        throw new Error(
+          `"${path}" is ${param.type}${param.range() != null ? " (a labelled selector)" : ""} — ` +
+            "only plain float/int sliders have an editable range",
+        );
       }
-      case "set_param": {
-        const { instance, path, value } = SetParamArgs.parse(req.args);
-        if (instance === GLOBALS) {
-          const isPalette = isPalettePath(path);
-          const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
-          param.set(value);
-          if (isPalette) this.deps.persist.palettes();
-          else this.deps.persist.globals();
-          return { instance: GLOBALS, path, value: param.value as number | boolean | string };
-        }
-        const e = session.require(this.resolveId(instance));
-        const param = this.requireParam(e.instance.manifest, path, e.id);
-        const mod = e.modulators.get(path);
-        if (mod != null && mod.error == null && mod.enabled) {
-          throw new Error(
-            `"${path}" on "${e.id}" is modulated (${mod.spec.type}) — call clear_modulation ` +
-              "or set_modulation_enabled false (∿ in the Console) to take manual control",
-          );
-        }
-        param.set(value);
-        this.deps.persist.scene(e.sceneName);
-        return { instance: e.id, path, value: param.value as number | boolean | string };
+      if (restoreDefault) {
+        param.resetRange();
+        return;
       }
-      case "set_param_range": {
-        const { instance, path, min, max, restoreDefault } = SetParamRangeArgs.parse(req.args);
-        const retune = (param: ReturnType<typeof this.requireParam>) => {
-          if (!param.rangeable) {
-            throw new Error(
-              `"${path}" is ${param.type}${param.range() != null ? " (a labelled selector)" : ""} — ` +
-                "only plain float/int sliders have an editable range",
-            );
-          }
-          if (restoreDefault) {
-            param.resetRange();
-            return;
-          }
-          const [curLo, curHi] = param.range()!;
-          param.setRange(min ?? curLo, max ?? curHi);
-        };
-        if (instance === GLOBALS) {
-          const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
-          retune(param);
-          // Rack ranges persist with the rack tunings (palette params have no range).
-          this.deps.persist.globals();
-          const [lo, hi] = param.range()!;
-          return { instance: GLOBALS, path, min: lo, max: hi, value: param.value as number };
-        }
-        const e = session.require(this.resolveId(instance));
-        const param = this.requireParam(e.instance.manifest, path, e.id);
-        retune(param);
-        this.deps.persist.scene(e.sceneName);
-        const [lo, hi] = param.range()!;
-        return { instance: e.id, path, min: lo, max: hi, value: param.value as number };
+      const [curLo, curHi] = param.range()!;
+      param.setRange(min ?? curLo, max ?? curHi);
+    };
+    if (instance === GLOBALS) {
+      const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
+      retune(param);
+      // Rack ranges persist with the rack tunings (palette params have no range).
+      this.deps.persist.globals();
+      const [lo, hi] = param.range()!;
+      return { instance: GLOBALS, path, min: lo, max: hi, value: param.value as number };
+    }
+    const e = this.deps.session.require(this.resolveId(instance));
+    const param = this.requireParam(e.instance.manifest, path, e.id);
+    retune(param);
+    this.deps.persist.scene(e.sceneName);
+    const [lo, hi] = param.range()!;
+    return { instance: e.id, path, min: lo, max: hi, value: param.value as number };
+  }
+
+  private modulateParam(args: unknown): unknown {
+    const { instance, path, modulator } = ModulateParamArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    if (!e.instance.manifest.get(path)) {
+      const have = e.instance.manifest.paths().join(", ") || "(none)";
+      throw new Error(`unknown param "${path}" on "${e.id}" — manifest has: ${have}`);
+    }
+    const spec = e.modulators.attach(e.instance.manifest, path, modulator);
+    return { instance: e.id, path, modulator: spec };
+  }
+
+  private clearModulation(args: unknown): unknown {
+    const { instance, path } = ClearModulationArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    return { instance: e.id, path, cleared: e.modulators.clear(path) };
+  }
+
+  private setModulationEnabled(args: unknown): unknown {
+    const { instance, path, enabled } = SetModulationEnabledArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    const info = e.modulators.setEnabled(path, enabled); // throws when nothing is attached
+    return { instance: e.id, path, enabled: info.enabled };
+  }
+
+  private setChain(args: unknown, source: Source): unknown {
+    const { instance, node, steps, restoreDefault } = SetChainArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    this.guardLiveChain(source, e.id);
+    // Throws on an unknown effect/node or a rejected build (chain unchanged / NFR-5).
+    this.deps.session.setChain(e.id, restoreDefault ? "default" : (steps ?? []), node);
+    this.deps.persist.scene(e.sceneName);
+    const host = node == null ? e.chain : e.nodeChains.get(node);
+    return { instance: e.id, node: node ?? null, chain: host?.list() ?? [] };
+  }
+
+  private async previewEffect(args: unknown): Promise<unknown> {
+    const { instance, effect } = PreviewEffectArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    return { effect, image: await this.deps.previewEffect(e.id, effect) };
+  }
+
+  private async saveChain(args: unknown): Promise<unknown> {
+    const { instance, name, description } = SaveChainArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    e.chain.captureValues(e.instance.manifest); // saved knobs reflect live tweaks
+    const { steps } = e.chain.serialize(); // throws if a composite is present
+    if (steps.length === 0) throw new Error("nothing to save — this instance has no chain");
+    const payload = { name, ...(description != null ? { description } : {}), steps };
+    const { path } = await this.deps.saveEffectChain(name, payload);
+    return { saved: name, path, steps: steps.length };
+  }
+
+  private async screenshot(args: unknown): Promise<unknown> {
+    const { instance, frames } = ScreenshotArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    if (frames != null) {
+      // Deterministic offline pass (Fixtures): same trace + frame list →
+      // identical pixels, every time. Only meaningful against a fixture.
+      if (e.fixture == null) {
+        throw new Error(
+          `"${e.id}" replays no fixture — screenshot {frames} needs an instance ` +
+            'created with inputs: "fixture:<name>"',
+        );
       }
-      case "modulate_param": {
-        const { instance, path, modulator } = ModulateParamArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        if (!e.instance.manifest.get(path)) {
-          const have = e.instance.manifest.paths().join(", ") || "(none)";
-          throw new Error(`unknown param "${path}" on "${e.id}" — manifest has: ${have}`);
-        }
-        const spec = e.modulators.attach(e.instance.manifest, path, modulator);
-        return { instance: e.id, path, modulator: spec };
-      }
-      case "clear_modulation": {
-        const { instance, path } = ClearModulationArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        return { instance: e.id, path, cleared: e.modulators.clear(path) };
-      }
-      case "set_modulation_enabled": {
-        const { instance, path, enabled } = SetModulationEnabledArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        const info = e.modulators.setEnabled(path, enabled); // throws when nothing is attached
-        return { instance: e.id, path, enabled: info.enabled };
-      }
-      case "set_chain": {
-        const { instance, node, steps, restoreDefault } = SetChainArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        this.guardLiveChain(source, e.id);
-        // Throws on an unknown effect/node or a rejected build (chain unchanged / NFR-5).
-        session.setChain(e.id, restoreDefault ? "default" : (steps ?? []), node);
-        this.deps.persist.scene(e.sceneName);
-        const host = node == null ? e.chain : e.nodeChains.get(node);
-        return { instance: e.id, node: node ?? null, chain: host?.list() ?? [] };
-      }
-      case "preview_effect": {
-        const { instance, effect } = PreviewEffectArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        return { effect, image: await this.deps.previewEffect(e.id, effect) };
-      }
-      case "save_chain": {
-        const { instance, name, description } = SaveChainArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        e.chain.captureValues(e.instance.manifest); // saved knobs reflect live tweaks
-        const { steps } = e.chain.serialize(); // throws if a composite is present
-        if (steps.length === 0) throw new Error("nothing to save — this instance has no chain");
-        const payload = { name, ...(description != null ? { description } : {}), steps };
-        const { path } = await this.deps.saveEffectChain(name, payload);
-        return { saved: name, path, steps: steps.length };
-      }
-      case "screenshot": {
-        const { instance, frames } = ScreenshotArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        if (frames != null) {
-          // Deterministic offline pass (Fixtures): same trace + frame list →
-          // identical pixels, every time. Only meaningful against a fixture.
-          if (e.fixture == null) {
-            throw new Error(
-              `"${e.id}" replays no fixture — screenshot {frames} needs an instance ` +
-                'created with inputs: "fixture:<name>"',
-            );
-          }
-          return { fixture: e.fixture.name, frames: await this.deps.fixtures.shots(e.id, frames) };
-        }
-        if (this.isOnCanvas(e)) return this.deps.captureCanvas();
-        return this.targetShot(e);
-      }
-      case "create_instance": {
-        const { scene, id, inputs } = CreateInstanceArgs.parse(req.args);
-        const def = this.deps.getScenes().get(scene);
-        if (!def) {
-          const have = [...this.deps.getScenes().keys()].join(", ") || "(none)";
-          throw new Error(`unknown scene "${scene}" — available: ${have}`);
-        }
-        let fixture;
-        if (inputs != null) {
-          const name = fixtureName(inputs);
-          const data = await this.deps.fixtures.load(name); // throws on unknown/corrupt trace
-          fixture = { name, data, baseFrame: this.deps.latestFrame().frame };
-        }
-        const e = session.create(def, id, fixture ? { fixture } : undefined);
-        return { instance: e.id, scene: e.sceneName, paramPaths: e.instance.manifest.paths() };
-      }
-      case "record_fixture": {
-        const { name, frames } = RecordFixtureArgs.parse(req.args);
-        return await this.deps.fixtures.record(name, frames);
-      }
-      case "destroy_instance": {
-        const { instance } = InstanceArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        if (stage.live === e.id) {
-          throw new Error(`"${e.id}" is LIVE — commit something else before destroying it`);
-        }
-        if (e.pinned === "panic") {
-          throw new Error(`"${e.id}" is the SAFE target — designate another instance before destroying it`);
-        }
-        stage.onInstanceDestroyed(e.id);
-        session.destroy(e.id);
-        return { destroyed: e.id };
-      }
-      case "rename_instance": {
-        const { instance, to } = RenameInstanceArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        const from = e.id;
-        if (to === from) return { instance: to, was: from };
-        if (e.pinned === "panic") {
-          throw new Error(`"${from}" is the SAFE target — designate another instance before renaming it`);
-        }
-        if (to === "live" || to === "globals" || to === "actions") {
-          throw new Error(`"${to}" is a reserved name`);
-        }
-        session.rename(from, to);
-        stage.onInstanceRenamed(from, to);
-        this.deps.onInstanceRenamed?.(from, to);
-        return { instance: to, was: from };
-      }
-      case "stage": {
-        const { instance } = InstanceArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        stage.stage(e.id);
-        return { staged: e.id, live: stage.live };
-      }
-      case "unstage":
-        stage.unstage();
-        return { staged: null };
-      case "commit": {
-        const { durationFrames } = CommitArgs.parse(req.args);
-        if (source === "agent" && !this.agentCommitArmed) {
-          throw new Error(
-            "agent commit is not armed — the human disarmed it (Console checkbox or " +
-              "?agentCommit=0); ask them to press COMMIT in the Console or re-arm agent commit",
-          );
-        }
-        const from = stage.live;
-        const to = stage.staged;
-        stage.commit(this.deps.latestFrame(), durationFrames);
-        return { from, to, durationFrames };
-      }
-      case "live_step": {
-        // Same deck-ring step the MIDI prev/next buttons fire — now also
-        // reachable as a real Console button (mash-safe: a no-op mid-fade /
-        // under PANIC / with <2 healthy tiles).
-        const { dir } = LiveStepArgs.parse(req.args);
-        const before = stage.live;
-        this.liveStep(dir);
-        return { dir, from: before, live: stage.live };
-      }
-      case "panic": {
-        // Execute the armed mode (an explicit override is allowed). Scene mode
-        // routes the warm panic instance; if none is usable, Stage falls back
-        // to hold (FR-7) — worst case equals today's behavior, never worse.
-        const { mode } = PanicArgs.parse(req.args);
-        const effective = mode ?? this.armedPanicMode;
-        const panicId = effective === "scene" ? this.deps.panicInstanceId() : null;
-        stage.panic(panicId != null ? "scene" : "hold", panicId);
-        return { panicked: true, mode: stage.panicActive };
-      }
-      case "resume":
-        stage.resume();
-        return { panicked: false };
-      case "arm_panic_mode": {
-        const { mode } = ArmPanicModeArgs.parse(req.args);
-        this.armedPanicMode = mode;
-        return { panicMode: mode };
-      }
-      case "set_panic_instance": {
-        // Move the SAFE designation to an existing, already-warm instance — no
-        // build, no gap. Its scene becomes the safe target scene-panic cuts to.
-        const { instance } = SetPanicInstanceArgs.parse(req.args);
-        const e = session.require(this.resolveId(instance));
-        this.deps.setPanicInstance(e.id);
-        return { panicScene: this.deps.panicScene(), instance: e.id };
-      }
-      case "set_transport": {
-        const { bpm, tap } = TransportArgs.parse(req.args);
-        if (bpm !== undefined) this.deps.time.setBpm(bpm);
-        if (tap) this.deps.time.tap(performance.now() / 1000);
-        return { bpm: this.deps.time.bpm };
-      }
-      case "set_audio": {
-        const { mode, deviceId } = SetAudioArgs.parse(req.args);
-        if (mode === "test") {
-          this.deps.audio.startTest(this.deps.time.bpm);
-        } else {
-          try {
-            await this.deps.audio.startMic(deviceId);
-          } catch (err) {
-            // Never leave the instrument deaf: fall back like boot does.
-            this.deps.audio.startTest(this.deps.time.bpm);
-            throw new Error(`mic unavailable (${String(err)}) — fell back to the test signal`);
-          }
-        }
-        this.deps.refreshAudioDevices(); // labels appear once mic permission is granted
-        return { audioMode: this.deps.audio.mode };
-      }
-      case "arm_agent_commit": {
-        const { armed } = ArmAgentCommitArgs.parse(req.args);
-        this.agentCommitArmed = armed;
-        return { agentCommitArmed: armed };
-      }
-      case "midi_learn": {
-        const target = this.resolveMidiTarget(req.args);
-        this.deps.bindings.startLearn(target);
-        return { learning: this.deps.bindings.learning };
-      }
-      case "midi_unbind": {
-        const target = this.resolveMidiTarget(req.args);
-        const removed = this.deps.bindings.unbind(target);
-        if (removed) this.deps.persist.bindings();
-        return { removed };
-      }
-      case "list_projects":
-        return { projects: await this.deps.projects.list() };
-      case "save_project": {
-        // Saving writes a repo file — same trust tier as commit for agents.
-        const { name, tileOrder } = SaveProjectArgs.parse(req.args);
-        if (source === "agent" && !this.agentCommitArmed) {
-          throw new Error(
-            "agent project save is not armed — ask the human to save from the Console, " +
-              "or to arm agent commit",
-          );
-        }
-        return await this.deps.projects.save(name, tileOrder);
-      }
-      case "load_project": {
-        // Audience-safe: builds sandboxes only; LIVE keeps playing untouched.
-        const { name } = LoadProjectArgs.parse(req.args);
-        const out = await this.deps.projects.load(name);
-        return { loaded: name, created: out.created, skipped: out.skipped, live: stage.live };
+      return { fixture: e.fixture.name, frames: await this.deps.fixtures.shots(e.id, frames) };
+    }
+    if (this.isOnCanvas(e)) return this.deps.captureCanvas();
+    return this.targetShot(e);
+  }
+
+  private async createInstance(args: unknown): Promise<unknown> {
+    const { scene, id, inputs } = CreateInstanceArgs.parse(args);
+    const def = this.deps.getScenes().get(scene);
+    if (!def) {
+      const have = [...this.deps.getScenes().keys()].join(", ") || "(none)";
+      throw new Error(`unknown scene "${scene}" — available: ${have}`);
+    }
+    let fixture;
+    if (inputs != null) {
+      const name = fixtureName(inputs);
+      const data = await this.deps.fixtures.load(name); // throws on unknown/corrupt trace
+      fixture = { name, data, baseFrame: this.deps.latestFrame().frame };
+    }
+    const e = this.deps.session.create(def, id, fixture ? { fixture } : undefined);
+    return { instance: e.id, scene: e.sceneName, paramPaths: e.instance.manifest.paths() };
+  }
+
+  private async recordFixture(args: unknown): Promise<unknown> {
+    const { name, frames } = RecordFixtureArgs.parse(args);
+    return await this.deps.fixtures.record(name, frames);
+  }
+
+  private destroyInstance(args: unknown): unknown {
+    const { instance } = InstanceArgs.parse(args);
+    const { session, stage } = this.deps;
+    const e = session.require(this.resolveId(instance));
+    if (stage.live === e.id) {
+      throw new Error(`"${e.id}" is LIVE — commit something else before destroying it`);
+    }
+    if (e.pinned === "panic") {
+      throw new Error(`"${e.id}" is the SAFE target — designate another instance before destroying it`);
+    }
+    stage.onInstanceDestroyed(e.id);
+    session.destroy(e.id);
+    return { destroyed: e.id };
+  }
+
+  private renameInstance(args: unknown): unknown {
+    const { instance, to } = RenameInstanceArgs.parse(args);
+    const { session, stage } = this.deps;
+    const e = session.require(this.resolveId(instance));
+    const from = e.id;
+    if (to === from) return { instance: to, was: from };
+    if (e.pinned === "panic") {
+      throw new Error(`"${from}" is the SAFE target — designate another instance before renaming it`);
+    }
+    if (to === "live" || to === "globals" || to === "actions") {
+      throw new Error(`"${to}" is a reserved name`);
+    }
+    session.rename(from, to);
+    stage.onInstanceRenamed(from, to);
+    this.deps.onInstanceRenamed?.(from, to);
+    return { instance: to, was: from };
+  }
+
+  private stageInstance(args: unknown): unknown {
+    const { instance } = InstanceArgs.parse(args);
+    const { session, stage } = this.deps;
+    const e = session.require(this.resolveId(instance));
+    stage.stage(e.id);
+    return { staged: e.id, live: stage.live };
+  }
+
+  private unstage(): unknown {
+    this.deps.stage.unstage();
+    return { staged: null };
+  }
+
+  private commit(args: unknown, source: Source): unknown {
+    const { durationFrames } = CommitArgs.parse(args);
+    const { stage } = this.deps;
+    if (source === "agent" && !this.agentCommitArmed) {
+      throw new Error(
+        "agent commit is not armed — the human disarmed it (Console checkbox or " +
+          "?agentCommit=0); ask them to press COMMIT in the Console or re-arm agent commit",
+      );
+    }
+    const from = stage.live;
+    const to = stage.staged;
+    stage.commit(this.deps.latestFrame(), durationFrames);
+    return { from, to, durationFrames };
+  }
+
+  private liveStepCmd(args: unknown): unknown {
+    // Same deck-ring step the MIDI prev/next buttons fire — now also
+    // reachable as a real Console button (mash-safe: a no-op mid-fade /
+    // under PANIC / with <2 healthy tiles).
+    const { dir } = LiveStepArgs.parse(args);
+    const before = this.deps.stage.live;
+    this.liveStep(dir);
+    return { dir, from: before, live: this.deps.stage.live };
+  }
+
+  private panic(args: unknown): unknown {
+    // Execute the armed mode (an explicit override is allowed). Scene mode
+    // routes the warm panic instance; if none is usable, Stage falls back
+    // to hold (FR-7) — worst case equals today's behavior, never worse.
+    const { mode } = PanicArgs.parse(args);
+    const effective = mode ?? this.armedPanicMode;
+    const panicId = effective === "scene" ? this.deps.panicInstanceId() : null;
+    this.deps.stage.panic(panicId != null ? "scene" : "hold", panicId);
+    return { panicked: true, mode: this.deps.stage.panicActive };
+  }
+
+  private resume(): unknown {
+    this.deps.stage.resume();
+    return { panicked: false };
+  }
+
+  private armPanicMode(args: unknown): unknown {
+    const { mode } = ArmPanicModeArgs.parse(args);
+    this.armedPanicMode = mode;
+    return { panicMode: mode };
+  }
+
+  private setPanicInstance(args: unknown): unknown {
+    // Move the SAFE designation to an existing, already-warm instance — no
+    // build, no gap. Its scene becomes the safe target scene-panic cuts to.
+    const { instance } = SetPanicInstanceArgs.parse(args);
+    const e = this.deps.session.require(this.resolveId(instance));
+    this.deps.setPanicInstance(e.id);
+    return { panicScene: this.deps.panicScene(), instance: e.id };
+  }
+
+  private setTransport(args: unknown): unknown {
+    const { bpm, tap } = TransportArgs.parse(args);
+    if (bpm !== undefined) this.deps.time.setBpm(bpm);
+    if (tap) this.deps.time.tap(performance.now() / 1000);
+    return { bpm: this.deps.time.bpm };
+  }
+
+  private async setAudio(args: unknown): Promise<unknown> {
+    const { mode, deviceId } = SetAudioArgs.parse(args);
+    if (mode === "test") {
+      this.deps.audio.startTest(this.deps.time.bpm);
+    } else {
+      try {
+        await this.deps.audio.startMic(deviceId);
+      } catch (err) {
+        // Never leave the instrument deaf: fall back like boot does.
+        this.deps.audio.startTest(this.deps.time.bpm);
+        throw new Error(`mic unavailable (${String(err)}) — fell back to the test signal`);
       }
     }
+    this.deps.refreshAudioDevices(); // labels appear once mic permission is granted
+    return { audioMode: this.deps.audio.mode };
+  }
+
+  private armAgentCommit(args: unknown): unknown {
+    const { armed } = ArmAgentCommitArgs.parse(args);
+    this.agentCommitArmed = armed;
+    return { agentCommitArmed: armed };
+  }
+
+  private midiLearn(args: unknown): unknown {
+    const target = this.resolveMidiTarget(args);
+    this.deps.bindings.startLearn(target);
+    return { learning: this.deps.bindings.learning };
+  }
+
+  private midiUnbind(args: unknown): unknown {
+    const target = this.resolveMidiTarget(args);
+    const removed = this.deps.bindings.unbind(target);
+    if (removed) this.deps.persist.bindings();
+    return { removed };
+  }
+
+  private async listProjects(): Promise<unknown> {
+    return { projects: await this.deps.projects.list() };
+  }
+
+  private async saveProject(args: unknown, source: Source): Promise<unknown> {
+    // Saving writes a repo file — same trust tier as commit for agents.
+    const { name, tileOrder } = SaveProjectArgs.parse(args);
+    if (source === "agent" && !this.agentCommitArmed) {
+      throw new Error(
+        "agent project save is not armed — ask the human to save from the Console, " +
+          "or to arm agent commit",
+      );
+    }
+    return await this.deps.projects.save(name, tileOrder);
+  }
+
+  private async loadProject(args: unknown): Promise<unknown> {
+    // Audience-safe: builds sandboxes only; LIVE keeps playing untouched.
+    const { name } = LoadProjectArgs.parse(args);
+    const out = await this.deps.projects.load(name);
+    return { loaded: name, created: out.created, skipped: out.skipped, live: this.deps.stage.live };
   }
 
   /**
