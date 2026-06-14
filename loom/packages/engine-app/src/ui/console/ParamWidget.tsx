@@ -20,7 +20,9 @@ import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
 import { fail, primeMidiPermission } from "../util";
 import { BindPopover } from "./BindPopover";
+import { ColorChannels } from "./ColorChannels";
 import { ModPopover } from "./ModPopover";
+import { PaletteChoice } from "./PaletteChoice";
 import { RangePopover } from "./RangePopover";
 
 type Props = {
@@ -33,6 +35,8 @@ type Props = {
   dense?: boolean;
   /** Fill the parent's width instead of the fixed dense rack width (FX-chain rows). */
   fill?: boolean;
+  /** A color param's channel widgets (when decomposed) — rendered inline below. */
+  colorChannels?: Array<[string, ParamDesc]>;
 };
 
 /**
@@ -45,7 +49,7 @@ type Props = {
  * ToggleButton; data-learn on the learn button with exact text "M" / "···" /
  * "cc<N>"; data-value on the numeric readout.
  */
-export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
+export function ParamWidget({ instance, path, p, label, dense, fill, colorChannels }: Props) {
   const link = useEngine();
   const { session } = useEngineState();
   const [drag, setDrag] = useState<number | null>(null);
@@ -58,6 +62,9 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
   // hand-drivable again while the wave waits to resume.
   const modulated = p.modulator != null;
   const modOn = modulated && (p.modulator as { enabled?: boolean }).enabled !== false;
+  // Modulators attach to numeric/bool instance params — and now to decomposed
+  // global palette color CHANNELS (channelOf set), which live on "globals".
+  const canModulate = p.type !== "color" && (instance !== "globals" || p.channelOf != null);
   const min = typeof p.min === "number" ? p.min : 0;
   const max = typeof p.max === "number" ? p.max : 1;
   // A plain slider (float or unlabelled int) has an editable range; toggles,
@@ -155,7 +162,7 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
             {label ?? path}
           </Typography>
         </Tooltip>
-        {instance !== "globals" && p.type !== "color" && (
+        {canModulate && (
           <IconButton
             size="small"
             data-modbtn={path}
@@ -341,7 +348,13 @@ export function ParamWidget({ instance, path, p, label, dense, fill }: Props) {
             </Typography>
           ))}
       </Stack>
-      {instance !== "globals" && (
+      {isSlider && p.swatches != null && (
+        <PaletteChoice instance={instance} path={path} p={p} />
+      )}
+      {p.type === "color" && (
+        <ColorChannels instance={instance} path={path} p={p} channels={colorChannels ?? []} />
+      )}
+      {canModulate && (
         <ModPopover
           instance={instance}
           path={path}

@@ -931,3 +931,31 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   and noise-warp (noise-as-displacement/rotation). Gates: typecheck + pnpm test
   green; GPU validators (validate:stdlib) not run — sandbox blocks the
   Playwright chromium download.
+
+- **Color channels are real channel params, not bespoke color modulators**
+  (R7.4): `Manifest.setColorSpace(path, "hsv"|"rgb")` materializes three 0..1
+  float params `<path>.h/.s/.v` (or `.r/.g/.b`) and the color recomposes from
+  them on every `value` read; "hex" removes them. Because the channels are
+  ordinary floats, the entire existing stack — ModulatorHost, MIDI bindings,
+  ModPopover, range edit — drives them for free; no color-aware modulator type
+  was needed. Channels are seeded from the live color and write back through
+  `set()` so the picker still works while decomposed. Decompositions persist
+  (`colorSpaces()`/`applyColorSpaces()`) and reapply BEFORE values on every
+  build so they survive HMR and modulator reattach finds the channel paths.
+  New `set_color_space` verb (engine dispatch + MCP tool); collapsing a color
+  clears its channels' modulators + bindings.
+- **"globals" grew a ModulatorHost** for the first time, scoped to palette
+  color channels only (`requireGlobalsChannel` rejects rack tunings and bare
+  stops). Ticked once per frame in `frameTick` BEFORE the compositor so the
+  recomposed stops are ready when instance palette resolvers read them; frozen
+  under PANIC hold like instance modulators (FR-10). Channel modulator specs +
+  the palette decompositions persist alongside the palette tunings
+  (`palette-spaces`, `palette-mods` state keys).
+- **Palette-index sliders carry `swatches`** (R7.3): an optional
+  `string[][]` on the ranged param spec (one gradient per option), validated
+  and surfaced in the manifest like `labels`. `colorize` exports
+  `PALETTE_SWATCHES` (cosine presets sampled to hex); julia/mandelbrot/
+  pho-nebula pass it, and the Console's `PaletteChoice` draws clickable
+  gradient chips over the bare slider (the slider still rides fractional
+  blends). The cosine PALETTES (`color.palette`) and the global palettes (R7)
+  stay distinct systems — the chooser targets the former.

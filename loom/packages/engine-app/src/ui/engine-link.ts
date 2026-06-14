@@ -10,6 +10,14 @@ export type ParamDesc = {
   step?: number;
   /** Value names for int selectors (palette.source) — UI renders a toggle. */
   labels?: string[];
+  /** Per-option color previews (palette-index sliders) — UI renders a chooser. */
+  swatches?: string[][];
+  /** Active color space when a color param is decomposed into channels. */
+  colorSpace?: "hex" | "hsv" | "rgb";
+  /** Set on a channel param: the color path it drives (e.g. "palette.primary.2"). */
+  channelOf?: string;
+  /** Channel letter for a channel param: "h"/"s"/"v" or "r"/"g"/"b". */
+  channel?: string;
   description?: string;
   /** Active modulator config, or null when the param is hand-driven (FR-8). */
   modulator?: Record<string, unknown> | null;

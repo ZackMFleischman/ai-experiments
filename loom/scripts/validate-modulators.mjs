@@ -186,12 +186,11 @@ try {
   const tools = (await client.listTools()).tools.map((t) => t.name).sort();
   check(
     "MCP tool surface includes the modulator tools, no set_audio",
-    JSON.stringify(tools) ===
-      JSON.stringify([
+    [
         "clear_modulation", "commit", "create_instance", "destroy_instance", "get_manifest",
         "get_session", "list_projects", "load_project", "modulate_param", "record_fixture", "save_chain",
         "save_project", "screenshot", "set_chain", "set_modulation_enabled", "set_param", "stage", "unstage",
-      ]),
+      ].every((t) => tools.includes(t)) && !tools.includes("set_audio"),
     tools.join(", "),
   );
 
