@@ -185,6 +185,78 @@ describe("EngineApi audience-safety gates", () => {
   });
 });
 
+describe("EngineApi full-res preview stream", () => {
+  it("is human-only and resolves the live alias", async () => {
+    const { api, session, stage } = world();
+    session.create(scene, "boot");
+    stage.adoptLive("boot");
+    await expect(api.handleRequest(req("set_preview", { instance: "boot" }), "agent")).rejects.toThrow(
+      /human-only/,
+    );
+    api.markConsolePresent();
+    const r = (await api.handleRequest(req("set_preview", { instance: "live" }), "human")) as {
+      preview: { id: string } | null;
+    };
+    expect(r.preview?.id).toBe("boot"); // "live" resolved to the live instance
+  });
+
+  it("renders a sandbox candidate at the chosen resolution and restores on stop", async () => {
+    const { api, session, stage } = world();
+    session.create(scene, "boot");
+    stage.adoptLive("boot");
+    const e = session.create(scene, "sandbox");
+    expect([e.target.width, e.target.height]).toEqual([640, 360]); // the thumbnail size
+
+    api.markConsolePresent();
+    await api.handleRequest(req("set_preview", { instance: "sandbox", maxHeight: 1080 }), "human");
+    api.tickPreview("single", 60);
+    expect([e.target.width, e.target.height]).toEqual([1920, 1080]); // full-res render now
+
+    // A lower ceiling re-sizes; the live instance is never enlarged (it renders
+    // to the canvas, so its target stays at the thumbnail size).
+    await api.handleRequest(req("set_preview", { instance: "sandbox", maxHeight: 720 }), "human");
+    api.tickPreview("single", 60);
+    expect([e.target.width, e.target.height]).toEqual([1280, 720]);
+
+    await api.handleRequest(req("set_preview", { instance: null }), "human");
+    expect([e.target.width, e.target.height]).toEqual([640, 360]); // restored
+  });
+
+  it("leaves the live instance's target untouched (canvas-mirrored, not enlarged)", async () => {
+    const { api, session, stage } = world();
+    const e = session.create(scene, "boot");
+    stage.adoptLive("boot");
+    api.markConsolePresent();
+    await api.handleRequest(req("set_preview", { instance: "boot", maxHeight: 1080 }), "human");
+    api.tickPreview("single", 60);
+    expect([e.target.width, e.target.height]).toEqual([640, 360]);
+  });
+
+  it("auto-reduces the resolution when fps sags and climbs back when it recovers", async () => {
+    const { api, session, stage } = world();
+    session.create(scene, "boot");
+    stage.adoptLive("boot");
+    const e = session.create(scene, "sandbox");
+    api.markConsolePresent();
+    await api.handleRequest(req("set_preview", { instance: "sandbox", maxHeight: 1080 }), "human");
+
+    const sag = (n: number, fps: number) => {
+      for (let i = 0; i < n; i++) api.tickPreview("single", fps);
+    };
+    sag(25, 30); // sustained low fps → drop one level
+    expect(e.target.height).toBe(720);
+    sag(25, 30); // keep sagging → drop another
+    expect(e.target.height).toBe(540);
+    sag(260, 60); // sustained headroom → climb one level back
+    expect(e.target.height).toBe(720);
+    // Never climbs past the human-chosen ceiling.
+    sag(520, 60);
+    expect(e.target.height).toBe(1080);
+    sag(260, 60);
+    expect(e.target.height).toBe(1080);
+  });
+});
+
 describe("EngineApi set_params (batched param writes)", () => {
   it("applies every good path, persists once, and reports bad paths without dropping the rest", async () => {
     const { api, session } = world();

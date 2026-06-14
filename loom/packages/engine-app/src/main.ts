@@ -921,6 +921,9 @@ const frameTick = (tMs: number): void => {
   compositor.render(renderer, f, directive, session);
   api.captureLiveMirror(directive.mode); // same-task canvas read for the live tile
   fps.tick();
+  // Full-res preview overlay: resize the previewed sandbox target / mirror the
+  // live canvas, and run the fps auto-reduction ladder (same task as the render).
+  api.tickPreview(directive.mode, fps.current);
 
   if (pendingShots.length > 0) {
     const waiting = pendingShots.splice(0);

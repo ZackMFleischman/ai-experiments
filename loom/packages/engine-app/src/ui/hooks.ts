@@ -1,4 +1,5 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
+import type { PreviewFrame } from "@loom/sidecar/protocol";
 import type { EngineLink, EngineSnapshot } from "./engine-link";
 
 const EngineContext = createContext<EngineLink | null>(null);
@@ -22,4 +23,10 @@ export function useThumb(id: string | null): string | undefined {
   return useSyncExternalStore(link.subscribeThumbs, () =>
     id == null ? undefined : link.thumb(id),
   );
+}
+
+/** Latest full-res preview frame from the engine (Console preview overlay). */
+export function usePreviewFrame(): PreviewFrame | null {
+  const link = useEngine();
+  return useSyncExternalStore(link.subscribePreview, link.preview);
 }

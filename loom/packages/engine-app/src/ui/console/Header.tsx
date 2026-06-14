@@ -18,9 +18,14 @@ import { mono } from "../theme";
 import { fail, primeMidiPermission } from "../util";
 import { MidiMonitorDialog } from "./MidiMonitorDialog";
 
-type Props = { session: SessionSnapshot; onToggleRack: () => void };
+type Props = {
+  session: SessionSnapshot;
+  onToggleRack: () => void;
+  previewing: boolean;
+  onTogglePreview: () => void;
+};
 
-export function Header({ session: s, onToggleRack }: Props) {
+export function Header({ session: s, onToggleRack, previewing, onTogglePreview }: Props) {
   const link = useEngine();
   return (
     <Stack
@@ -67,6 +72,14 @@ export function Header({ session: s, onToggleRack }: Props) {
       <AudioPicker session={s} />
       <MidiStatus midi={s.midi} />
       <Button onClick={onToggleRack} title="input rack (i)">RACK</Button>
+      <Button
+        id="previewbtn"
+        variant={previewing ? "contained" : "text"}
+        onClick={onTogglePreview}
+        title="preview the selected instance full-screen (p)"
+      >
+        PREVIEW
+      </Button>
       <ProjectsControl session={s} />
       <Box sx={{ flex: 1 }} />
       <Typography id="fps" title="render rate · frame counter" sx={{ fontFamily: mono, fontSize: 14, fontWeight: 700 }}>
