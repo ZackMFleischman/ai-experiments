@@ -3,6 +3,7 @@ import type { BuildCtx } from "./buildctx";
 import type { Events } from "./events";
 import type { ChainParamSpec, ModuleFactory } from "./module";
 import type { Manifest, Param } from "./param";
+import { fxStepPath, ROOT_FX_PREFIX } from "./paths";
 import { Signal } from "./signal";
 import { texNode, type TexNode } from "./texnode";
 
@@ -144,7 +145,7 @@ export class ChainHost {
      * Manifest path head for this chain's params: the root chain keeps the
      * M6 `fx` prefix; a layer node's chain uses `<node>.fx` (Layers).
      */
-    readonly prefix = "fx",
+    readonly prefix: string = ROOT_FX_PREFIX,
   ) {}
 
   /** Seed from a scene's declared default chain (at instance create). */
@@ -277,7 +278,7 @@ export class ChainHost {
     const wet = ctx.uniformOf(
       chainWetSignal(mixParam.signal(), enabledParam.signal(), fadeParam.signal()),
     );
-    const alpha = this.prefix === "fx" ? 1 : input.color.a;
+    const alpha = this.prefix === ROOT_FX_PREFIX ? 1 : input.color.a;
     return texNode(vec4(mix(input.color.rgb, out.color.rgb, wet), alpha), out.passes);
   }
 
@@ -298,7 +299,7 @@ export class ChainHost {
     for (const step of this.steps) {
       for (const [sub, v] of Object.entries(step.params)) {
         try {
-          manifest.get(`${this.prefix}.${step.id}.${sub}`)?.set(v as never);
+          manifest.get(fxStepPath(this.prefix, step.id, sub))?.set(v as never);
         } catch {
           // a value that no longer fits its param (effect changed) — keep default
         }

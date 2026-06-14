@@ -3,6 +3,7 @@ import { Color, DataTexture, LinearFilter, SRGBColorSpace } from "three/webgpu";
 import type { Node } from "three/webgpu";
 import type { FrameCtx } from "./frame";
 import { Manifest, normalizeHex, type Param } from "./param";
+import { PALETTE_SOURCE_PATH, paletteStopPath } from "./paths";
 
 /**
  * Global color palettes (R7): two named palettes, five ordered color stops
@@ -32,7 +33,7 @@ export class PaletteRegistry {
     for (const source of ["primary", "secondary"] as const) {
       for (let i = 0; i < PALETTE_STOPS; i++) {
         this.stopParams[source].push(
-          this.manifest.color(`palette.${source}.${i}`, {
+          this.manifest.color(paletteStopPath(source, i), {
             default: DEFAULTS[source][i]!,
             description: `${source} palette stop ${i}`,
           }),
@@ -145,7 +146,7 @@ export class PaletteCtxImpl {
   /** Declare palette.source + the resolver updater. Called once, after build(). */
   finalize(): void {
     if (!this.used) return;
-    const source = this.manifest.int("palette.source", {
+    const source = this.manifest.int(PALETTE_SOURCE_PATH, {
       default: this.ownStops ? 2 : 0,
       min: 0,
       max: 2,

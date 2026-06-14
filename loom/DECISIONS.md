@@ -957,3 +957,30 @@ extraction → TSL seam). Phase 0 adds Biome 2.5 as the lint/format tool.
 - Gates: typecheck + `pnpm test` (663) + `pnpm lint` green. validate suites not
   run — sandbox egress blocks the Playwright chromium download (as for prior
   entries); CI / Cloudflare preview is the eyes-on check.
+
+## Architecture refactor — Phase 1: typed path module (2026-06-14)
+
+Phase 1 of 7. Adds `packages/runtime/src/paths.ts` — the single source of truth
+for the stringly-typed manifest-path schema that couples scenes, the Manifest,
+MCP, MIDI, persistence, and the Console.
+- **Why:** the path conventions (`input.<name>.amount`, `inputs.<ch>.<knob>`,
+  `palette.<source>.<i>`, `<node>.layer.<knob>`, `fx.<id>.<sub>`,
+  `<node>.fx.<id>.<sub>`) and the routing prefixes (`palette.`, `mod:`,
+  `fixture:`, `fx.`) were built and parsed by ad-hoc string concatenation/
+  slicing across runtime + engine-app — the `palette.`-vs-rack routing predicate
+  alone was duplicated in 4 places. Now every build/parse goes through one
+  module, so a convention change is one edit.
+- **Behaviour-preserving:** pure refactor; no validator assertion moves. Two
+  predicates kept deliberately distinct — `isFxPath` (root `fx.` only, used by
+  per-scene value persistence) vs `hasFxSegment` (root OR `<node>.fx.`, used by
+  project serialization) — preserving the existing asymmetry rather than
+  flattening it.
+- `modBindingPath` named with the `*Path` suffix (like `inputTrimPath`/
+  `layerRigPath`) to avoid colliding with ModPopover's local `modBinding` var.
+  Dropped unused build helpers (`fixtureRef`/`isFixtureRef`) rather than ship
+  dead exports; `NS` kept module-local.
+- Wired: layer/palette/buildctx/inputs/chain (runtime) + session/engine-api/
+  main/projects/ModPopover/ParamPanel (engine-app). New `paths.test.ts` pins the
+  schema (7 cases).
+- Gates: typecheck + `pnpm test` (670) + `pnpm lint` green. validate not run
+  (sandbox egress blocks Playwright chromium; CI/preview is the eyes-on check).

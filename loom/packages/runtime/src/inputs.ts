@@ -3,6 +3,7 @@ import type { FrameCtx } from "./frame";
 import type { AudioBusLike } from "./inputbus/audio";
 import type { MidiBusLike } from "./inputbus/midi";
 import { Manifest, type Param } from "./param";
+import { rackKnobPath } from "./paths";
 import { Signal } from "./signal";
 
 /**
@@ -168,7 +169,7 @@ export class InputRegistry {
   }
 
   private createState(def: InputChannelDef, manifest: Manifest): ChannelState {
-    const p = (knob: string) => `inputs.${def.name}.${knob}`;
+    const p = (knob: string) => rackKnobPath(def.name, knob);
     const knobs: Record<string, Param<number>> = {};
     let source: Signal<number> | null = null;
     if (def.kind === "level") {

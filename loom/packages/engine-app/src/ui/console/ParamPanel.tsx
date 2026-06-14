@@ -1,6 +1,7 @@
 import {
   Accordion, AccordionDetails, AccordionSummary, Box, Button, Stack, Typography,
 } from "@mui/material";
+import { isFxPath, PALETTE_SOURCE_PATH } from "@loom/runtime";
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
@@ -91,15 +92,15 @@ export function ParamPanel({ instance, manifest, session }: Props) {
   const flat: Array<[string, ParamDesc]> = [];
   const groups = new Map<string, Array<[string, ParamDesc]>>();
   for (const [path, p] of Object.entries(manifest ?? {})) {
-    if (path.startsWith("fx.")) continue; // chain knobs render inside the FX CHAIN section
+    if (isFxPath(path)) continue; // chain knobs render inside the FX CHAIN section
     const dot = path.indexOf(".");
     // palette.source is the scene's palette switch (R7.2) — too load-bearing
     // to bury in a collapsed accordion, so it stays on the flat top level.
-    if (dot < 0 || path === "palette.source") {
+    if (dot < 0 || path === PALETTE_SOURCE_PATH) {
       flat.push([path, p]);
     } else {
       const g = path.slice(0, dot);
-      if (nodeIds.has(g) && path.slice(dot + 1).startsWith("fx.")) continue; // node chain knobs
+      if (nodeIds.has(g) && isFxPath(path.slice(dot + 1))) continue; // node chain knobs
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g)!.push([path, p]);
     }

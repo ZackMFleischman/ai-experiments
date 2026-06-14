@@ -5,6 +5,7 @@ import type { TimeBus } from "./inputbus/time";
 import type { InputProvider } from "./fixture";
 import { layerRig, NODE_NAME_RE, RESERVED_NODE_NAMES, type LayerHooks, type LayerNodeInfo } from "./layer";
 import { PaletteCtxImpl, type PaletteRegistry } from "./palette";
+import { inputTrimPath } from "./paths";
 import { Manifest, type BoolParamSpec, type RangedParamSpec, type Param } from "./param";
 import { Signal, type SignalLike } from "./signal";
 import type { Pass, TexNode } from "./texnode";
@@ -88,7 +89,7 @@ export class BuildCtx {
   input(name: string): Signal<number> {
     const reg = this.inputs;
     if (!reg) return Signal.of(0); // no rack wired (bare unit-test builds)
-    const path = `input.${name}.amount`;
+    const path = inputTrimPath(name);
     const trim =
       (this.manifest.get(path) as Param<number> | undefined) ??
       this.manifest.float(path, {

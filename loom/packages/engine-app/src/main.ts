@@ -9,6 +9,10 @@ import {
   FixtureDataSchema,
   FixturePlayer,
   InputRegistry,
+  isFxPath,
+  isModBinding,
+  isPalettePath,
+  modTarget,
   Instance,
   MidiBus,
   ModulatorHost,
@@ -187,10 +191,10 @@ const persist = {
       // Chain knob values (fx.*) live in the chain data, not the per-scene file
       // (full chain persistence is M9) — keep them out of values/<scene>.json.
       const vals = entry.instance.manifest.values();
-      for (const k of Object.keys(vals)) if (k.startsWith("fx.")) delete vals[k];
+      for (const k of Object.keys(vals)) if (isFxPath(k)) delete vals[k];
       tunedValues.set(sceneName, vals);
       const ranges = entry.instance.manifest.rangeOverrides();
-      for (const k of Object.keys(ranges)) if (k.startsWith("fx.")) delete ranges[k];
+      for (const k of Object.keys(ranges)) if (isFxPath(k)) delete ranges[k];
       tunedRanges.set(sceneName, ranges);
     }
     state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
@@ -210,7 +214,7 @@ let onAction: (path: string) => void = () => {};
 
 function writeParam(scene: string, path: string, apply: (p: Param<unknown>) => void): void {
   if (scene === "globals") {
-    const isPalette = path.startsWith("palette.");
+    const isPalette = isPalettePath(path);
     const param = (isPalette ? palettes.manifest : inputs.manifest).get(path);
     if (!param) return;
     apply(param);
@@ -246,12 +250,12 @@ midi.onCc((e) => {
     setValue: (scene, path, value) => {
       if (scene === ACTIONS) return onAction(path);
       if (value === undefined) return; // a set binding without a target is inert
-      if (path.startsWith("mod:")) return setModEnabled(scene, path.slice(4), value >= 0.5);
+      if (isModBinding(path)) return setModEnabled(scene, modTarget(path), value >= 0.5);
       writeParam(scene, path, (p) => p.set(value));
     },
     cycle: (scene, path) => {
       if (scene === ACTIONS) return onAction(path);
-      if (path.startsWith("mod:")) return setModEnabled(scene, path.slice(4), "toggle");
+      if (isModBinding(path)) return setModEnabled(scene, modTarget(path), "toggle");
       writeParam(scene, path, (p) => p.cycle());
     },
   });

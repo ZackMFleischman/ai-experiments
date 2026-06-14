@@ -10,6 +10,7 @@ import type {
   Stage,
   TimeBus,
 } from "@loom/runtime";
+import { fixtureName, isModBinding, isPalettePath, modTarget } from "@loom/runtime";
 import {
   ArmAgentCommitArgs,
   ArmPanicModeArgs,
@@ -243,7 +244,7 @@ export class EngineApi {
       case "set_param": {
         const { instance, path, value } = SetParamArgs.parse(req.args);
         if (instance === GLOBALS) {
-          const isPalette = path.startsWith("palette.");
+          const isPalette = isPalettePath(path);
           const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
           param.set(value);
           if (isPalette) this.deps.persist.palettes();
@@ -366,7 +367,7 @@ export class EngineApi {
         }
         let fixture;
         if (inputs != null) {
-          const name = inputs.slice("fixture:".length);
+          const name = fixtureName(inputs);
           const data = await this.deps.fixtures.load(name); // throws on unknown/corrupt trace
           fixture = { name, data, baseFrame: this.deps.latestFrame().frame };
         }
@@ -571,12 +572,12 @@ export class EngineApi {
     }
     // "mod:<paramPath>" toggles that param's modulator on/off (a button press
     // pauses/resumes the wave without detaching). Always edge-triggered.
-    if (path.startsWith("mod:")) {
+    if (isModBinding(path)) {
       if (instance === GLOBALS) {
         throw new Error("modulators live on instances — globals params can't be modulated");
       }
       const e = this.deps.session.require(this.resolveId(instance));
-      this.requireParam(e.instance.manifest, path.slice("mod:".length), e.id);
+      this.requireParam(e.instance.manifest, modTarget(path), e.id);
       return { scene: e.sceneName, path, mode: "cycle" };
     }
     let scene: string;
@@ -603,7 +604,7 @@ export class EngineApi {
 
   /** "globals" = the input rack + the palettes, merged; routed by path prefix. */
   private globalsManifest(path: string): Manifest {
-    return path.startsWith("palette.") ? this.deps.palettes.manifest : this.deps.inputs.manifest;
+    return isPalettePath(path) ? this.deps.palettes.manifest : this.deps.inputs.manifest;
   }
 
   private globalsJson(): Record<string, unknown> {
