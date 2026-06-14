@@ -1219,3 +1219,24 @@ wedges the whole loop; NFR-2 only contains *throws*, not slowness).
   folded), digested to stderr — the signal for whether agents adopt the verbs.
   Gates: typecheck + `pnpm test` green; validate:m2's tool-list check passes,
   browser e2e blocked by the sandbox Playwright download.
+
+## Architecture refactor — merge with main; Phase 4 superseded (2026-06-14)
+
+Merging PR #16 (the refactor) with `main` (which had advanced by the
+color-channel/`set_color_space`, per-signal-profiling, and `set_params`/`batch`/
+`set_preview` work) needed two passes — `main` advanced again mid-resolution.
+All of `main`'s new features were preserved; the refactor's Phases 0/1/2/5 stayed
+intact (new state keys `palette-spaces`/`palette-mods`/`color-spaces/<scene>`
+folded into the Phase 2 `StateKey` schema; the `channelOf` skip folded into
+Phase 5's `groupParams`).
+- **Phase 4 (handleRequest → per-command methods) was superseded.** `main`
+  actively develops `engine-api.ts` as a `switch` and kept adding cases there, so
+  the method-extraction re-conflicted on every `main` change. Resolution: take
+  `main`'s switch form and re-apply only Phase 1's path helpers
+  (`isPalettePath`/`isModBinding`/`modTarget`/`fixtureName`). The switch is the
+  form being maintained; re-proposing the split is **not** recommended (noted in
+  `feature-requests/architecture-refactor-render-path.md`).
+- Remaining deferred render-path work (Phase 3 `main.ts` decomposition + the
+  `window.__loom` throttle, Phase 6 TSL seam) is captured in that same ticket.
+- Cleared shipped feature-requests: `param-modulators.md`, `panic-scene.md`.
+- Gates after merge: typecheck + `pnpm test` (755) + `pnpm lint` green.
