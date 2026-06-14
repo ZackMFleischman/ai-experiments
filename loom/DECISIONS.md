@@ -1093,6 +1093,69 @@ testable modules, giving engine-app's UI its first logic tests:
   blends). The cosine PALETTES (`color.palette`) and the global palettes (R7)
   stay distinct systems — the chooser targets the former.
 
+## Scene preview mode — full-screen audition overlay (2026-06-14)
+
+- **Preview is a Console overlay, not a new page/route**: `PreviewMode.tsx`
+  renders `position: fixed; inset: 0; zIndex: modal` over the whole Console —
+  the selected instance blown up (its 640×360 thumbnail, cover-scaled exactly
+  like `/staged.html`) with only the params drawer alongside. Reuses `useThumb`
+  for pixels and `ParamPanel` wholesale, so widgets, FX chain, and the existing
+  stage/GO-LIVE buttons all come for free. The slim overlay header repeats GO
+  LIVE (verbatim `stage`→`commit`, the same human-sourced ungated path as the
+  ParamPanel button) so sending to live stays one tap even with the drawer
+  collapsed.
+- **Single `#panel` invariant**: while previewing, ConsoleApp stops mounting
+  the main-grid `ParamPanel` (`!previewing && <ParamPanel/>`) so the overlay's
+  drawer is the only `#panel` — two same-id drawers would break the DOM
+  contract validators read. The tile grid stays mounted (hidden behind the
+  overlay) so thumbnail subscriptions keep flowing.
+- **Toggle = Header button (`#previewbtn`) + "p" hotkey; Esc exits**: the
+  hotkey handler folds into ConsoleApp's existing "i" (rack) keydown listener,
+  sharing its "ignore while typing in a field" guard. DOM contract:
+  `#preview-mode`, `#preview-image`, `#preview-name`, `#preview-stage`,
+  `#preview-golive`, `#preview-exit`.
+- Gates: typecheck + pnpm test (216+27+19 +434 content) green. Verified in
+  headless Chromium: overlay opens via button + "p"/Esc, names the selected
+  instance, mounts exactly one drawer, follows tile selection, GO-LIVE
+  enabled/disabled+label logic. Live pixel-stream and the GO-LIVE crossfade
+  landing reuse m4-validated infra (thumbnail readback + console→engine
+  `stage`/`commit`) that this session's headless harness couldn't exercise
+  (offscreen readback + occluded-tab BroadcastChannel both dead — the standard
+  boot tile fails identically).
+
+## Preview mode — full-resolution adaptive stream (2026-06-14)
+
+- **Non-live instances render at 640×360, so "exact preview" needs a real
+  full-res render, not a sharper readback.** While the preview overlay is open,
+  the engine renders the *selected* instance at the chosen resolution and
+  streams it back (`set_preview` human-only verb + a separate `kind:"preview"`
+  broadcast, like thumbnails). Mechanism: resize that sandbox entry's
+  `RenderTarget` so the compositor renders it at preview res **once per frame**
+  (no second render → no destination-sized-buffer thrash); the tile thumbnail
+  just downscales from the now-larger target. `readTarget` reads the target's
+  ACTUAL size (was hardcoded `PREVIEW_W/H`) so thumbnails/screenshots still
+  work when it's enlarged. The **live** instance renders to the canvas, not a
+  target, so it's mirrored from the canvas at preview res (`previewMirror`,
+  same same-task-read trick as `liveMirror`) and its target is left untouched.
+- **fps-driven auto-reduction lives in the engine, ceiling in the UI.** The
+  Console dropdown sets a height ceiling (1080/720/540/360, default Full,
+  persisted); `tickPreview` (render loop) runs a hysteresis ladder — sag below
+  50 fps for ~0.33 s drops a level, headroom above 57 fps for ~4 s climbs one
+  back, never above the ceiling. The preview frame carries `actualHeight/
+  ceilingHeight/reduced` so the overlay shows the live res + "· auto" when
+  throttled. The same loop that bounds GPU cost also protects against the
+  full-res readback cost (heavy preview → fps dips → it downscales itself).
+- **Stream is overlay-gated and self-cleaning**: it only runs while a Console
+  is present AND a preview is requested; on stop/instance-switch/destroy the
+  enlarged target is restored to 640×360 (`restorePreviewTarget`). `set_preview`
+  is human-only and NOT an MCP tool — agents have no path to it.
+- Gates: typecheck + pnpm test green (4 new engine-api tests cover the resize,
+  the live-instance no-resize, the human-only gate, and the up/down ladder).
+  Browser-verified the dropdown/persistence/readout DOM; the hi-res pixel
+  stream itself couldn't run in this headless session (dead offscreen readback,
+  same limit that blanks the tiles) — the render-path logic is unit-tested
+  instead.
+
 ## 2026-06-14 — signal robustness (cost attribution + loop guard)
 
 Two engine-level defenses for slow / non-halting CPU signals (the synchronous
@@ -1124,3 +1187,35 @@ wedges the whole loop; NFR-2 only contains *throws*, not slowness).
   Plugin is defensive (any failure → untransformed passthrough). Limitation:
   TS-printer output drops sourcemaps for guarded files (acceptable v1); loops
   inside the content build only — runtime/engine code is never rewritten.
+
+## batch + set_params MCP tools (2026-06-14)
+
+- **Latency win is collapsing model round-trips, not WS hops.** Each MCP tool
+  call is a full LLM turn; the localhost sidecar↔engine WS round-trip is sub-ms.
+  So `batch`/`set_params` pay off by letting the agent express many edits in ONE
+  tool call (fewer turns, denser tokens), not by speeding the wire.
+- **Both fan out engine-side, reusing `handleRequest` by recursion.** `batch`
+  re-enters the same dispatch per sub-call, so every per-type Zod parse AND every
+  gate (HUMAN_ONLY verbs, live-chain/commit arming) is enforced exactly as a
+  direct call would be — no second copy of the gate logic. `batch` rejects
+  nesting (one level deep, bounds the work per request).
+- **Serial-only for v1.** `mode` is accepted for forward-compat but the only ops
+  that would benefit from parallelism (screenshot/create_instance/previews) are
+  renderer-bound and unsafe to run concurrently against the shared WebGPU
+  renderer; pure-CPU ops (set_param) gain nothing. Parallel is a deliberate
+  non-goal until an async-safe subset is carved out.
+- **`set_params` applies all paths in one handler call → same frame, one persist
+  flush.** Partial success (bad path → `errors[]`, good ones still land) so a
+  single typo doesn't sink a bulk tweak. Same modulation guard and globals/
+  palette routing as `set_param`.
+- **MCP boundary stays JSON, not a YAML string.** A YAML blob would have to be a
+  JSON-escaped string inside the tool args (more tokens, not fewer); the savings
+  come from one call replacing N and from `set_params`' flat path→value map.
+- **Sidecar unwraps screenshots taken inside a batch** into MCP image content
+  (base64 stripped from the text echo), mirroring the single-screenshot path.
+  Batch WS timeout = Σ per-call budgets + base, reusing the single-dispatch
+  budgets. Also a `ToolMetrics` counter on the MCP dispatch tallies per-tool
+  calls + `missedBatchable` (consecutive same-instance set_param that could have
+  folded), digested to stderr — the signal for whether agents adopt the verbs.
+  Gates: typecheck + `pnpm test` green; validate:m2's tool-list check passes,
+  browser e2e blocked by the sandbox Playwright download.

@@ -1,4 +1,4 @@
-import type { SessionSnapshot } from "@loom/sidecar/protocol";
+import type { PreviewFrame, SessionSnapshot } from "@loom/sidecar/protocol";
 
 /** One tweakable param as the engine describes it over the channel. */
 export type ParamDesc = {
@@ -81,6 +81,8 @@ export class EngineLink {
   private readonly listeners = new Set<() => void>();
   private thumbsMap: Record<string, string> = {};
   private readonly thumbListeners = new Set<() => void>();
+  private previewFrame: PreviewFrame | null = null;
+  private readonly previewListeners = new Set<() => void>();
 
   private lastStateAt = -Infinity;
   private readonly timers: Array<ReturnType<typeof setInterval>> = [];
@@ -128,6 +130,16 @@ export class EngineLink {
     };
   };
   thumb = (id: string): string | undefined => this.thumbsMap[id];
+
+  // Full-res preview stream (Console preview overlay). The latest frame, plus a
+  // store shaped for useSyncExternalStore.
+  subscribePreview = (fn: () => void): (() => void) => {
+    this.previewListeners.add(fn);
+    return () => {
+      this.previewListeners.delete(fn);
+    };
+  };
+  preview = (): PreviewFrame | null => this.previewFrame;
 
   req(type: string, args: Record<string, unknown> = {}): Promise<unknown> {
     const id = `${this.prefix}${++this.seq}`;
@@ -200,6 +212,11 @@ export class EngineLink {
     if (msg.kind === "thumbs") {
       this.thumbsMap = { ...this.thumbsMap, ...(msg.thumbs as Record<string, string>) };
       this.emitThumbs();
+      return;
+    }
+    if (msg.kind === "preview") {
+      this.previewFrame = msg.preview as PreviewFrame;
+      for (const fn of this.previewListeners) fn();
     }
   }
 
