@@ -9,6 +9,7 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 - Instance ids: the boot instance (bound to `live.scene.ts`) is `"boot"`; created ones are `"<scene>-<n>"`. The id `"live"` is an **alias** that always resolves to whatever instance is currently routed to output — it's the default everywhere, so "tweak the live thing" needs no lookup.
 - The pseudo-instance `"globals"` serves the **input rack** *and* the **global color palettes**: `get_manifest {instance:"globals"}` lists every channel tuning (`inputs.kick.threshold`, `inputs.bass.gain`, …) plus the two palettes' stops (`palette.primary.0`…`palette.secondary.4`, `color` params holding `"#rrggbb"`); `set_param` retunes either live for every consumer at once. Any stop can be split into modulatable H/S/V or R/G/B channels with `set_color_space` (R7.4). `get_session` carries the live channel values in `inputs` (your meters). Tunings persist across sessions (`content/state/`).
 - `set_param` — change a param live (<100 ms, no recompile). Values clamp to range. Errors if the param is currently modulated — `clear_modulation` first.
+- `set_params` — change **many** params on one instance at once: `{ instance?, values: { path: value, … } }`. The batched form of `set_param` — every knob lands on the **same frame** (no tearing) in one round-trip, so **prefer it whenever you're touching more than one knob**. Partial success: a bad/unknown/modulated path comes back in `errors[]` without dropping the others. Works on `"globals"` too (rack + palette stops).
 - `modulate_param` — attach an LFO/stepper/audio-follower to a param: `{ type: sine|triangle|ramp|square|random|drift|cycle|audio, periodSeconds|periodBeats, lo?, hi?, ... }`. The engine animates it every frame inside the param's range. Same trust tier as `set_param` (no arming, live allowed); attaching replaces any existing modulator on that param. Use it to audition motion non-destructively before baking an `lfo` module into scene code. (Instance params — plus decomposed **palette color channels** on `"globals"`, see `set_color_space`; the input-rack tunings stay hand-driven.)
 - `set_color_space` — decompose a color param into channel sliders, or collapse it back: `{ instance, path, space: hex|hsv|rgb }`. `hsv` exposes `<path>.h/.s/.v`, `rgb` exposes `<path>.r/.g/.b` — each an ordinary 0..1 float you can then `modulate_param` or MIDI-bind to retint live (the color recomposes from its channels every frame, no rebuild). `hex` removes the channels (clearing their modulators/bindings). Works on instance color params (`ctx.color(...)`) and the **global palette stops** (`palette.primary.<i>` / `palette.secondary.<i>`).
 - `clear_modulation` — detach a param's modulator (no-op success if none); the param holds its last value.
@@ -23,12 +24,13 @@ You are working inside LOOM, a live-visuals instrument. A human is watching the 
 - `commit` — crossfade staged → LIVE. **Human-gated by default**: unless the human armed agent commit in the Console, this errors — that's by design. Stage, then *tell the human it's ready to audition and commit*.
 - `record_fixture` — record the live input rack (every channel, every frame) for N frames into `content/state/fixtures/<name>.json`. Replay it with `create_instance { inputs: "fixture:<name>" }` — the instance consumes the trace instead of the live rack (deterministic audio-reactivity). On a fixture instance, `screenshot { frames: [...] }` runs a deterministic offline pass: same fixture + frame list → byte-identical images, every call. **Never animate with TSL `time`** (wall clock, breaks this) — use `ctx.uniformOf(ctx.time.now)`; a source scan enforces it.
 - `list_projects` / `save_project` / `load_project` — **set lists**: a project is the saved instance set (per instance: scene, tuned values, modulators, root + per-node chains, tile order) in `content/state/projects/<name>.json`. Loading is **audience-safe**: every project instance builds into a sandbox, LIVE keeps playing untouched; the pre-load instances cull automatically after a commit from the loaded set lands. Stage one of the created instances and hand over (or commit if armed). Agent `save_project` needs arming like commit.
+- `batch` — run several of these tools in **one call**: `{ calls: [{ tool, args }, …], stopOnError? }`. They execute serially in order, sharing one round-trip — the lowest-latency way to make many changes at once (e.g. `set_params` on two instances, then `set_chain`, then `screenshot`). Each result carries its own `ok`/`result` | `ok:false`/`error`; screenshots taken inside come back as images. Per-call gates still apply (human-only verbs and live-commit arming are enforced inside the batch), and `batch` can't nest. Reach for `set_params` for the common "many knobs, one instance" case; reach for `batch` when the work spans different tools or instances.
 
 The engine must be running (`pnpm dev`) for tools to work. `?audio=test` on the URL gives synthetic kick/hats when no mic is around. The human's cockpit is `/console.html` — they see every instance as a tile, can spawn library scenes themselves (scene picker), drag your params, PANIC, and COMMIT there.
 
 ## Rules
 
-1. **Params before rewrites.** To change feel (speed, intensity, color balance), first check `get_manifest` and use `set_param`. Only edit code when the structure itself is wrong. When code must change, expose the new knob as a param.
+1. **Params before rewrites — and batch them.** To change feel (speed, intensity, color balance), first check `get_manifest`, then tune params, not code. When you're setting **more than one knob, reach for `set_params`** (the whole cluster in one frame, one round-trip) rather than a stream of `set_param`; when the work spans different tools or instances, wrap it in a **`batch`**. Single `set_param` is for a one-off nudge in a tweak→screenshot loop. Only edit code when the structure itself is wrong; when code must change, expose the new knob as a param.
 2. **Never touch `packages/runtime/`** (or `packages/engine-app/`, `packages/sidecar/`) during a session. Your territory is `content/` — scenes and modules. Engine changes are human-reviewed work, not session work.
 3. **Signatures first.** When building multiple modules (especially in parallel), write each module's exported interface + metadata stub first, make `pnpm typecheck` pass, then fill in implementations. Types are the coordination protocol.
 4. **Trust the safety net, verify with eyes.** A bad save never blanks the output (compile errors are withheld; build throws keep the previous scene; render throws freeze the instance). After a save, `get_session` tells you if your instance errored, and `screenshot` shows what's actually rendering.
@@ -70,7 +72,14 @@ Key kernel facts:
 1. `get_session` + `screenshot` — know the starting state.
 2. Write/edit the scene in `content/scenes/`, point `live.scene.ts` at it, save.
 3. `get_session` — check `instanceError` is null. `screenshot` — compare against intent.
-4. Iterate on code until the structure is right, then converge on feel with `set_param`.
+4. Iterate on code until the structure is right, then converge on feel with `set_params` — set the whole cluster of knobs at once, not one at a time. To change-and-look in a single round-trip, `batch` the tweak with its screenshot:
+
+   ```
+   batch({ calls: [
+     { tool: "set_params", args: { values: { trail: 0.8, punch: 2, drift: 1.02 } } },
+     { tool: "screenshot" },
+   ]})
+   ```
 5. Report the manifest knobs you exposed so the human knows what they can ride.
 
 See skills: **module-authoring** (writing a new module), **scene-composition** (writing/wiring scenes).

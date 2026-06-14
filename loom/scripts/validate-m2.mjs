@@ -220,6 +220,48 @@ try {
     `lum ${shot.lum.toFixed(1)}, ${shot.meta.width}x${shot.meta.height} @ frame ${shot.meta.frame}`,
   );
 
+  // 8b. set_params: many knobs in one round-trip, partial success on a bad path.
+  const many = toolJson(
+    await client.callTool({
+      name: "set_params",
+      arguments: { values: { trail: 0.6, punch: 2, nope: 1 } },
+    }),
+  );
+  check(
+    "set_params applies good paths and reports bad ones",
+    many.set.length === 2 &&
+      many.set.some((s) => s.path === "trail" && s.value === 0.6) &&
+      many.errors.length === 1 &&
+      many.errors[0].path === "nope",
+    `set ${JSON.stringify(many.set)} · errors ${JSON.stringify(many.errors)}`,
+  );
+
+  // 8c. batch: one call fans out to many; gates apply; screenshots come back as images.
+  const batch = await client.callTool({
+    name: "batch",
+    arguments: {
+      calls: [
+        { tool: "set_params", args: { values: { trail: 0.7 } } },
+        { tool: "get_session" },
+        { tool: "screenshot" },
+        { tool: "commit" }, // unarmed agent commit → gated, reported as ok:false
+      ],
+    },
+  });
+  const batchJson = JSON.parse(batch.content.find((c) => c.type === "text").text);
+  const batchImg = batch.content.find((c) => c.type === "image");
+  check(
+    "batch runs calls serially, surfaces screenshot images, and preserves gates",
+    batchJson.results.length === 4 &&
+      batchJson.results[0].ok === true &&
+      batchJson.results[1].ok === true &&
+      batchJson.results[2].ok === true &&
+      batchJson.results[3].ok === false &&
+      /not armed/.test(batchJson.results[3].error) &&
+      batchImg != null,
+    `results ${JSON.stringify(batchJson.results.map((r) => [r.tool, r.ok]))}`,
+  );
+
   // 9. Params visibly steer the picture: bright extreme vs dark extreme.
   await client.callTool({ name: "set_param", arguments: { path: "punch", value: 3 } });
   await client.callTool({ name: "set_param", arguments: { path: "trail", value: 0.97 } });
