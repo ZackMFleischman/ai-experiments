@@ -6,6 +6,8 @@
     "dev": "pnpm --filter @loom/engine-app dev",
     "sidecar": "pnpm --filter @loom/sidecar dev",
     "typecheck": "node scripts/build-catalog.mjs && tsc --noEmit -p .",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
     "catalog": "node scripts/build-catalog.mjs",
     "test": "pnpm -r --if-present test && pnpm test:content",
     "test:content": "vitest run --config vitest.config.ts",
@@ -29,6 +31,7 @@
     "validate:stdlib": "node scripts/validate-stdlib.mjs"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.0",
     "@modelcontextprotocol/sdk": "^1.20.0",
     "@types/node": "25.9.2",
     "@types/three": "0.184.1",

@@ -7,7 +7,7 @@
  */
 const KEY = "loom.scenethumbs";
 
-let cache: Record<string, string> = (() => {
+const cache: Record<string, string> = (() => {
   try {
     return JSON.parse(localStorage.getItem(KEY) ?? "{}") as Record<string, string>;
   } catch {

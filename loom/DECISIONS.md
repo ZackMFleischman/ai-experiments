@@ -931,3 +931,29 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   and noise-warp (noise-as-displacement/rotation). Gates: typecheck + pnpm test
   green; GPU validators (validate:stdlib) not run — sandbox blocks the
   Playwright chromium download.
+
+## Architecture refactor — Phase 0: Biome lint (2026-06-14)
+
+First of a 7-phase architecture refactor (plan: lint → typed paths → state
+schema → main.ts decomposition → handleRequest handlers → console logic
+extraction → TSL seam). Phase 0 adds Biome 2.5 as the lint/format tool.
+- **Lint-only, no repo-wide reformat** (deliberate): a formatter sweep would
+  bury every later refactor diff. `pnpm lint` = `biome lint .`; `pnpm format`
+  exists but is not in the gate. `biome.json` formatter is configured to match
+  the existing style (2-space, double quotes, semicolons, width 120) so
+  touched-file formatting is near-zero churn.
+- **Rule tuning:** the error gate stays tight — only genuine correctness bugs
+  block. Disabled rules that fight the codebase's deliberate idioms
+  (`noNonNullAssertion`, `useImportType`, `noApproximativeNumericConstant`).
+  Downgraded awkward-but-harmless ones to warn (`noImplicitAnyLet`,
+  `useIterableCallbackReturn`, `noUnusedFunctionParameters`,
+  `useExhaustiveDependencies`, `noArrayIndexKey`). Result: 0 errors, ~35
+  advisory warnings (future cleanup).
+- **Real fixes made:** a latent bug in `lfoSignal` (control.ts) — the shape
+  `switch` had no fallback, so the `.map` callback returned `undefined` if
+  `LfoShape` ever gained a member; added `default: return phase`. Removed dead
+  imports (displace/plasma/voronoi `Signal`, plasma `cos`, inputs `BandName`)
+  and two `?.[0]!` optional-chain-then-assert smells in protocol.test.
+- Gates: typecheck + `pnpm test` (663) + `pnpm lint` green. validate suites not
+  run — sandbox egress blocks the Playwright chromium download (as for prior
+  entries); CI / Cloudflare preview is the eyes-on check.

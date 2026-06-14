@@ -144,8 +144,8 @@ describe("chain args (M6)", () => {
       steps: [{ effect: "glitch" }, { id: "levels-2", effect: "levels", params: { gain: 1.2 }, mix: 0.5 }],
     });
     expect(a.instance).toBe("live");
-    expect(a.steps?.[0]!.effect).toBe("glitch");
-    expect(a.steps?.[1]!.mix).toBe(0.5);
+    expect(a.steps![0]!.effect).toBe("glitch");
+    expect(a.steps![1]!.mix).toBe(0.5);
   });
 
   it("SetChainArgs accepts restoreDefault without steps, but needs one or the other", () => {

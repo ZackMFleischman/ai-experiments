@@ -67,6 +67,8 @@ export function lfoSignal(beats: Signal<number>, opts: LfoOpts = {}): Signal<num
         return phase;
       case "square":
         return phase < width ? 1 : 0;
+      default:
+        return phase;
     }
   });
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { FrameCtx } from "./frame";
-import type { AudioBusLike, BandName } from "./inputbus/audio";
+import type { AudioBusLike } from "./inputbus/audio";
 import type { MidiBusLike } from "./inputbus/midi";
 import { Manifest, type Param } from "./param";
 import { Signal } from "./signal";
