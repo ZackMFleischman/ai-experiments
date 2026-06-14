@@ -19,6 +19,7 @@ export const RequestType = z.enum([
   "get_session",
   "get_manifest",
   "set_param",
+  "set_params",
   "set_param_range",
   "modulate_param",
   "clear_modulation",
@@ -48,6 +49,7 @@ export const RequestType = z.enum([
   "save_project",
   "load_project",
   "record_fixture",
+  "batch",
 ]);
 export type RequestType = z.infer<typeof RequestType>;
 
@@ -76,6 +78,31 @@ export const SetParamArgs = z.object({
   value: z.union([z.number(), z.boolean(), z.string()]),
 });
 export type SetParamArgs = z.infer<typeof SetParamArgs>;
+
+/**
+ * Set many params on ONE instance in a single round-trip (the batched form of
+ * set_param). `values` is a path→value map applied in one engine handler call,
+ * so every knob lands on the same frame (no tearing). Partial success: a bad
+ * path is collected in the result's `errors[]` without dropping the others.
+ */
+export const SetParamsArgs = z
+  .object({
+    instance: z.string().default("live"),
+    values: z.record(z.string(), z.union([z.number(), z.boolean(), z.string()])),
+  })
+  .refine((a) => Object.keys(a.values).length > 0, {
+    message: "set_params needs at least one path in `values`",
+  });
+export type SetParamsArgs = z.infer<typeof SetParamsArgs>;
+
+export const SetParamsResult = z.object({
+  instance: z.string(),
+  /** Paths that applied, with their clamped values. */
+  set: z.array(z.object({ path: z.string(), value: z.union([z.number(), z.boolean(), z.string()]) })),
+  /** Paths that failed (unknown/modulated/out-of-domain), each with its reason. */
+  errors: z.array(z.object({ path: z.string(), error: z.string() })),
+});
+export type SetParamsResult = z.infer<typeof SetParamsResult>;
 
 /**
  * Widen/narrow a float|int param's slider bounds live (Console power-tool —
@@ -289,6 +316,41 @@ export type SaveProjectArgs = z.infer<typeof SaveProjectArgs>;
 
 export const LoadProjectArgs = z.object({ name: z.string().min(1) });
 export type LoadProjectArgs = z.infer<typeof LoadProjectArgs>;
+
+/**
+ * Batch — run several engine commands in one round-trip. Each call names a tool
+ * and its args (validated per-type when it runs); they execute serially in the
+ * given order inside a single engine dispatch. Per-call gates (human-only verbs,
+ * live-commit arming) still apply, and `batch` may not nest. `stopOnError` aborts
+ * the remainder on the first failure; otherwise every call runs and each carries
+ * its own ok/result | ok/error. Mode is serial-only for now (renderer-bound ops
+ * — screenshot/create_instance — can't safely run concurrently).
+ */
+export const BatchCall = z.object({
+  tool: RequestType,
+  args: z.record(z.string(), z.unknown()).default({}),
+});
+export type BatchCall = z.infer<typeof BatchCall>;
+
+export const BatchArgs = z.object({
+  mode: z.enum(["serial"]).default("serial"),
+  stopOnError: z.boolean().default(false),
+  calls: z.array(BatchCall).min(1).max(64),
+});
+export type BatchArgs = z.infer<typeof BatchArgs>;
+
+export const BatchCallResult = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), tool: z.string(), result: z.unknown() }),
+  z.object({ ok: z.literal(false), tool: z.string(), error: z.string() }),
+]);
+export type BatchCallResult = z.infer<typeof BatchCallResult>;
+
+export const BatchResult = z.object({
+  mode: z.enum(["serial"]),
+  /** One entry per call, in request order. */
+  results: z.array(BatchCallResult),
+});
+export type BatchResult = z.infer<typeof BatchResult>;
 
 export const SaveProjectResult = z.object({
   saved: z.string(),

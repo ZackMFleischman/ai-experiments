@@ -14,6 +14,7 @@ import type {
 import {
   ArmAgentCommitArgs,
   ArmPanicModeArgs,
+  BatchArgs,
   ClearModulationArgs,
   CommitArgs,
   CreateInstanceArgs,
@@ -35,6 +36,7 @@ import {
   SetModulationEnabledArgs,
   SetPanicInstanceArgs,
   SetParamArgs,
+  SetParamsArgs,
   SetParamRangeArgs,
   TransportArgs,
   type AudioDevice,
@@ -273,6 +275,53 @@ export class EngineApi {
         param.set(value);
         this.deps.persist.scene(e.sceneName);
         return { instance: e.id, path, value: param.value as number | boolean | string };
+      }
+      case "set_params": {
+        // The batched set_param: every path is applied in this one handler call,
+        // so the whole group lands on the same frame (no tearing between knobs)
+        // and persistence flushes once. Partial success — a bad path is reported
+        // in `errors[]` rather than sinking the rest.
+        const { instance, values } = SetParamsArgs.parse(req.args);
+        const set: Array<{ path: string; value: number | boolean | string }> = [];
+        const errors: Array<{ path: string; error: string }> = [];
+        if (instance === GLOBALS) {
+          let touchedPalette = false;
+          let touchedGlobals = false;
+          for (const [path, value] of Object.entries(values)) {
+            try {
+              const isPalette = path.startsWith("palette.");
+              const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
+              param.set(value);
+              if (isPalette) touchedPalette = true;
+              else touchedGlobals = true;
+              set.push({ path, value: param.value as number | boolean | string });
+            } catch (err) {
+              errors.push({ path, error: err instanceof Error ? err.message : String(err) });
+            }
+          }
+          if (touchedPalette) this.deps.persist.palettes();
+          if (touchedGlobals) this.deps.persist.globals();
+          return { instance: GLOBALS, set, errors };
+        }
+        const e = session.require(this.resolveId(instance));
+        for (const [path, value] of Object.entries(values)) {
+          try {
+            const param = this.requireParam(e.instance.manifest, path, e.id);
+            const mod = e.modulators.get(path);
+            if (mod != null && mod.error == null && mod.enabled) {
+              throw new Error(
+                `"${path}" on "${e.id}" is modulated (${mod.spec.type}) — call clear_modulation ` +
+                  "or set_modulation_enabled false to take manual control",
+              );
+            }
+            param.set(value);
+            set.push({ path, value: param.value as number | boolean | string });
+          } catch (err) {
+            errors.push({ path, error: err instanceof Error ? err.message : String(err) });
+          }
+        }
+        if (set.length > 0) this.deps.persist.scene(e.sceneName);
+        return { instance: e.id, set, errors };
       }
       case "set_param_range": {
         const { instance, path, min, max, restoreDefault } = SetParamRangeArgs.parse(req.args);
@@ -571,6 +620,37 @@ export class EngineApi {
         const { name } = LoadProjectArgs.parse(req.args);
         const out = await this.deps.projects.load(name);
         return { loaded: name, created: out.created, skipped: out.skipped, live: stage.live };
+      }
+      case "batch": {
+        // Fan one round-trip out to many commands. Each sub-call re-enters this
+        // same dispatch, so every per-type validation AND every gate (human-only
+        // verbs, live-commit arming) is enforced exactly as a direct call would
+        // be. Serial in request order; `stopOnError` aborts the remainder.
+        const { mode, stopOnError, calls } = BatchArgs.parse(req.args);
+        const results: Array<
+          | { ok: true; tool: string; result: unknown }
+          | { ok: false; tool: string; error: string }
+        > = [];
+        for (const call of calls) {
+          if (call.tool === "batch") {
+            // Reject nesting rather than recurse — keeps the fan-out one level
+            // deep and bounds the work a single request can trigger.
+            results.push({ ok: false, tool: call.tool, error: "batch cannot nest" });
+            if (stopOnError) break;
+            continue;
+          }
+          try {
+            const result = await this.handleRequest(
+              { id: req.id, kind: "req", type: call.tool, args: call.args },
+              source,
+            );
+            results.push({ ok: true, tool: call.tool, result });
+          } catch (err) {
+            results.push({ ok: false, tool: call.tool, error: err instanceof Error ? err.message : String(err) });
+            if (stopOnError) break;
+          }
+        }
+        return { mode, results };
       }
     }
   }
