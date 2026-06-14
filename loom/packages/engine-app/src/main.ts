@@ -75,6 +75,8 @@ declare global {
         pinned: "panic" | null;
         modulators: Array<{ path: string; type: string; error: string | null; enabled: boolean }>;
         chain: Array<{ id: string; effect: string; kind: string; mix: number; enabled: boolean }>;
+        /** Costliest CPU signals (smoothed ms, desc) — per-signal cost attribution. */
+        slowSignals: Array<{ label: string; ms: number }>;
       }>;
       /** Input-rack channel values (rack meters / validation). */
       inputs: Record<string, number>;
@@ -89,6 +91,10 @@ declare global {
 }
 
 const qs = new URLSearchParams(location.search);
+
+// Per-signal cost attribution is on by default (negligible overhead); `?profile=0`
+// opts out for the perf-paranoid. Surfaces as `slowSignals` in get_session.
+Instance.profilingEnabled = qs.get("profile") !== "0";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#out");
 const fpsEl = document.querySelector<HTMLElement>("#fps");
@@ -988,6 +994,7 @@ const frameTick = (tMs: number): void => {
       .list()
       .map((m) => ({ path: m.path, type: m.spec.type, error: m.error, enabled: m.enabled })),
     chain: e.chain.list(),
+    slowSignals: e.instance.slowSignals(),
   }));
 };
 

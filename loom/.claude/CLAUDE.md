@@ -56,6 +56,7 @@ content/CATALOG.md   generated index of every module + scene — read this first
 
 Key kernel facts:
 - Signals are pulled per frame and memoized on `f.frame`. CPU signals reach the GPU only through `ctx.uniformOf(signal)` — that registration is also what keeps stateful signals (lag, envelope) ticking.
+- Signal cost is attributed: `get_session`'s `slowSignals` (per instance, smoothed ms, by param path / `input.<name>` / `palette`) breaks `frameMs` down to the specific signal eating the frame — read it when a scene feels heavy. A runaway/infinite loop in scene/module code is build-time **loop-guarded**: it throws (`[loom] loop guard:`) and freezes that instance (NFR-2) instead of wedging the render thread, so a bad loop is contained like any other throw.
 - `TexNode.color` is strictly a TSL `vec4` node. Sources normalize to vec4 once.
 - Stateful effects own pass ordering: return `[...input.passes, ownPass]`.
 - Params: `ctx.float("name", { default, min, max, description })` → `param.signal()` → `ctx.uniformOf(...)`. Declare ranges honestly; the manifest is the human's mixing board.

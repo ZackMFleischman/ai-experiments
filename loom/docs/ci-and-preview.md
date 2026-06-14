@@ -46,6 +46,30 @@ agent/MCP editing and HMR happen in your dev session here, not on the preview
 Cloudflare gives each PR branch its own preview URL and the sticky comment keeps
 the latest one at the top of the PR.
 
+### Contextual screenshots
+
+The screenshots in the comment reflect **what the PR changed**, not a fixed
+scene. `scripts/affected-shots.mjs` diffs `HEAD` against the PR base (hence the
+preview job checks out with `fetch-depth: 0`) and maps the changed files to
+shoot targets:
+
+- a changed `content/scenes/<x>.scene.ts` → shoot `<x>`;
+- a changed `content/modules/**` file → shoot every scene that **transitively
+  imports it** (a forward import graph over `content/`, built from the source);
+- a change under `packages/engine-app/src/ui/**` → shoot the **Console** cockpit
+  (`shoot.mjs --console`, which self-boots an embedded engine so the shot needs
+  no separate Output window);
+- broad/global content (`content/inputs.ts`, the `live.scene.ts` pointer,
+  `content/test/**`) or anything else (e.g. `packages/runtime`) → **boot-scene
+  fallback**, the prior behavior.
+
+The resolver prints ready-to-use `shoot.mjs` args on stdout (scene names + maybe
+`--console`) and a human summary on stderr (visible in the Actions log). Scene
+output is **capped at 6** (directly-changed scenes first) so a popular shared
+module can't fan out to dozens of slow software-GL renders; truncation is noted.
+The decision logic is pure and unit-tested (`scripts/affected-shots.test.mjs`,
+run by `pnpm test:scripts`).
+
 ### Teardown
 
 Cloudflare never deletes preview deployments on its own, so

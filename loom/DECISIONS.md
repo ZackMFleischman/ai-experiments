@@ -7,7 +7,7 @@ Log of implementation decisions, per the plan's cross-cutting rules. Newest at t
 - **three pinned exact at 0.184.0** (`@types/three@0.184.1`), per the plan's "pin Three.js per milestone" risk mitigation. Vite 8, TypeScript 5.8, pnpm workspace.
 - **One root `tsconfig.json` drives typecheck** for `packages/*` and `content/` (no project references). `@loom/runtime` resolves via tsconfig `paths` + a Vite alias in `engine-app/vite.config.ts` — the alias is what lets `content/` scenes (which live outside any package) import the runtime.
 - **Vite HMR error overlay disabled** (`server.hmr.overlay: false`): a compile error must never paint over the Output window. Compile errors are withheld by Vite (previous module keeps running); runtime throws are contained by `SceneHost.setScene` try/catch.
-- **M0 error containment boundary:** TS/parse errors and `build()` throws are contained. A scene whose *shader* fails at GPU compile time after a successful build() is not yet contained — that's part of NFR-2 work in M1's per-instance containment.
+- **M0 error containment boundary:** TS/parse errors and `build()` throws are contained. A scene whose _shader_ fails at GPU compile time after a successful build() is not yet contained — that's part of NFR-2 work in M1's per-instance containment.
 - **Validation is screenshot-based** (Playwright + pngjs): reading a WebGL/WebGPU canvas via `drawImage` returns black without `preserveDrawingBuffer`, so acceptance checks sample composited page screenshots instead. Headless Chromium has no WebGPU adapter → automated runs exercise the WebGL2 fallback path; WebGPU is verified manually in desktop Chrome.
 - **Validation artifacts committed** under `loom/artifacts/` as evidence for each milestone run.
 
@@ -49,7 +49,7 @@ Log of implementation decisions, per the plan's cross-cutting rules. Newest at t
 - **Instances render exactly once per frame** (stateful passes advance per render call): the Stage directive decides each instance's one destination — canvas, a full-res crossfade leg, or its 640×360 preview target.
 - **Console previews are JPEG dataURLs at ~6.6 fps** read back via `readRenderTargetPixelsAsync` (BroadcastChannel can't transfer ImageBitmaps). WebGL reads come back bottom-up, WebGPU top-down — the flip keys off `renderer.backend.isWebGLBackend`. Broadcasts pause when no Console has said hello for 5 s. Upgrade path if tiles need to be smoother: window.open + MessagePort with transferable ImageBitmaps.
 - **`Stage.adoptLive` exists for boot/recovery only** (fills an empty live slot); every other LIVE change goes through `commit()` — the audience-safety invariant lives in one place.
-- **`"live"` is an alias, not an instance id.** The boot instance (bound to `live.scene.ts`) is id `"boot"`; commands default to `instance: "live"`, which resolves at dispatch to whatever the Stage currently routes to output. Before this, the boot instance was literally named "live", which read as "LIVE live" in the Console and silently pointed at the *old* instance after a commit.
+- **`"live"` is an alias, not an instance id.** The boot instance (bound to `live.scene.ts`) is id `"boot"`; commands default to `instance: "live"`, which resolves at dispatch to whatever the Stage currently routes to output. Before this, the boot instance was literally named "live", which read as "LIVE live" in the Console and silently pointed at the _old_ instance after a commit.
 - **The Console can spawn library scenes** (scene picker + "+ instance") — R4.5 demands the instrument work with the agent absent, and until this the human had no way to instantiate a scene without one. Goes through the same `create_instance` dispatch as the MCP tool.
 
 ## 2026-06-10 — content library refactor (pulseRings/glitch) + scene discovery
@@ -57,7 +57,7 @@ Log of implementation decisions, per the plan's cross-cutting rules. Newest at t
 - **Visual identities live in modules, scenes are wiring.** `pulse` and `pulse-glitch` both compose `pulseRings` (source: rings/core/ink palette, grain via the `noise` module) instead of duplicating TSL; the glitch treatment is a standalone `glitch` effect. The module-authoring and scene-composition skills now state the policy: >few lines of inline TSL in a scene means a module is missing.
 - **UV-warping effects must own a RenderTarget.** An effect cannot re-evaluate `input.color` at a shifted UV (it's a node graph, not a function of UV), so `glitch` renders its input into an owned RT each frame and re-samples `texture(rt.texture, warpedUv)` — three taps for the RGB split. `feedback` proved write-then-sample-same-frame is safe on both backends; `glitch.ts` is now the reference for stateless-looking-but-stateful resampling effects.
 - **`loom:watch-content` Vite plugin (engine-app).** `content/` sits outside the app root, so Vite's watcher never saw NEW files there: `import.meta.glob("…/content/scenes/*")` missed additions until something else invalidated the barrel (first symptom: `create_instance` reported the freshly written `pulse-glitch` scene unknown until the barrel was touched). `server.watcher.add(contentDir)` makes add/unlink events reach Vite's glob invalidation; verified headless (new file → `hot updated: /src/scenes.ts` with no manual touch).
-- **A frozen frame counter with a responsive bridge is a *window* problem, not a content bug.** Chrome stops rAF for minimized/occluded windows: `get_session` keeps answering (WS handlers run) while `frame`/`fps`/`rms` freeze and `screenshot` times out (it resolves inside the render loop). Diagnosed by exonerating the content headless (WebGL2) and headed (WebGPU) — both scenes ran clean. Recovery is desktop-side: make the Output window visible again.
+- **A frozen frame counter with a responsive bridge is a _window_ problem, not a content bug.** Chrome stops rAF for minimized/occluded windows: `get_session` keeps answering (WS handlers run) while `frame`/`fps`/`rms` freeze and `screenshot` times out (it resolves inside the render loop). Diagnosed by exonerating the content headless (WebGL2) and headed (WebGPU) — both scenes ran clean. Recovery is desktop-side: make the Output window visible again.
 - **Debug pages must pass `?ws=<isolated>`.** A throwaway repro page without it silently attached to the live session's sidecar on 7341 (same lesson the validators learned in M3, re-learned for ad-hoc scripts).
 
 ## 2026-06-10 — post-v1 candidate: param modulators
@@ -71,7 +71,7 @@ A design pass on "how the instrument is actually used" produced requirements R6�
 - **Quick wins are their own mini-milestone (M4 "Clean stage")**, not folded into the next big one: pure output + aspect fix + staging UX are performer-visible in a weekend, every later milestone's Console work builds on the resulting page structure, and bundling would couple a trivial validator to a large one.
 - **One "globals" mechanism for all global state.** Input-channel tunings (M5) and palettes (M6) register on a single global Manifest served as pseudo-instance `"globals"` through the existing `get_manifest`/`set_param` dispatch. Console widgets, MCP, and MIDI-learn reach globals with zero new param machinery — the alternative (bespoke commands per subsystem) would triple the protocol surface for no expressiveness.
 - **MIDI folds into the input-rack milestone (M5)** instead of shipping first as old-M4: the rack drawer is MIDI's natural UI surface and InputBus its home; building MIDI-learn before the rack exists would mean building a binding panel twice.
-- **Input channels are code-defined** (`content/inputs.ts`, hot-reloaded), Console-*tuned* — not Console-created. Code is the substrate (Principle: everything authored is text in git), the agent can grow the rack, and the protocol stays read/tune-only. Revisit only if mid-set channel creation with a mouse turns out to be a real need.
+- **Input channels are code-defined** (`content/inputs.ts`, hot-reloaded), Console-_tuned_ — not Console-created. Code is the substrate (Principle: everything authored is text in git), the agent can grow the rack, and the protocol stays read/tune-only. Revisit only if mid-set channel creation with a mouse turns out to be a real need.
 - **Global-vs-local input semantics: trims, not overrides.** A channel's detection meaning (band, threshold, decay) is owned globally; consumers get an auto-declared multiplicative trim param. A differently-detected kick is a new named channel (`kickTight`) — local threshold overrides would fork the meaning of a name and make the rack lie.
 - **Palettes are 5 anonymous ordered stops + a ramp**, two global slots (primary/secondary). Roles like bg/accent are documented conventions on indices — first-class named roles would lock a vocabulary into the kernel permanently. Per-instance palette choice is a live `palette.source` param resolved per frame, so switching is a `set_param`, never a rebuild.
 - **Chains precede the library buildout** (M6 before M7) so all ~20 stdlib effects are written `chainParams`-compliant from day one instead of retrofitted.
@@ -103,11 +103,12 @@ A design pass on "how the instrument is actually used" produced requirements R6�
 - **`?state=off` disables tuned-state load+save; validators m0–m4 boot with it** so a performer's persisted tunings (e.g. a hot kick threshold) can never skew their assertions; validate-m5 runs with state ON (it's under test) and snapshots/restores `content/state/` around the run. validate-m2's "manifest paths" check loosened from exact-equality to subset — `ctx.input()` auto-trims legitimately grew pulse's manifest.
 - **`pulse.scene.ts` consumes `ctx.input("kick"/"bass")`** with channel defaults exactly matching its old hand-rolled detector (threshold 0.22, decay 0.22, lag 0.06), so m1's luminance/onset assertions hold unchanged. Other scenes keep raw `ctx.audio` until the M7 retrofit.
 - **Mocked MIDI rides the real path:** `MidiBus.inject(cc, ch, v)` (exposed as `window.__loom.midiInject`) feeds the same emit pipeline as a hardware `midimessage`, so validate-m5's learn/binding checks exercise everything but the W3C event plumbing.
-- **Test-audio scheduler drops missed beats after a stall.** `startTest`'s lookahead loop used to schedule every missed kick *in the past at once* when the main thread stalled (e.g. a Playwright screenshot); the pile-up saturated the analyser and read as one giant onset that crossed even a 0.95 threshold — caught as a validate-m5 flake. `next` now fast-forwards past `currentTime` before scheduling.
+- **Test-audio scheduler drops missed beats after a stall.** `startTest`'s lookahead loop used to schedule every missed kick _in the past at once_ when the main thread stalled (e.g. a Playwright screenshot); the pile-up saturated the analyser and read as one giant onset that crossed even a 0.95 threshold — caught as a validate-m5 flake. `next` now fast-forwards past `currentTime` before scheduling.
 
 ## 2026-06-10 — M5 follow-up: WebMIDI permission UX (first hardware run)
 
 - **Chrome ≥124 gates ALL WebMIDI behind a permission prompt, and the engine requests it from the Output window — a bare projector page nobody clicks.** First real-hardware run (nanoKONTROL2): the prompt was never granted, `requestMIDIAccess` rejected, and `MidiBus.init` swallowed it silently — "no access" and "no devices" were indistinguishable (`MIDI —`). Fixes: `MidiBus.status` ("off"/"ready") with idempotent, retryable `init()` (a ready bus never re-prompts); the engine retries on pointer gestures and watches `navigator.permissions` for the midi grant; the Console header shows "MIDI: connect" (clickable) when off, and clicking any M learn button without access primes `requestMIDIAccess()` **from the Console window** — the grant is per-origin, so the engine page inherits it and re-attaches via the permission watcher. Same shape as the audio autoplay escape hatch (resume on gesture + mode surfaced in the snapshot).
+
 ## 2026-06-10 — Param modulators SHIPPED (design refinements vs the feature request)
 
 - **Phase is a dt-accumulator, not wall-clock or beat-count derived.** Each evaluator advances
@@ -178,6 +179,7 @@ The cockpit pages outgrew hand-rolled DOM diffing (console.ts was ~800 lines of
 querySelector bookkeeping). Both pages are now React 19 + @mui/material 7 apps
 under `packages/engine-app/src/ui/`, with a framework-free `EngineLink` class
 (unit-tested) owning the BroadcastChannel protocol. Deliberate choices:
+
 - **No @vitejs/plugin-react.** Vite's esbuild compiles .tsx natively
   (`"jsx": "react-jsx"` in tsconfig.base.json); vite.config.ts is unchanged, so
   the scenes HMR path — never-go-black layer 1 — is provably untouched. Editing
@@ -271,27 +273,27 @@ merging the registry's manifest with the input rack's, routed by path prefix
   chrome as overlays (LIVE = red ring + chip, hover-only destroy ×); drag-reorder persists to
   localStorage; param drawer resizable (240px–60vw, persisted); palettes are swatch-only with
   hex tooltips; staged instance streams at 640×360 so /staged.html shows real detail.
-- **Scene picker is a ghost "+" tile**: a grid of scene cards showing each scene's *last-run
-  snapshot* (`loom.scenethumbs` in localStorage, fed by every rendering tile). Hovering a card
+- **Scene picker is a ghost "+" tile**: a grid of scene cards showing each scene's _last-run
+  snapshot_ (`loom.scenethumbs` in localStorage, fed by every rendering tile). Hovering a card
   shows its snapshot in the tile instantly, builds a REAL sandbox instance after 250 ms, and
   swaps in live pixels when they arrive — the tile never blanks mid-swap (the v1 list flickered:
   destroy-then-create left a blank gap). Preview destroyed on close/move, never more than one
   alive; the grid hides the preview's own tile until picked.
 - **Agent commit defaults ARMED** ("let the agent commit by default for now" — Zack);
-  `?agentCommit=0` or the Console checkbox restores the gate. **Drop on the stage bar = stage
-  + commit** (human-sourced, never gated). validate-m3/m4 acceptance moved with the behavior:
-  the gate is now proven via disarm instead of via arm, drag-to-strip asserts go-live.
+  `?agentCommit=0` or the Console checkbox restores the gate. \*\*Drop on the stage bar = stage
+    - commit\*\* (human-sourced, never gated). validate-m3/m4 acceptance moved with the behavior:
+      the gate is now proven via disarm instead of via arm, drag-to-strip asserts go-live.
 - Gates: typecheck, unit tests, validate m0–m6 + modulators all green (m5 flaked once on the
   envelope-drain window, clean on rerun). Eyes-on via validator + peek screenshots.
 
 ## 2026-06-11 — Console works without the Output tab visible (+ QoL batch)
 
 - **Worker clock for hidden tabs**: browsers freeze rAF and clamp main-thread timers to
-  >=1 s when a tab is backgrounded, so the Console went dead whenever the Output tab
-  wasn''t showing. A dedicated-worker interval (exempt from timer throttling) drives
-  `frameTick` at ~30 fps while `document.hidden`, and the console-channel state/thumb
-  broadcasts moved to the same worker clocks. `__loom.clockSource` reports which clock
-  drove the last frame (raf | worker).
+    > =1 s when a tab is backgrounded, so the Console went dead whenever the Output tab
+    > wasn''t showing. A dedicated-worker interval (exempt from timer throttling) drives
+    > `frameTick` at ~30 fps while `document.hidden`, and the console-channel state/thumb
+    > broadcasts moved to the same worker clocks. `__loom.clockSource` reports which clock
+    > drove the last frame (raf | worker).
 - **/staged.html presents like the Output window**: preview fills the viewport,
   cover-scaled, under its slim header (was a small contain-fit image).
 - **palette.source moved to the param drawer** (Zack: belongs with the instance''s params,
@@ -321,7 +323,7 @@ merging the registry's manifest with the input rack's, routed by path prefix
 ## 2026-06-11 — The Output window is optional: embedded console engine
 
 - The previous worker-clock fix only covered "Output open but backgrounded" — Zack opens
-  the Console *alone*. The Console now boots an **embedded engine** in a hidden same-origin
+  the Console _alone_. The Console now boots an **embedded engine** in a hidden same-origin
   iframe (`/?embedded=1&audio=test`) when no engine says hello within 2.5 s.
 - **Takeover protocol** (console-channel): state broadcasts carry `engineId`/`embedded`;
   an embedded engine that hears another engine''s state **stands down completely** — stops
@@ -377,7 +379,7 @@ merging the registry's manifest with the input rack's, routed by path prefix
   the deploy mechanism" (no build step). For phone-openable PR previews we added a
   static multi-page `vite build` (Output `/` + Console `/console.html` + Staged
   `/staged.html`) in `engine-app/vite.config.ts`. Dev server, HMR, and never-go-black
-  are untouched — the build is a *parallel* artifact, not the live runtime. The
+  are untouched — the build is a _parallel_ artifact, not the live runtime. The
   static bundle is "view + tweak" only: the sidecar WS is absent and the bridge's
   reconnect loop no-ops harmlessly; live agent/MCP editing stays in the dev session.
 - **Validators are now Linux-portable.** They hardcoded `--use-angle=d3d11` (Windows).
@@ -409,7 +411,7 @@ realities (the validators were written for a real GPU + manual WebGPU checks):
   the screenshot. A Playwright init script (`forceWebGL2`, `scripts/_browser.mjs`)
   defines `navigator.gpu` as undefined → three falls back to the WebGL2 backend the
   assertions are calibrated for. Chromium GL flags only choose SwiftShader as the
-  WebGL2 *provider*.
+  WebGL2 _provider_.
 - **`LOOM_RES=640x360` in CI.** Software WebGL2 can't render heavy scenes
   (pho-nebula's multi-pass feedback) at 1080p fast enough for the compositor to
   hand Playwright a frame; the shot times out. A `resQuery` (gated on `LOOM_RES`)
@@ -432,7 +434,7 @@ LOOM. `MidiBus` now keeps the last 16 raw messages — including the traffic it
 ignores, minus realtime keepalives (clock/active-sensing) — surfaced as
 `midi.recent` in the session snapshot (`.default([])` keeps older engines
 parseable) and as a live monitor dialog behind the Console header's MIDI status.
-The engine still *acts* on CC only; the monitor is eyes, not new routing.
+The engine still _acts_ on CC only; the monitor is eyes, not new routing.
 Hardware lesson for the books: constant repeated CC values or pitch-bend faders
 mean the controller needs a factory reset to CC mode, not an engine fix.
 
@@ -447,6 +449,7 @@ staged candidate by design). Gates: typecheck, unit (154), validate-m5 34/34,
 full pnpm validate. Stumble: validator waitFor treats falsy as "not yet" —
 never return a flipped bool from a poll. Spec:
 docs/superpowers/specs/2026-06-11-midi-button-bindings-design.md.
+
 ## 2026-06-11 — Stdlib tests & robustness SHIPPED
 
 - **Real BuildCtx, not a mock**: the roadmap asked for a mock BuildCtx, but the real one
@@ -484,7 +487,7 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - **Runtime stays minimal (NFR-2).** Stage adds one directive mode
   (`panic-scene`, carrying the panic instance id + the untouched live id) and a
   `panic(mode, panicId?)` signature; `held: boolean` became `panicState: "hold"
-  |"scene"|null`. Scene-panic is an output override — the LIVE pointer never
+|"scene"|null`. Scene-panic is an output override — the LIVE pointer never
   moves (FR-4), so RESUME is just "clear panic" with no bookkeeping. Re-press
   only escalates hold→scene; scene→hold is a no-op (FR-6). Everything else
   (warm-instance lifecycle, compositor leg, fallback) lives in engine-app.
@@ -492,7 +495,7 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   render-throw in the panic instance freezes it → the compositor skips it →
   hold (FR-8). Never worse than the pre-feature behavior.
 - **Deviation from the spec's resolved-decision #1 (designation via
-  `panic.scene.ts` pointer, *not* a Console picker), at the user's request:**
+  `panic.scene.ts` pointer, _not_ a Console picker), at the user's request:**
   the SAFE target is now a **movable designation over existing instances** — the
   ⛑ SAFE marker and scene-panic routing point at whichever instance the human
   picks from the Console (`set_panic_instance`, human-only), exactly like LIVE /
@@ -538,12 +541,12 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   clobbers a chain the user/agent has since edited (same rule as tuned params).
 - **SHIPPED:** runtime `ChainHost` + fold (`chain.ts`), `meta.chainParams` on
   `glitch`/`feedback`/`levels`, engine-app effects barrel + `set_chain`/`save_chain`
-  + Console FX-chain panel (cards, drag-reorder, insertion points, mix faders,
-  picker, save-as, restore). Gates: typecheck + unit (runtime `chain.test.ts`,
-  sidecar protocol) + production build green. `validate:m6` chain checks added but
-  **not run here** — this sandbox is egress-blocked from Playwright's browser and
-  the substituted system Chromium can't do the WebGL readback (the palette half's
-  first screenshot times out too); run it on a real-GPU/CI browser.
+    - Console FX-chain panel (cards, drag-reorder, insertion points, mix faders,
+      picker, save-as, restore). Gates: typecheck + unit (runtime `chain.test.ts`,
+      sidecar protocol) + production build green. `validate:m6` chain checks added but
+      **not run here** — this sandbox is egress-blocked from Playwright's browser and
+      the substituted system Chromium can't do the WebGL readback (the palette half's
+      first screenshot times out too); run it on a real-GPU/CI browser.
 
 ## Layers — named nodes, per-node rigs & chains (2026-06-11)
 
@@ -578,7 +581,7 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 ## Projects — set lists (2026-06-11)
 
 - **A project is the serialized instance set**: per instance `{scene, values,
-  modulators, root chain, per-node chains}` in tile order + which one was live,
+modulators, root chain, per-node chains}` in tile order + which one was live,
   written to `content/state/projects/<name>.json` through the existing
   `loom:state` middleware (set lists live in git, NFR-4). Chain knob values ride
   in the chain data, never in `values` (same rule as per-scene persistence).
@@ -680,7 +683,7 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
   particle pool ships with a CPU-sim + instanced-rendering base path that
   runs (and validates) on the WebGL2 fallback; TSL-compute is the WebGPU
   upgrade path, verified manually in desktop Chrome. Headless SwiftShader
-  WebGPU stays off the table (_browser.mjs hides navigator.gpu for known
+  WebGPU stays off the table (\_browser.mjs hides navigator.gpu for known
   blank-render reasons).
 - **SHIPPED:** 6 geo modules + render3d, mediafs route, frameMs/fps HUD,
   geo-rave + hippo3d scenes (eyes-on stills verified), `validate:m7` 11/11
@@ -768,7 +771,7 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 
 ## Spring cleaning (2026-06-12)
 
-- **content/modules/_shared.ts** is the new shared plumbing (deliberately
+- **content/modules/\_shared.ts** is the new shared plumbing (deliberately
   outside the kind folders so discovery never sweeps it): `bufferPass()` —
   the buffer-the-input-and-resample skeleton previously copy-pasted across 9
   effects (transform/mirror/tile/rgbSplit/crt/displace/blur/bloom/pixelate,
@@ -803,13 +806,13 @@ always-rendering safe scene). Gates run: `pnpm typecheck`, unit tests (runtime
 - **Module packs** (third-party module/scene repos) sketched in
   feature-requests/module-packs.md and added to the post-v1 horizon.
 - Follow-up left open: the ~800 lines of copied validator boilerplate
-  (check/waitForServer/waitFor/spawn) want a shared scripts/_validate.mjs —
+  (check/waitForServer/waitFor/spawn) want a shared scripts/\_validate.mjs —
   mechanical but touches all 17 suites at once; do it as its own change.
 
 ## Expandable slider ranges (2026-06-12)
 
 TouchDesigner-style live-editable param ranges: a module's declared
-`{min,max}` is now a *default* baseline the performer can widen/narrow at
+`{min,max}` is now a _default_ baseline the performer can widen/narrow at
 runtime, not a hard wall.
 
 - **`Param` owns a mutable effective range** (`param.ts`): float/int params
@@ -876,6 +879,34 @@ sub-group, dnd-kit DnD. Gates: typecheck, pnpm test (387+201+27+17),
 validate m4/m5/m6/layers/projects/modulators green. Deviations: exact
 MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
 
+## 2026-06-13 — Contextual PR preview screenshots
+
+- **The preview comment now shoots what the diff touches**, not always the boot
+  scene. `scripts/affected-shots.mjs` diffs HEAD against the PR base and maps
+  changed files → shoot targets: a changed scene file → that scene; a changed
+  `content/modules/**` file → every scene that transitively imports it (a
+  forward import graph built from `content/` sources, same TS-parsing spirit as
+  build-catalog.mjs); a `packages/engine-app/src/ui/**` change → the Console.
+- **Why an import graph, not grep**: catches transitive module deps and avoids
+  name-collision false positives. The decision logic is pure + unit-tested
+  (`affected-shots.test.mjs`, run via a new `vitest.scripts.config.ts` /
+  `pnpm test:scripts`, chained into `pnpm test`); only the CLI touches git/fs.
+- **Console shots are self-contained**: `shoot.mjs --console` loads
+  `/console.html`, which self-boots an embedded engine (hidden iframe) when no
+  Output window says hello — so no sidecar/Output process is needed for the shot.
+- **Guards**: scene output capped at 6 (directly-changed first) so a popular
+  shared module can't fan out to dozens of slow software-GL renders; global
+  content (inputs.ts, the live pointer, content/test) and non-content changes
+  fall back to the boot scene; resolver exits 0 even if git diff fails (never
+  blocks the preview). Preview job checkout switched to fetch-depth: 0 so the
+  base ref is present to diff against.
+
+SHIPPED 2026-06-13: contextual-preview-shots — affected-shots resolver,
+shoot.mjs --console mode, workflow + comment wiring. Gates: pnpm test
+(632 + 11 new script tests) green; shoot --console and scene+console runs
+verified locally (console.png renders, live.scene.ts restored).
+MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
+
 ## soft-serve scene — color-chooser param + reversed kaleidoZoom (2026-06-13)
 
 - **First scene-level `color` param** (`cream.color`, soft-serve.scene):
@@ -901,17 +932,17 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   and the kaleidoZoom fold "didn't work" (it shredded the cone silhouette).
   Reworked toward a literal, readable ice-cream cone "constantly getting more
   added":
-  - `softServe` rebuilt: an upright teardrop swirl (wide base → hooked tip),
-    fat coil bands (default 4) shaded with crest highlight + valley AO, coils
-    perpetually climbing (the "more being added" read), pale-vanilla default.
-  - New `wafffleCone` source: a downward waffle cone (diamond cross-hatch,
-    golden, premult alpha) sized to meet the swirl base.
-  - `sprinkles` reworked to toss-AND-stick: each rod flies in from an edge
-    angle, lands on the swirl surface (placed via the SAME profile math the
-    scene feeds both modules) and then rides the coil scroll — so they stick
-    to the cream instead of fading in mid-air.
-  - Dropped kaleidoZoom from the scene; "spirals forever / more added" now
-    comes from the endless coil climb + dispenser ribbon, not a fractal fold.
+    - `softServe` rebuilt: an upright teardrop swirl (wide base → hooked tip),
+      fat coil bands (default 4) shaded with crest highlight + valley AO, coils
+      perpetually climbing (the "more being added" read), pale-vanilla default.
+    - New `wafffleCone` source: a downward waffle cone (diamond cross-hatch,
+      golden, premult alpha) sized to meet the swirl base.
+    - `sprinkles` reworked to toss-AND-stick: each rod flies in from an edge
+      angle, lands on the swirl surface (placed via the SAME profile math the
+      scene feeds both modules) and then rides the coil scroll — so they stick
+      to the cream instead of fading in mid-air.
+    - Dropped kaleidoZoom from the scene; "spirals forever / more added" now
+      comes from the endless coil climb + dispenser ribbon, not a fractal fold.
 - Gates: typecheck + `pnpm test` green. validate:stdlib still blocked by
   egress; the PR's Cloudflare preview screenshots the booted scene as the
   eyes-on check.
@@ -1022,3 +1053,35 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   stream itself couldn't run in this headless session (dead offscreen readback,
   same limit that blanks the tiles) — the render-path logic is unit-tested
   instead.
+
+## 2026-06-14 — signal robustness (cost attribution + loop guard)
+
+Two engine-level defenses for slow / non-halting CPU signals (the synchronous
+pull runs on the render thread, so a heavy or runaway `Signal.fn` degrades or
+wedges the whole loop; NFR-2 only contains *throws*, not slowness).
+
+- **Per-signal cost attribution (always on).** `Signal` carries an optional
+  `label`; `Param.signal()` stamps the param path, `ctx.input()` stamps
+  `input.<name>`, `ctx.color`/palette label their own updaters. `ctx.uniformOf`
+  inherits the signal's label (or takes an explicit one), so the GPU-bridge
+  updater knows which signal it pulls. `Updater` is `((f)=>void) & {label?}` —
+  plain `ctx.updaters.push((f)=>…)` callers are unchanged (assignable). `Instance`
+  times each updater (EMA) when `Instance.profilingEnabled` (default on; `?profile=0`
+  opts out — overhead is microseconds and it only measures, so fixtures stay
+  byte-identical) and exposes `slowSignals(n)`, surfaced in `get_session`'s
+  `InstanceInfo.slowSignals` and `window.__loom`. Turns "the scene is choppy"
+  into "param X is 14 ms".
+- **Loop-guard transform (`packages/runtime/src/loopguard.ts`, Vite `loom:loop-guard`,
+  `enforce:"pre"`, content/ only).** A TS-AST pass injects a per-loop-entry
+  iteration budget (`DEFAULT_LOOP_BUDGET` 5e6); a runaway loop *throws* (prefix
+  `[loom] loop guard: `) which NFR-2 then contains — converting "never halts"
+  into "never go black". **Count-based, not time-based, on purpose:** same
+  throw/no-throw on every machine and replay, so deterministic fixture playback
+  is preserved (a wall-clock deadline would not). Each loop gets its own counter
+  reset on entry (big-but-finite loops and per-frame re-entry are fine; only
+  unbounded iteration trips). Labels kept on the loop so `break/continue <label>`
+  still resolve. The transform is **not** exported from `@loom/runtime`'s index
+  (it imports `typescript` — node-only; must never reach the browser bundle).
+  Plugin is defensive (any failure → untransformed passthrough). Limitation:
+  TS-printer output drops sourcemaps for guarded files (acceptable v1); loops
+  inside the content build only — runtime/engine code is never rewritten.

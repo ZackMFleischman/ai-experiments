@@ -43,10 +43,13 @@ const lines = [
 ];
 
 if (shots.length) {
-  lines.push("<details open><summary>Scene screenshots</summary>", "");
+  // Screenshots are contextual to the diff (scenes that changed / the modules
+  // they use, and the Console when its UI changed) — see scripts/affected-shots.mjs.
+  lines.push("<details open><summary>Screenshots of what changed</summary>", "");
   for (const f of shots) {
     const name = f.replace(/\.png$/, "");
-    lines.push(`**${name}**`, "", `![${name}](${baseUrl}/shots/${f})`, "");
+    const title = name === "console" ? "Console (cockpit)" : name;
+    lines.push(`**${title}**`, "", `![${title}](${baseUrl}/shots/${f})`, "");
   }
   lines.push("</details>");
 }
