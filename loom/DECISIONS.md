@@ -959,3 +959,33 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   gradient chips over the bare slider (the slider still rides fractional
   blends). The cosine PALETTES (`color.palette`) and the global palettes (R7)
   stay distinct systems — the chooser targets the former.
+
+## Scene preview mode — full-screen audition overlay (2026-06-14)
+
+- **Preview is a Console overlay, not a new page/route**: `PreviewMode.tsx`
+  renders `position: fixed; inset: 0; zIndex: modal` over the whole Console —
+  the selected instance blown up (its 640×360 thumbnail, cover-scaled exactly
+  like `/staged.html`) with only the params drawer alongside. Reuses `useThumb`
+  for pixels and `ParamPanel` wholesale, so widgets, FX chain, and the existing
+  stage/GO-LIVE buttons all come for free. The slim overlay header repeats GO
+  LIVE (verbatim `stage`→`commit`, the same human-sourced ungated path as the
+  ParamPanel button) so sending to live stays one tap even with the drawer
+  collapsed.
+- **Single `#panel` invariant**: while previewing, ConsoleApp stops mounting
+  the main-grid `ParamPanel` (`!previewing && <ParamPanel/>`) so the overlay's
+  drawer is the only `#panel` — two same-id drawers would break the DOM
+  contract validators read. The tile grid stays mounted (hidden behind the
+  overlay) so thumbnail subscriptions keep flowing.
+- **Toggle = Header button (`#previewbtn`) + "p" hotkey; Esc exits**: the
+  hotkey handler folds into ConsoleApp's existing "i" (rack) keydown listener,
+  sharing its "ignore while typing in a field" guard. DOM contract:
+  `#preview-mode`, `#preview-image`, `#preview-name`, `#preview-stage`,
+  `#preview-golive`, `#preview-exit`.
+- Gates: typecheck + pnpm test (216+27+19 +434 content) green. Verified in
+  headless Chromium: overlay opens via button + "p"/Esc, names the selected
+  instance, mounts exactly one drawer, follows tile selection, GO-LIVE
+  enabled/disabled+label logic. Live pixel-stream and the GO-LIVE crossfade
+  landing reuse m4-validated infra (thumbnail readback + console→engine
+  `stage`/`commit`) that this session's headless harness couldn't exercise
+  (offscreen readback + occluded-tab BroadcastChannel both dead — the standard
+  boot tile fails identically).

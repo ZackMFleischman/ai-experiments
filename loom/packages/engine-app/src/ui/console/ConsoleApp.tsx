@@ -16,6 +16,7 @@ import { useEngine, useEngineState } from "../hooks";
 import { fail } from "../util";
 import { Header } from "./Header";
 import { ParamPanel } from "./ParamPanel";
+import { PreviewMode } from "./PreviewMode";
 import { Rack } from "./Rack";
 import { STAGE_ZONE_ID, StageDropZone } from "./StageDropZone";
 import { StageStrip } from "./StageStrip";
@@ -47,6 +48,7 @@ export function ConsoleApp() {
   const [selected, setSelected] = useState<string | null>(null);
   const [solo, setSolo] = useState<string | null>(null);
   const [rackOpen, setRackOpen] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [order, setOrder] = useState<string[]>(loadOrder);
 
   const applyOrder = (next: string[]) => {
@@ -92,19 +94,19 @@ export function ConsoleApp() {
     return () => window.clearTimeout(t);
   }, [allowEmbed, embed, connected]);
 
-  // "i" toggles the rack — unless the human is typing in a field.
+  // Hotkeys — "i" toggles the rack, "p" toggles preview mode, Escape leaves
+  // preview. All ignore the human typing in a field (rename box, save dialog).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "i") return;
       const t = e.target;
-      if (
+      const typing =
         t instanceof HTMLInputElement ||
         t instanceof HTMLSelectElement ||
-        t instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-      setRackOpen((o) => !o);
+        t instanceof HTMLTextAreaElement;
+      if (typing) return;
+      if (e.key === "i") setRackOpen((o) => !o);
+      else if (e.key === "p") setPreviewing((p) => !p);
+      else if (e.key === "Escape") setPreviewing(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -122,7 +124,12 @@ export function ConsoleApp() {
       {session && (
         <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
           <StageDropZone>
-            <Header session={session} onToggleRack={() => setRackOpen((o) => !o)} />
+            <Header
+              session={session}
+              onToggleRack={() => setRackOpen((o) => !o)}
+              previewing={previewing}
+              onTogglePreview={() => setPreviewing((p) => !p)}
+            />
             <StageStrip session={session} />
           </StageDropZone>
           <Box component="main" sx={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -136,14 +143,26 @@ export function ConsoleApp() {
               onSolo={(id) => setSolo((cur) => (cur === id ? null : id))}
               onCreated={setSelected}
             />
-            <ParamPanel
-              instance={selected}
-              manifest={selected != null ? manifests[selected] : undefined}
-              session={session}
-            />
+            {/* While previewing, the overlay carries the (single) params drawer —
+                don't mount a second one here or two #panel ids would collide. */}
+            {!previewing && (
+              <ParamPanel
+                instance={selected}
+                manifest={selected != null ? manifests[selected] : undefined}
+                session={session}
+              />
+            )}
           </Box>
           {rackOpen && <Rack session={session} globals={manifests.globals ?? {}} />}
         </DndContext>
+      )}
+      {session && previewing && (
+        <PreviewMode
+          instance={selected}
+          manifest={selected != null ? manifests[selected] : undefined}
+          session={session}
+          onExit={() => setPreviewing(false)}
+        />
       )}
       {embed && (
         <Box
