@@ -4,6 +4,7 @@ import { envelope } from "../modules/control/envelope";
 import { gate } from "../modules/control/gate";
 import { lag } from "../modules/control/lag";
 import { lfo } from "../modules/control/lfo";
+import { noiseSignal } from "../modules/control/noiseSignal";
 import { remap } from "../modules/control/remap";
 import { sampleHold } from "../modules/control/sampleHold";
 import { spring } from "../modules/control/spring";
@@ -51,10 +52,14 @@ import { image } from "../modules/sources/image";
 import { julia } from "../modules/sources/julia";
 import { mandelbrot } from "../modules/sources/mandelbrot";
 import { noise } from "../modules/sources/noise";
+import { noiseField } from "../modules/sources/noiseField";
 import { noodles } from "../modules/sources/noodles";
 import { osc } from "../modules/sources/osc";
 import { pulseRings } from "../modules/sources/pulseRings";
+import { softServe } from "../modules/sources/softServe";
+import { sprinkles } from "../modules/sources/sprinkles";
 import { spriteSwarm } from "../modules/sources/spriteSwarm";
+import { wafffleCone } from "../modules/sources/wafffleCone";
 import { video } from "../modules/sources/video";
 import { box } from "../modules/geo/box";
 import { model } from "../modules/geo/model";
@@ -88,6 +93,7 @@ export const CASES: Record<string, ModuleCase> = {
   sampleHold: (ctx) => sampleHold(ctx, { input: lfo(ctx, { periodBeats: 3 }), trigger: ctx.input("kick") }),
   gate: (ctx) => gate(ctx, { input: ctx.input("bass"), threshold: 0.4 }),
   counter: (ctx) => counter(ctx, { trigger: ctx.input("kick"), wrap: 4 }),
+  noiseSignal: (ctx) => noiseSignal(ctx, { rate: 0.3 }),
   // sources
   blobs: (ctx) => blobs(ctx, {}),
   fireflies: (ctx) => fireflies(ctx, {}),
@@ -95,9 +101,13 @@ export const CASES: Record<string, ModuleCase> = {
   julia: (ctx) => julia(ctx, {}),
   mandelbrot: (ctx) => mandelbrot(ctx, {}),
   noise: (ctx) => noise(ctx, {}),
+  noiseField: (ctx) => noiseField(ctx, { type: "perlin" }),
   noodles: (ctx) => noodles(ctx, { energy: ctx.input("kick") }),
   osc: (ctx) => osc(ctx, {}),
   pulseRings: (ctx) => pulseRings(ctx, { energy: ctx.input("kick") }),
+  softServe: (ctx) => softServe(ctx, { energy: ctx.input("bass") }),
+  sprinkles: (ctx) => sprinkles(ctx, { count: 12, burst: ctx.input("kick") }),
+  wafffleCone: (ctx) => wafffleCone(ctx, {}),
   spriteSwarm: (ctx) => spriteSwarm(ctx, { url: ASSET, cols: 3, rows: 2 }),
   video: (ctx) => video(ctx, { url: CLIP }),
   render3d: (ctx) => render3d(ctx, { world: box(ctx, { spin: 0.5 }), cam: orbitCam(ctx, {}) }),
