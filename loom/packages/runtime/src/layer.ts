@@ -10,6 +10,7 @@ import {
 } from "three/webgpu";
 import type { BuildCtx } from "./buildctx";
 import type { FrameCtx } from "./frame";
+import { layerRigPath } from "./paths";
 import { texNode, type Pass, type TexNode } from "./texnode";
 
 /**
@@ -29,16 +30,9 @@ export interface LayerHooks {
   foldNode?: (ctx: BuildCtx, node: string, tex: TexNode) => TexNode;
 }
 
-/** Node ids that would collide with manifest prefixes or instance aliases. */
-export const RESERVED_NODE_NAMES: ReadonlySet<string> = new Set([
-  "fx",
-  "input",
-  "palette",
-  "live",
-  "globals",
-  "actions",
-  "root",
-]);
+// Node ids that would collide with a manifest namespace or instance alias —
+// defined with the namespace constants in ./paths, re-exported here for callers.
+export { RESERVED_NODE_NAMES } from "./paths";
 
 export const NODE_NAME_RE = /^[a-z][a-z0-9_-]*$/i;
 
@@ -53,12 +47,11 @@ const surfaceAspect = () => screenSize.x.div(screenSize.y);
  * full 3D tilt stays in the chainable `transform` effect).
  */
 export function layerRig(ctx: BuildCtx, name: string, input: TexNode): TexNode {
-  const head = `${name}.layer`;
-  const x = ctx.float(`${head}.x`, { default: 0.5, min: 0, max: 1, step: 0.01, description: "center x (uv)" });
-  const y = ctx.float(`${head}.y`, { default: 0.5, min: 0, max: 1, step: 0.01, description: "center y (uv)" });
-  const scale = ctx.float(`${head}.scale`, { default: 1, min: 0.05, max: 4, step: 0.01, description: "uniform scale" });
-  const rotate = ctx.float(`${head}.rotate`, { default: 0, min: -3.1416, max: 3.1416, step: 0.01, description: "spin (radians)" });
-  const opacity = ctx.float(`${head}.opacity`, { default: 1, min: 0, max: 1, step: 0.01, description: "layer fade" });
+  const x = ctx.float(layerRigPath(name, "x"), { default: 0.5, min: 0, max: 1, step: 0.01, description: "center x (uv)" });
+  const y = ctx.float(layerRigPath(name, "y"), { default: 0.5, min: 0, max: 1, step: 0.01, description: "center y (uv)" });
+  const scale = ctx.float(layerRigPath(name, "scale"), { default: 1, min: 0.05, max: 4, step: 0.01, description: "uniform scale" });
+  const rotate = ctx.float(layerRigPath(name, "rotate"), { default: 0, min: -3.1416, max: 3.1416, step: 0.01, description: "spin (radians)" });
+  const opacity = ctx.float(layerRigPath(name, "opacity"), { default: 1, min: 0, max: 1, step: 0.01, description: "layer fade" });
 
   const ux = ctx.uniformOf(x.signal());
   const uy = ctx.uniformOf(y.signal());

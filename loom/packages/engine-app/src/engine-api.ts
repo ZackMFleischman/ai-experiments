@@ -11,6 +11,7 @@ import type {
   Stage,
   TimeBus,
 } from "@loom/runtime";
+import { fixtureName, isModBinding, isPalettePath, modTarget } from "@loom/runtime";
 import {
   ArmAgentCommitArgs,
   ArmPanicModeArgs,
@@ -283,7 +284,7 @@ export class EngineApi {
       case "set_param": {
         const { instance, path, value } = SetParamArgs.parse(req.args);
         if (instance === GLOBALS) {
-          const isPalette = path.startsWith("palette.");
+          const isPalette = isPalettePath(path);
           const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
           const gmod = this.deps.globalsModulators.get(path);
           if (gmod != null && gmod.error == null && gmod.enabled) {
@@ -323,7 +324,7 @@ export class EngineApi {
           let touchedGlobals = false;
           for (const [path, value] of Object.entries(values)) {
             try {
-              const isPalette = path.startsWith("palette.");
+              const isPalette = isPalettePath(path);
               const param = this.requireParam(this.globalsManifest(path), path, GLOBALS);
               param.set(value);
               if (isPalette) touchedPalette = true;
@@ -501,7 +502,7 @@ export class EngineApi {
         }
         let fixture;
         if (inputs != null) {
-          const name = inputs.slice("fixture:".length);
+          const name = fixtureName(inputs);
           const data = await this.deps.fixtures.load(name); // throws on unknown/corrupt trace
           fixture = { name, data, baseFrame: this.deps.latestFrame().frame };
         }
@@ -756,8 +757,8 @@ export class EngineApi {
     }
     // "mod:<paramPath>" toggles that param's modulator on/off (a button press
     // pauses/resumes the wave without detaching). Always edge-triggered.
-    if (path.startsWith("mod:")) {
-      const paramPath = path.slice("mod:".length);
+    if (isModBinding(path)) {
+      const paramPath = modTarget(path);
       if (instance === GLOBALS) {
         // Only a decomposed palette color channel carries a modulator on globals.
         this.requireGlobalsChannel(this.globalsManifest(paramPath), paramPath);
@@ -791,7 +792,7 @@ export class EngineApi {
 
   /** "globals" = the input rack + the palettes, merged; routed by path prefix. */
   private globalsManifest(path: string): Manifest {
-    return path.startsWith("palette.") ? this.deps.palettes.manifest : this.deps.inputs.manifest;
+    return isPalettePath(path) ? this.deps.palettes.manifest : this.deps.inputs.manifest;
   }
 
   /**

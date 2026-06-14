@@ -9,6 +9,10 @@ import {
   FixtureDataSchema,
   FixturePlayer,
   InputRegistry,
+  isFxPath,
+  isModBinding,
+  isPalettePath,
+  modTarget,
   Instance,
   MidiBus,
   ModulatorHost,
@@ -40,7 +44,7 @@ import { FpsMeter } from "./fps";
 import { getEffectLibrary } from "./effects";
 import { getScenes } from "./scenes";
 import { entryStatus, PREVIEW_H, PREVIEW_W, SessionStore } from "./session";
-import { StateClient } from "./state";
+import { fixtureKey, projectKey, repoStatePath, StateClient, StateDir, StateKey } from "./state";
 import { workerInterval } from "./worker-clock";
 
 declare global {
@@ -197,14 +201,14 @@ const tunedColorSpaces = new Map<string, Record<string, "hsv" | "rgb">>();
 
 const persist = {
   globals: () => {
-    state.save("inputs", () => inputs.manifest.values());
-    state.save("input-ranges", () => inputs.manifest.rangeOverrides());
+    state.save(StateKey.inputs, () => inputs.manifest.values());
+    state.save(StateKey.inputRanges, () => inputs.manifest.rangeOverrides());
   },
   palettes: () => {
-    state.save("palettes", () => palettes.manifest.values());
+    state.save(StateKey.palettes, () => palettes.manifest.values());
     // Color decomposition + channel modulators travel with the palette tunings.
-    state.save("palette-spaces", () => palettes.manifest.colorSpaces());
-    state.save("palette-mods", () => serializeGlobalsMods());
+    state.save(StateKey.paletteSpaces, () => palettes.manifest.colorSpaces());
+    state.save(StateKey.paletteMods, () => serializeGlobalsMods());
   },
   scene: (sceneName: string) => {
     const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
@@ -212,19 +216,19 @@ const persist = {
       // Chain knob values (fx.*) live in the chain data, not the per-scene file
       // (full chain persistence is M9) — keep them out of values/<scene>.json.
       const vals = entry.instance.manifest.values();
-      for (const k of Object.keys(vals)) if (k.startsWith("fx.")) delete vals[k];
+      for (const k of Object.keys(vals)) if (isFxPath(k)) delete vals[k];
       tunedValues.set(sceneName, vals);
       const ranges = entry.instance.manifest.rangeOverrides();
-      for (const k of Object.keys(ranges)) if (k.startsWith("fx.")) delete ranges[k];
+      for (const k of Object.keys(ranges)) if (isFxPath(k)) delete ranges[k];
       tunedRanges.set(sceneName, ranges);
       tunedColorSpaces.set(sceneName, entry.instance.manifest.colorSpaces());
     }
-    state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
-    state.save(`ranges/${sceneName}`, () => tunedRanges.get(sceneName) ?? {});
-    state.save(`color-spaces/${sceneName}`, () => tunedColorSpaces.get(sceneName) ?? {});
+    state.save(StateKey.sceneValues(sceneName), () => tunedValues.get(sceneName) ?? {});
+    state.save(StateKey.sceneRanges(sceneName), () => tunedRanges.get(sceneName) ?? {});
+    state.save(StateKey.sceneColorSpaces(sceneName), () => tunedColorSpaces.get(sceneName) ?? {});
   },
-  bindings: () => state.save("bindings", () => bindings.toJSON()),
-  panicScene: () => state.save("panic", () => ({ scene: panicSceneName })),
+  bindings: () => state.save(StateKey.bindings, () => bindings.toJSON()),
+  panicScene: () => state.save(StateKey.panic, () => ({ scene: panicSceneName })),
 };
 
 // MIDI routing: a CC completes a pending learn, then drives its bindings.
@@ -237,7 +241,7 @@ let onAction: (path: string) => void = () => {};
 
 function writeParam(scene: string, path: string, apply: (p: Param<unknown>) => void): void {
   if (scene === "globals") {
-    const isPalette = path.startsWith("palette.");
+    const isPalette = isPalettePath(path);
     const param = (isPalette ? palettes.manifest : inputs.manifest).get(path);
     if (!param) return;
     apply(param);
@@ -279,12 +283,12 @@ midi.onCc((e) => {
     setValue: (scene, path, value) => {
       if (scene === ACTIONS) return onAction(path);
       if (value === undefined) return; // a set binding without a target is inert
-      if (path.startsWith("mod:")) return setModEnabled(scene, path.slice(4), value >= 0.5);
+      if (isModBinding(path)) return setModEnabled(scene, modTarget(path), value >= 0.5);
       writeParam(scene, path, (p) => p.set(value));
     },
     cycle: (scene, path) => {
       if (scene === ACTIONS) return onAction(path);
-      if (path.startsWith("mod:")) return setModEnabled(scene, path.slice(4), "toggle");
+      if (isModBinding(path)) return setModEnabled(scene, modTarget(path), "toggle");
       writeParam(scene, path, (p) => p.cycle());
     },
   });
@@ -368,7 +372,7 @@ const projectStore = new ProjectStore(session, stage, () => currentScenes());
 let projectNames: string[] = [];
 async function refreshProjects(): Promise<string[]> {
   try {
-    const res = await fetch("/loom/state-list/projects");
+    const res = await fetch(`/loom/state-list/${StateDir.projects}`);
     if (res.ok) projectNames = (await res.json()) as string[];
   } catch {
     // listing is a convenience, never a blocker
@@ -405,7 +409,7 @@ const fixturesApi = {
     );
   },
   async load(name: string): Promise<FixtureData> {
-    const res = await fetch(`/loom/state/fixtures/${encodeURIComponent(name)}`);
+    const res = await fetch(`/loom/state/${StateDir.fixtures}/${encodeURIComponent(name)}`);
     if (!res.ok) throw new Error(`unknown fixture "${name}" — record one with record_fixture`);
     const parsed = FixtureDataSchema.safeParse(await res.json());
     if (!parsed.success) throw new Error(`fixture "${name}" is corrupt: ${parsed.error.message}`);
@@ -506,7 +510,7 @@ const fixturesApi = {
 async function finishRecording(r: NonNullable<typeof recording>): Promise<void> {
   const data: FixtureData = { name: r.name, bpm: timeBus.bpm, channels: r.channels, frames: r.rows };
   try {
-    const res = await fetch(`/loom/state/fixtures/${encodeURIComponent(r.name)}`, {
+    const res = await fetch(`/loom/state/${StateDir.fixtures}/${encodeURIComponent(r.name)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(data),
@@ -514,7 +518,7 @@ async function finishRecording(r: NonNullable<typeof recording>): Promise<void> 
     if (!res.ok) throw new Error(`fixture save failed (${res.status})`);
     r.resolve({
       saved: r.name,
-      path: `content/state/fixtures/${r.name}.json`,
+      path: repoStatePath(fixtureKey(r.name)),
       frames: r.rows.length,
       channels: r.channels,
       bpm: data.bpm,
@@ -531,18 +535,18 @@ const projectsApi = {
     assertProjectName(name);
     const data = projectStore.serialize(name, new Date().toISOString(), tileOrder);
     if (data.instances.length === 0) throw new Error("nothing to save — no instances");
-    const res = await fetch(`/loom/state/projects/${encodeURIComponent(name)}`, {
+    const res = await fetch(`/loom/state/${StateDir.projects}/${encodeURIComponent(name)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(data, null, 2),
     });
     if (!res.ok) throw new Error(`project save failed (${res.status})`);
     await refreshProjects();
-    return { saved: name, path: `content/state/projects/${name}.json`, instances: data.instances.length };
+    return { saved: name, path: repoStatePath(projectKey(name)), instances: data.instances.length };
   },
   async load(name: string) {
     assertProjectName(name);
-    const res = await fetch(`/loom/state/projects/${encodeURIComponent(name)}`);
+    const res = await fetch(`/loom/state/${StateDir.projects}/${encodeURIComponent(name)}`);
     if (!res.ok) {
       throw new Error(`unknown project "${name}" — saved projects: ${projectNames.join(", ") || "(none)"}`);
     }
@@ -677,11 +681,11 @@ let savedPanicScene: string | null = null;
 if (state.enabled) {
   // Range overrides load BEFORE values so a widened bound is in place to hold a
   // value persisted outside the declared range.
-  const savedInputRanges = await state.load("input-ranges");
+  const savedInputRanges = await state.load(StateKey.inputRanges);
   if (savedInputRanges && typeof savedInputRanges === "object") {
     inputs.manifest.applyRanges(savedInputRanges as Record<string, unknown>);
   }
-  const savedGlobals = await state.load("inputs");
+  const savedGlobals = await state.load(StateKey.inputs);
   if (savedGlobals && typeof savedGlobals === "object") {
     for (const [path, v] of Object.entries(savedGlobals as Record<string, number | boolean>)) {
       try {
@@ -693,11 +697,11 @@ if (state.enabled) {
   }
   // Color decompositions load BEFORE values so the channel params exist to
   // receive their saved channel values (R7.4).
-  const savedPaletteSpaces = await state.load("palette-spaces");
+  const savedPaletteSpaces = await state.load(StateKey.paletteSpaces);
   if (savedPaletteSpaces && typeof savedPaletteSpaces === "object") {
     palettes.manifest.applyColorSpaces(savedPaletteSpaces as Record<string, unknown>);
   }
-  const savedPalettes = await state.load("palettes");
+  const savedPalettes = await state.load(StateKey.palettes);
   if (savedPalettes && typeof savedPalettes === "object") {
     for (const [path, v] of Object.entries(savedPalettes as Record<string, unknown>)) {
       try {
@@ -708,7 +712,7 @@ if (state.enabled) {
     }
   }
   // Re-attach channel modulators last (their target channels now exist).
-  const savedPaletteMods = await state.load("palette-mods");
+  const savedPaletteMods = await state.load(StateKey.paletteMods);
   if (Array.isArray(savedPaletteMods)) {
     for (const m of savedPaletteMods as Array<{ path?: unknown; spec?: unknown; enabled?: unknown }>) {
       if (typeof m.path !== "string") continue;
@@ -720,22 +724,22 @@ if (state.enabled) {
       }
     }
   }
-  bindings.load(await state.load("bindings"));
+  bindings.load(await state.load(StateKey.bindings));
   for (const scene of currentScenes().keys()) {
-    const vals = await state.load(`values/${scene}`);
+    const vals = await state.load(StateKey.sceneValues(scene));
     if (vals && typeof vals === "object") {
       tunedValues.set(scene, vals as Record<string, number | boolean | string>);
     }
-    const ranges = await state.load(`ranges/${scene}`);
+    const ranges = await state.load(StateKey.sceneRanges(scene));
     if (ranges && typeof ranges === "object") {
       tunedRanges.set(scene, ranges as Record<string, [number, number]>);
     }
-    const spaces = await state.load(`color-spaces/${scene}`);
+    const spaces = await state.load(StateKey.sceneColorSpaces(scene));
     if (spaces && typeof spaces === "object") {
       tunedColorSpaces.set(scene, spaces as Record<string, "hsv" | "rgb">);
     }
   }
-  const savedPanic = await state.load("panic");
+  const savedPanic = await state.load(StateKey.panic);
   const name = (savedPanic as { scene?: unknown } | null)?.scene;
   if (typeof name === "string") savedPanicScene = name;
 }

@@ -1,4 +1,5 @@
 import type { ChainStep, ChainStepInput, SceneDef, Stage } from "@loom/runtime";
+import { hasFxSegment } from "@loom/runtime";
 import type { Entry, SessionStore } from "./session";
 
 /**
@@ -65,7 +66,7 @@ function serializeEntry(e: Entry): ProjectInstance {
   // rule as per-scene persistence.
   const values = e.instance.manifest.values();
   for (const k of Object.keys(values)) {
-    if (k.startsWith("fx.") || /(^|\.)fx\./.test(k)) delete values[k];
+    if (hasFxSegment(k)) delete values[k];
   }
   return {
     id: e.id,

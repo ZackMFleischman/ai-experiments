@@ -1,4 +1,4 @@
-import { asSignal, BuildCtx, defineModule, integrateSignal, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
+import { asSignal, BuildCtx, defineModule, integrateSignal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
 import { mx_fractal_noise_float, texture, uv, vec2, vec3, vec4 } from "three/tsl";
 import { bufferPass } from "../_shared";
 

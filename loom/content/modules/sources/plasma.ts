@@ -1,5 +1,5 @@
-import { asSignal, BuildCtx, defineModule, integrateSignal, Signal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
-import { add, cos, length, sin, uv, vec2 } from "three/tsl";
+import { asSignal, BuildCtx, defineModule, integrateSignal, texNode, type SignalLike, type TexNode } from "@loom/runtime";
+import { add, length, sin, uv, vec2 } from "three/tsl";
 import { surfaceAspect } from "../_shared";
 
 export interface PlasmaOpts {

@@ -26,6 +26,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChainStepInfo } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
+import { chainSteps, insertStep, removeStep, reorderStep, stepKnobs } from "./chain-ops";
 import { ParamWidget } from "./ParamWidget";
 
 type Props = {
@@ -34,21 +35,6 @@ type Props = {
   /** A layer node id (Layers) — the chain edits that node; omitted = the root chain. */
   node?: string;
 };
-
-/**
- * A step's manifest knobs: everything under <prefix><id>. except mix and
- * enabled, which render as dedicated rows at the top of the card.
- */
-function stepKnobs(
-  manifest: Record<string, ParamDesc>,
-  prefix: string,
-  id: string,
-): Array<[string, ParamDesc]> {
-  const head = `${prefix}${id}.`;
-  return Object.entries(manifest)
-    .filter(([path]) => path.startsWith(head) && path !== `${head}mix` && path !== `${head}enabled`)
-    .map(([path, p]) => [path, p] as [string, ParamDesc]);
-}
 
 /**
  * The per-instance post-effect chain (M6): ordered step cards (source→output),
@@ -102,22 +88,14 @@ export function FxChain({ instance, manifest, node }: Props) {
       .req("set_chain", { instance, steps, ...(node != null ? { node } : {}) })
       .catch((e: Error) => setErr(e.message));
   };
-  const ids = (): Array<{ id?: string; effect: string }> =>
-    chain.map((s) => ({ id: s.id, effect: s.effect }));
-
   const insert = (effect: string, index: number) => {
-    const next = ids();
-    next.splice(index, 0, { effect });
-    apply(next);
+    apply(insertStep(chainSteps(chain), effect, index));
     setPick(null);
   };
-  const remove = (id: string) => apply(ids().filter((s) => s.id !== id));
+  const remove = (id: string) => apply(removeStep(chainSteps(chain), id));
   const reorder = (from: number, to: number) => {
     if (from === to) return;
-    const next = ids();
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved!);
-    apply(next);
+    apply(reorderStep(chainSteps(chain), from, to));
   };
 
   // Step cards reorder via dnd-kit (handle-only — the cards are full of

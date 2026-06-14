@@ -178,7 +178,8 @@ function gitChangedFiles(base) {
 
 let _graph = null;
 function buildGraphMemo(files) {
-  return (_graph ??= buildGraph(files));
+  _graph ??= buildGraph(files);
+  return _graph;
 }
 
 // Run only as a CLI (not when imported by the test).

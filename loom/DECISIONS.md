@@ -963,6 +963,108 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   green; GPU validators (validate:stdlib) not run — sandbox blocks the
   Playwright chromium download.
 
+## Architecture refactor — Phase 0: Biome lint (2026-06-14)
+
+First of a 7-phase architecture refactor (plan: lint → typed paths → state
+schema → main.ts decomposition → handleRequest handlers → console logic
+extraction → TSL seam). Phase 0 adds Biome 2.5 as the lint/format tool.
+- **Lint-only, no repo-wide reformat** (deliberate): a formatter sweep would
+  bury every later refactor diff. `pnpm lint` = `biome lint .`; `pnpm format`
+  exists but is not in the gate. `biome.json` formatter is configured to match
+  the existing style (2-space, double quotes, semicolons, width 120) so
+  touched-file formatting is near-zero churn.
+- **Rule tuning:** the error gate stays tight — only genuine correctness bugs
+  block. Disabled rules that fight the codebase's deliberate idioms
+  (`noNonNullAssertion`, `useImportType`, `noApproximativeNumericConstant`).
+  Downgraded awkward-but-harmless ones to warn (`noImplicitAnyLet`,
+  `useIterableCallbackReturn`, `noUnusedFunctionParameters`,
+  `useExhaustiveDependencies`, `noArrayIndexKey`). Result: 0 errors, ~35
+  advisory warnings (future cleanup).
+- **Real fixes made:** a latent bug in `lfoSignal` (control.ts) — the shape
+  `switch` had no fallback, so the `.map` callback returned `undefined` if
+  `LfoShape` ever gained a member; added `default: return phase`. Removed dead
+  imports (displace/plasma/voronoi `Signal`, plasma `cos`, inputs `BandName`)
+  and two `?.[0]!` optional-chain-then-assert smells in protocol.test.
+- Gates: typecheck + `pnpm test` (663) + `pnpm lint` green. validate suites not
+  run — sandbox egress blocks the Playwright chromium download (as for prior
+  entries); CI / Cloudflare preview is the eyes-on check.
+
+## Architecture refactor — Phase 1: typed path module (2026-06-14)
+
+Phase 1 of 7. Adds `packages/runtime/src/paths.ts` — the single source of truth
+for the stringly-typed manifest-path schema that couples scenes, the Manifest,
+MCP, MIDI, persistence, and the Console.
+- **Why:** the path conventions (`input.<name>.amount`, `inputs.<ch>.<knob>`,
+  `palette.<source>.<i>`, `<node>.layer.<knob>`, `fx.<id>.<sub>`,
+  `<node>.fx.<id>.<sub>`) and the routing prefixes (`palette.`, `mod:`,
+  `fixture:`, `fx.`) were built and parsed by ad-hoc string concatenation/
+  slicing across runtime + engine-app — the `palette.`-vs-rack routing predicate
+  alone was duplicated in 4 places. Now every build/parse goes through one
+  module, so a convention change is one edit.
+- **Behaviour-preserving:** pure refactor; no validator assertion moves. Two
+  predicates kept deliberately distinct — `isFxPath` (root `fx.` only, used by
+  per-scene value persistence) vs `hasFxSegment` (root OR `<node>.fx.`, used by
+  project serialization) — preserving the existing asymmetry rather than
+  flattening it.
+- `modBindingPath` named with the `*Path` suffix (like `inputTrimPath`/
+  `layerRigPath`) to avoid colliding with ModPopover's local `modBinding` var.
+  Dropped unused build helpers (`fixtureRef`/`isFixtureRef`) rather than ship
+  dead exports; `NS` kept module-local.
+- Wired: layer/palette/buildctx/inputs/chain (runtime) + session/engine-api/
+  main/projects/ModPopover/ParamPanel (engine-app). New `paths.test.ts` pins the
+  schema (7 cases).
+- Gates: typecheck + `pnpm test` (670) + `pnpm lint` green. validate not run
+  (sandbox egress blocks Playwright chromium; CI/preview is the eyes-on check).
+
+## Architecture refactor — Phase 2: state schema (2026-06-14)
+
+Phase 2 of 7. Centralizes the persistence schema in `state.ts` (alongside
+StateClient): `StateKey` (inputs/input-ranges/palettes/bindings/panic +
+sceneValues/sceneRanges builders), `StateDir` (projects/fixtures), and the
+`projectKey`/`fixtureKey`/`repoStatePath` helpers.
+- **Why:** every state key was a raw string literal scattered across main.ts's
+  persist object, the boot-load block, and the projects/fixtures fetch URLs — a
+  typo silently loses tuned state. Now one module is the source of truth, and the
+  load-bearing "ranges before values" ordering is documented on the keys.
+- Behaviour-preserving: same keys, same URLs (encodeURIComponent kept inline on
+  fetch URLs; repoStatePath used only for display paths in tool results).
+- Gates: typecheck + `pnpm test` (670) + `pnpm lint` green. validate not run
+  (sandbox egress; CI/preview is the eyes-on check).
+
+## Architecture refactor — Phase 4: handleRequest handlers (2026-06-14)
+
+Phase 4 of 7 (Phase 3 main.ts decomposition + Phase 6 TSL seam DEFERRED — they
+touch the never-go-black render path and can't be validated in the sandbox; do
+them when validators run on real hardware).
+
+Splits engine-api's ~300-line `handleRequest` switch into a thin dispatcher
+(the HUMAN_ONLY gate + source-tagging) delegating to one focused private method
+per command (`setParam`, `setChain`, `commit`, …). Each handler owns its
+arg-parsing, validation, and work — individually readable and testable.
+- Behaviour-preserving: every case body moved verbatim; throws still propagate
+  to the transport as ok:false. `liveStepCmd` named to avoid the existing
+  `liveStep` method; handlers take `source` only where the trust gate needs it
+  (set_chain, commit, save_project).
+- Gates: typecheck + `pnpm test` (670, incl. the 18 engine-app/engine-api
+  dispatch tests) + `pnpm lint` green. validate not run (sandbox egress).
+
+## Architecture refactor — Phase 5: console logic extraction (2026-06-14)
+
+Phase 5 of 7 (and the last of the non-render-path "safe" phases; Phase 3 main.ts
+decomposition + Phase 6 TSL seam remain deferred for hardware validation).
+
+Pulls the pure data logic out of the two heaviest Console components into
+testable modules, giving engine-app's UI its first logic tests:
+- `param-groups.ts` — `groupParams` (manifest → flat params + dotted groups,
+  dropping fx chain knobs, keeping palette.source flat, a section per layer
+  node) and `splitRig` (a group's `<node>.layer.*` rig vs the rest). ParamPanel
+  now calls these and owns only rendering/persistence.
+- `chain-ops.ts` — `chainSteps`/`insertStep`/`removeStep`/`reorderStep` (pure
+  full-list edits FxChain wraps in one set_chain) + the moved `stepKnobs`.
+- `console-logic.test.ts` — 11 cases over the extracted functions.
+- Gates: typecheck + `pnpm test` (681) + `pnpm lint` green. validate not run
+  (sandbox egress; CI/preview is the eyes-on check).
+
 - **Color channels are real channel params, not bespoke color modulators**
   (R7.4): `Manifest.setColorSpace(path, "hsv"|"rgb")` materializes three 0..1
   float params `<path>.h/.s/.v` (or `.r/.g/.b`) and the color recomposes from
@@ -1117,3 +1219,24 @@ wedges the whole loop; NFR-2 only contains *throws*, not slowness).
   folded), digested to stderr — the signal for whether agents adopt the verbs.
   Gates: typecheck + `pnpm test` green; validate:m2's tool-list check passes,
   browser e2e blocked by the sandbox Playwright download.
+
+## Architecture refactor — merge with main; Phase 4 superseded (2026-06-14)
+
+Merging PR #16 (the refactor) with `main` (which had advanced by the
+color-channel/`set_color_space`, per-signal-profiling, and `set_params`/`batch`/
+`set_preview` work) needed two passes — `main` advanced again mid-resolution.
+All of `main`'s new features were preserved; the refactor's Phases 0/1/2/5 stayed
+intact (new state keys `palette-spaces`/`palette-mods`/`color-spaces/<scene>`
+folded into the Phase 2 `StateKey` schema; the `channelOf` skip folded into
+Phase 5's `groupParams`).
+- **Phase 4 (handleRequest → per-command methods) was superseded.** `main`
+  actively develops `engine-api.ts` as a `switch` and kept adding cases there, so
+  the method-extraction re-conflicted on every `main` change. Resolution: take
+  `main`'s switch form and re-apply only Phase 1's path helpers
+  (`isPalettePath`/`isModBinding`/`modTarget`/`fixtureName`). The switch is the
+  form being maintained; re-proposing the split is **not** recommended (noted in
+  `feature-requests/architecture-refactor-render-path.md`).
+- Remaining deferred render-path work (Phase 3 `main.ts` decomposition + the
+  `window.__loom` throttle, Phase 6 TSL seam) is captured in that same ticket.
+- Cleared shipped feature-requests: `param-modulators.md`, `panic-scene.md`.
+- Gates after merge: typecheck + `pnpm test` (755) + `pnpm lint` green.

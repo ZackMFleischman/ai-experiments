@@ -3,6 +3,7 @@ import {
   ChainHost,
   FixturePlayer,
   ModulatorHost,
+  nodeFxPrefix,
   type AudioBusLike,
   type ChainStepInput,
   type EffectRegistry,
@@ -93,7 +94,7 @@ export class SessionStore {
     if (init?.chain) chain.steps = chain.plan(init.chain); // project-restored chain (defaults stay the scene's)
     const nodeChains = new Map<string, ChainHost>();
     for (const [node, steps] of Object.entries(init?.nodeChains ?? {})) {
-      const host = new ChainHost(this.effects, `${node}.fx`);
+      const host = new ChainHost(this.effects, nodeFxPrefix(node));
       host.seed([]);
       host.steps = host.plan(steps);
       nodeChains.set(node, host);
@@ -176,7 +177,7 @@ export class SessionStore {
       const have = e.instance.nodes.map((n) => n.id).join(", ") || "(none — wrap one with ctx.layer)";
       throw new Error(`unknown node "${node}" on "${e.id}" — nodes: ${have}`);
     }
-    host = new ChainHost(this.effects, `${node}.fx`);
+    host = new ChainHost(this.effects, nodeFxPrefix(node));
     host.seed([]); // node chains have no scene-declared default (root only)
     e.nodeChains.set(node, host);
     return host;

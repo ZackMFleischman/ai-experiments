@@ -1,6 +1,7 @@
 import {
   Box, Button, NativeSelect, Popover, Slider, Stack, TextField, ToggleButton, Typography,
 } from "@mui/material";
+import { modBindingPath } from "@loom/runtime";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ParamDesc } from "../engine-link";
 import { useEngine, useEngineState } from "../hooks";
@@ -41,7 +42,7 @@ export function ModPopover({ instance, path, p, anchorEl, onClose }: Props) {
   // The on/off toggle is MIDI-mappable as a button: bindings target the
   // "mod:<path>" namespace (cycle = flip per press), keyed by scene like
   // any param binding.
-  const modPath = `mod:${path}`;
+  const modPath = modBindingPath(path);
   const scene =
     instance === "globals"
       ? "globals"

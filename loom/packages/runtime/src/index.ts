@@ -37,6 +37,24 @@ export {
 } from "./chain";
 export { lagSignal, lfoSignal, envelopeSignal, integrateSignal, type LfoShape, type LfoOpts } from "./control";
 export { texNode, type TexNode, type Pass, type ColorNode } from "./texnode";
+export {
+  inputTrimPath,
+  rackKnobPath,
+  paletteStopPath,
+  PALETTE_SOURCE_PATH,
+  isPalettePath,
+  layerRigPath,
+  ROOT_FX_PREFIX,
+  nodeFxPrefix,
+  fxStepPath,
+  isFxPath,
+  hasFxSegment,
+  isModBinding,
+  modBindingPath,
+  modTarget,
+  fixtureName,
+  type LayerKnob,
+} from "./paths";
 export { BuildCtx } from "./buildctx";
 export { layerRig, NODE_NAME_RE, RESERVED_NODE_NAMES, type LayerHooks, type LayerNodeInfo } from "./layer";
 export { FixtureDataSchema, FixturePlayer, type FixtureData, type InputProvider } from "./fixture";
