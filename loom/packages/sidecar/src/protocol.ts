@@ -41,6 +41,7 @@ export const RequestType = z.enum([
   "set_panic_instance",
   "set_transport",
   "set_audio",
+  "set_preview",
   "arm_agent_commit",
   "midi_learn",
   "midi_unbind",
@@ -323,6 +324,20 @@ export const SetAudioArgs = z.object({
 });
 export type SetAudioArgs = z.infer<typeof SetAudioArgs>;
 
+/**
+ * Human-only: drive the Console's full-resolution preview stream (the
+ * full-screen preview overlay). `instance` null stops it. `maxHeight` is the
+ * user-chosen ceiling (e.g. 1080/720/540/360); the engine streams that instance
+ * at min(ceiling, adaptive cap) — it auto-reduces when the live fps dips and
+ * climbs back toward the ceiling once it's safe.
+ */
+export const SetPreviewArgs = z.object({
+  instance: z.string().nullable(),
+  maxHeight: z.number().int().positive().default(1080),
+});
+export type SetPreviewArgs = z.infer<typeof SetPreviewArgs>;
+
+
 export const BindingModeZ = z.enum(["absolute", "set", "cycle"]);
 export type BindingModeZ = z.infer<typeof BindingModeZ>;
 
@@ -453,6 +468,25 @@ export const EffectInfo = z.object({
   description: z.string().optional(),
 });
 export type EffectInfo = z.infer<typeof EffectInfo>;
+
+/**
+ * One frame of the Console's full-res preview stream (broadcast separately from
+ * the session snapshot, like thumbnails). Carries the live res + whether the
+ * engine auto-reduced below the chosen ceiling so the overlay can show it.
+ */
+export const PreviewFrame = z.object({
+  instance: z.string(),
+  /** JPEG data URL at this instance's current preview resolution. */
+  image: z.string(),
+  width: z.number(),
+  height: z.number(),
+  /** Streamed height (after any auto-reduction) and the user-chosen ceiling. */
+  actualHeight: z.number(),
+  ceilingHeight: z.number(),
+  /** True when fps forced a reduction below the ceiling. */
+  reduced: z.boolean(),
+});
+export type PreviewFrame = z.infer<typeof PreviewFrame>;
 
 /** Health of the designated Panic Scene (FR-7/FR-10). */
 export const PanicSceneInfo = z.object({

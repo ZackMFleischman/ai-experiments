@@ -36,6 +36,7 @@ import {
   SetPanicInstanceArgs,
   SetParamArgs,
   SetParamRangeArgs,
+  SetPreviewArgs,
   TransportArgs,
   type AudioDevice,
   type EffectInfo,
@@ -44,6 +45,7 @@ import {
   type MidiMessageLog,
   type PanicMode,
   type PanicSceneInfo,
+  type PreviewFrame,
   type RequestMsg,
   type ScreenshotResult,
   type SessionSnapshot,
@@ -69,7 +71,25 @@ const HUMAN_ONLY: ReadonlySet<string> = new Set([
   "rename_instance",
   "midi_learn",
   "midi_unbind",
+  "set_preview",
 ]);
+
+// Full-res preview stream (Console preview overlay): the ladder of streamed
+// heights (16:9), the fps thresholds that drive auto-reduction, and how long a
+// trend must hold before stepping. Reacts down fast, climbs back slowly.
+const PREVIEW_LEVELS = [1080, 720, 540, 360] as const;
+const PREVIEW_FPS_LOW = 50;
+const PREVIEW_FPS_HIGH = 57;
+const PREVIEW_LOW_HOLD = 20; // ~0.33 s of sag before dropping a level
+const PREVIEW_GOOD_HOLD = 240; // ~4 s of headroom before climbing back
+const PREVIEW_QUALITY = 0.82;
+const previewWidth = (h: number): number => Math.round((h * 16) / 9);
+const snapPreviewLevel = (h: number): number =>
+  PREVIEW_LEVELS.reduce((best, l) => (Math.abs(l - h) < Math.abs(best - h) ? l : best), PREVIEW_LEVELS[0]);
+const stepPreviewDown = (h: number): number =>
+  PREVIEW_LEVELS[Math.min(PREVIEW_LEVELS.indexOf(h as (typeof PREVIEW_LEVELS)[number]) + 1, PREVIEW_LEVELS.length - 1)]!;
+const stepPreviewUp = (h: number): number =>
+  PREVIEW_LEVELS[Math.max(PREVIEW_LEVELS.indexOf(h as (typeof PREVIEW_LEVELS)[number]) - 1, 0)]!;
 
 /** Pseudo-instance id serving the global manifest (input rack tunings). */
 const GLOBALS = "globals";
@@ -176,6 +196,19 @@ export class EngineApi {
   private liveMirrorAt = -Infinity;
   private consoleSeenAt = -Infinity;
 
+  // Full-res preview stream state. `preview` is the active request (instance +
+  // user-chosen ceiling); `previewSizedId` is the sandbox entry whose target we
+  // enlarged (restored when preview moves/stops); `previewMirror` holds the
+  // downscaled live canvas when the *live* instance is the one being previewed.
+  private preview: { id: string; ceilingH: number } | null = null;
+  private previewAdaptiveH: number = PREVIEW_LEVELS[0];
+  private previewActualH: number = PREVIEW_LEVELS[0];
+  private previewSizedId: string | null = null;
+  private previewLowFrames = 0;
+  private previewGoodFrames = 0;
+  private readonly previewMirror = document.createElement("canvas");
+  private readonly previewMirrorCtx: CanvasRenderingContext2D;
+
   constructor(
     private readonly deps: EngineDeps,
     opts: { agentCommitArmed?: boolean } = {},
@@ -184,6 +217,7 @@ export class EngineApi {
     this.liveMirror.width = 640;
     this.liveMirror.height = 360;
     this.liveMirrorCtx = this.liveMirror.getContext("2d")!;
+    this.previewMirrorCtx = this.previewMirror.getContext("2d")!;
   }
 
   markConsolePresent(): void {
@@ -542,6 +576,25 @@ export class EngineApi {
         this.agentCommitArmed = armed;
         return { agentCommitArmed: armed };
       }
+      case "set_preview": {
+        const { instance, maxHeight } = SetPreviewArgs.parse(req.args);
+        if (instance == null) {
+          this.preview = null;
+          this.restorePreviewTarget();
+        } else {
+          const id = this.resolveId(instance);
+          session.require(id); // throws on unknown id
+          const ceilingH = snapPreviewLevel(maxHeight);
+          // A manual pick (or a switch) gets a fresh try at the chosen ceiling —
+          // reset the adaptive headroom so we don't stay stuck at a prior floor.
+          this.preview = { id, ceilingH };
+          this.previewAdaptiveH = ceilingH;
+          this.previewActualH = ceilingH;
+          this.previewLowFrames = 0;
+          this.previewGoodFrames = 0;
+        }
+        return { preview: this.preview };
+      }
       case "midi_learn": {
         const target = this.resolveMidiTarget(req.args);
         this.deps.bindings.startLearn(target);
@@ -822,11 +875,139 @@ export class EngineApi {
   }
 
   private readTarget(e: Entry, outW: number, outH: number, mime: string): Promise<string> {
-    return readTargetToDataUrl(this.deps.renderer, e.target, PREVIEW_W, PREVIEW_H, {
+    // Read the target at its ACTUAL size — a previewed instance's target is
+    // enlarged (tickPreview), and the source region must match or the readback
+    // crops. Thumbnails/screenshots still downscale to their requested outW/outH.
+    return readTargetToDataUrl(this.deps.renderer, e.target, e.target.width, e.target.height, {
       outW,
       outH,
       mime,
       quality: 0.7,
     });
+  }
+
+  /** True while a Console preview overlay is asking for a full-res stream. */
+  previewActive(): boolean {
+    return this.preview != null && performance.now() - this.consoleSeenAt < 5000;
+  }
+
+  /**
+   * Per-frame preview bookkeeping (called from the render loop). Runs the fps
+   * auto-reduction ladder, then prepares the source the stream reads from: for
+   * the LIVE instance it downscales the canvas into previewMirror (the canvas is
+   * only readable in this task); for a sandbox instance it resizes that entry's
+   * render target so the compositor renders it at the preview resolution (once
+   * per frame — no second render). Never throws into the loop.
+   */
+  tickPreview(mode: "single" | "crossfade" | "hold" | "panic-scene", fps: number): void {
+    const p = this.preview;
+    if (p == null || performance.now() - this.consoleSeenAt > 5000) {
+      this.restorePreviewTarget();
+      return;
+    }
+    const e = this.deps.session.get(p.id);
+    if (!e) {
+      // Previewed instance vanished (destroyed/renamed) — drop the request.
+      this.preview = null;
+      this.restorePreviewTarget();
+      return;
+    }
+
+    // Adaptive ladder: sag drops a level fast, sustained headroom climbs slowly.
+    if (fps > 0 && fps < PREVIEW_FPS_LOW) {
+      this.previewLowFrames++;
+      this.previewGoodFrames = 0;
+    } else if (fps >= PREVIEW_FPS_HIGH) {
+      this.previewGoodFrames++;
+      this.previewLowFrames = Math.max(0, this.previewLowFrames - 1);
+    } else {
+      this.previewLowFrames = Math.max(0, this.previewLowFrames - 1);
+      this.previewGoodFrames = 0;
+    }
+    if (this.previewLowFrames >= PREVIEW_LOW_HOLD) {
+      this.previewAdaptiveH = stepPreviewDown(this.previewAdaptiveH);
+      this.previewLowFrames = 0;
+    } else if (this.previewGoodFrames >= PREVIEW_GOOD_HOLD && this.previewAdaptiveH < p.ceilingH) {
+      this.previewAdaptiveH = stepPreviewUp(this.previewAdaptiveH);
+      this.previewGoodFrames = 0;
+    }
+    const actualH = Math.min(p.ceilingH, this.previewAdaptiveH);
+    this.previewActualH = actualH;
+    const w = previewWidth(actualH);
+
+    const isLive =
+      this.deps.stage.live === p.id && mode !== "hold" && mode !== "panic-scene";
+    try {
+      if (isLive) {
+        // Live renders to the canvas, not entry.target — mirror the canvas.
+        this.restorePreviewTarget();
+        if (this.previewMirror.width !== w || this.previewMirror.height !== actualH) {
+          this.previewMirror.width = w;
+          this.previewMirror.height = actualH;
+        }
+        this.previewMirrorCtx.drawImage(this.deps.canvas, 0, 0, w, actualH);
+      } else {
+        // Size the sandbox instance's target up so the compositor renders it at
+        // the preview resolution next frame; restore any previously-sized entry.
+        if (this.previewSizedId !== p.id) this.restorePreviewTarget();
+        if (e.target.width !== w || e.target.height !== actualH) {
+          e.target.setSize(w, actualH);
+        }
+        this.previewSizedId = p.id;
+      }
+    } catch {
+      // A bad capture/resize must never disturb the live loop.
+    }
+  }
+
+  /** Restore the enlarged preview target back to the standard thumbnail size. */
+  private restorePreviewTarget(): void {
+    if (this.previewSizedId == null) return;
+    const e = this.deps.session.get(this.previewSizedId);
+    if (e && (e.target.width !== PREVIEW_W || e.target.height !== PREVIEW_H)) {
+      e.target.setSize(PREVIEW_W, PREVIEW_H);
+    }
+    this.previewSizedId = null;
+  }
+
+  /**
+   * One frame of the preview stream (called off the render loop at stream rate,
+   * like thumbnails). Reads the previewMirror (live) or the enlarged target
+   * (sandbox) back as a JPEG. Returns null when there's nothing to stream.
+   */
+  async previewFrame(): Promise<PreviewFrame | null> {
+    const p = this.preview;
+    if (p == null) return null;
+    const e = this.deps.session.get(p.id);
+    if (!e) return null;
+    const ceilingHeight = p.ceilingH;
+    const actualHeight = this.previewActualH;
+    const reduced = actualHeight < ceilingHeight;
+    const isLive = this.deps.stage.live === p.id;
+    try {
+      if (isLive) {
+        const w = this.previewMirror.width;
+        const h = this.previewMirror.height;
+        if (w === 0 || h === 0) return null;
+        return {
+          instance: p.id,
+          image: this.previewMirror.toDataURL("image/jpeg", PREVIEW_QUALITY),
+          width: w,
+          height: h,
+          actualHeight,
+          ceilingHeight,
+          reduced,
+        };
+      }
+      const w = e.target.width;
+      const h = e.target.height;
+      const image = await readTargetToDataUrl(this.deps.renderer, e.target, w, h, {
+        mime: "image/jpeg",
+        quality: PREVIEW_QUALITY,
+      });
+      return { instance: p.id, image, width: w, height: h, actualHeight, ceilingHeight, reduced };
+    } catch {
+      return null;
+    }
   }
 }

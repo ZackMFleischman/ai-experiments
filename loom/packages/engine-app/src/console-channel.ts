@@ -4,6 +4,7 @@ import { workerInterval } from "./worker-clock";
 
 const STATE_MS = 100; // ~10 fps session state
 const THUMBS_MS = 150; // ~6.6 fps tile thumbnails
+const PREVIEW_MS = 120; // ~8 fps full-res preview overlay stream
 const PRESENCE_TIMEOUT_MS = 5000;
 
 export type ConsoleChannelOpts = {
@@ -87,4 +88,22 @@ export function startConsoleChannel(api: EngineApi, opts: ConsoleChannelOpts = {
         thumbsBusy = false;
       });
   }, THUMBS_MS);
+
+  // Full-res preview stream: only runs while a preview overlay is open. Its own
+  // (slower) cadence keeps the heavier readback off the thumbnail loop, and the
+  // busy guard drops frames rather than queueing if a readback runs long.
+  let previewBusy = false;
+  workerInterval(() => {
+    if (yielded || !consolePresent() || previewBusy || !api.previewActive()) return;
+    previewBusy = true;
+    void api
+      .previewFrame()
+      .then((preview) => {
+        if (!yielded && preview != null) ch.postMessage({ kind: "preview", preview });
+      })
+      .catch(() => {})
+      .finally(() => {
+        previewBusy = false;
+      });
+  }, PREVIEW_MS);
 }

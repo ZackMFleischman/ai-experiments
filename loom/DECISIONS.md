@@ -989,3 +989,36 @@ MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
   `stage`/`commit`) that this session's headless harness couldn't exercise
   (offscreen readback + occluded-tab BroadcastChannel both dead — the standard
   boot tile fails identically).
+
+## Preview mode — full-resolution adaptive stream (2026-06-14)
+
+- **Non-live instances render at 640×360, so "exact preview" needs a real
+  full-res render, not a sharper readback.** While the preview overlay is open,
+  the engine renders the *selected* instance at the chosen resolution and
+  streams it back (`set_preview` human-only verb + a separate `kind:"preview"`
+  broadcast, like thumbnails). Mechanism: resize that sandbox entry's
+  `RenderTarget` so the compositor renders it at preview res **once per frame**
+  (no second render → no destination-sized-buffer thrash); the tile thumbnail
+  just downscales from the now-larger target. `readTarget` reads the target's
+  ACTUAL size (was hardcoded `PREVIEW_W/H`) so thumbnails/screenshots still
+  work when it's enlarged. The **live** instance renders to the canvas, not a
+  target, so it's mirrored from the canvas at preview res (`previewMirror`,
+  same same-task-read trick as `liveMirror`) and its target is left untouched.
+- **fps-driven auto-reduction lives in the engine, ceiling in the UI.** The
+  Console dropdown sets a height ceiling (1080/720/540/360, default Full,
+  persisted); `tickPreview` (render loop) runs a hysteresis ladder — sag below
+  50 fps for ~0.33 s drops a level, headroom above 57 fps for ~4 s climbs one
+  back, never above the ceiling. The preview frame carries `actualHeight/
+  ceilingHeight/reduced` so the overlay shows the live res + "· auto" when
+  throttled. The same loop that bounds GPU cost also protects against the
+  full-res readback cost (heavy preview → fps dips → it downscales itself).
+- **Stream is overlay-gated and self-cleaning**: it only runs while a Console
+  is present AND a preview is requested; on stop/instance-switch/destroy the
+  enlarged target is restored to 640×360 (`restorePreviewTarget`). `set_preview`
+  is human-only and NOT an MCP tool — agents have no path to it.
+- Gates: typecheck + pnpm test green (4 new engine-api tests cover the resize,
+  the live-instance no-resize, the human-only gate, and the up/down ladder).
+  Browser-verified the dropdown/persistence/readout DOM; the hi-res pixel
+  stream itself couldn't run in this headless session (dead offscreen readback,
+  same limit that blanks the tiles) — the render-path logic is unit-tested
+  instead.
