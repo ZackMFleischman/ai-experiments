@@ -875,3 +875,30 @@ pause/resume (+MIDI), single-row params, inline value edit, transform
 sub-group, dnd-kit DnD. Gates: typecheck, pnpm test (387+201+27+17),
 validate m4/m5/m6/layers/projects/modulators green. Deviations: exact
 MCP-tool-list pins in m4/m5/modulators updated for set_modulation_enabled.
+
+## 2026-06-13 — Contextual PR preview screenshots
+
+- **The preview comment now shoots what the diff touches**, not always the boot
+  scene. `scripts/affected-shots.mjs` diffs HEAD against the PR base and maps
+  changed files → shoot targets: a changed scene file → that scene; a changed
+  `content/modules/**` file → every scene that transitively imports it (a
+  forward import graph built from `content/` sources, same TS-parsing spirit as
+  build-catalog.mjs); a `packages/engine-app/src/ui/**` change → the Console.
+- **Why an import graph, not grep**: catches transitive module deps and avoids
+  name-collision false positives. The decision logic is pure + unit-tested
+  (`affected-shots.test.mjs`, run via a new `vitest.scripts.config.ts` /
+  `pnpm test:scripts`, chained into `pnpm test`); only the CLI touches git/fs.
+- **Console shots are self-contained**: `shoot.mjs --console` loads
+  `/console.html`, which self-boots an embedded engine (hidden iframe) when no
+  Output window says hello — so no sidecar/Output process is needed for the shot.
+- **Guards**: scene output capped at 6 (directly-changed first) so a popular
+  shared module can't fan out to dozens of slow software-GL renders; global
+  content (inputs.ts, the live pointer, content/test) and non-content changes
+  fall back to the boot scene; resolver exits 0 even if git diff fails (never
+  blocks the preview). Preview job checkout switched to fetch-depth: 0 so the
+  base ref is present to diff against.
+
+SHIPPED 2026-06-13: contextual-preview-shots — affected-shots resolver,
+shoot.mjs --console mode, workflow + comment wiring. Gates: pnpm test
+(632 + 11 new script tests) green; shoot --console and scene+console runs
+verified locally (console.png renders, live.scene.ts restored).
