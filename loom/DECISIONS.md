@@ -984,3 +984,18 @@ MCP, MIDI, persistence, and the Console.
   schema (7 cases).
 - Gates: typecheck + `pnpm test` (670) + `pnpm lint` green. validate not run
   (sandbox egress blocks Playwright chromium; CI/preview is the eyes-on check).
+
+## Architecture refactor — Phase 2: state schema (2026-06-14)
+
+Phase 2 of 7. Centralizes the persistence schema in `state.ts` (alongside
+StateClient): `StateKey` (inputs/input-ranges/palettes/bindings/panic +
+sceneValues/sceneRanges builders), `StateDir` (projects/fixtures), and the
+`projectKey`/`fixtureKey`/`repoStatePath` helpers.
+- **Why:** every state key was a raw string literal scattered across main.ts's
+  persist object, the boot-load block, and the projects/fixtures fetch URLs — a
+  typo silently loses tuned state. Now one module is the source of truth, and the
+  load-bearing "ranges before values" ordering is documented on the keys.
+- Behaviour-preserving: same keys, same URLs (encodeURIComponent kept inline on
+  fetch URLs; repoStatePath used only for display paths in tool results).
+- Gates: typecheck + `pnpm test` (670) + `pnpm lint` green. validate not run
+  (sandbox egress; CI/preview is the eyes-on check).

@@ -44,7 +44,7 @@ import { FpsMeter } from "./fps";
 import { getEffectLibrary } from "./effects";
 import { getScenes } from "./scenes";
 import { entryStatus, PREVIEW_H, PREVIEW_W, SessionStore } from "./session";
-import { StateClient } from "./state";
+import { fixtureKey, projectKey, repoStatePath, StateClient, StateDir, StateKey } from "./state";
 import { workerInterval } from "./worker-clock";
 
 declare global {
@@ -181,10 +181,10 @@ const tunedRanges = new Map<string, Record<string, [number, number]>>();
 
 const persist = {
   globals: () => {
-    state.save("inputs", () => inputs.manifest.values());
-    state.save("input-ranges", () => inputs.manifest.rangeOverrides());
+    state.save(StateKey.inputs, () => inputs.manifest.values());
+    state.save(StateKey.inputRanges, () => inputs.manifest.rangeOverrides());
   },
-  palettes: () => state.save("palettes", () => palettes.manifest.values()),
+  palettes: () => state.save(StateKey.palettes, () => palettes.manifest.values()),
   scene: (sceneName: string) => {
     const entry = [...session.entries.values()].find((e) => e.sceneName === sceneName);
     if (entry) {
@@ -197,11 +197,11 @@ const persist = {
       for (const k of Object.keys(ranges)) if (isFxPath(k)) delete ranges[k];
       tunedRanges.set(sceneName, ranges);
     }
-    state.save(`values/${sceneName}`, () => tunedValues.get(sceneName) ?? {});
-    state.save(`ranges/${sceneName}`, () => tunedRanges.get(sceneName) ?? {});
+    state.save(StateKey.sceneValues(sceneName), () => tunedValues.get(sceneName) ?? {});
+    state.save(StateKey.sceneRanges(sceneName), () => tunedRanges.get(sceneName) ?? {});
   },
-  bindings: () => state.save("bindings", () => bindings.toJSON()),
-  panicScene: () => state.save("panic", () => ({ scene: panicSceneName })),
+  bindings: () => state.save(StateKey.bindings, () => bindings.toJSON()),
+  panicScene: () => state.save(StateKey.panic, () => ({ scene: panicSceneName })),
 };
 
 // MIDI routing: a CC completes a pending learn, then drives its bindings.
@@ -338,7 +338,7 @@ const projectStore = new ProjectStore(session, stage, () => currentScenes());
 let projectNames: string[] = [];
 async function refreshProjects(): Promise<string[]> {
   try {
-    const res = await fetch("/loom/state-list/projects");
+    const res = await fetch(`/loom/state-list/${StateDir.projects}`);
     if (res.ok) projectNames = (await res.json()) as string[];
   } catch {
     // listing is a convenience, never a blocker
@@ -375,7 +375,7 @@ const fixturesApi = {
     );
   },
   async load(name: string): Promise<FixtureData> {
-    const res = await fetch(`/loom/state/fixtures/${encodeURIComponent(name)}`);
+    const res = await fetch(`/loom/state/${StateDir.fixtures}/${encodeURIComponent(name)}`);
     if (!res.ok) throw new Error(`unknown fixture "${name}" — record one with record_fixture`);
     const parsed = FixtureDataSchema.safeParse(await res.json());
     if (!parsed.success) throw new Error(`fixture "${name}" is corrupt: ${parsed.error.message}`);
@@ -476,7 +476,7 @@ const fixturesApi = {
 async function finishRecording(r: NonNullable<typeof recording>): Promise<void> {
   const data: FixtureData = { name: r.name, bpm: timeBus.bpm, channels: r.channels, frames: r.rows };
   try {
-    const res = await fetch(`/loom/state/fixtures/${encodeURIComponent(r.name)}`, {
+    const res = await fetch(`/loom/state/${StateDir.fixtures}/${encodeURIComponent(r.name)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(data),
@@ -484,7 +484,7 @@ async function finishRecording(r: NonNullable<typeof recording>): Promise<void> 
     if (!res.ok) throw new Error(`fixture save failed (${res.status})`);
     r.resolve({
       saved: r.name,
-      path: `content/state/fixtures/${r.name}.json`,
+      path: repoStatePath(fixtureKey(r.name)),
       frames: r.rows.length,
       channels: r.channels,
       bpm: data.bpm,
@@ -501,18 +501,18 @@ const projectsApi = {
     assertProjectName(name);
     const data = projectStore.serialize(name, new Date().toISOString(), tileOrder);
     if (data.instances.length === 0) throw new Error("nothing to save — no instances");
-    const res = await fetch(`/loom/state/projects/${encodeURIComponent(name)}`, {
+    const res = await fetch(`/loom/state/${StateDir.projects}/${encodeURIComponent(name)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(data, null, 2),
     });
     if (!res.ok) throw new Error(`project save failed (${res.status})`);
     await refreshProjects();
-    return { saved: name, path: `content/state/projects/${name}.json`, instances: data.instances.length };
+    return { saved: name, path: repoStatePath(projectKey(name)), instances: data.instances.length };
   },
   async load(name: string) {
     assertProjectName(name);
-    const res = await fetch(`/loom/state/projects/${encodeURIComponent(name)}`);
+    const res = await fetch(`/loom/state/${StateDir.projects}/${encodeURIComponent(name)}`);
     if (!res.ok) {
       throw new Error(`unknown project "${name}" — saved projects: ${projectNames.join(", ") || "(none)"}`);
     }
@@ -647,11 +647,11 @@ let savedPanicScene: string | null = null;
 if (state.enabled) {
   // Range overrides load BEFORE values so a widened bound is in place to hold a
   // value persisted outside the declared range.
-  const savedInputRanges = await state.load("input-ranges");
+  const savedInputRanges = await state.load(StateKey.inputRanges);
   if (savedInputRanges && typeof savedInputRanges === "object") {
     inputs.manifest.applyRanges(savedInputRanges as Record<string, unknown>);
   }
-  const savedGlobals = await state.load("inputs");
+  const savedGlobals = await state.load(StateKey.inputs);
   if (savedGlobals && typeof savedGlobals === "object") {
     for (const [path, v] of Object.entries(savedGlobals as Record<string, number | boolean>)) {
       try {
@@ -661,7 +661,7 @@ if (state.enabled) {
       }
     }
   }
-  const savedPalettes = await state.load("palettes");
+  const savedPalettes = await state.load(StateKey.palettes);
   if (savedPalettes && typeof savedPalettes === "object") {
     for (const [path, v] of Object.entries(savedPalettes as Record<string, unknown>)) {
       try {
@@ -671,18 +671,18 @@ if (state.enabled) {
       }
     }
   }
-  bindings.load(await state.load("bindings"));
+  bindings.load(await state.load(StateKey.bindings));
   for (const scene of currentScenes().keys()) {
-    const vals = await state.load(`values/${scene}`);
+    const vals = await state.load(StateKey.sceneValues(scene));
     if (vals && typeof vals === "object") {
       tunedValues.set(scene, vals as Record<string, number | boolean | string>);
     }
-    const ranges = await state.load(`ranges/${scene}`);
+    const ranges = await state.load(StateKey.sceneRanges(scene));
     if (ranges && typeof ranges === "object") {
       tunedRanges.set(scene, ranges as Record<string, [number, number]>);
     }
   }
-  const savedPanic = await state.load("panic");
+  const savedPanic = await state.load(StateKey.panic);
   const name = (savedPanic as { scene?: unknown } | null)?.scene;
   if (typeof name === "string") savedPanicScene = name;
 }

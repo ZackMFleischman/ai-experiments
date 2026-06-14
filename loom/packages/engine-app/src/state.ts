@@ -1,4 +1,45 @@
 /**
+ * The persistence schema — the single source of truth for every key under
+ * content/state/. Engine-written tuned state round-trips through these keys via
+ * the loom:state Vite middleware (GET/POST /loom/state/<key>); a typo in a raw
+ * key string silently loses state, so every site builds keys from here.
+ *
+ * Load ORDER is load-bearing where noted: range overrides must be applied before
+ * the values that depend on them (a value persisted outside its declared range
+ * needs the widened bound in place first) — see the boot sequence in main.ts and
+ * Manifest.applyRanges.
+ */
+export const StateKey = {
+  /** Globals input-rack channel tunings (`inputs.<ch>.<knob>` values). */
+  inputs: "inputs",
+  /** Globals rack slider range overrides — load BEFORE `inputs`. */
+  inputRanges: "input-ranges",
+  /** Global palette stops (`palette.<source>.<i>`). */
+  palettes: "palettes",
+  /** MIDI-learn bindings keyed by scene. */
+  bindings: "bindings",
+  /** The designated Panic Scene name. */
+  panic: "panic",
+  /** Per-scene tuned param values. */
+  sceneValues: (scene: string): string => `values/${scene}`,
+  /** Per-scene slider range overrides — load BEFORE the matching `sceneValues`. */
+  sceneRanges: (scene: string): string => `ranges/${scene}`,
+} as const;
+
+/** State subdirectories addressed as `<dir>/<name>` keys (and listed via /loom/state-list/<dir>). */
+export const StateDir = {
+  projects: "projects",
+  fixtures: "fixtures",
+} as const;
+
+/** The state key for a saved project (set list). */
+export const projectKey = (name: string): string => `${StateDir.projects}/${name}`;
+/** The state key for a recorded input-trace fixture. */
+export const fixtureKey = (name: string): string => `${StateDir.fixtures}/${name}`;
+/** The in-repo path a state key maps to (for tool result messages). */
+export const repoStatePath = (key: string): string => `content/state/${key}.json`;
+
+/**
  * Engine side of the loom:state Vite middleware: tuned state (globals
  * tunings, MIDI bindings, per-scene param values) round-trips through
  * content/state/*.json. `?state=off` disables both load and save —
