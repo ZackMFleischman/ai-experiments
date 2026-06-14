@@ -1,13 +1,13 @@
 import {
   Accordion, AccordionDetails, AccordionSummary, Box, Button, Stack, Typography,
 } from "@mui/material";
-import { isFxPath, PALETTE_SOURCE_PATH } from "@loom/runtime";
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { SessionSnapshot } from "@loom/sidecar/protocol";
 import type { ParamDesc } from "../engine-link";
 import { useEngine } from "../hooks";
 import { fail } from "../util";
 import { FxChain } from "./FxChain";
+import { groupParams, splitRig } from "./param-groups";
 import { ParamWidget } from "./ParamWidget";
 
 const GROUP_OPEN_KEY = "loom.pgroups.open";
@@ -84,30 +84,10 @@ export function ParamPanel({ instance, manifest, session }: Props) {
   };
 
   // Layer nodes (Layers): each gets a node-marked group with its own FX chain;
-  // its chain knobs (<node>.fx.*) render inside that chain, not as widgets.
+  // its chain knobs (<node>.fx.*) render inside that chain, not as widgets. The
+  // bucketing is pure (param-groups.ts); this component owns only the rendering.
   const nodes = session?.instances.find((i) => i.id === instance)?.nodes ?? [];
-  const nodeIds = new Set(nodes.map((n) => n.id));
-  const parentOf = new Map(nodes.map((n) => [n.id, n.parent]));
-
-  const flat: Array<[string, ParamDesc]> = [];
-  const groups = new Map<string, Array<[string, ParamDesc]>>();
-  for (const [path, p] of Object.entries(manifest ?? {})) {
-    if (isFxPath(path)) continue; // chain knobs render inside the FX CHAIN section
-    const dot = path.indexOf(".");
-    // palette.source is the scene's palette switch (R7.2) — too load-bearing
-    // to bury in a collapsed accordion, so it stays on the flat top level.
-    if (dot < 0 || path === PALETTE_SOURCE_PATH) {
-      flat.push([path, p]);
-    } else {
-      const g = path.slice(0, dot);
-      if (nodeIds.has(g) && isFxPath(path.slice(dot + 1))) continue; // node chain knobs
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g)!.push([path, p]);
-    }
-  }
-  // A wrapped node always has rig params, but make sure every node gets a
-  // section even if a manifest snapshot lags behind the session's node list.
-  for (const id of nodeIds) if (!groups.has(id)) groups.set(id, []);
+  const { flat, groups, nodeIds, parentOf } = groupParams(manifest, nodes);
   const ready = instance != null && manifest != null;
   const isLive = ready && session?.live === instance;
   const isStaged = ready && session?.staged === instance;
@@ -241,12 +221,7 @@ export function ParamPanel({ instance, manifest, session }: Props) {
               const parent = parentOf.get(group);
               // A node's rig params (<node>.layer.x/y/scale/rotate/opacity) fold
               // into a nested "transform" sub-group so the section stays scannable.
-              const rig = entries.filter(([path]) =>
-                path.slice(group.length + 1).startsWith("layer."),
-              );
-              const rest = rig.length > 0
-                ? entries.filter(([path]) => !path.slice(group.length + 1).startsWith("layer."))
-                : entries;
+              const { rig, rest } = splitRig(entries, group);
               return (
                 <Accordion
                   key={group}

@@ -1016,3 +1016,20 @@ arg-parsing, validation, and work — individually readable and testable.
   (set_chain, commit, save_project).
 - Gates: typecheck + `pnpm test` (670, incl. the 18 engine-app/engine-api
   dispatch tests) + `pnpm lint` green. validate not run (sandbox egress).
+
+## Architecture refactor — Phase 5: console logic extraction (2026-06-14)
+
+Phase 5 of 7 (and the last of the non-render-path "safe" phases; Phase 3 main.ts
+decomposition + Phase 6 TSL seam remain deferred for hardware validation).
+
+Pulls the pure data logic out of the two heaviest Console components into
+testable modules, giving engine-app's UI its first logic tests:
+- `param-groups.ts` — `groupParams` (manifest → flat params + dotted groups,
+  dropping fx chain knobs, keeping palette.source flat, a section per layer
+  node) and `splitRig` (a group's `<node>.layer.*` rig vs the rest). ParamPanel
+  now calls these and owns only rendering/persistence.
+- `chain-ops.ts` — `chainSteps`/`insertStep`/`removeStep`/`reorderStep` (pure
+  full-list edits FxChain wraps in one set_chain) + the moved `stepKnobs`.
+- `console-logic.test.ts` — 11 cases over the extracted functions.
+- Gates: typecheck + `pnpm test` (681) + `pnpm lint` green. validate not run
+  (sandbox egress; CI/preview is the eyes-on check).
