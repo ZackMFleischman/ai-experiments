@@ -497,6 +497,20 @@ CI (GitHub Actions): typecheck + all unit layers on every push; e2e on PRs to ma
 The **engine is the coverage priority** — it's the part where a bug silently ruins a
 game three days later.
 
+**Backend portability of the suite:** only the bottom two rows touch the Firebase
+emulator, and they're kept swappable on purpose:
+
+- Everything above them (the bulk of the suite) is pure TS or mocked-transport —
+  a backend migration doesn't touch it.
+- The function tests and e2e assert *backend-agnostic behavior* (turn enforcement,
+  concurrency guard, legality rejection, timeout forfeit, full-game flow through the
+  UI); the scenarios survive a swap — only the setup does not.
+- All emulator-specific code (boot, seed, reset, fake-auth users) lives in a single
+  shared **`test-harness` module** that the function tests and Playwright both
+  import; migrating backends means rewriting that module and the thin function
+  wrappers, not the specs. The `submitMove` core is `engine.applyMove` + a
+  transaction, so the validation logic itself ports as-is.
+
 ---
 
 ## 9. Decisions made on ambiguities (override any of these)
