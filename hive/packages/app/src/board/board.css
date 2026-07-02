@@ -14,7 +14,7 @@
 }
 
 .hive-board-scope .hive-dimmed {
-  opacity: 0.55;
+  opacity: 0.78; /* dim ~20%: still readable (checklist) */
   transition: opacity 120ms ease;
 }
 

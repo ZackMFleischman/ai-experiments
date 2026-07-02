@@ -3,8 +3,7 @@
 import { Box } from '@mui/material';
 import { hexToPixel } from '@hive/engine';
 import type { ReactNode } from 'react';
-import { snapshotToBoardUi } from '../../board/boardUi';
-import { BoardView } from '../../board/BoardView';
+import { GameBoard } from '../../board/GameBoard';
 import { HEX_SIZE } from '../../board/hexGeometry';
 import { GameController } from '../../controller/GameController';
 import { LocalTransport } from '../../controller/transport';
@@ -23,7 +22,7 @@ function ControllerBoard({ prepare }: { prepare: (c: GameController) => void }) 
     ['hand', 'S'], ['cell', 1, 0],
     ['hand', 'Q'], ['cell', -1, 0],
     ['hand', 'Q'], ['cell', 2, 0],
-    ['hand', 'B'], ['cell', -1, -1],
+    ['hand', 'B'], ['cell', 0, -1],
     ['hand', 'A'], ['cell', 3, 0],
   ];
   for (const t of taps) {
@@ -31,10 +30,9 @@ function ControllerBoard({ prepare }: { prepare: (c: GameController) => void }) 
     else c.selectCell({ q: t[1], r: t[2] });
   }
   prepare(c);
-  const snap = c.getSnapshot();
   return (
     <Frame>
-      <BoardView board={snap.state.board} ui={snapshotToBoardUi(snap)} />
+      <GameBoard controller={c} />
     </Frame>
   );
 }
@@ -50,7 +48,7 @@ export const interactionEntries = [
   },
   {
     id: 'interact-beetle-climb',
-    render: () => <ControllerBoard prepare={(c) => c.selectCell({ q: -1, r: -1 })} />,
+    render: () => <ControllerBoard prepare={(c) => c.selectCell({ q: 0, r: -1 })} />,
   },
   {
     id: 'interact-drag-over-target',

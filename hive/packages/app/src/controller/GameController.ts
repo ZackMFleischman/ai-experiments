@@ -67,6 +67,9 @@ function moveCells(move: Move): { from?: Hex; to: Hex } | undefined {
 }
 
 export class GameController {
+  /** True while a pointer that started on the hand tray is down (T3.6/T3.7). */
+  handDragActive = false;
+
   private state: GameState;
   private log: LogEntry[] = [];
   private listeners = new Set<() => void>();

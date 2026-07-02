@@ -25,22 +25,24 @@ export interface GameTransport {
 /** Hot-seat transport: both players share the device; every submit is accepted
  * and echoed nowhere (the controller already applied it optimistically). */
 export class LocalTransport implements GameTransport {
-  protected game: StoredGame | null = null;
+  protected game: StoredGame;
 
-  constructor(private readonly defaultOptions: GameOptions) {}
+  constructor(defaultOptions: GameOptions) {
+    // Created eagerly and appended synchronously inside submit(): back-to-back
+    // submissions must observe each other's writes in call order, or the
+    // concurrency guard rejects moves that were perfectly sequential.
+    this.game = this.restore() ?? { options: defaultOptions, log: [] };
+  }
 
   async load(): Promise<StoredGame | null> {
-    if (!this.game) this.game = { options: this.defaultOptions, log: [] };
     return this.game;
   }
 
   async submit(entry: LogEntry, expectedIndex: number): Promise<void> {
-    const game = this.game ?? (await this.load());
-    if (!game) throw new Error('no game');
-    if (game.log.length !== expectedIndex) {
-      throw new Error(`concurrency: expected index ${expectedIndex}, log is at ${game.log.length}`);
+    if (this.game.log.length !== expectedIndex) {
+      throw new Error(`concurrency: expected index ${expectedIndex}, log is at ${this.game.log.length}`);
     }
-    game.log.push(entry);
+    this.game.log.push(entry);
     this.persist();
   }
 
@@ -55,5 +57,9 @@ export class LocalTransport implements GameTransport {
 
   protected persist(): void {
     // Hot-seat persistence lands in T3.11.
+  }
+
+  protected restore(): StoredGame | null {
+    return null; // localStorage restore lands in T3.11
   }
 }
