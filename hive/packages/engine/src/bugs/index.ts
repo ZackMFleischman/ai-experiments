@@ -7,6 +7,7 @@ import type { Board } from '../state';
 import { antDestinations } from './ant';
 import { beetleDestinations } from './beetle';
 import { grasshopperDestinations } from './grasshopper';
+import { ladybugDestinations } from './ladybug';
 import { queenDestinations } from './queen';
 import { spiderDestinations } from './spider';
 
@@ -18,5 +19,6 @@ export const BUG_DESTINATIONS: Partial<Record<BugKind, DestinationGenerator>> = 
   S: spiderDestinations,
   B: beetleDestinations,
   G: grasshopperDestinations,
-  // M, L: M2 · P: self-move in M2 (tosses are generated in engine.ts)
+  L: ladybugDestinations,
+  // M: T2.3 · P self-moves are queen-shaped (T2.2); tosses live in engine.ts
 };
