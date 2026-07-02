@@ -281,11 +281,11 @@ through the function** (clients get no direct write access to `games`). This is 
 
 | Screen | Purpose |
 |---|---|
-| **Sign in** | Google sign-in button. That's it. |
-| **Lobby (home)** | Your games in two groups: **Your turn** (badged) and *Waiting on opponent*, plus finished games below. Each card: opponent, mini board thumbnail, last-move time, deadline countdown if any. FAB → New game. |
+| **Landing / sign in** | A **themed** full-bleed landing, not a bare button: hive-cluster hero rendered by the real board renderer from a fixed decorative state (with a subtle idle float animation), HIVE wordmark, one-line tagline, Google sign-in button. This is also the first thing an invited friend sees, so it carries the visual identity. Signed-in users skip straight to the lobby. |
+| **Lobby (home)** | Your games in two groups: **Your turn** (badged) and *Waiting on opponent*, plus finished games below (with win/loss/draw result chips). Each card: opponent, mini board thumbnail, last-move time, deadline countdown if any. FAB → New game. |
 | **New game** | Pick color (white/black/random), expansions toggles (default all on), tournament-opening toggle, time control. Creates game → shows/copies **invite link**. |
-| **Join** | Landing route for invite links (`/join/{code}`): shows the game setup, one button to accept (routes through sign-in if needed). |
-| **Game** | The board (§6.2), player bars (name, captured queen-liberties indicator, clock/deadline), your **hand** of unplaced tiles as a dockable tray, move list drawer, and Resign / Offer draw / Pass actions in an overflow menu. |
+| **Join** | Landing route for invite links (`/join/{code}`): same themed layout as the landing screen with a game-summary card and one accept button (routes through sign-in if needed). |
+| **Game** | The board (§6.2), player bars (name, captured queen-liberties indicator, clock/deadline), your **hand** of unplaced tiles as a dockable tray, move list drawer, and Resign / Offer draw / Pass actions in an overflow menu. Ends in the victory sequence (§6.3). |
 | **Settings** | Notifications opt-in state, theme (light/dark/system), sign out. |
 
 Routing: React Router; every screen is a URL (`/game/{id}`) so notification taps and
@@ -321,18 +321,60 @@ transitions, and easy testability (DOM assertions in e2e) for free.
   HTML5 DnD is wrong for touch, and dnd-kit fights SVG coordinate spaces; the math is
   ~a screenful of code against the axial↔pixel helpers).
 
-### 6.3 Visual design
+### 6.3 End of game & victory screens
+
+Losing a Hive game means *watching your queen get surrounded* — the ending should land
+as a moment, not a modal that teleports in.
+
+- **The beat.** When `result(state)` flips to a win, the board auto-centers on the
+  surrounded queen, the six surrounding tiles pulse once, and there's a ~1s pause
+  (tap to skip) before the overlay appears — the loser gets to see the position.
+  Endings by resignation or timeout skip the board beat and go straight to the overlay.
+- **Result overlay** — full-screen sheet on phones, centered card on tablet/desktop:
+  - Headline + reason, themed per outcome: *"Queen surrounded!"*, *"Sam resigned"*,
+    *"Draw — threefold repetition"*, *"Won on time"*. Victory/defeat/draw each get a
+    distinct (but restrained) color/tone treatment.
+  - Hero art: the winning color's queen tile rendered large by the board renderer —
+    same sprite system as the game (§6.4), no bespoke raster art.
+  - A stats line: move count, and duration (elapsed days for async games).
+  - Actions: **Rematch** (creates the return game with colors swapped and pushes a
+    rematch offer to the opponent), **View board** (dismisses the overlay to inspect
+    the final position, leaving a persistent result banner), **Back to lobby**.
+- Finished games stay openable from the lobby (result chip on the card); opening one
+  shows the final position with the result banner, and the overlay can be re-opened.
+- Resigning and accepting a draw confirm via a small dialog first (no accidental
+  resigns on touch), then flow into the same overlay.
+
+### 6.4 Art direction & asset pipeline
 
 - **MUI** for all chrome (app bar, cards, drawers, dialogs) with a custom theme:
   one accent color, generous whitespace, rounded MUI defaults — clean and unfussy.
-- **Tile art:** flat, geometric SVG bug glyphs (single-color mark on cream/charcoal
-  hex tiles matching the physical game's white/black), designed on a consistent grid,
-  inlined as symbols so they retint via CSS. Simple > ornate; readability at 40px wins.
-- Light + dark themes from day one (board palette swaps with the MUI theme).
-- Subtle motion only: lift, snap, settle, and a short "queen surrounded" end-of-game
-  moment. No particle nonsense.
+  Light + dark from day one (board palette swaps with the MUI theme).
+- **One asset source of truth:** `app/src/assets/hive-sprites.svg` — an SVG sprite
+  sheet with a `<symbol>` per asset, rendered everywhere via `<use href="#bug-queen">`:
+  - the **8 bug glyphs** (Queen, Ant, Spider, Grasshopper, Beetle, Mosquito, Ladybug,
+    Pillbug) — flat, geometric, single-path marks on a fixed 100×100 grid with a
+    consistent stroke weight, readable at 40px;
+  - the **hex tile base** (cream/charcoal variants matching the physical game's
+    white/black tiles), the ghost/target hex, and small motifs (result-chip crown,
+    empty-state tile).
+  - Glyphs use `currentColor` plus one CSS variable, so player color, light/dark
+    theme, and dimmed/highlight states are pure CSS — no duplicated assets.
+- **How other screens get their art: composition, not illustration.** The landing
+  hero, join screen, victory hero, and lobby thumbnails are all the *board renderer*
+  pointed at fixed or real states — decorative hive clusters and big single tiles
+  built from the same sprites. One visual language across every screen, and zero
+  bespoke-illustration maintenance.
+- **Authoring plan:** M3 ships a serviceable draft glyph set (circle/arc geometry —
+  good enough to play with); the M6 polish pass refines the drawings. Because
+  everything references the sprite sheet, the art pass touches exactly one file.
+- **Raster only where the platform demands it:** PWA icons, maskable icon, and the
+  notification badge are exported from the queen glyph by a build script — never
+  hand-maintained PNGs.
+- Subtle motion only: lift, snap, settle, and the §6.3 end-of-game beat. No particle
+  nonsense.
 
-### 6.4 State management
+### 6.5 State management
 
 - Server/cache state (auth, game docs, snapshots): **TanStack Query** + thin Firestore
   listener hooks.
@@ -397,7 +439,25 @@ Per your instruction, I decided these myself, optimizing for "you two playing AS
 7. **Server-authoritative moves via Cloud Function** rather than trusting clients +
    security rules. Slightly more code, but it's the only honest way to enforce turn
    order and legality, and it reuses the engine as-is.
-8. **SVG board, custom pointer-event drag** (no dnd library, no canvas) — §6.2.
+8. **SVG board, custom pointer-event drag** (no dnd library, no canvas). This is less
+   "rolling our own DnD" than it sounds — the drag itself is trivial; the hard part is
+   *hit-testing a zoomable hex grid*, which no library does for us:
+   - HTML5 drag-and-drop is a non-starter: it doesn't work on touch, and iPad is a
+     primary device.
+   - Pointer-based libraries (dnd-kit et al.) model drop targets as DOM elements
+     hit-tested by **bounding rect**. Hexagons' bounding boxes overlap their
+     neighbors', so rect hit-testing misdrops near cell edges — exactly where players
+     drop. Rects are also measured at drag start, so pan/zoom mid-drag (pinching with
+     the other hand) silently invalidates them.
+   - The correct "which cell is the pointer over" on a hex grid is one closed-form
+     formula (pixel → fractional axial → cube-round), using the same axial↔pixel
+     helpers the renderer already needs. A library would sit *on top of* that math,
+     not replace it — all cost, no lift.
+   - Drag and tap-tap are two input frontends on the same controller state machine
+     (§6.2), so the whole interaction is testable at the controller layer without
+     synthesizing drag events.
+   - Reconsider if we ever add HTML-to-HTML drags (e.g. reordering lists) — that's
+     dnd-kit's home turf, and it can coexist with the board's pointer handling.
 9. **UHP notation** for the move log (free test vectors now, free AI/engine interop later).
 10. **Separate pnpm workspace** at `hive/` (not merged into `loom/`'s workspace) — the
     projects share nothing and shouldn't share a lockfile.
@@ -428,15 +488,18 @@ suite from published rulings.
 **Done when:** all expansion fixtures pass; property suite re-run with expansions on.
 
 ### M3 — Local game UI (3–4 days)
-Board rendering (SVG, pan/zoom, stacks), hand tray, drag/tap interaction per §6.2,
-GameController with a local (hot-seat) transport, move list, end-of-game states.
+Board rendering (SVG, pan/zoom, stacks), draft sprite sheet (§6.4), hand tray,
+drag/tap interaction per §6.2, GameController with a local (hot-seat) transport,
+move list, end-of-game beat + result overlay (§6.3, minus rematch).
 Play a full expansion game on one device. Component + controller tests.
-**Done when:** two humans can pass the iPad back and forth for a complete legal game.
+**Done when:** two humans can pass the iPad back and forth for a complete legal game
+that ends in the victory sequence.
 
 ### M4 — Multiplayer backend (3–4 days)
-Auth + sign-in screen; Firestore schema + rules; `submitMove` function with emulator
-tests; invite create/join flow; lobby with multiple concurrent games; optimistic
-moves + reconciliation; Playwright two-browser e2e.
+Auth + themed landing/sign-in screen (§6.1); Firestore schema + rules; `submitMove`
+function with emulator tests; invite create/join flow; rematch offers; lobby with
+multiple concurrent games; optimistic moves + reconciliation; Playwright two-browser
+e2e.
 **Done when:** the e2e full-game test passes; you and a second account can play from
 two devices.
 
@@ -447,15 +510,16 @@ icon/document badges, deadline stamping + hourly forfeit function + expiry warni
 in emulator test.
 
 ### M6 — Polish & ship (2–3 days)
-Final tile art set, dark mode pass, animations, empty states, responsive audit
-(iPhone / iPad / desktop), error toasts, Lighthouse PWA audit, deploy to production
-Hosting, play a real game state-to-state.
+Final glyph art pass on the sprite sheet, landing-hero and victory-screen polish,
+dark mode pass, animations, empty states, responsive audit (iPhone / iPad / desktop),
+error toasts, Lighthouse PWA audit, deploy to production Hosting, play a real game
+state-to-state.
 **Done when:** you've finished an actual game with your friend and neither of you hit
 a rough edge worth filing.
 
 ### v1.1 candidates (in rough order)
 Real-time chess clocks → takebacks → offline move queueing → game chat/emotes →
-rematch button → AI opponent via `@hive/ai` or an external UHP engine → analysis mode.
+AI opponent via `@hive/ai` or an external UHP engine → analysis mode.
 
 ---
 
