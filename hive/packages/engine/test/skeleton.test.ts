@@ -29,6 +29,6 @@ describe('engine skeleton', () => {
 
   it('unbuilt surfaces throw unimplemented (replaced milestone by milestone)', () => {
     const s = engine.initialState(options);
-    expect(() => engine.toUhp({ type: 'pass' }, s)).toThrowError(/unimplemented/);
+    expect(() => engine.hash(s)).toThrowError(/unimplemented/);
   });
 });

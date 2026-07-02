@@ -51,12 +51,8 @@ const unimplemented = (what: string): never => {
 export { initialState } from './state';
 export { applyMove, IllegalMoveError, legalMoves, result } from './engine';
 
-export function toUhp(move: Move, state: GameState): string {
-  return unimplemented(`toUhp(${move.type} at turn ${state.turn})`);
-}
-export function parseUhp(uhp: string, state: GameState): Move {
-  return unimplemented(`parseUhp(${uhp} at turn ${state.turn})`);
-}
+export { parseUhp, toUhp } from './uhp';
+
 export function hash(state: GameState): bigint {
   return unimplemented(`hash(turn ${state.turn})`);
 }
