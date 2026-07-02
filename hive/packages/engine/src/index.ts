@@ -75,12 +75,4 @@ export function hash(state: GameState): bigint {
 }
 
 // hex utilities (shared with the renderer/drag layer)
-export function neighbors(h: Hex): Hex[] {
-  return unimplemented(`neighbors(${h.q},${h.r})`);
-}
-export function hexToPixel(h: Hex, size: number): { x: number; y: number } {
-  return unimplemented(`hexToPixel(${h.q},${h.r},${size})`);
-}
-export function pixelToHex(x: number, y: number, size: number): Hex {
-  return unimplemented(`pixelToHex(${x},${y},${size})`);
-}
+export { hexToPixel, neighbors, pixelToHex } from './hex';
