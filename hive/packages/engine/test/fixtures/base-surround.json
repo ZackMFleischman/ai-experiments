@@ -1,0 +1,26 @@
+{
+  "description": "Hand-authored base-only game (T1.9): white surrounds the black queen with ants and a grasshopper jump; ends 'won' by w.",
+  "options": { "mosquito": false, "ladybug": false, "pillbug": false, "tournamentOpening": true },
+  "moves": [
+    "wS1",
+    "bS1 wS1-",
+    "wQ -wS1",
+    "bQ bS1-",
+    "wA1 \\wQ",
+    "bA1 bQ-",
+    "wA1 \\bQ",
+    "bG1 bA1-",
+    "wA2 -wQ",
+    "bG2 bG1-",
+    "wA2 \\bA1",
+    "bG3 bG2-",
+    "wA3 /wQ",
+    "bB1 bG1\\",
+    "wA3 /bQ",
+    "bB1 bG1",
+    "wG1 \\wA1",
+    "bB1 bA1/",
+    "wG1 wA3-"
+  ],
+  "expected": { "status": "won", "winner": "w", "by": "surround" }
+}

@@ -9,8 +9,8 @@ const options: GameOptions = {
   tournamentOpening: true,
 };
 
-describe('engine skeleton', () => {
-  it('exports the frozen API surface', () => {
+describe('frozen API surface (IMPLEMENTATION §5)', () => {
+  it('exports exactly the frozen functions', () => {
     for (const fn of [
       'initialState',
       'legalMoves',
@@ -27,7 +27,7 @@ describe('engine skeleton', () => {
     }
   });
 
-  it('stub bodies throw unimplemented (replaced milestone by milestone)', () => {
-    expect(() => engine.initialState(options)).toThrowError(/unimplemented/);
+  it('hash returns a bigint', () => {
+    expect(typeof engine.hash(engine.initialState(options))).toBe('bigint');
   });
 });

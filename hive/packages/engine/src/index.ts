@@ -44,43 +44,10 @@ export interface GameState {
   readonly positionHashes: readonly bigint[];
 }
 
-export class IllegalMoveError extends Error {
-  override name = 'IllegalMoveError';
-}
-
-const unimplemented = (what: string): never => {
-  throw new Error(`unimplemented: ${what}`);
-};
-
-export function initialState(options: GameOptions): GameState {
-  return unimplemented(`initialState(${JSON.stringify(options)})`);
-}
-export function legalMoves(state: GameState): Move[] {
-  return unimplemented(`legalMoves(turn ${state.turn})`);
-}
-export function applyMove(state: GameState, move: Move): GameState {
-  return unimplemented(`applyMove(${move.type} at turn ${state.turn})`);
-}
-export function result(state: GameState): GameResult {
-  return unimplemented(`result(turn ${state.turn})`);
-}
-export function toUhp(move: Move, state: GameState): string {
-  return unimplemented(`toUhp(${move.type} at turn ${state.turn})`);
-}
-export function parseUhp(uhp: string, state: GameState): Move {
-  return unimplemented(`parseUhp(${uhp} at turn ${state.turn})`);
-}
-export function hash(state: GameState): bigint {
-  return unimplemented(`hash(turn ${state.turn})`);
-}
+export { initialState } from './state';
+export { applyMove, IllegalMoveError, legalMoves, result } from './engine';
+export { parseUhp, toUhp } from './uhp';
+export { hash } from './zobrist';
 
 // hex utilities (shared with the renderer/drag layer)
-export function neighbors(h: Hex): Hex[] {
-  return unimplemented(`neighbors(${h.q},${h.r})`);
-}
-export function hexToPixel(h: Hex, size: number): { x: number; y: number } {
-  return unimplemented(`hexToPixel(${h.q},${h.r},${size})`);
-}
-export function pixelToHex(x: number, y: number, size: number): Hex {
-  return unimplemented(`pixelToHex(${x},${y},${size})`);
-}
+export { hexToPixel, neighbors, pixelToHex } from './hex';
