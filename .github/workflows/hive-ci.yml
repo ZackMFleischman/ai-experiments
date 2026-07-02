@@ -1,0 +1,79 @@
+name: HIVE CI
+
+on:
+  pull_request:
+    paths: ['hive/**', '.github/workflows/hive-ci.yml']
+  push:
+    branches: [main]
+    paths: ['hive/**', '.github/workflows/hive-ci.yml']
+
+concurrency:
+  group: hive-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: hive
+
+jobs:
+  # Fast required gate on every push/PR: docs lint + typecheck + all unit layers
+  # (engine, app, functions-against-emulator).
+  checks:
+    name: typecheck · unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: hive/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: hive/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: cache firebase emulator jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('hive/pnpm-lock.yaml') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Full milestone acceptance gates (validate:m0..mN, incl. Playwright e2e).
+  validate:
+    name: validate (milestone gates)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: hive/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: hive/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: cache firebase emulator jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('hive/pnpm-lock.yaml') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - name: install playwright chromium
+        working-directory: hive/e2e
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm validate
