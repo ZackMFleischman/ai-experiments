@@ -22,6 +22,17 @@ when working in this directory.
 - Tasks marked ⚑ in IMPLEMENTATION.md need Zack (Firebase console, DNS, real
   devices) — do the code side, then list what's needed in the PR.
 
+## Documentation (full policy: IMPLEMENTATION.md §7 — CI-enforced)
+
+- The doc set is **closed** and line-budgeted; no new `.md` files, no budget bumps,
+  without a DECISIONS.md entry. `scripts/check-docs.mjs` fails typecheck otherwise.
+- Docs state the **current** system only: amend the owning section in place, in the
+  same PR as the change. Never append "Update:" blocks; never restate a fact that
+  has a home elsewhere — link it. Change narration goes in the PR description.
+- Decisions and judgment calls → append to `DECISIONS.md` (≤8 lines). When a
+  milestone ships, collapse its IMPLEMENTATION.md task table to a SHIPPED entry
+  there.
+
 ## Commands
 
 Once M0 lands, all commands run from `hive/`: `pnpm dev`, `pnpm typecheck`,

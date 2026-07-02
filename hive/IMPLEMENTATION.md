@@ -40,6 +40,10 @@ watching.
 - [ ] `pnpm typecheck` and `pnpm test` pass
 - [ ] New behavior has a test that fails without the change
 - [ ] **[visual]** tasks: screenshots captured *and read*, checklist updated
+- [ ] Docs updated **in this PR** per the §7 policy: owning section amended in
+      place (no appended "Update:" blocks, no new files), DECISIONS.md entry if the
+      task involved a judgment call; milestone-closing PRs collapse the shipped task
+      table (§7.2.3)
 - [ ] No TODOs without an issue/checklist entry
 
 ---
@@ -82,6 +86,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 | T0.5 | `e2e` package: Playwright config (chromium; 3 viewport projects: 390×844 / 1024×768 / 1440×900), smoke test that loads the app and asserts no console errors | `e2e/` | `pnpm --filter e2e test` |
 | T0.6 | CI: GitHub Actions — typecheck + tests on push, e2e on PR; ⚑ Firebase project creation (DESIGN §5.6 checklist), then Hosting deploy on main + PR preview channels | `.github/workflows/` | `pnpm validate:m0` |
 | T0.7 | Commit `hive/CLAUDE.md` (builder guide: commands, protocol pointer, frozen-surface warning) and wire `validate:m0` = typecheck + all tests + e2e smoke | root | `pnpm validate:m0` |
+| T0.8 | Docs lint: `scripts/check-docs.mjs` enforcing the §7 policy (budgets, closed file set, no "Update:" markers); wire into `pnpm typecheck` + CI | root | lint fails on a synthetic violation, passes on HEAD |
 
 ### M1 — Engine: base game
 
@@ -342,7 +347,69 @@ These three also drive gallery board entries and the hot-seat e2e script.
 
 ---
 
-## 7. Open items / deliberately deferred
+## 7. Documentation policy — how the docs stay small
+
+Docs rot in two ways: they grow (append-minded agents bolt on "Update:" sections,
+new files, restated facts) and they drift (code changes, docs don't). Both are
+prevented by construction, and the key rules are **machine-enforced** so PRs can't
+merge past them.
+
+### 7.1 The doc set is closed
+
+Exactly these files, each with one job and a line budget:
+
+| File | Job | Budget |
+|---|---|---|
+| `README.md` | elevator pitch + pointers | 25 |
+| `CLAUDE.md` | agent entry point: hard rules + commands | 50 |
+| `DESIGN.md` | the *current* design — what & why, present tense | 850 |
+| `IMPLEMENTATION.md` | how to build **what isn't built yet** + harness/fixture reference | 450 |
+| `DECISIONS.md` | append-only decision + SHIPPED log | no cap; ≤8 lines/entry |
+| `e2e/visual-checklist.md` | living visual-review checklist | 150 |
+
+`DECISIONS.md` is the **only** file allowed to grow over time — and it grows
+linearly, in cheap fixed-size entries. Everything else holds its budget forever.
+
+### 7.2 Rules
+
+1. **Current state only.** Docs describe the system as it is; history lives in git
+   and DECISIONS.md. Amend sections in place — never append "Update (date):" blocks,
+   never keep superseded text "for context," never narrate what changed (that's the
+   PR description's job).
+2. **One home per fact.** Commands live in CLAUDE.md; schema in DESIGN.md §5.2;
+   frozen API in IMPLEMENTATION.md §5; and so on. Other docs *link* (`DESIGN §5.2`),
+   never restate. If you're about to paste a fact that exists elsewhere, link it.
+3. **The plan is self-consuming.** When a milestone's gate is green and merged,
+   replace its task table in §2 with one line — `### M1 — shipped, see DECISIONS.md`
+   — and append a SHIPPED entry to DECISIONS.md (date, gates run, deviations from
+   plan, stumbles worth remembering; ≤8 lines). Task detail is preserved by git
+   history, not by the living doc. By M6 this file is mostly §4–§6 reference.
+4. **New ideas don't open new files.** Post-v1 ideas become one-line DECISIONS.md
+   entries tagged `post-v1`. Creating any new `.md` under `hive/` requires a
+   DECISIONS entry justifying it *and* a row in the §7.1 table, in the same PR.
+5. **Checklist hygiene.** Fixed visual deviations are deleted, not marked fixed;
+   the accepted-deviations list holds only what is *currently* accepted.
+6. **Raising a budget is a decision, not a workaround.** An over-budget PR must cut
+   or consolidate; if a budget is genuinely too small, raise it in the §7.1 table
+   with a DECISIONS entry saying why.
+
+### 7.3 Enforcement (what makes agent PRs respect it)
+
+- **Mechanical gate (T0.8):** `scripts/check-docs.mjs`, wired into `pnpm typecheck`
+  and CI, fails on (a) any budget in §7.1 exceeded, (b) any `.md` under `hive/` not
+  in the table, (c) the literal marker `Update (` or `UPDATE:` appearing in
+  DESIGN.md/IMPLEMENTATION.md — the tell-tale of append-minded editing. Since
+  `typecheck` runs on every push, no PR merges past a bloated doc.
+- **Protocol hook:** the §0 definition-of-done includes the docs item — the owning
+  doc section is amended *in the same PR* as the behavior change (no follow-up
+  doc-sync PRs), plus a DECISIONS entry if the PR made a judgment call.
+- **CLAUDE.md carries the summary** every agent reads on entry, so the policy
+  doesn't depend on agents finding this section.
+- **Review question for every PR:** "does this diff add doc text a future reader
+  doesn't need?" Narration, alternatives considered, and progress notes belong in
+  the PR description, which is free — the docs are not.
+
+## 8. Open items / deliberately deferred
 
 - Real-time chess clocks, takebacks, offline move queueing, chat, AI, analysis —
   post-v1 (DESIGN §10 v1.1 list).
