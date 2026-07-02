@@ -145,9 +145,14 @@ describe(`random-game invariants (${GAMES} games, base rules)`, () => {
   it(
     'holds all §6 invariants',
     () => {
-      fc.assert(
-        fc.property(fc.integer({ min: 0, max: 2 ** 31 - 1 }), (seed) => {
+      // asyncProperty so the event loop yields between games — a multi-minute
+      // synchronous block starves vitest's worker RPC and fails the run with
+      // "Timeout calling onTaskUpdate" even when every test passes.
+      return fc.assert(
+        fc.asyncProperty(fc.integer({ min: 0, max: 2 ** 31 - 1 }), async (seed) => {
           runRandomGame(seed, BASE);
+          // Real macrotask yield (await alone only drains microtasks).
+          await new Promise((resolve) => setImmediate(resolve));
         }),
         // Fixed fc seed: reproducible runs (override to explore new games).
         { numRuns: GAMES, seed: Number(process.env.HIVE_PROP_SEED ?? 20260702) },
