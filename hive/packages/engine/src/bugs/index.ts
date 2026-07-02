@@ -20,5 +20,6 @@ export const BUG_DESTINATIONS: Partial<Record<BugKind, DestinationGenerator>> = 
   B: beetleDestinations,
   G: grasshopperDestinations,
   L: ladybugDestinations,
-  // M: T2.3 · P self-moves are queen-shaped (T2.2); tosses live in engine.ts
+  P: queenDestinations, // pillbug self-moves; tosses are generated in engine.ts
+  // M: T2.3
 };

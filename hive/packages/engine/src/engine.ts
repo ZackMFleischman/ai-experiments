@@ -2,6 +2,7 @@
 import { cellKey, neighbors, parseKey } from './hex';
 import type { Color, GameResult, GameState, Hex, Move, TileId } from './index';
 import { BUG_DESTINATIONS } from './bugs/index';
+import { pillbugTosses } from './bugs/pillbug';
 import { articulationCells, placements } from './rules';
 import { handCount, placeTile, removeTop, tileEquals, tileKey, topTile } from './state';
 import { hash } from './zobrist';
@@ -45,15 +46,41 @@ function computeLegalMoves(state: GameState): Move[] {
   // No piece may move until that player's queen is placed.
   if (state.hands[state.toMove].Q === 0) {
     const cuts = articulationCells(state.board); // one-hive, computed once per call
+    const stunned = state.lastMoved?.byPillbug ? state.lastMoved.tile : undefined;
     for (const [key, stack] of state.board) {
       const from = parseKey(key);
       const tile = topTile(state.board, from);
       if (!tile || tile.color !== state.toMove) continue;
+      if (stunned && tileEquals(stunned, tile)) continue; // pillbug stun (T2.2)
       if (stack.length < 2 && cuts.has(key)) continue; // stack tops are never blocked
       const generate = BUG_DESTINATIONS[tile.kind];
       if (!generate) continue;
       for (const to of generate(state.board, from)) {
         moves.push({ type: 'move', tile, from, to });
+      }
+    }
+
+    // Pillbug tosses (and mosquito-copied tosses). A toss whose (tile, from, to)
+    // duplicates a legal self-move is dropped: UHP cannot tell the two apart and
+    // the ambiguity canonicalizes to self-move (DESIGN §2.4).
+    const selfKeys = new Set(
+      moves
+        .filter((m): m is Extract<Move, { type: 'move' }> => m.type === 'move')
+        .map((m) => `${tileKey(m.tile)}|${cellKey(m.from)}|${cellKey(m.to)}`),
+    );
+    for (const [key, stack] of state.board) {
+      const pCell = parseKey(key);
+      const top = topTile(state.board, pCell);
+      if (!top || top.color !== state.toMove) continue;
+      const copiesPillbug =
+        top.kind === 'M' &&
+        stack.length === 1 && // a mosquito on top of the hive is beetle-only
+        neighbors(pCell).some((n) => topTile(state.board, n)?.kind === 'P');
+      if (top.kind !== 'P' && !copiesPillbug) continue;
+      for (const m of pillbugTosses(state, pCell, top)) {
+        if (!selfKeys.has(`${tileKey(m.tile)}|${cellKey(m.from)}|${cellKey(m.to)}`)) {
+          moves.push(m);
+        }
       }
     }
   }
