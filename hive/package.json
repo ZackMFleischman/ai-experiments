@@ -17,12 +17,5 @@
     "concurrently": "^9.1.2",
     "firebase-tools": "^14.4.0",
     "typescript": "^5.6.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "protobufjs",
-      "re2"
-    ]
   }
 }
