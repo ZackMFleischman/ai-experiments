@@ -1,0 +1,118 @@
+// Overflow menu (T3.8): Pass / Offer draw / Resign / New game, with confirm
+// dialogs so touch can't fat-finger a resignation (DESIGN §6.3).
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  Menu,
+  MenuItem,
+} from '@mui/material';
+import { useState } from 'react';
+import type { GameController, Snapshot } from '../controller/GameController';
+
+type Confirm = 'resign' | 'draw' | 'new-game' | null;
+
+export function GameMenu({ controller, snap }: { controller: GameController; snap: Snapshot }) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [confirm, setConfirm] = useState<Confirm>(null);
+  const close = () => setAnchor(null);
+
+  const act = () => {
+    if (confirm === 'resign') controller.resign(snap.toMove);
+    if (confirm === 'draw') controller.offerDraw(snap.toMove);
+    if (confirm === 'new-game') void controller.newGame();
+    setConfirm(null);
+  };
+
+  const who = snap.toMove === 'w' ? 'White' : 'Black';
+  const text = {
+    resign: `${who} resigns the game?`,
+    draw: `${who} offers a draw?`,
+    'new-game': 'Start a new game? The current game will be discarded.',
+  } as const;
+
+  return (
+    <>
+      <IconButton aria-label="game menu" onClick={(e) => setAnchor(e.currentTarget)}>
+        <MoreVertIcon />
+      </IconButton>
+      <Menu anchorEl={anchor} open={!!anchor} onClose={close}>
+        <MenuItem
+          disabled={!snap.canPass}
+          onClick={() => {
+            controller.pass();
+            close();
+          }}
+        >
+          Pass
+        </MenuItem>
+        <MenuItem
+          disabled={!!snap.end || !!snap.pendingDrawOffer}
+          onClick={() => {
+            setConfirm('draw');
+            close();
+          }}
+        >
+          Offer draw
+        </MenuItem>
+        <MenuItem
+          disabled={!!snap.end}
+          onClick={() => {
+            setConfirm('resign');
+            close();
+          }}
+        >
+          Resign
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setConfirm('new-game');
+            close();
+          }}
+        >
+          New game
+        </MenuItem>
+      </Menu>
+
+      <Dialog open={confirm !== null} onClose={() => setConfirm(null)}>
+        <DialogTitle>Are you sure?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{confirm ? text[confirm] : ''}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirm(null)}>Cancel</Button>
+          <Button variant="contained" onClick={act} data-testid="confirm-action">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Hot-seat draw response: the other player answers on the same device. */}
+      <Dialog open={!!snap.pendingDrawOffer && !snap.end}>
+        <DialogTitle>
+          {snap.pendingDrawOffer === 'w' ? 'White' : 'Black'} offers a draw
+        </DialogTitle>
+        <DialogActions>
+          <Button
+            data-testid="draw-decline"
+            onClick={() => controller.respondDraw(snap.pendingDrawOffer === 'w' ? 'b' : 'w', false)}
+          >
+            Decline
+          </Button>
+          <Button
+            variant="contained"
+            data-testid="draw-accept"
+            onClick={() => controller.respondDraw(snap.pendingDrawOffer === 'w' ? 'b' : 'w', true)}
+          >
+            Accept
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+}

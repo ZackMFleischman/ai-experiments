@@ -1,16 +1,20 @@
-import { Box, Typography } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
+import { useEffect, useState } from 'react';
+import type { GameController } from '../controller/GameController';
+import { GameScreen } from '../game/GameScreen';
+import { initLocalController } from '../game/localSession';
 
 export function Game() {
-  const { id } = useParams<{ id: string }>();
-  return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" component="h1">
-        Game
-      </Typography>
-      <Typography color="text.secondary" sx={{ mt: 2 }}>
-        Board for game {id ?? '—'} arrives with M3.
-      </Typography>
-    </Box>
-  );
+  const [controller, setController] = useState<GameController | null>(null);
+  useEffect(() => {
+    void initLocalController().then(setController);
+  }, []);
+  if (!controller) {
+    return (
+      <Box sx={{ display: 'grid', placeItems: 'center', height: '100dvh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  return <GameScreen controller={controller} />;
 }

@@ -19,7 +19,6 @@ describe('app shell routes', () => {
     ['/lobby', 'Your games'],
     ['/new', 'New game'],
     ['/join/abc123', 'Join game'],
-    ['/game/g1', 'Game'],
     ['/settings', 'Settings'],
   ];
 
@@ -30,4 +29,10 @@ describe('app shell routes', () => {
       unmount();
     });
   }
+
+  it('renders /game/:id (hot-seat session boots into the game screen)', async () => {
+    const { unmount } = renderAt('/game/local');
+    expect(await screen.findByTestId('hand-tray')).toBeTruthy();
+    unmount();
+  });
 });
