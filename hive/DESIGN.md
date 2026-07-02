@@ -1,0 +1,471 @@
+# HIVE — Design Doc & Implementation Plan
+
+A digital, two-player version of the board game **Hive** (with expansions), built as a
+**PWA** so two people in different states can play each other **synchronously or
+asynchronously** — the way chess apps offer both live games and "daily" correspondence
+games.
+
+> Hive is a trademark of Gen42 Games. This is a private, non-commercial project for
+> personal play.
+
+---
+
+## 1. Goals & non-goals
+
+### Goals (v1)
+
+- **Two-player over the internet.** Create a game, send your friend an invite link, play.
+- **Async or sync, seamlessly.** There is no mode switch: a game is just a shared state
+  that updates in real time. If you're both online it feels live; if not, you get a
+  notification when it's your turn and play whenever.
+- **Expansions on by default.** Mosquito, Ladybug, and Pillbug, toggleable per game.
+- **Great move UX.** Drag-and-drop tiles with clear affordances: which pieces can move,
+  where they can legally land, snapping, and a tap-tap fallback for touch.
+- **Turn awareness & notifications.** Push notifications ("Your move vs. Sam"),
+  in-app "your turn" badges, app icon badge count.
+- **Multiple concurrent games** per account, visible in a lobby list.
+- **Responsive.** Same account and games from phone, iPad, or desktop.
+- **Clean, modern, simple visuals.** Refined rather than elaborate. MUI + a small custom
+  board aesthetic.
+- **Robust.** Server-validated moves; a heavily tested rules engine; e2e coverage of the
+  full two-client game loop.
+
+### Non-goals (v1)
+
+- No AI opponent (but the architecture must leave the door open — see §3).
+- No ratings/ELO, matchmaking pools, or public lobby (invite links only).
+- No spectators, chat, or game analysis/review tools.
+- No native app store builds — PWA only.
+- No monetization, no multi-tenant hardening beyond "don't let players cheat."
+
+---
+
+## 2. Rules scope
+
+### 2.1 Base game
+
+All one-hive movement/placement rules, per the official rulebook:
+
+- **Placement:** new tiles must touch your own color only (except each player's first
+  placement); White places first at origin, Black adjacent to it.
+- **Queen rule:** the Queen Bee must be placed by each player's **4th** turn; no piece
+  may *move* until that player's Queen is placed. Tournament opening rule: **the Queen
+  may not be placed as a player's first tile** (on by default; per-game toggle).
+- **One-Hive rule:** a move may never split the hive, even transiently (a piece that is
+  a cut vertex of the hive graph cannot move).
+- **Freedom to move (sliding):** a sliding step is legal only if the piece can physically
+  slide through the gap (the "two-gate" check on the shared neighbors of the from/to
+  cells), evaluated at the piece's height for beetles/climbing.
+- **Piece movement:** Queen (slide 1), Spider (slide exactly 3, no backtracking),
+  Ant (slide any distance), Grasshopper (jump in a straight line over ≥1 contiguous
+  tiles), Beetle (step 1 in any direction, may climb on top of the hive; stacked tiles;
+  a covered tile is frozen and its cell takes the beetle's color for placement rules).
+- **Pass:** if a player has no legal placement or move, they must pass (the engine
+  detects this; the UI offers only "Pass").
+- **End:** a Queen surrounded on all 6 sides loses; both surrounded simultaneously is a
+  draw. Draw offers and resignation are also supported (see §2.3).
+
+### 2.2 Expansions (each a per-game toggle, all **on** by default)
+
+- **Mosquito:** copies the movement ability of any adjacent piece for that move
+  (adjacent mosquito-only ⇒ cannot move; while on top of the hive it moves as a beetle
+  until it climbs down; copying a pillbug grants the toss ability).
+- **Ladybug:** exactly two steps on top of the hive, then one step down.
+- **Pillbug:** moves like a Queen, **or** (instead of moving) tosses an adjacent piece —
+  friend or enemy — up over itself and down into an adjacent empty cell. Constraints:
+  tossed piece and destination obey the sliding/gate rules at height 1; may not toss a
+  stacked piece or the piece the opponent just moved; **a piece moved or tossed by a
+  pillbug last turn is stunned** (cannot move or be tossed this turn). These "recency"
+  rules are why the engine tracks `lastMoved` state (§4.2).
+
+### 2.3 Meta rules
+
+- **Resign** and **offer draw / accept draw** (chess-style), available any time on your turn
+  (resign any time).
+- **Threefold repetition** of position with the same player to move ⇒ automatic draw
+  (keeps async games from deadlocking; positions hashed by the engine).
+- **Time controls** (see §5.4): per-move async deadlines in v1 (e.g. 3 days/move, with
+  timeout ⇒ loss); real-time chess clocks are a fast-follow (v1.1), not v1.
+
+### 2.4 Notation
+
+Moves are serialized in **UHP (Universal Hive Protocol) notation** — e.g. `wS1 bG1/`,
+`bA2 wQ-` — the community-standard format used by Hive engines (Mzinga et al.).
+Benefits: human-auditable game records, cross-checkable rule test vectors, and a free
+integration path for AI engines later. Game state is reconstructable from
+`options + move list` alone; that list is the source of truth (§5.2).
+
+---
+
+## 3. Architecture
+
+### 3.1 Principle: the game is a library, the app is a client
+
+The rules engine is a **pure TypeScript package with zero dependencies** — no React, no
+Firebase, no DOM. It is consumed identically by the web UI, the server-side move
+validator, tests, and (later) an AI player. Swapping the UI, or adding an AI, never
+touches the engine.
+
+```
+hive/
+├── DESIGN.md                  # this document
+├── package.json               # pnpm workspace root (independent of loom/)
+├── packages/
+│   ├── engine/                # @hive/engine — pure rules kernel (zero deps)
+│   │   └── src/
+│   │       ├── hex.ts         # axial coords, neighbors, rotation math
+│   │       ├── state.ts       # GameState, immutable update helpers
+│   │       ├── bugs/          # one module per bug (open/closed: add a file to add a bug)
+│   │       ├── rules.ts       # one-hive, freedom-to-move, queen rule, placement
+│   │       ├── engine.ts      # legalMoves(state), applyMove(state, m), result(state)
+│   │       ├── uhp.ts         # UHP notation parse/serialize
+│   │       └── zobrist.ts     # position hashing for repetition detection
+│   ├── app/                   # @hive/app — React + MUI + Vite PWA
+│   │   └── src/
+│   │       ├── screens/       # Lobby, Game, NewGame, Join, Settings, SignIn
+│   │       ├── board/         # SVG board, tile sprites, drag-drop layer
+│   │       ├── controller/    # GameController: mediates engine ↔ UI ↔ sync
+│   │       └── sync/          # Firestore adapter behind a GameTransport interface
+│   └── functions/             # @hive/functions — Cloud Functions (move validation, push)
+└── e2e/                       # Playwright: two-browser full-game tests
+```
+
+### 3.2 The three layers
+
+1. **Model (`@hive/engine`).** `GameState` is an immutable value. The engine exposes a
+   small, total API:
+   - `initialState(options): GameState`
+   - `legalMoves(state): Move[]` (always correct and exhaustive — the UI *only* renders
+     what this returns; it never computes legality itself)
+   - `applyMove(state, move): GameState` (throws on illegal input)
+   - `result(state): Ongoing | WhiteWins | BlackWins | Draw`
+2. **Controller (`@hive/app/controller`).** Owns the client-side game session: holds the
+   authoritative state received from sync, computes *derived* UI state (selected piece,
+   legal-target set, animation queue), applies **optimistic local moves**, and reconciles
+   when the server confirms/rejects. Talks to the network through a `GameTransport`
+   interface (`submitMove`, `onRemoteMove`, `onClockEvent`) so the Firebase adapter is
+   swappable.
+3. **View (`@hive/app`).** React + MUI. Purely renders controller state and forwards
+   intents (drag started, dropped on cell, resign clicked). No rules knowledge.
+
+### 3.3 Open/closed seams (explicit, so we don't regress them)
+
+- **New bug types:** a bug is a module implementing
+  `moves(state, from): Move[]` registered in a bug table; Mosquito composes others.
+  Adding a hypothetical new expansion piece = one new file + tests.
+- **AI player later:** an AI is just another producer of `Move` given `GameState` —
+  exactly the engine's public types. A future `@hive/ai` package (or a UHP-speaking
+  external engine) plugs into the controller as an alternate "opponent transport"
+  with zero engine/UI changes.
+- **UI swap:** everything under `app/` can be replaced; `engine/` has no imports from it.
+- **Backend swap:** only `app/src/sync/` and `functions/` know Firebase exists.
+
+---
+
+## 4. Rules engine design
+
+### 4.1 Board representation
+
+- **Axial hex coordinates** `(q, r)`, pointy-top orientation, with a **stack** per
+  occupied cell (`Tile[]`, bottom→top) to model beetles/mosquitos climbing.
+- Board is a `Map<CellKey, Tile[]>` — sparse and unbounded (Hive has no board edge).
+- The **view** maps axial → pixel; the engine never deals in pixels.
+
+### 4.2 GameState (engine-side)
+
+```ts
+interface GameState {
+  options: GameOptions            // expansions on/off, tournament opening rule
+  board: ReadonlyMap<CellKey, readonly Tile[]>
+  hands: { white: BugCounts; black: BugCounts }   // unplaced tiles
+  toMove: Color
+  turn: number                     // full-turn counter per player (queen-by-4 rule)
+  lastMoved?: { tile: TileId; byPillbug: boolean } // pillbug stun/recency rules
+  passCount: number
+  positionHashes: readonly bigint[]                // repetition detection
+}
+```
+
+### 4.3 Algorithms (the interesting parts)
+
+- **One-Hive:** articulation points of the occupancy graph (Tarjan / iterative DFS,
+  recomputed per `legalMoves` call — hives are ≤ 28 tiles, so O(V+E) is trivially fast).
+  Stacked cells are never articulation-blocked (removing the top of a stack can't split
+  the hive).
+- **Freedom to move:** the classic two-neighbor gate test, generalized by height so the
+  same predicate serves ground slides, beetle climbs (up/down), and pillbug tosses.
+- **Spider/Ant:** DFS/BFS over slide-steps around the perimeter with visited-set
+  (spider exactly depth 3 without revisits; ant closure).
+- **Grasshopper:** ray-walk per direction over ≥1 occupied cells.
+- **Mosquito:** union of adjacent pieces' move generators, with the "on top ⇒ beetle"
+  and "mosquito-only ⇒ stuck" special cases.
+- **Repetition:** Zobrist hashing over (cell, stack-slot, tile) plus side-to-move.
+
+Everything above is pure-function territory and gets exhaustive unit + property tests
+(§8) — this package is where the project's "robust" requirement mostly lives.
+
+---
+
+## 5. Backend
+
+### 5.1 Choice: **Firebase** (Auth + Firestore + Cloud Functions + FCM + Hosting)
+
+Decision drivers: fastest path to "two people playing tonight," and each hard
+requirement maps to a managed primitive —
+
+| Requirement | Firebase primitive |
+|---|---|
+| Realtime sync (live play "for free") | Firestore `onSnapshot` listeners |
+| Async play | …the same listeners; state persists, clients come and go |
+| Push notifications to a PWA | FCM Web Push |
+| Accounts across devices | Firebase Auth (Google sign-in) |
+| No server to run/patch | Cloud Functions only for move validation + notifications |
+| Scale later | Firestore scales horizontally; the data model (per-game docs) shards naturally |
+| Cost | Free tier covers two players indefinitely, and dozens of casual players |
+
+The engine being pure TS is what makes this cheap: the **same `@hive/engine` package
+runs inside the Cloud Function** to validate moves server-side. No rules duplication.
+
+### 5.2 Data model (Firestore)
+
+```
+users/{uid}:            { displayName, photoURL, fcmTokens: string[], settings }
+games/{gameId}:         { players: {white: uid, black: uid|null}, options,
+                          status: 'open'|'active'|'finished',
+                          result?, toMove, turn, moveCount,
+                          deadlineAt?: Timestamp,            // async time control
+                          updatedAt, createdAt,
+                          state: string }                    // serialized snapshot (fast load)
+games/{gameId}/moves/{n}: { n, uhp: string, by: uid, at: Timestamp }
+invites/{code}:          { gameId, createdBy, expiresAt }
+```
+
+- **Move list is the source of truth**; the `state` snapshot on the game doc is a
+  denormalized cache so clients render instantly without replaying (and gets
+  regression-checked against replay in tests).
+- Lobby query = `games where players.{myUid} != null and status == 'active' order by updatedAt`
+  (implemented via an array field `playerIds` for indexability). "Your turn" games sort first.
+
+### 5.3 Move protocol (server-authoritative)
+
+1. Client computes legal moves locally (instant UX), player drops a tile.
+2. Controller applies the move **optimistically** and calls the `submitMove` callable
+   Cloud Function with `(gameId, expectedMoveCount, uhpMove)`.
+3. Function transactionally: loads game → replays/loads state → asserts it's the
+   caller's turn and `expectedMoveCount` matches (optimistic-concurrency guard) →
+   validates via `engine.applyMove` → writes the move doc + updated snapshot +
+   `deadlineAt` → queues a push to the opponent.
+4. All clients converge via their snapshot listeners; if validation failed (should be
+   impossible unless clients desync), the controller rolls back and resyncs.
+
+Firestore security rules: game docs readable only by their two players; **all writes go
+through the function** (clients get no direct write access to `games`). This is the
+"can't cheat" property, and it's also the scaling story — the function is stateless.
+
+### 5.4 Time controls
+
+- **v1 — async ("correspondence"):** per-game setting of `1 / 3 / 7 days` per move or
+  `none`. `deadlineAt` stamped on every move; a scheduled function (hourly) forfeits
+  expired games and sends a "you timed out" / "about to expire" nudge push.
+- **v1.1 — real-time clocks:** chess-style `base + increment` stored as
+  `{remainingMs, lastMoveAt}` per player, settled server-side on each move; client
+  renders a ticking clock from those two values (no server ticking needed). Deferred
+  because it needs presence/abandonment handling to feel fair — and untimed live play
+  already works in v1 via realtime sync.
+
+---
+
+## 6. Frontend
+
+### 6.1 Screens
+
+| Screen | Purpose |
+|---|---|
+| **Sign in** | Google sign-in button. That's it. |
+| **Lobby (home)** | Your games in two groups: **Your turn** (badged) and *Waiting on opponent*, plus finished games below. Each card: opponent, mini board thumbnail, last-move time, deadline countdown if any. FAB → New game. |
+| **New game** | Pick color (white/black/random), expansions toggles (default all on), tournament-opening toggle, time control. Creates game → shows/copies **invite link**. |
+| **Join** | Landing route for invite links (`/join/{code}`): shows the game setup, one button to accept (routes through sign-in if needed). |
+| **Game** | The board (§6.2), player bars (name, captured queen-liberties indicator, clock/deadline), your **hand** of unplaced tiles as a dockable tray, move list drawer, and Resign / Offer draw / Pass actions in an overflow menu. |
+| **Settings** | Notifications opt-in state, theme (light/dark/system), sign out. |
+
+Routing: React Router; every screen is a URL (`/game/{id}`) so notification taps and
+multi-device resume deep-link correctly.
+
+### 6.2 Board rendering & interaction (the UX core)
+
+**SVG, not canvas.** A hive is ≤ 28 tiles + ≤ 30 highlight cells — trivially cheap in
+SVG, and we get crisp vector art at any DPI, native pointer events per tile, CSS
+transitions, and easy testability (DOM assertions in e2e) for free.
+
+- **Pan/zoom** via pointer + wheel/pinch on the SVG viewport, with a "recenter" button;
+  auto-fit on load and after moves that grow the hive.
+- **Interaction model — drag with tap fallback**, both driven by the same controller
+  states so behavior is identical:
+  1. *Idle:* all pieces with ≥1 legal move get a subtle "movable" affordance (slight
+     lift/shadow). Opponent pieces are inert (except as pillbug-toss targets, which
+     highlight when the pillbug is selected).
+  2. *Pick up* (pointer-down + drag, or tap): the piece lifts, and **all legal target
+     cells render as ghost hexes** (empty-cell outlines, or "climb" badges on occupied
+     cells for beetles). Everything else dims ~20%.
+  3. *Drag over a target:* the target hex fills, the tile **snaps** its preview to the
+     cell; over a non-target the tile follows the pointer with a "not allowed" tint.
+  4. *Drop* on a target ⇒ optimistic move + settle animation. Drop elsewhere (or Esc)
+     ⇒ spring back. Tap-mode: tap a highlighted cell to move, tap elsewhere to cancel.
+  5. Placement works the same way, dragging from the hand tray; the tray shows remaining
+     counts per bug and disables bugs with no legal placement (queen pulses when
+     "must place queen" is active).
+- **Stacks** render with an offset-and-shadow so height is readable at a glance; tapping
+  a stack fans it out to inspect what's buried.
+- **Last move** stays highlighted (from/to). Remote moves animate in.
+- Drag implemented with raw **pointer events** on the SVG layer (not a dnd library —
+  HTML5 DnD is wrong for touch, and dnd-kit fights SVG coordinate spaces; the math is
+  ~a screenful of code against the axial↔pixel helpers).
+
+### 6.3 Visual design
+
+- **MUI** for all chrome (app bar, cards, drawers, dialogs) with a custom theme:
+  one accent color, generous whitespace, rounded MUI defaults — clean and unfussy.
+- **Tile art:** flat, geometric SVG bug glyphs (single-color mark on cream/charcoal
+  hex tiles matching the physical game's white/black), designed on a consistent grid,
+  inlined as symbols so they retint via CSS. Simple > ornate; readability at 40px wins.
+- Light + dark themes from day one (board palette swaps with the MUI theme).
+- Subtle motion only: lift, snap, settle, and a short "queen surrounded" end-of-game
+  moment. No particle nonsense.
+
+### 6.4 State management
+
+- Server/cache state (auth, game docs, snapshots): **TanStack Query** + thin Firestore
+  listener hooks.
+- Per-game session state: the **GameController** (a plain class + `useSyncExternalStore`),
+  keeping React components dumb.
+- No Redux; there isn't enough shared mutable state to justify it.
+
+---
+
+## 7. PWA & notifications
+
+- **Manifest + service worker** via `vite-plugin-pwa`: installable on iOS/Android/
+  desktop, offline app-shell (lobby renders cached games read-only when offline;
+  moves require connectivity — offline move queuing is post-v1).
+- **Push:** FCM Web Push. On grant, token stored on `users/{uid}.fcmTokens[]`
+  (multi-device). Cloud Function sends on: opponent moved, game joined, draw offered,
+  game over, deadline warning. Tap ⇒ deep-link to `/game/{id}`.
+  - iOS requires the PWA to be installed to Home Screen for Web Push (iOS 16.4+) —
+    the app detects this and shows a one-time "install to get notified" coach mark.
+- **In-app awareness** (works even with push denied): lobby "your turn" section +
+  per-game badges, document title `(2) HIVE`, and app **icon badge** via the Badging API
+  where supported.
+
+---
+
+## 8. Testing strategy
+
+| Layer | Tool | What it proves |
+|---|---|---|
+| Engine unit tests | Vitest | Every bug's move generation against hand-built positions, incl. published edge cases (gates, pillbug stuns, mosquito-on-top, spider backtrack bans, queen-by-4, forced pass) |
+| Engine property tests | fast-check | Invariants over random legal games: one-hive never violated, `legalMoves ∘ applyMove` never throws, replay(moves) ≡ snapshot, hash stability |
+| UHP fixtures | Vitest | Parse/serialize round-trips; full recorded games replay to the expected result |
+| Controller tests | Vitest | Optimistic apply + rejection rollback, transport mocking, drag state machine transitions |
+| Function tests | Vitest + Firebase emulator | submitMove happy path, turn enforcement, concurrency guard, timeout forfeits |
+| UI component tests | Vitest + Testing Library | Tray/board render from fixed states, tap-mode move flow |
+| **e2e** | Playwright + Firebase emulator suite | Two browser contexts play a full scripted game: create → invite → join → moves both ways → notification doc written → resign; plus a reload-mid-game resume test |
+
+CI (GitHub Actions): typecheck + all unit layers on every push; e2e on PRs to main.
+The **engine is the coverage priority** — it's the part where a bug silently ruins a
+game three days later.
+
+---
+
+## 9. Decisions made on ambiguities (override any of these)
+
+Per your instruction, I decided these myself, optimizing for "you two playing ASAP":
+
+1. **Backend = Firebase** (over Supabase or a custom Node/WebSocket server). Rationale
+   in §5.1; the custom-server option loses on push notifications + ops burden, Supabase
+   loses on Web Push integration and realtime maturity for this shape. The
+   `GameTransport` seam keeps it swappable if you outgrow it.
+2. **Auth = Google sign-in only** for v1. You both have Google accounts; skips password
+   reset/email verification entirely. Easy to add other providers later.
+3. **All three expansions** (Mosquito + Ladybug + Pillbug) default **on**, each
+   toggleable per game; tournament opening rule (no queen first) default on.
+4. **Invite links only** — no public lobby, no friend lists. A game is created open and
+   whoever opens the link becomes the opponent.
+5. **Async time controls in v1; real-time clocks in v1.1.** Untimed live play works in
+   v1 by nature of realtime sync (see §5.4 for why clocks are deferred).
+6. **Resign + draw offers in v1; takebacks post-v1** (mutual-consent takeback is easy
+   later — truncate the move list — but it's scope, not core).
+7. **Server-authoritative moves via Cloud Function** rather than trusting clients +
+   security rules. Slightly more code, but it's the only honest way to enforce turn
+   order and legality, and it reuses the engine as-is.
+8. **SVG board, custom pointer-event drag** (no dnd library, no canvas) — §6.2.
+9. **UHP notation** for the move log (free test vectors now, free AI/engine interop later).
+10. **Separate pnpm workspace** at `hive/` (not merged into `loom/`'s workspace) — the
+    projects share nothing and shouldn't share a lockfile.
+11. **Threefold repetition = auto-draw** so async games can't zombie forever.
+
+---
+
+## 10. Implementation plan
+
+Each milestone is mergeable, demoable, and gated on its tests passing.
+
+### M0 — Scaffold (½ day)
+Workspace + `engine`/`app`/`functions` packages; Vite + React + TS + MUI + router shell;
+Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase project +
+emulator config committed; deploys a hello-world PWA to Firebase Hosting.
+**Done when:** CI green; installable blank app served over HTTPS.
+
+### M1 — Engine: base game (2–3 days)
+Hex math, state, placement rules, all five base bugs, one-hive + freedom-to-move,
+queen rule, pass, win/draw detection, UHP parse/serialize, Zobrist + repetition.
+Full unit + property suites.
+**Done when:** a scripted full game replays via UHP to the correct result; property
+suite runs 10k random games clean.
+
+### M2 — Engine: expansions (1–2 days)
+Mosquito, Ladybug, Pillbug incl. stun/recency state and toss gate checks; edge-case
+suite from published rulings.
+**Done when:** all expansion fixtures pass; property suite re-run with expansions on.
+
+### M3 — Local game UI (3–4 days)
+Board rendering (SVG, pan/zoom, stacks), hand tray, drag/tap interaction per §6.2,
+GameController with a local (hot-seat) transport, move list, end-of-game states.
+Play a full expansion game on one device. Component + controller tests.
+**Done when:** two humans can pass the iPad back and forth for a complete legal game.
+
+### M4 — Multiplayer backend (3–4 days)
+Auth + sign-in screen; Firestore schema + rules; `submitMove` function with emulator
+tests; invite create/join flow; lobby with multiple concurrent games; optimistic
+moves + reconciliation; Playwright two-browser e2e.
+**Done when:** the e2e full-game test passes; you and a second account can play from
+two devices.
+
+### M5 — PWA + notifications + async (2–3 days)
+`vite-plugin-pwa` manifest/SW, install coach marks, FCM push (all trigger events),
+icon/document badges, deadline stamping + hourly forfeit function + expiry warnings.
+**Done when:** phone gets a push when the other side moves; timed-out game forfeits
+in emulator test.
+
+### M6 — Polish & ship (2–3 days)
+Final tile art set, dark mode pass, animations, empty states, responsive audit
+(iPhone / iPad / desktop), error toasts, Lighthouse PWA audit, deploy to production
+Hosting, play a real game state-to-state.
+**Done when:** you've finished an actual game with your friend and neither of you hit
+a rough edge worth filing.
+
+### v1.1 candidates (in rough order)
+Real-time chess clocks → takebacks → offline move queueing → game chat/emotes →
+rematch button → AI opponent via `@hive/ai` or an external UHP engine → analysis mode.
+
+---
+
+## 11. Risks & mitigations
+
+- **Rules edge cases** (pillbug/mosquito interactions are notoriously fiddly) →
+  UHP fixtures from published rulings + property tests, engine frozen behind its API.
+- **iOS PWA push quirks** → detect + coach-mark the Home-Screen install; in-app badges
+  as the guaranteed fallback.
+- **Firestore listener costs at scale** → per-game docs and snapshot caching keep reads
+  O(games you're in); revisit only if this outgrows friends-and-family.
+- **Drag UX on touch** → tap-tap fallback is a first-class path, not a degraded one;
+  e2e runs a mobile viewport project.
