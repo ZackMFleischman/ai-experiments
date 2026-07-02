@@ -44,18 +44,10 @@ export interface GameState {
   readonly positionHashes: readonly bigint[];
 }
 
-const unimplemented = (what: string): never => {
-  throw new Error(`unimplemented: ${what}`);
-};
-
 export { initialState } from './state';
 export { applyMove, IllegalMoveError, legalMoves, result } from './engine';
-
 export { parseUhp, toUhp } from './uhp';
-
-export function hash(state: GameState): bigint {
-  return unimplemented(`hash(turn ${state.turn})`);
-}
+export { hash } from './zobrist';
 
 // hex utilities (shared with the renderer/drag layer)
 export { hexToPixel, neighbors, pixelToHex } from './hex';

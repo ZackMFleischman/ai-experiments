@@ -133,12 +133,26 @@ export function canDepart(board: Board, from: Hex): boolean {
   return !articulationCells(board).has(cellKey(from));
 }
 
+// Hex ring in rotational order; the two gate cells of a step in direction d are
+// the ring neighbors of d (computed by lookup — this is the hottest path in
+// move generation).
+const RING: readonly Hex[] = [
+  { q: 1, r: 0 }, // E
+  { q: 0, r: 1 }, // SE
+  { q: -1, r: 1 }, // SW
+  { q: -1, r: 0 }, // W
+  { q: 0, r: -1 }, // NW
+  { q: 1, r: -1 }, // NE
+];
+const RING_INDEX = new Map(RING.map((d, i) => [`${d.q},${d.r}`, i]));
+
 /** The two cells adjacent to both of an adjacent pair. */
 export function commonNeighbors(a: Hex, b: Hex): [Hex, Hex] {
-  const bKeys = new Set(neighbors(b).map(cellKey));
-  const shared = neighbors(a).filter((n) => bKeys.has(cellKey(n)));
-  if (shared.length !== 2) throw new Error(`cells ${cellKey(a)} and ${cellKey(b)} are not adjacent`);
-  return [shared[0] as Hex, shared[1] as Hex];
+  const i = RING_INDEX.get(`${b.q - a.q},${b.r - a.r}`);
+  if (i === undefined) throw new Error(`cells ${cellKey(a)} and ${cellKey(b)} are not adjacent`);
+  const g1 = RING[(i + 1) % 6] as Hex;
+  const g2 = RING[(i + 5) % 6] as Hex;
+  return [add(a, g1), add(a, g2)];
 }
 
 /** Freedom-to-move (T1.5): may a tile slide/step from `from` to adjacent `to`?

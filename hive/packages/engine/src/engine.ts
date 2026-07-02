@@ -2,8 +2,9 @@
 import { cellKey, neighbors, parseKey } from './hex';
 import type { Color, GameResult, GameState, Hex, Move, TileId } from './index';
 import { BUG_DESTINATIONS } from './bugs/index';
-import { placements, canDepart } from './rules';
+import { articulationCells, placements } from './rules';
 import { handCount, placeTile, removeTop, tileEquals, tileKey, topTile } from './state';
+import { hash } from './zobrist';
 
 export class IllegalMoveError extends Error {
   override name = 'IllegalMoveError';
@@ -22,19 +23,33 @@ function moveKey(m: Move): string {
   }
 }
 
+// States are immutable values, so legal-move sets can be memoized by identity.
+// applyMove validates via legalMoves; without this every apply recomputes what
+// the caller usually just computed.
+const movesCache = new WeakMap<GameState, Move[]>();
+
 /** Exhaustive legal moves for the side to move. The UI renders ONLY this. */
 export function legalMoves(state: GameState): Move[] {
+  const cached = movesCache.get(state);
+  if (cached) return cached;
+  const moves = computeLegalMoves(state);
+  movesCache.set(state, moves);
+  return moves;
+}
+
+function computeLegalMoves(state: GameState): Move[] {
   if (result(state).status !== 'ongoing') return [];
 
   const moves: Move[] = [...placements(state)];
 
   // No piece may move until that player's queen is placed.
   if (state.hands[state.toMove].Q === 0) {
-    for (const key of state.board.keys()) {
+    const cuts = articulationCells(state.board); // one-hive, computed once per call
+    for (const [key, stack] of state.board) {
       const from = parseKey(key);
       const tile = topTile(state.board, from);
       if (!tile || tile.color !== state.toMove) continue;
-      if (!canDepart(state.board, from)) continue;
+      if (stack.length < 2 && cuts.has(key)) continue; // stack tops are never blocked
       const generate = BUG_DESTINATIONS[tile.kind];
       if (!generate) continue;
       for (const to of generate(state.board, from)) {
@@ -89,10 +104,10 @@ export function applyMove(state: GameState, move: Move): GameState {
     toMove: state.toMove === 'w' ? 'b' : 'w',
     turn: state.toMove === 'b' ? state.turn + 1 : state.turn,
     passCount,
-    positionHashes: state.positionHashes,
+    positionHashes: state.positionHashes, // replaced below with the new hash appended
     ...(lastMoved ? { lastMoved } : {}), // a pass clears lastMoved entirely
   };
-  return next;
+  return { ...next, positionHashes: [...state.positionHashes, hash(next)] };
 }
 
 function queenCell(state: GameState, color: Color): Hex | undefined {
@@ -115,6 +130,16 @@ export function result(state: GameState): GameResult {
   if (wDead && bDead) return { status: 'draw', by: 'surround' };
   if (wDead) return { status: 'won', winner: 'b', by: 'surround' };
   if (bDead) return { status: 'won', winner: 'w', by: 'surround' };
+
+  // Threefold repetition: the current position (same side to move) recorded a
+  // third time. positionHashes holds every reached position, newest last.
+  const hashes = state.positionHashes;
+  const current = hashes[hashes.length - 1];
+  if (current !== undefined) {
+    let count = 0;
+    for (const h of hashes) if (h === current) count += 1;
+    if (count >= 3) return { status: 'draw', by: 'repetition' };
+  }
   return { status: 'ongoing' };
 }
 
