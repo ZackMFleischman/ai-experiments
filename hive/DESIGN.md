@@ -273,6 +273,69 @@ through the function** (clients get no direct write access to `games`). This is 
   because it needs presence/abandonment handling to feel fair — and untimed live play
   already works in v1 via realtime sync.
 
+### 5.5 Local development: the whole backend runs on your machine
+
+Cloud Functions don't mean cloud-only development — the **Firebase Emulator Suite**
+runs Auth, Firestore, and Functions locally, so the entire networked game flow is
+testable with zero cloud resources:
+
+- `pnpm dev` starts Vite **and** `firebase emulators:start`, auto-seeded from a
+  committed fixture export; in dev mode the app connects to the emulators instead of
+  production automatically.
+- The Auth emulator mints fake users — open two browser windows as "you" and "your
+  friend" and play a full networked game entirely against localhost. The Emulator UI
+  (localhost:4000) shows every Firestore doc and function log live.
+- `submitMove` and the forfeit job run in the Functions emulator with hot reload; the
+  hourly scheduler is fired manually in tests (no waiting an hour to test timeouts).
+- CI runs the function tests and the Playwright two-browser e2e against a fresh
+  emulator instance per run — deterministic, free, no cloud credentials involved.
+
+Two things the emulators can't do, and how they're covered:
+
+- **Real push delivery** (there is no FCM emulator): function tests assert the exact
+  messaging payloads the code sends (mocked transport); actual device push is a
+  manual check against production during M5 — that's platform behavior, not our logic.
+- **Real Google OAuth:** the Auth emulator fakes the flow (a feature — no test
+  accounts to manage); the real provider gets exercised on first production sign-in.
+
+Below all of this sits M3's hot-seat mode: because of the `GameTransport` seam, the
+full game UI also runs against a purely in-memory transport — no backend, no
+emulator, useful for UI iteration.
+
+### 5.6 Setup, deployment & environments
+
+**One-time setup (you, ~30 minutes, mostly in the Firebase console):**
+
+1. Create a Firebase project; enable **Authentication → Google provider** and
+   **Firestore**.
+2. Upgrade the project to the **Blaze plan** — required for Cloud Functions. Blaze
+   still includes all free-tier allowances; friends-scale usage rounds to $0/month,
+   but set a budget alert (e.g. $5) as a tripwire.
+3. Register a Web App and drop its config values into `packages/app/.env` (these are
+   public identifiers, safe to commit).
+4. Cloud Messaging → generate the Web Push (VAPID) key pair.
+5. For CI deploys: create a deploy service account, add its key as a GitHub Actions
+   secret.
+
+Everything else lives in the repo (`firebase.json`, `.firebaserc`, rules, indexes) —
+a fresh machine needs only `pnpm install` and `firebase login`.
+
+**Deploying** is one idempotent command: `firebase deploy` ships Hosting (the built
+PWA), Functions, and Firestore rules/indexes together. CI runs it on every merge to
+main; a manual deploy from your laptop works identically.
+
+**Preview environments:** every PR gets a **Firebase Hosting preview channel**
+(`pr-<n>`, auto-expiring, URL posted as a PR comment — same experience as loom's
+Cloudflare preview). Channels preview the *frontend* against the production backend,
+which covers the common case of UI-only PRs; backend-touching PRs (functions, rules,
+schema) are instead validated by the emulator-based e2e suite in CI and go live on
+merge. If that ever feels risky, the escape hatch is a second `hive-staging` Firebase
+project behind a `.firebaserc` alias — the code is project-agnostic.
+
+**Domain:** production lives at **`hive.zackmfleischman.com`** via Firebase Hosting's
+custom-domain flow (one DNS record; TLS cert auto-provisioned). How it relates to
+your apps page: see the end of §7.
+
 ---
 
 ## 6. Frontend
@@ -398,6 +461,24 @@ as a moment, not a modal that teleports in.
   per-game badges, document title `(2) HIVE`, and app **icon badge** via the Badging API
   where supported.
 
+**The zackmfleischman.com apps page — link out, don't iframe.** Embedding the game in
+an iframe would break exactly the features this project is built around:
+
+- **PWA install only works in a top-level browsing context** — browsers ignore the
+  manifest inside iframes, so "install to home screen" (which iOS *requires* for web
+  push) becomes unreachable.
+- **Cross-origin iframes get partitioned storage and restricted permission prompts**
+  in Safari and Chrome — Firebase Auth sessions won't persist reliably, and the
+  Notification permission request is blocked or ignored from inside a frame.
+- The board's pan/zoom gestures would fight the host page's scrolling at the frame
+  boundary.
+
+Instead, the apps page gets a **card that links out** to `hive.zackmfleischman.com` —
+same domain family, so it still reads as part of your site, and once the PWA is
+installed the link opens into the installed app. The card carries the hive-cluster
+hero art (§6.4) as a static SVG; if you want it to feel alive later, a "current board
+snapshot" image endpoint is a small post-v1 function.
+
 ---
 
 ## 8. Testing strategy
@@ -462,6 +543,13 @@ Per your instruction, I decided these myself, optimizing for "you two playing AS
 10. **Separate pnpm workspace** at `hive/` (not merged into `loom/`'s workspace) — the
     projects share nothing and shouldn't share a lockfile.
 11. **Threefold repetition = auto-draw** so async games can't zombie forever.
+12. **Firebase Hosting + PR preview channels** for deploys, production at
+    `hive.zackmfleischman.com` (§5.6) — one CLI deploys hosting, functions, and rules
+    together, and previews come free. (Cloudflare Pages, as loom uses, would split the
+    deploy across two systems for no gain here.)
+13. **No iframe embed on the zackmfleischman.com apps page** — a themed link-out card
+    instead (end of §7): iframing breaks PWA install, push permission prompts, and
+    auth persistence.
 
 ---
 
@@ -471,9 +559,11 @@ Each milestone is mergeable, demoable, and gated on its tests passing.
 
 ### M0 — Scaffold (½ day)
 Workspace + `engine`/`app`/`functions` packages; Vite + React + TS + MUI + router shell;
-Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase project +
-emulator config committed; deploys a hello-world PWA to Firebase Hosting.
-**Done when:** CI green; installable blank app served over HTTPS.
+Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase project (your
+setup checklist: §5.6) + emulator suite config committed; CI deploys a hello-world PWA
+to Hosting on merge and a preview channel per PR.
+**Done when:** CI green; installable blank app served over HTTPS; a PR shows a working
+preview URL.
 
 ### M1 — Engine: base game (2–3 days)
 Hex math, state, placement rules, all five base bugs, one-hive + freedom-to-move,
