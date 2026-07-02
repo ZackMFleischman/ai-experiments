@@ -18,7 +18,7 @@ export const BASE: GameOptions = {
  * subtracting placed tiles from the initial set, so tile conservation holds. */
 export function buildState(
   cells: Array<[number, number, ...string[]]>,
-  overrides: Partial<Pick<GameState, 'toMove' | 'turn' | 'lastMoved' | 'passCount'>> & {
+  overrides: Partial<Pick<GameState, 'toMove' | 'turn' | 'lastMoved' | 'passCount' | 'hands'>> & {
     options?: GameOptions;
   } = {},
 ): GameState {
@@ -37,7 +37,7 @@ export function buildState(
   return {
     ...base,
     board,
-    hands,
+    hands: overrides.hands ?? hands,
     toMove: overrides.toMove ?? 'w',
     turn: overrides.turn ?? 5, // default: past the opening constraints
     ...(overrides.lastMoved !== undefined ? { lastMoved: overrides.lastMoved } : {}),

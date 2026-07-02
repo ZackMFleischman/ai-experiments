@@ -44,25 +44,13 @@ export interface GameState {
   readonly positionHashes: readonly bigint[];
 }
 
-export class IllegalMoveError extends Error {
-  override name = 'IllegalMoveError';
-}
-
 const unimplemented = (what: string): never => {
   throw new Error(`unimplemented: ${what}`);
 };
 
 export { initialState } from './state';
+export { applyMove, IllegalMoveError, legalMoves, result } from './engine';
 
-export function legalMoves(state: GameState): Move[] {
-  return unimplemented(`legalMoves(turn ${state.turn})`);
-}
-export function applyMove(state: GameState, move: Move): GameState {
-  return unimplemented(`applyMove(${move.type} at turn ${state.turn})`);
-}
-export function result(state: GameState): GameResult {
-  return unimplemented(`result(turn ${state.turn})`);
-}
 export function toUhp(move: Move, state: GameState): string {
   return unimplemented(`toUhp(${move.type} at turn ${state.turn})`);
 }
