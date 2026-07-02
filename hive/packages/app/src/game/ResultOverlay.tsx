@@ -109,7 +109,7 @@ export function ResultOverlay({
 
 /** Persistent banner once the overlay is dismissed ("view board" mode). */
 export function ResultBanner({ controller, snap }: { controller: GameController; snap: Snapshot }) {
-  if (!snap.end || snap.overlayOpen) return null;
+  if (!snap.end || snap.overlayOpen || snap.beat) return null; // the beat owns the moment
   const { title, reason } = endHeadline(snap.end);
   return (
     <Box
