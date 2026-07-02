@@ -149,9 +149,10 @@ describe(`random-game invariants (${GAMES} games, base rules)`, () => {
         fc.property(fc.integer({ min: 0, max: 2 ** 31 - 1 }), (seed) => {
           runRandomGame(seed, BASE);
         }),
-        { numRuns: GAMES },
+        // Fixed fc seed: reproducible runs (override to explore new games).
+        { numRuns: GAMES, seed: Number(process.env.HIVE_PROP_SEED ?? 20260702) },
       );
     },
-    { timeout: 3_600_000 },
+    3_600_000,
   );
 });
