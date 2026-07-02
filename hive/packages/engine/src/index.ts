@@ -52,9 +52,8 @@ const unimplemented = (what: string): never => {
   throw new Error(`unimplemented: ${what}`);
 };
 
-export function initialState(options: GameOptions): GameState {
-  return unimplemented(`initialState(${JSON.stringify(options)})`);
-}
+export { initialState } from './state';
+
 export function legalMoves(state: GameState): Move[] {
   return unimplemented(`legalMoves(turn ${state.turn})`);
 }

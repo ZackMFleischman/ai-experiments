@@ -27,7 +27,7 @@ describe('engine skeleton', () => {
     }
   });
 
-  it('stub bodies throw unimplemented (replaced milestone by milestone)', () => {
-    expect(() => engine.initialState(options)).toThrowError(/unimplemented/);
+  it('unbuilt surfaces throw unimplemented (replaced milestone by milestone)', () => {
+    expect(() => engine.legalMoves(engine.initialState(options))).toThrowError(/unimplemented/);
   });
 });
