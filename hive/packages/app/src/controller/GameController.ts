@@ -49,6 +49,7 @@ export interface Snapshot {
   placeableBugs: ReadonlySet<BugKind>;
   mustPlaceQueen: boolean;
   canPass: boolean;
+  lastMove?: { from?: Hex; to: Hex };
   drag?: DragState;
   view: ViewState | null;
   pendingDrawOffer?: Color;
@@ -58,6 +59,12 @@ export interface Snapshot {
 }
 
 const tileKey = (t: TileId) => `${t.color}${t.kind}${t.ordinal}`;
+
+function moveCells(move: Move): { from?: Hex; to: Hex } | undefined {
+  if (move.type === 'pass') return undefined;
+  if (move.type === 'place') return { to: move.to };
+  return { from: move.from, to: move.to };
+}
 
 export class GameController {
   private state: GameState;
@@ -69,6 +76,7 @@ export class GameController {
   private drag: DragState | undefined;
   private view: ViewState | null = null;
   private pendingDrawOffer: Color | undefined;
+  private lastMove: { from?: Hex; to: Hex } | undefined;
   private resigned: Color | undefined;
   private drawAgreed = false;
   private beatDone = false;
@@ -89,7 +97,9 @@ export class GameController {
     this.pendingDrawOffer = undefined;
     for (const entry of stored.log) {
       if (entry.kind === 'move' || entry.kind === 'pass') {
-        s = applyMove(s, parseUhp(entry.uhp, s));
+        const move = parseUhp(entry.uhp, s);
+        s = applyMove(s, move);
+        this.lastMove = moveCells(move);
         this.pendingDrawOffer = undefined;
       } else if (entry.kind === 'resign') this.resigned = entry.by;
       else if (entry.kind === 'draw-offer') this.pendingDrawOffer = entry.by;
@@ -156,6 +166,7 @@ export class GameController {
       mustPlaceQueen:
         this.state.turn >= 4 && this.state.hands[this.state.toMove].Q > 0 && placeable.has('Q'),
       canPass: moves.some((m) => m.type === 'pass'),
+      ...(this.lastMove ? { lastMove: this.lastMove } : {}),
       ...(this.drag ? { drag: this.drag } : {}),
       view: this.view,
       ...(this.pendingDrawOffer ? { pendingDrawOffer: this.pendingDrawOffer } : {}),
@@ -287,10 +298,11 @@ export class GameController {
   private submitMove(move: Move): void {
     const uhp = toUhp(move, this.state);
     const entry: LogEntry = { kind: move.type === 'pass' ? 'pass' : 'move', uhp };
-    const previous = { state: this.state, log: this.log };
+    const previous = { state: this.state, log: this.log, lastMove: this.lastMove };
     // Optimistic apply (instant UX); reconcile on rejection.
     this.state = applyMove(this.state, move);
     this.log = [...this.log, entry];
+    this.lastMove = moveCells(move);
     this.selection = undefined;
     this.drag = undefined;
     this.view = null; // auto-fit after the hive grows/moves
@@ -299,6 +311,7 @@ export class GameController {
     void this.transport.submit(entry, previous.log.length).catch(() => {
       this.state = previous.state;
       this.log = previous.log;
+      this.lastMove = previous.lastMove;
       this.emit();
     });
   }

@@ -2,6 +2,7 @@
 // Every [visual] task adds entries; validate:visual walks them.
 import type { ReactNode } from 'react';
 import { boardEntries } from './entries/boards';
+import { interactionEntries } from './entries/interactions';
 import { SpriteContactSheet } from './entries/SpriteContactSheet';
 
 export interface GalleryEntry {
@@ -12,4 +13,5 @@ export interface GalleryEntry {
 export const GALLERY: GalleryEntry[] = [
   { id: 'sprite-contact-sheet', render: () => <SpriteContactSheet /> },
   ...boardEntries,
+  ...interactionEntries,
 ];
