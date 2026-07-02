@@ -11,3 +11,11 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   set with CI-enforced line budgets; this file is the only doc that grows; the
   implementation plan self-consumes as milestones ship (task tables collapse to
   SHIPPED entries here).
+
+- **2026-07-02 — M0–M3 ship without any Firebase console setup** (authorized
+  deviation): no cloud project exists yet, so T0.6 drops its ⚑ half — CI is GitHub
+  Actions only (typecheck + unit layers + e2e); emulators run against `demo-hive`.
+  Two tasks added: T3.11 hot-seat persistence (localStorage behind `GameTransport`;
+  refresh resumes) and T3.12 static deploy of the hot-seat PWA (LocalTransport
+  default, no firebase in bundle, minimal manifest — subset of T5.1) via Cloudflare
+  Pages project `hive` (GitHub Pages fallback). Firebase Hosting/M4+ unaffected.

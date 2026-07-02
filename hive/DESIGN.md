@@ -684,11 +684,11 @@ for agent builders) lives in **[IMPLEMENTATION.md](./IMPLEMENTATION.md)**.
 
 ### M0 — Scaffold (½ day)
 Workspace + `engine`/`app`/`functions`/`e2e` packages; Vite + React + TS + MUI +
-router shell; Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase
-project (your setup checklist: §5.6) + emulator suite config committed; CI deploys a
-hello-world PWA to Hosting on merge and a preview channel per PR.
-**Done when:** `pnpm validate:m0` green in CI; installable blank app served over
-HTTPS; a PR shows a working preview URL.
+router shell; Vitest wired everywhere; GitHub Actions CI (typecheck + tests + e2e);
+emulator suite config committed, running fully offline against a `demo-` project —
+the Firebase console setup (§5.6) waits until M4; hosting/previews arrive with M3's
+static deploy (T3.12).
+**Done when:** `pnpm validate:m0` green in CI.
 
 ### M1 — Engine: base game (2–3 days)
 Hex math, state, placement rules, all five base bugs, one-hive + freedom-to-move,
@@ -708,10 +708,13 @@ Board rendering (SVG, pan/zoom, stacks), draft sprite sheet (§6.4), hand tray,
 drag/tap interaction per §6.2, GameController with a local (hot-seat) transport,
 move list, end-of-game beat + result overlay (§6.3, minus rematch). **Plus the
 validation harness itself:** `/dev/gallery`, fixtures, `validate:visual` +
-`validate:ux`, and the first full screenshot-review pass (§8).
+`validate:ux`, and the first full screenshot-review pass (§8). Plus hot-seat
+persistence (localStorage behind the `GameTransport` seam; refresh resumes) and a
+public static deploy of the hot-seat PWA with a minimal manifest (T3.11/T3.12).
 **Done when:** `pnpm validate:m3` green — a scripted hot-seat e2e plays a full
 expansion game to the victory sequence; visual/ux harness runs clean and the
-screenshots have been agent-reviewed against the checklist.
+screenshots have been agent-reviewed against the checklist; the live URL serves
+the installable hot-seat game.
 
 ### M4 — Multiplayer backend (3–4 days)
 Auth + themed landing/sign-in screen (§6.1); Firestore schema + rules + indexes; the

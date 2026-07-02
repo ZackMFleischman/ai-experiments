@@ -1,0 +1,24 @@
+{
+  "name": "@hive/functions",
+  "private": true,
+  "version": "0.0.0",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm build && firebase emulators:exec --only functions,firestore,auth --project demo-hive --import emulator-seed \"vitest run\""
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "firebase-tools": "^14.4.0",
+    "typescript": "^5.6.3",
+    "vitest": "^3.0.0"
+  }
+}

@@ -84,7 +84,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 | T0.3 | `@hive/app` shell: Vite + React + MUI + router; empty routed screens (Landing, Lobby, NewGame, Join, Game, Settings); MUI theme with light/dark toggle stub | `packages/app` | app boots, all routes render |
 | T0.4 | `@hive/functions` + emulator config: `firebase.json`, `.firebaserc`, Firestore rules stub (deny-all except own `users/{uid}`), `firestore.indexes.json`, one `ping` callable + emulator test; committed emulator seed fixture | `packages/functions`, repo root | `pnpm --filter @hive/functions test` (boots emulator) |
 | T0.5 | `e2e` package: Playwright config (chromium; 3 viewport projects: 390×844 / 1024×768 / 1440×900), smoke test that loads the app and asserts no console errors | `e2e/` | `pnpm --filter e2e test` |
-| T0.6 | CI: GitHub Actions — typecheck + tests on push, e2e on PR; ⚑ Firebase project creation (DESIGN §5.6 checklist), then Hosting deploy on main + PR preview channels | `.github/workflows/` | `pnpm validate:m0` |
+| T0.6 | CI: GitHub Actions — typecheck + unit layers on push, full `pnpm validate` (incl. e2e) on PR. No Firebase console/Hosting before M4 (DECISIONS 2026-07-02); the static hot-seat deploy ships in T3.12 | `.github/workflows/hive-ci.yml` | `pnpm validate:m0` |
 | T0.7 | Commit `hive/CLAUDE.md` (builder guide: commands, protocol pointer, frozen-surface warning) and wire `validate:m0` = typecheck + all tests + e2e smoke | root | `pnpm validate:m0` |
 | T0.8 | Docs lint: `scripts/check-docs.mjs` enforcing the §7 policy (budgets, closed file set, no "Update:" markers); wire into `pnpm typecheck` + CI | root | lint fails on a synthetic violation, passes on HEAD |
 
@@ -134,6 +134,8 @@ configurable via env so CI can run 1k on PRs, 10k nightly).
 | T3.8 | Game screen chrome: player bars (name, queen-liberties), move list drawer (UHP + meta rows), overflow menu with Pass / Resign / Offer draw (local-only handlers for now), confirm dialogs | **[visual]** | component tests |
 | T3.9 | End-of-game: auto-center on surrounded queen, six-tile pulse, ~1 s beat (tap-skip), result overlay per DESIGN §6.3 (minus rematch), per-outcome theming, view-board mode with persistent banner | **[visual]** — gallery entries for all outcomes × themes | component tests |
 | T3.10 | **Validation harness**: `/dev/gallery` route + fixture registry (§4), `?static=1` mode, `validate:visual` + `validate:ux` scripts, `e2e/visual-checklist.md` seeded with §4.3; hot-seat scripted e2e (full expansion game via tap-mode to victory overlay) | dev-only route, excluded from prod build | `pnpm validate:m3` |
+| T3.11 | Hot-seat persistence: `LocalTransport` saves the in-progress game (UHP log + options) to localStorage behind the `GameTransport` seam — refresh resumes, "New game" clears | controller tests: save/resume/clear round-trip | controller tests |
+| T3.12 | Static deploy: build `@hive/app` with `LocalTransport` default (verify no firebase in bundle), minimal PWA manifest + icons via `vite-plugin-pwa` (subset of T5.1), deploy via GitHub Actions — Cloudflare Pages project `hive` (loom's pattern; GitHub Pages fallback), main deploy + PR preview | **[visual]** — installability checked on the live URL | deploy green on merge |
 
 `validate:m3` = component/controller suites + hot-seat full-game e2e +
 `validate:visual` + `validate:ux` machine checks green. Then perform the first full
