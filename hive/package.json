@@ -9,7 +9,7 @@
     "typecheck": "pnpm -r --sequential typecheck",
     "test": "pnpm -r --filter '!e2e' test",
     "validate": "pnpm validate:m0",
-    "validate:m0": "echo 'validate:m0 stub — wired in T0.7' && exit 1",
+    "validate:m0": "pnpm typecheck && pnpm test && pnpm --filter e2e test",
     "validate:visual": "echo 'validate:visual arrives in M3 (T3.10)' && exit 1",
     "validate:ux": "echo 'validate:ux arrives in M3 (T3.10)' && exit 1"
   },
