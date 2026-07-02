@@ -1,7 +1,7 @@
 // Placement legality (T1.3), one-hive (T1.4), freedom-to-move gates (T1.5).
 import { add, cellKey, DIRECTIONS, neighbors } from './hex';
 import type { BugKind, GameState, Hex, Move, TileId } from './index';
-import { type Board, BUG_KINDS, isOccupied, topTile } from './state';
+import { type Board, BUG_KINDS, heightAt, isOccupied, topTile } from './state';
 
 const ORIGIN: Hex = { q: 0, r: 0 };
 
@@ -131,6 +131,31 @@ export function canDepart(board: Board, from: Hex): boolean {
   if (!stack || stack.length === 0) return false;
   if (stack.length >= 2) return true;
   return !articulationCells(board).has(cellKey(from));
+}
+
+/** The two cells adjacent to both of an adjacent pair. */
+export function commonNeighbors(a: Hex, b: Hex): [Hex, Hex] {
+  const bKeys = new Set(neighbors(b).map(cellKey));
+  const shared = neighbors(a).filter((n) => bKeys.has(cellKey(n)));
+  if (shared.length !== 2) throw new Error(`cells ${cellKey(a)} and ${cellKey(b)} are not adjacent`);
+  return [shared[0] as Hex, shared[1] as Hex];
+}
+
+/** Freedom-to-move (T1.5): may a tile slide/step from `from` to adjacent `to`?
+ * The moving tile must ALREADY be lifted off the board. One predicate serves
+ * ground slides, beetle climbs (up/down) and pillbug tosses:
+ * - at ground level (both stacks empty) the piece must pivot around exactly one
+ *   occupied gate cell — two occupied gates pinch it, zero lose hive contact;
+ * - at height, the step is blocked only when BOTH gate stacks are strictly
+ *   higher than both the origin (after lift) and the destination. */
+export function canSlide(board: Board, from: Hex, to: Hex): boolean {
+  const [g1, g2] = commonNeighbors(from, to);
+  const h1 = heightAt(board, g1);
+  const h2 = heightAt(board, g2);
+  const a = heightAt(board, from);
+  const b = heightAt(board, to);
+  if (a === 0 && b === 0) return (h1 > 0) !== (h2 > 0);
+  return Math.min(h1, h2) <= Math.max(a, b);
 }
 
 export { add, DIRECTIONS, neighbors, ORIGIN };
