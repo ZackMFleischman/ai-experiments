@@ -1,0 +1,19 @@
+{
+  "description": "Queens oscillate after the opening; the position after ply 4 recurs after plies 8 and 12 — threefold repetition draw.",
+  "options": { "mosquito": true, "ladybug": true, "pillbug": true, "tournamentOpening": true },
+  "moves": [
+    "wS1",
+    "bS1 wS1-",
+    "wQ -wS1",
+    "bQ bS1-",
+    "wQ \\wS1",
+    "bQ bS1/",
+    "wQ -wS1",
+    "bQ bS1-",
+    "wQ \\wS1",
+    "bQ bS1/",
+    "wQ -wS1",
+    "bQ bS1-"
+  ],
+  "expected": { "status": "draw", "by": "repetition" }
+}

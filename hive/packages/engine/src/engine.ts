@@ -78,9 +78,10 @@ function computeLegalMoves(state: GameState): Move[] {
         neighbors(pCell).some((n) => topTile(state.board, n)?.kind === 'P');
       if (top.kind !== 'P' && !copiesPillbug) continue;
       for (const m of pillbugTosses(state, pCell, top)) {
-        if (!selfKeys.has(`${tileKey(m.tile)}|${cellKey(m.from)}|${cellKey(m.to)}`)) {
-          moves.push(m);
-        }
+        const k = `${tileKey(m.tile)}|${cellKey(m.from)}|${cellKey(m.to)}`;
+        if (selfKeys.has(k)) continue;
+        selfKeys.add(k); // also dedupes the same toss offered by two tossers
+        moves.push(m);
       }
     }
   }
