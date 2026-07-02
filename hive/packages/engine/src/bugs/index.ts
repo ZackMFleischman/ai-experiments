@@ -8,6 +8,7 @@ import { antDestinations } from './ant';
 import { beetleDestinations } from './beetle';
 import { grasshopperDestinations } from './grasshopper';
 import { ladybugDestinations } from './ladybug';
+import { mosquitoDestinations } from './mosquito';
 import { queenDestinations } from './queen';
 import { spiderDestinations } from './spider';
 
@@ -20,6 +21,6 @@ export const BUG_DESTINATIONS: Partial<Record<BugKind, DestinationGenerator>> = 
   B: beetleDestinations,
   G: grasshopperDestinations,
   L: ladybugDestinations,
+  M: (board, from) => mosquitoDestinations(board, from, BUG_DESTINATIONS),
   P: queenDestinations, // pillbug self-moves; tosses are generated in engine.ts
-  // M: T2.3
 };

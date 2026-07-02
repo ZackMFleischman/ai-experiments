@@ -16,9 +16,13 @@ function gateOpenAtHeightOne(board: Board, from: Hex, to: Hex): boolean {
 
 /** Tosses available to the pillbug (or pillbug-copying mosquito) `by` sitting
  * at `pCell`. Its own stun does not matter — a stunned pillbug may still toss. */
-export function pillbugTosses(state: GameState, pCell: Hex, by: TileId): Move[] {
+export function pillbugTosses(
+  state: GameState,
+  pCell: Hex,
+  by: TileId,
+): Array<Extract<Move, { type: 'toss' }>> {
   const board = state.board;
-  const moves: Move[] = [];
+  const moves: Array<Extract<Move, { type: 'toss' }>> = [];
   const empties = neighbors(pCell).filter((n) => !isOccupied(board, n));
   if (empties.length === 0) return moves;
 
