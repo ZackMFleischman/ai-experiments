@@ -1,0 +1,28 @@
+{
+  "name": "hive-root",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "concurrently -n app,emu -c blue,yellow \"pnpm --filter @hive/app dev\" \"pnpm dev:emulators\"",
+    "dev:emulators": "pnpm --filter @hive/functions build && firebase emulators:start --project demo-hive --import packages/functions/emulator-seed",
+    "typecheck": "pnpm -r --sequential typecheck",
+    "test": "pnpm -r --filter '!e2e' test",
+    "validate": "pnpm validate:m0",
+    "validate:m0": "echo 'validate:m0 stub — wired in T0.7' && exit 1",
+    "validate:visual": "echo 'validate:visual arrives in M3 (T3.10)' && exit 1",
+    "validate:ux": "echo 'validate:ux arrives in M3 (T3.10)' && exit 1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "firebase-tools": "^14.4.0",
+    "typescript": "^5.6.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "protobufjs",
+      "re2"
+    ]
+  }
+}

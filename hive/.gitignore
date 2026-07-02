@@ -1,0 +1,17 @@
+node_modules/
+dist/
+www/
+coverage/
+artifacts/
+.firebase/
+*.log
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+pubsub-debug.log*
+.eslintcache
+.DS_Store
+test-results/
+playwright-report/
+blob-report/
+.env.local
