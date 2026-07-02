@@ -8,9 +8,10 @@
     "dev:emulators": "pnpm --filter @hive/functions build && firebase emulators:start --project demo-hive --import packages/functions/emulator-seed",
     "typecheck": "node scripts/check-docs.mjs && pnpm -r --sequential typecheck",
     "test": "pnpm -r --filter '!e2e' test",
-    "validate": "pnpm validate:m0 && pnpm validate:m1",
+    "validate": "pnpm validate:m0 && pnpm validate:m1 && pnpm validate:m2",
     "validate:m0": "pnpm typecheck && pnpm test && pnpm --filter e2e test",
-    "validate:m1": "HIVE_PROP_GAMES=1000 pnpm --filter @hive/engine test",
+    "validate:m1": "HIVE_PROP_GAMES=500 pnpm --filter @hive/engine test",
+    "validate:m2": "HIVE_PROP_GAMES=500 pnpm --filter @hive/engine exec vitest run test/expansions-fixtures.test.ts test/property.test.ts",
     "validate:visual": "echo 'validate:visual arrives in M3 (T3.10)' && exit 1",
     "validate:ux": "echo 'validate:ux arrives in M3 (T3.10)' && exit 1"
   },

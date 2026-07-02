@@ -1,0 +1,667 @@
+{
+  "description": "Pinned edge-case fixtures (IMPLEMENTATION §6, T2.4). Each case is a constructed position plus UHP assertions; the runner checks legal strings apply cleanly, illegal strings are rejected, and selfMove strings parse to type 'move'.",
+  "cases": [
+    {
+      "name": "pillbug may not toss the piece the opponent just moved",
+      "cells": [
+        [
+          -2,
+          0,
+          "bQ1"
+        ],
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wP1"
+        ],
+        [
+          1,
+          0,
+          "bS1"
+        ]
+      ],
+      "toMove": "w",
+      "lastMoved": {
+        "tile": "bS1",
+        "byPillbug": false
+      },
+      "legal": [
+        "wA1 \\wP"
+      ],
+      "illegal": [
+        "bS1 \\wP"
+      ]
+    },
+    {
+      "name": "a tossed piece is stunned: cannot move or be tossed this turn",
+      "cells": [
+        [
+          -2,
+          0,
+          "bQ1"
+        ],
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wP1"
+        ],
+        [
+          1,
+          0,
+          "wA1"
+        ]
+      ],
+      "toMove": "w",
+      "lastMoved": {
+        "tile": "wA1",
+        "byPillbug": true
+      },
+      "legal": [
+        "wS1 \\wP"
+      ],
+      "illegal": [
+        "wA1 wP\\",
+        "wA1 \\wP"
+      ]
+    },
+    {
+      "name": "pillbug cannot toss a stacked piece (covering or covered)",
+      "cells": [
+        [
+          -2,
+          0,
+          "bQ1"
+        ],
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wP1"
+        ],
+        [
+          1,
+          0,
+          "bS1",
+          "bB1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [],
+      "illegal": [
+        "bB1 \\wP",
+        "bS1 \\wP"
+      ]
+    },
+    {
+      "name": "toss blocked by a full height-1 gate",
+      "cells": [
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wP1"
+        ],
+        [
+          1,
+          0,
+          "bA1"
+        ],
+        [
+          1,
+          -1,
+          "wS1"
+        ],
+        [
+          0,
+          1,
+          "wS2"
+        ],
+        [
+          -1,
+          -1,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [],
+      "illegal": [
+        "bA1 \\wP",
+        "bA1 wP\\"
+      ]
+    },
+    {
+      "name": "toss allowed once the gate opens",
+      "cells": [
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wP1"
+        ],
+        [
+          1,
+          0,
+          "bA1"
+        ],
+        [
+          1,
+          -1,
+          "wS1"
+        ],
+        [
+          -1,
+          -1,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "bA1 wP\\"
+      ],
+      "illegal": []
+    },
+    {
+      "name": "UHP ambiguity: self-move and toss both legal parses as self-move, no stun",
+      "cells": [
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wP1"
+        ],
+        [
+          1,
+          0,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [],
+      "illegal": [],
+      "selfMove": [
+        "wQ \\wP"
+      ]
+    },
+    {
+      "name": "mosquito adjacent only to a mosquito has no moves",
+      "cells": [
+        [
+          0,
+          0,
+          "wM1"
+        ],
+        [
+          1,
+          0,
+          "bM1"
+        ],
+        [
+          2,
+          0,
+          "bQ1"
+        ],
+        [
+          3,
+          0,
+          "wQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wQ bQ\\"
+      ],
+      "illegal": [
+        "wM \\bM",
+        "wM bM\\"
+      ]
+    },
+    {
+      "name": "mosquito on top of the hive moves only as beetle",
+      "cells": [
+        [
+          1,
+          0,
+          "bG1",
+          "wM1"
+        ],
+        [
+          2,
+          0,
+          "bQ1"
+        ],
+        [
+          3,
+          0,
+          "wQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wM bQ"
+      ],
+      "illegal": [
+        "wM wQ-"
+      ]
+    },
+    {
+      "name": "mosquito adjacent to a pillbug can toss, subject to pillbug constraints",
+      "cells": [
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wM1"
+        ],
+        [
+          0,
+          -1,
+          "bP1"
+        ],
+        [
+          1,
+          0,
+          "bA1"
+        ],
+        [
+          -1,
+          -1,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "bA1 wM\\"
+      ],
+      "illegal": []
+    },
+    {
+      "name": "ladybug goes exactly two on top then one down and never lands on the hive",
+      "cells": [
+        [
+          1,
+          -1,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wL1"
+        ],
+        [
+          1,
+          0,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wL bQ-"
+      ],
+      "illegal": [
+        "wL wQ"
+      ]
+    },
+    {
+      "name": "spider: exactly three steps, no two-step shortcut",
+      "cells": [
+        [
+          1,
+          -1,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wS1"
+        ],
+        [
+          1,
+          0,
+          "bQ1"
+        ],
+        [
+          2,
+          0,
+          "bS1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wS1 bS1\\"
+      ],
+      "illegal": [
+        "wS1 bQ\\"
+      ]
+    },
+    {
+      "name": "ant blocked from a gated pocket",
+      "cells": [
+        [
+          1,
+          -2,
+          "wQ1"
+        ],
+        [
+          0,
+          -1,
+          "wA1"
+        ],
+        [
+          1,
+          -1,
+          "wS1"
+        ],
+        [
+          0,
+          1,
+          "wS2"
+        ],
+        [
+          2,
+          -1,
+          "bQ1"
+        ],
+        [
+          2,
+          0,
+          "bA1"
+        ],
+        [
+          1,
+          1,
+          "bS1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wA1 bA1-"
+      ],
+      "illegal": [
+        "wA1 wS1\\"
+      ]
+    },
+    {
+      "name": "grasshopper jumps straight lines of any length, never steps",
+      "cells": [
+        [
+          1,
+          -1,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wG1"
+        ],
+        [
+          1,
+          0,
+          "bQ1"
+        ],
+        [
+          2,
+          0,
+          "bS1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wG1 bS1-",
+        "wG1 wQ/"
+      ],
+      "illegal": [
+        "wG1 bQ\\"
+      ]
+    },
+    {
+      "name": "beetle climb blocked by a strictly-taller height gate",
+      "cells": [
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wS1",
+          "wB1"
+        ],
+        [
+          1,
+          -1,
+          "wS2",
+          "wB2"
+        ],
+        [
+          0,
+          1,
+          "bS1",
+          "bB1"
+        ],
+        [
+          1,
+          1,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wB1 wB2"
+      ],
+      "illegal": [
+        "wB1 wB2\\"
+      ]
+    },
+    {
+      "name": "covered tile is frozen and its cell counts as the covering color",
+      "cells": [
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wS2"
+        ],
+        [
+          1,
+          0,
+          "wS1",
+          "bB1"
+        ],
+        [
+          2,
+          0,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [
+        "wA1 \\wS2"
+      ],
+      "illegal": [
+        "wS1 \\wS2",
+        "wA1 \\bB1"
+      ]
+    },
+    {
+      "name": "queen must be placed by turn 4; no moving before the queen is down",
+      "cells": [
+        [
+          0,
+          0,
+          "wS1"
+        ],
+        [
+          1,
+          0,
+          "bS1"
+        ],
+        [
+          -1,
+          0,
+          "wS2"
+        ],
+        [
+          2,
+          0,
+          "bS2"
+        ],
+        [
+          -2,
+          0,
+          "wG1"
+        ],
+        [
+          3,
+          0,
+          "bG1"
+        ]
+      ],
+      "toMove": "w",
+      "turn": 4,
+      "legal": [
+        "wQ -wG1"
+      ],
+      "illegal": [
+        "wA1 -wG1",
+        "wG1 bG1-"
+      ]
+    },
+    {
+      "name": "tournament opening: queen illegal as the first placement",
+      "cells": [],
+      "toMove": "w",
+      "turn": 1,
+      "legal": [
+        "wS1"
+      ],
+      "illegal": [
+        "wQ"
+      ]
+    },
+    {
+      "name": "forced pass position; two consecutive passes do not end the game",
+      "cells": [
+        [
+          -1,
+          0,
+          "bS1"
+        ],
+        [
+          0,
+          0,
+          "wQ1"
+        ],
+        [
+          1,
+          0,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "passCount": 2,
+      "emptyHands": [
+        "w"
+      ],
+      "onlyPass": true,
+      "expectResult": "ongoing",
+      "legal": [
+        "pass"
+      ],
+      "illegal": []
+    },
+    {
+      "name": "simultaneous double-surround is a draw",
+      "cells": [
+        [
+          0,
+          0,
+          "wQ1"
+        ],
+        [
+          1,
+          0,
+          "bQ1"
+        ],
+        [
+          -1,
+          0,
+          "bS1"
+        ],
+        [
+          0,
+          -1,
+          "bA1"
+        ],
+        [
+          1,
+          -1,
+          "wA1"
+        ],
+        [
+          2,
+          -1,
+          "wS1"
+        ],
+        [
+          2,
+          0,
+          "wA2"
+        ],
+        [
+          1,
+          1,
+          "wG1"
+        ],
+        [
+          0,
+          1,
+          "bG1"
+        ],
+        [
+          -1,
+          1,
+          "bA2"
+        ]
+      ],
+      "toMove": "w",
+      "expectResult": "draw-surround",
+      "legal": [],
+      "illegal": []
+    }
+  ]
+}

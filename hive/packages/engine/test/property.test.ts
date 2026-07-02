@@ -13,7 +13,7 @@ import {
   toUhp,
 } from '../src/index';
 import type { GameOptions, GameState, Move, TileId } from '../src/index';
-import { BASE } from './helpers';
+import { ALL_ON, BASE } from './helpers';
 
 const GAMES = Number(process.env.HIVE_PROP_GAMES ?? 100);
 const MAX_PLIES = 300;
@@ -141,23 +141,30 @@ function runRandomGame(seed: number, options: GameOptions) {
   expect(replay.positionHashes).toEqual(state.positionHashes);
 }
 
-describe(`random-game invariants (${GAMES} games, base rules)`, () => {
-  it(
-    'holds all §6 invariants',
-    () => {
-      // asyncProperty so the event loop yields between games — a multi-minute
-      // synchronous block starves vitest's worker RPC and fails the run with
-      // "Timeout calling onTaskUpdate" even when every test passes.
-      return fc.assert(
-        fc.asyncProperty(fc.integer({ min: 0, max: 2 ** 31 - 1 }), async (seed) => {
-          runRandomGame(seed, BASE);
-          // Real macrotask yield (await alone only drains microtasks).
-          await new Promise((resolve) => setImmediate(resolve));
-        }),
-        // Fixed fc seed: reproducible runs (override to explore new games).
-        { numRuns: GAMES, seed: Number(process.env.HIVE_PROP_SEED ?? 20260702) },
-      );
-    },
-    3_600_000,
-  );
-});
+const VARIANTS: Array<[label: string, options: GameOptions]> = [
+  ['base rules', BASE],
+  ['all expansions on (T2.4)', ALL_ON],
+];
+
+for (const [label, options] of VARIANTS) {
+  describe(`random-game invariants (${GAMES} games, ${label})`, () => {
+    it(
+      'holds all §6 invariants',
+      () => {
+        // asyncProperty so the event loop yields between games — a multi-minute
+        // synchronous block starves vitest's worker RPC and fails the run with
+        // "Timeout calling onTaskUpdate" even when every test passes.
+        return fc.assert(
+          fc.asyncProperty(fc.integer({ min: 0, max: 2 ** 31 - 1 }), async (seed) => {
+            runRandomGame(seed, options);
+            // Real macrotask yield (await alone only drains microtasks).
+            await new Promise((resolve) => setImmediate(resolve));
+          }),
+          // Fixed fc seed: reproducible runs (override to explore new games).
+          { numRuns: GAMES, seed: Number(process.env.HIVE_PROP_SEED ?? 20260702) },
+        );
+      },
+      3_600_000,
+    );
+  });
+}
