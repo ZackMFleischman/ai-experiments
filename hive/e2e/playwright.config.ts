@@ -16,9 +16,12 @@ export default defineConfig({
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
-    command: 'pnpm --filter @hive/app build && pnpm --filter @hive/app preview --port 4173 --strictPort',
+    command:
+      'pnpm --filter @hive/app build && pnpm --filter @hive/app preview --port 4173 --strictPort --host 127.0.0.1',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
 });
