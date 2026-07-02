@@ -273,6 +273,69 @@ through the function** (clients get no direct write access to `games`). This is 
   because it needs presence/abandonment handling to feel fair — and untimed live play
   already works in v1 via realtime sync.
 
+### 5.5 Local development: the whole backend runs on your machine
+
+Cloud Functions don't mean cloud-only development — the **Firebase Emulator Suite**
+runs Auth, Firestore, and Functions locally, so the entire networked game flow is
+testable with zero cloud resources:
+
+- `pnpm dev` starts Vite **and** `firebase emulators:start`, auto-seeded from a
+  committed fixture export; in dev mode the app connects to the emulators instead of
+  production automatically.
+- The Auth emulator mints fake users — open two browser windows as "you" and "your
+  friend" and play a full networked game entirely against localhost. The Emulator UI
+  (localhost:4000) shows every Firestore doc and function log live.
+- `submitMove` and the forfeit job run in the Functions emulator with hot reload; the
+  hourly scheduler is fired manually in tests (no waiting an hour to test timeouts).
+- CI runs the function tests and the Playwright two-browser e2e against a fresh
+  emulator instance per run — deterministic, free, no cloud credentials involved.
+
+Two things the emulators can't do, and how they're covered:
+
+- **Real push delivery** (there is no FCM emulator): function tests assert the exact
+  messaging payloads the code sends (mocked transport); actual device push is a
+  manual check against production during M5 — that's platform behavior, not our logic.
+- **Real Google OAuth:** the Auth emulator fakes the flow (a feature — no test
+  accounts to manage); the real provider gets exercised on first production sign-in.
+
+Below all of this sits M3's hot-seat mode: because of the `GameTransport` seam, the
+full game UI also runs against a purely in-memory transport — no backend, no
+emulator, useful for UI iteration.
+
+### 5.6 Setup, deployment & environments
+
+**One-time setup (you, ~30 minutes, mostly in the Firebase console):**
+
+1. Create a Firebase project; enable **Authentication → Google provider** and
+   **Firestore**.
+2. Upgrade the project to the **Blaze plan** — required for Cloud Functions. Blaze
+   still includes all free-tier allowances; friends-scale usage rounds to $0/month,
+   but set a budget alert (e.g. $5) as a tripwire.
+3. Register a Web App and drop its config values into `packages/app/.env` (these are
+   public identifiers, safe to commit).
+4. Cloud Messaging → generate the Web Push (VAPID) key pair.
+5. For CI deploys: create a deploy service account, add its key as a GitHub Actions
+   secret.
+
+Everything else lives in the repo (`firebase.json`, `.firebaserc`, rules, indexes) —
+a fresh machine needs only `pnpm install` and `firebase login`.
+
+**Deploying** is one idempotent command: `firebase deploy` ships Hosting (the built
+PWA), Functions, and Firestore rules/indexes together. CI runs it on every merge to
+main; a manual deploy from your laptop works identically.
+
+**Preview environments:** every PR gets a **Firebase Hosting preview channel**
+(`pr-<n>`, auto-expiring, URL posted as a PR comment — same experience as loom's
+Cloudflare preview). Channels preview the *frontend* against the production backend,
+which covers the common case of UI-only PRs; backend-touching PRs (functions, rules,
+schema) are instead validated by the emulator-based e2e suite in CI and go live on
+merge. If that ever feels risky, the escape hatch is a second `hive-staging` Firebase
+project behind a `.firebaserc` alias — the code is project-agnostic.
+
+**Domain:** production lives at **`hive.zackmfleischman.com`** via Firebase Hosting's
+custom-domain flow (one DNS record; TLS cert auto-provisioned). How it relates to
+your apps page: see the end of §7.
+
 ---
 
 ## 6. Frontend
@@ -281,11 +344,11 @@ through the function** (clients get no direct write access to `games`). This is 
 
 | Screen | Purpose |
 |---|---|
-| **Sign in** | Google sign-in button. That's it. |
-| **Lobby (home)** | Your games in two groups: **Your turn** (badged) and *Waiting on opponent*, plus finished games below. Each card: opponent, mini board thumbnail, last-move time, deadline countdown if any. FAB → New game. |
+| **Landing / sign in** | A **themed** full-bleed landing, not a bare button: hive-cluster hero rendered by the real board renderer from a fixed decorative state (with a subtle idle float animation), HIVE wordmark, one-line tagline, Google sign-in button. This is also the first thing an invited friend sees, so it carries the visual identity. Signed-in users skip straight to the lobby. |
+| **Lobby (home)** | Your games in two groups: **Your turn** (badged) and *Waiting on opponent*, plus finished games below (with win/loss/draw result chips). Each card: opponent, mini board thumbnail, last-move time, deadline countdown if any. FAB → New game. |
 | **New game** | Pick color (white/black/random), expansions toggles (default all on), tournament-opening toggle, time control. Creates game → shows/copies **invite link**. |
-| **Join** | Landing route for invite links (`/join/{code}`): shows the game setup, one button to accept (routes through sign-in if needed). |
-| **Game** | The board (§6.2), player bars (name, captured queen-liberties indicator, clock/deadline), your **hand** of unplaced tiles as a dockable tray, move list drawer, and Resign / Offer draw / Pass actions in an overflow menu. |
+| **Join** | Landing route for invite links (`/join/{code}`): same themed layout as the landing screen with a game-summary card and one accept button (routes through sign-in if needed). |
+| **Game** | The board (§6.2), player bars (name, captured queen-liberties indicator, clock/deadline), your **hand** of unplaced tiles as a dockable tray, move list drawer, and Resign / Offer draw / Pass actions in an overflow menu. Ends in the victory sequence (§6.3). |
 | **Settings** | Notifications opt-in state, theme (light/dark/system), sign out. |
 
 Routing: React Router; every screen is a URL (`/game/{id}`) so notification taps and
@@ -321,18 +384,60 @@ transitions, and easy testability (DOM assertions in e2e) for free.
   HTML5 DnD is wrong for touch, and dnd-kit fights SVG coordinate spaces; the math is
   ~a screenful of code against the axial↔pixel helpers).
 
-### 6.3 Visual design
+### 6.3 End of game & victory screens
+
+Losing a Hive game means *watching your queen get surrounded* — the ending should land
+as a moment, not a modal that teleports in.
+
+- **The beat.** When `result(state)` flips to a win, the board auto-centers on the
+  surrounded queen, the six surrounding tiles pulse once, and there's a ~1s pause
+  (tap to skip) before the overlay appears — the loser gets to see the position.
+  Endings by resignation or timeout skip the board beat and go straight to the overlay.
+- **Result overlay** — full-screen sheet on phones, centered card on tablet/desktop:
+  - Headline + reason, themed per outcome: *"Queen surrounded!"*, *"Sam resigned"*,
+    *"Draw — threefold repetition"*, *"Won on time"*. Victory/defeat/draw each get a
+    distinct (but restrained) color/tone treatment.
+  - Hero art: the winning color's queen tile rendered large by the board renderer —
+    same sprite system as the game (§6.4), no bespoke raster art.
+  - A stats line: move count, and duration (elapsed days for async games).
+  - Actions: **Rematch** (creates the return game with colors swapped and pushes a
+    rematch offer to the opponent), **View board** (dismisses the overlay to inspect
+    the final position, leaving a persistent result banner), **Back to lobby**.
+- Finished games stay openable from the lobby (result chip on the card); opening one
+  shows the final position with the result banner, and the overlay can be re-opened.
+- Resigning and accepting a draw confirm via a small dialog first (no accidental
+  resigns on touch), then flow into the same overlay.
+
+### 6.4 Art direction & asset pipeline
 
 - **MUI** for all chrome (app bar, cards, drawers, dialogs) with a custom theme:
   one accent color, generous whitespace, rounded MUI defaults — clean and unfussy.
-- **Tile art:** flat, geometric SVG bug glyphs (single-color mark on cream/charcoal
-  hex tiles matching the physical game's white/black), designed on a consistent grid,
-  inlined as symbols so they retint via CSS. Simple > ornate; readability at 40px wins.
-- Light + dark themes from day one (board palette swaps with the MUI theme).
-- Subtle motion only: lift, snap, settle, and a short "queen surrounded" end-of-game
-  moment. No particle nonsense.
+  Light + dark from day one (board palette swaps with the MUI theme).
+- **One asset source of truth:** `app/src/assets/hive-sprites.svg` — an SVG sprite
+  sheet with a `<symbol>` per asset, rendered everywhere via `<use href="#bug-queen">`:
+  - the **8 bug glyphs** (Queen, Ant, Spider, Grasshopper, Beetle, Mosquito, Ladybug,
+    Pillbug) — flat, geometric, single-path marks on a fixed 100×100 grid with a
+    consistent stroke weight, readable at 40px;
+  - the **hex tile base** (cream/charcoal variants matching the physical game's
+    white/black tiles), the ghost/target hex, and small motifs (result-chip crown,
+    empty-state tile).
+  - Glyphs use `currentColor` plus one CSS variable, so player color, light/dark
+    theme, and dimmed/highlight states are pure CSS — no duplicated assets.
+- **How other screens get their art: composition, not illustration.** The landing
+  hero, join screen, victory hero, and lobby thumbnails are all the *board renderer*
+  pointed at fixed or real states — decorative hive clusters and big single tiles
+  built from the same sprites. One visual language across every screen, and zero
+  bespoke-illustration maintenance.
+- **Authoring plan:** M3 ships a serviceable draft glyph set (circle/arc geometry —
+  good enough to play with); the M6 polish pass refines the drawings. Because
+  everything references the sprite sheet, the art pass touches exactly one file.
+- **Raster only where the platform demands it:** PWA icons, maskable icon, and the
+  notification badge are exported from the queen glyph by a build script — never
+  hand-maintained PNGs.
+- Subtle motion only: lift, snap, settle, and the §6.3 end-of-game beat. No particle
+  nonsense.
 
-### 6.4 State management
+### 6.5 State management
 
 - Server/cache state (auth, game docs, snapshots): **TanStack Query** + thin Firestore
   listener hooks.
@@ -356,6 +461,24 @@ transitions, and easy testability (DOM assertions in e2e) for free.
   per-game badges, document title `(2) HIVE`, and app **icon badge** via the Badging API
   where supported.
 
+**The zackmfleischman.com apps page — link out, don't iframe.** Embedding the game in
+an iframe would break exactly the features this project is built around:
+
+- **PWA install only works in a top-level browsing context** — browsers ignore the
+  manifest inside iframes, so "install to home screen" (which iOS *requires* for web
+  push) becomes unreachable.
+- **Cross-origin iframes get partitioned storage and restricted permission prompts**
+  in Safari and Chrome — Firebase Auth sessions won't persist reliably, and the
+  Notification permission request is blocked or ignored from inside a frame.
+- The board's pan/zoom gestures would fight the host page's scrolling at the frame
+  boundary.
+
+Instead, the apps page gets a **card that links out** to `hive.zackmfleischman.com` —
+same domain family, so it still reads as part of your site, and once the PWA is
+installed the link opens into the installed app. The card carries the hive-cluster
+hero art (§6.4) as a static SVG; if you want it to feel alive later, a "current board
+snapshot" image endpoint is a small post-v1 function.
+
 ---
 
 ## 8. Testing strategy
@@ -373,6 +496,20 @@ transitions, and easy testability (DOM assertions in e2e) for free.
 CI (GitHub Actions): typecheck + all unit layers on every push; e2e on PRs to main.
 The **engine is the coverage priority** — it's the part where a bug silently ruins a
 game three days later.
+
+**Backend portability of the suite:** only the bottom two rows touch the Firebase
+emulator, and they're kept swappable on purpose:
+
+- Everything above them (the bulk of the suite) is pure TS or mocked-transport —
+  a backend migration doesn't touch it.
+- The function tests and e2e assert *backend-agnostic behavior* (turn enforcement,
+  concurrency guard, legality rejection, timeout forfeit, full-game flow through the
+  UI); the scenarios survive a swap — only the setup does not.
+- All emulator-specific code (boot, seed, reset, fake-auth users) lives in a single
+  shared **`test-harness` module** that the function tests and Playwright both
+  import; migrating backends means rewriting that module and the thin function
+  wrappers, not the specs. The `submitMove` core is `engine.applyMove` + a
+  transaction, so the validation logic itself ports as-is.
 
 ---
 
@@ -397,11 +534,36 @@ Per your instruction, I decided these myself, optimizing for "you two playing AS
 7. **Server-authoritative moves via Cloud Function** rather than trusting clients +
    security rules. Slightly more code, but it's the only honest way to enforce turn
    order and legality, and it reuses the engine as-is.
-8. **SVG board, custom pointer-event drag** (no dnd library, no canvas) — §6.2.
+8. **SVG board, custom pointer-event drag** (no dnd library, no canvas). This is less
+   "rolling our own DnD" than it sounds — the drag itself is trivial; the hard part is
+   *hit-testing a zoomable hex grid*, which no library does for us:
+   - HTML5 drag-and-drop is a non-starter: it doesn't work on touch, and iPad is a
+     primary device.
+   - Pointer-based libraries (dnd-kit et al.) model drop targets as DOM elements
+     hit-tested by **bounding rect**. Hexagons' bounding boxes overlap their
+     neighbors', so rect hit-testing misdrops near cell edges — exactly where players
+     drop. Rects are also measured at drag start, so pan/zoom mid-drag (pinching with
+     the other hand) silently invalidates them.
+   - The correct "which cell is the pointer over" on a hex grid is one closed-form
+     formula (pixel → fractional axial → cube-round), using the same axial↔pixel
+     helpers the renderer already needs. A library would sit *on top of* that math,
+     not replace it — all cost, no lift.
+   - Drag and tap-tap are two input frontends on the same controller state machine
+     (§6.2), so the whole interaction is testable at the controller layer without
+     synthesizing drag events.
+   - Reconsider if we ever add HTML-to-HTML drags (e.g. reordering lists) — that's
+     dnd-kit's home turf, and it can coexist with the board's pointer handling.
 9. **UHP notation** for the move log (free test vectors now, free AI/engine interop later).
 10. **Separate pnpm workspace** at `hive/` (not merged into `loom/`'s workspace) — the
     projects share nothing and shouldn't share a lockfile.
 11. **Threefold repetition = auto-draw** so async games can't zombie forever.
+12. **Firebase Hosting + PR preview channels** for deploys, production at
+    `hive.zackmfleischman.com` (§5.6) — one CLI deploys hosting, functions, and rules
+    together, and previews come free. (Cloudflare Pages, as loom uses, would split the
+    deploy across two systems for no gain here.)
+13. **No iframe embed on the zackmfleischman.com apps page** — a themed link-out card
+    instead (end of §7): iframing breaks PWA install, push permission prompts, and
+    auth persistence.
 
 ---
 
@@ -411,9 +573,11 @@ Each milestone is mergeable, demoable, and gated on its tests passing.
 
 ### M0 — Scaffold (½ day)
 Workspace + `engine`/`app`/`functions` packages; Vite + React + TS + MUI + router shell;
-Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase project +
-emulator config committed; deploys a hello-world PWA to Firebase Hosting.
-**Done when:** CI green; installable blank app served over HTTPS.
+Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase project (your
+setup checklist: §5.6) + emulator suite config committed; CI deploys a hello-world PWA
+to Hosting on merge and a preview channel per PR.
+**Done when:** CI green; installable blank app served over HTTPS; a PR shows a working
+preview URL.
 
 ### M1 — Engine: base game (2–3 days)
 Hex math, state, placement rules, all five base bugs, one-hive + freedom-to-move,
@@ -428,15 +592,18 @@ suite from published rulings.
 **Done when:** all expansion fixtures pass; property suite re-run with expansions on.
 
 ### M3 — Local game UI (3–4 days)
-Board rendering (SVG, pan/zoom, stacks), hand tray, drag/tap interaction per §6.2,
-GameController with a local (hot-seat) transport, move list, end-of-game states.
+Board rendering (SVG, pan/zoom, stacks), draft sprite sheet (§6.4), hand tray,
+drag/tap interaction per §6.2, GameController with a local (hot-seat) transport,
+move list, end-of-game beat + result overlay (§6.3, minus rematch).
 Play a full expansion game on one device. Component + controller tests.
-**Done when:** two humans can pass the iPad back and forth for a complete legal game.
+**Done when:** two humans can pass the iPad back and forth for a complete legal game
+that ends in the victory sequence.
 
 ### M4 — Multiplayer backend (3–4 days)
-Auth + sign-in screen; Firestore schema + rules; `submitMove` function with emulator
-tests; invite create/join flow; lobby with multiple concurrent games; optimistic
-moves + reconciliation; Playwright two-browser e2e.
+Auth + themed landing/sign-in screen (§6.1); Firestore schema + rules; `submitMove`
+function with emulator tests; invite create/join flow; rematch offers; lobby with
+multiple concurrent games; optimistic moves + reconciliation; Playwright two-browser
+e2e.
 **Done when:** the e2e full-game test passes; you and a second account can play from
 two devices.
 
@@ -447,15 +614,16 @@ icon/document badges, deadline stamping + hourly forfeit function + expiry warni
 in emulator test.
 
 ### M6 — Polish & ship (2–3 days)
-Final tile art set, dark mode pass, animations, empty states, responsive audit
-(iPhone / iPad / desktop), error toasts, Lighthouse PWA audit, deploy to production
-Hosting, play a real game state-to-state.
+Final glyph art pass on the sprite sheet, landing-hero and victory-screen polish,
+dark mode pass, animations, empty states, responsive audit (iPhone / iPad / desktop),
+error toasts, Lighthouse PWA audit, deploy to production Hosting, play a real game
+state-to-state.
 **Done when:** you've finished an actual game with your friend and neither of you hit
 a rough edge worth filing.
 
 ### v1.1 candidates (in rough order)
 Real-time chess clocks → takebacks → offline move queueing → game chat/emotes →
-rematch button → AI opponent via `@hive/ai` or an external UHP engine → analysis mode.
+AI opponent via `@hive/ai` or an external UHP engine → analysis mode.
 
 ---
 
