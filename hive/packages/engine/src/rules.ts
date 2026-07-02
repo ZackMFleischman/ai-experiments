@@ -65,4 +65,72 @@ export function placements(state: GameState): Move[] {
   return moves;
 }
 
+/** Articulation (cut-vertex) cells of the occupancy graph — iterative DFS
+ * (Hopcroft–Tarjan low-link), T1.4. Hives are ≤ 28 cells; O(V+E) per call. */
+export function articulationCells(board: Board): Set<string> {
+  const cuts = new Set<string>();
+  const keys = [...board.keys()];
+  if (keys.length === 0) return cuts;
+
+  const disc = new Map<string, number>();
+  const low = new Map<string, number>();
+  const parent = new Map<string, string | null>();
+  const childCount = new Map<string, number>();
+  let timer = 0;
+
+  const rootKey = keys[0] as string;
+  // Explicit stack of [key, neighborIndex]; neighbors materialized per node.
+  const adjacency = (key: string): string[] => {
+    const [q, r] = key.split(',').map(Number) as [number, number];
+    return neighbors({ q, r })
+      .map(cellKey)
+      .filter((nk) => board.has(nk));
+  };
+  const stack: Array<{ key: string; adj: string[]; i: number }> = [
+    { key: rootKey, adj: adjacency(rootKey), i: 0 },
+  ];
+  disc.set(rootKey, timer);
+  low.set(rootKey, timer);
+  timer += 1;
+  parent.set(rootKey, null);
+
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1] as { key: string; adj: string[]; i: number };
+    if (frame.i < frame.adj.length) {
+      const next = frame.adj[frame.i] as string;
+      frame.i += 1;
+      if (!disc.has(next)) {
+        parent.set(next, frame.key);
+        childCount.set(frame.key, (childCount.get(frame.key) ?? 0) + 1);
+        disc.set(next, timer);
+        low.set(next, timer);
+        timer += 1;
+        stack.push({ key: next, adj: adjacency(next), i: 0 });
+      } else if (next !== parent.get(frame.key)) {
+        low.set(frame.key, Math.min(low.get(frame.key) as number, disc.get(next) as number));
+      }
+    } else {
+      stack.pop();
+      const p = parent.get(frame.key);
+      if (p != null) {
+        low.set(p, Math.min(low.get(p) as number, low.get(frame.key) as number));
+        if (parent.get(p) != null && (low.get(frame.key) as number) >= (disc.get(p) as number)) {
+          cuts.add(p);
+        }
+      }
+    }
+  }
+  if ((childCount.get(rootKey) ?? 0) >= 2) cuts.add(rootKey);
+  return cuts;
+}
+
+/** May the top tile at `from` leave its cell without splitting the hive?
+ * Tops of stacks (height ≥ 2) are never articulation-blocked. */
+export function canDepart(board: Board, from: Hex): boolean {
+  const stack = board.get(cellKey(from));
+  if (!stack || stack.length === 0) return false;
+  if (stack.length >= 2) return true;
+  return !articulationCells(board).has(cellKey(from));
+}
+
 export { add, DIRECTIONS, neighbors, ORIGIN };
