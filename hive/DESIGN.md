@@ -95,6 +95,18 @@ Benefits: human-auditable game records, cross-checkable rule test vectors, and a
 integration path for AI engines later. Game state is reconstructable from
 `options + move list` alone; that list is the source of truth (§5.2).
 
+Meta actions (resign, draw offer/accept/decline, timeout) are **not** UHP moves —
+UHP stays pure board notation. They are recorded as typed entries interleaved in the
+same move log (§5.2), so `options + log` still reconstructs everything, including
+how a game ended.
+
+One notation subtlety, decided now so the engine encodes it consistently: a UHP move
+string doesn't say *whether a piece moved itself or was tossed by a pillbug*, but the
+engine must know (toss ⇒ the moved piece is stunned). The `Move` type distinguishes
+them; when both interpretations of a string are legal, serialization and parsing
+canonicalize to **self-move**. This is a pinned edge-case fixture (see
+`IMPLEMENTATION.md` §fixtures).
+
 ---
 
 ## 3. Architecture
@@ -230,23 +242,55 @@ runs inside the Cloud Function** to validate moves server-side. No rules duplica
 
 ```
 users/{uid}:            { displayName, photoURL, fcmTokens: string[], settings }
-games/{gameId}:         { players: {white: uid, black: uid|null}, options,
+games/{gameId}:         { players: {white: uid, black: uid|null},
+                          playerIds: uid[],                  // array field for lobby indexability
+                          options,
                           status: 'open'|'active'|'finished',
-                          result?, toMove, turn, moveCount,
-                          deadlineAt?: Timestamp,            // async time control
+                          result?: 'white'|'black'|'draw',
+                          endedBy?: 'surround'|'resign'|'timeout'|'draw-agreed'|'repetition',
+                          toMove, turn, moveCount,
+                          pendingDrawOffer?: 'white'|'black', // cleared by any move or decline
+                          rematchOf?: gameId,                 // links the return game
+                          deadlineAt?: Timestamp,             // async time control
                           updatedAt, createdAt,
-                          state: string }                    // serialized snapshot (fast load)
-games/{gameId}/moves/{n}: { n, uhp: string, by: uid, at: Timestamp }
+                          state: string }                     // serialized snapshot (fast load)
+games/{gameId}/moves/{n}: { n, kind: 'move'|'pass'|'resign'|'draw-offer'|'draw-accept'
+                               |'draw-decline'|'timeout',
+                            uhp?: string,                     // present iff kind is move/pass
+                            by: uid, at: Timestamp }
 invites/{code}:          { gameId, createdBy, expiresAt }
 ```
 
-- **Move list is the source of truth**; the `state` snapshot on the game doc is a
-  denormalized cache so clients render instantly without replaying (and gets
-  regression-checked against replay in tests).
-- Lobby query = `games where players.{myUid} != null and status == 'active' order by updatedAt`
-  (implemented via an array field `playerIds` for indexability). "Your turn" games sort first.
+- **The move log is the source of truth** — UHP moves *and* meta events in one
+  ordered collection; the `state` snapshot on the game doc is a denormalized cache so
+  clients render instantly without replaying (and gets regression-checked against
+  replay in tests).
+- Lobby query = `games where playerIds array-contains myUid and status == 'active'
+  order by updatedAt desc` (composite index committed in `firestore.indexes.json`);
+  the "your turn" / "waiting" grouping is client-side.
+- Stale invites (expired, game never joined) are culled by the same scheduled
+  function that forfeits timeouts (§5.4).
 
-### 5.3 Move protocol (server-authoritative)
+### 5.3 Game API (server-authoritative callables)
+
+Clients get **no direct write access to `games/*` or `invites/*`** — every game
+mutation is a callable Cloud Function validating with the same `@hive/engine`
+package. This is the "can't cheat" property, and also the scaling story — the
+functions are stateless. The only client-writable doc is your own `users/{uid}`
+(profile + FCM tokens), enforced by security rules; game docs are readable only by
+their two players, invites by anyone holding the code.
+
+| Callable | Does |
+|---|---|
+| `createGame(options, color)` | creates the game (`status:'open'`) + invite code; returns both |
+| `joinGame(code)` | transactionally claims the open seat, activates the game, expires the invite |
+| `submitMove(gameId, expectedMoveCount, uhpMove)` | the move protocol below |
+| `resign(gameId)` | ends the game; records the `resign` meta event |
+| `offerDraw(gameId)` / `respondDraw(gameId, accept)` | sets/clears `pendingDrawOffer`; ends game on accept |
+| `rematch(gameId)` | creates the colors-swapped return game linked via `rematchOf`; pushes the offer |
+| `forfeitExpired` *(scheduled, hourly)* | forfeits past-deadline games, sends expiry-warning pushes, culls dead invites |
+
+**The move protocol:**
 
 1. Client computes legal moves locally (instant UX), player drops a tile.
 2. Controller applies the move **optimistically** and calls the `submitMove` callable
@@ -257,10 +301,6 @@ invites/{code}:          { gameId, createdBy, expiresAt }
    `deadlineAt` → queues a push to the opponent.
 4. All clients converge via their snapshot listeners; if validation failed (should be
    impossible unless clients desync), the controller rolls back and resyncs.
-
-Firestore security rules: game docs readable only by their two players; **all writes go
-through the function** (clients get no direct write access to `games`). This is the
-"can't cheat" property, and it's also the scaling story — the function is stateless.
 
 ### 5.4 Time controls
 
@@ -461,8 +501,11 @@ as a moment, not a modal that teleports in.
   per-game badges, document title `(2) HIVE`, and app **icon badge** via the Badging API
   where supported.
 
-**The zackmfleischman.com apps page — link out, don't iframe.** Embedding the game in
-an iframe would break exactly the features this project is built around:
+**The zackmfleischman.com apps page — link out, don't iframe.** The site's apps
+infrastructure (`PersonalWebsite/src/ts/Apps/`) is built around iframe embeds: every
+`IApp` has a required `embedUrl`, and `/apps/{slug}/` renders it in `AppEmbed`'s
+`<iframe>`. Hive must **not** ride that path — embedding would break exactly the
+features this project is built around:
 
 - **PWA install only works in a top-level browsing context** — browsers ignore the
   manifest inside iframes, so "install to home screen" (which iOS *requires* for web
@@ -473,11 +516,34 @@ an iframe would break exactly the features this project is built around:
 - The board's pan/zoom gestures would fight the host page's scrolling at the frame
   boundary.
 
-Instead, the apps page gets a **card that links out** to `hive.zackmfleischman.com` —
-same domain family, so it still reads as part of your site, and once the PWA is
-installed the link opens into the installed app. The card carries the hive-cluster
-hero art (§6.4) as a static SVG; if you want it to feel alive later, a "current board
-snapshot" image endpoint is a small post-v1 function.
+Instead, hive becomes the apps grid's first **external-link card** — a small,
+additive variant of the existing card. The concrete PR against `PersonalWebsite`:
+
+- `src/ts/Redux/IModels.ts` — make `embedUrl` optional on `IApp` and add
+  `externalUrl?: string`; a card carries exactly one of the two.
+- `src/ts/Apps/AppsGrid.tsx` — in `_renderCard`, when `externalUrl` is set render an
+  `<a href={externalUrl} target="_blank" rel="noopener noreferrer">` in place of the
+  internal `<Link>`, reusing the same `app-card-*` styles, plus a small ↗ affordance
+  so the outbound behavior is legible.
+- `src/ts/Apps/AppEmbed.tsx` — guard: a hand-typed `/apps/hive/` URL for an
+  external-only app redirects out (`window.location.replace(externalUrl)`) instead of
+  rendering an empty frame.
+- `configs/store.yaml` — the hive entry under `apps:` (name, description,
+  `externalUrl: https://hive.zackmfleischman.com`, tags, thumbnail).
+- Thumbnail: the hive-cluster hero (§6.4) exported by hive's icon build script as a
+  static image committed to `assets/images/hive-card.png` — no live coupling. If you
+  want it to feel alive later, a "current board snapshot" image endpoint is a small
+  post-v1 function.
+
+Idiom warning for that PR: PersonalWebsite is webpack 4 / React 16.6 (**pre-hooks**)
+class components with tslint — match the existing patterns, don't modernize in
+passing.
+
+The two deploys stay fully independent: the website is GitHub Pages behind
+`www.zackmfleischman.com` (CNAME); hive is Firebase Hosting behind one new
+`hive.zackmfleischman.com` DNS record. Same domain family, so the card still reads
+as part of your site, and once the PWA is installed the link opens straight into the
+installed app. The website PR ships during M6, alongside hive's production deploy.
 
 ---
 
@@ -496,6 +562,35 @@ snapshot" image endpoint is a small post-v1 function.
 CI (GitHub Actions): typecheck + all unit layers on every push; e2e on PRs to main.
 The **engine is the coverage priority** — it's the part where a bug silently ruins a
 game three days later.
+
+### Self-validation for agent builders (correctness *and* look-and-feel)
+
+This project will be built largely by coding agents, so every milestone must be
+verifiable without a human watching — including the visual/UX half:
+
+- **Machine gates.** Each milestone N ships a `pnpm validate:mN` script (the loom
+  pattern) that runs its acceptance criteria end-to-end; `pnpm validate` chains them
+  all. A milestone is not done while its gate is red.
+- **Fixture gallery.** The app ships a dev-only `/dev/gallery` route rendering a
+  registry of named states: mid-game boards (replayed from UHP fixtures), every
+  screen, and every interaction state (piece lifted with ghost targets, stack fanned,
+  drag-over-invalid tint, victory overlay per outcome, empty lobby, …). `?static=1`
+  freezes animations and hides nondeterministic text (timestamps, names) so captures
+  are reproducible.
+- **`pnpm validate:visual`.** Playwright walks the gallery and captures every entry
+  at three viewports (390×844 phone / 1024×768 tablet / 1440×900 desktop) in light
+  **and** dark to `artifacts/screens/`, machine-checking console cleanliness, that
+  every sprite `<use>` resolved (non-empty bbox), and that the board fits its
+  viewport. `pnpm validate:ux` additionally scripts the §6.2 drag and tap-tap flows
+  and captures before/during/after frames.
+- **The agent must then look.** Captured screenshots are reviewed against the
+  committed checklist `e2e/visual-checklist.md` (tile readability at minimum zoom,
+  glyph distinguishability, ghost-target visibility in both themes, ≥44 px touch
+  targets, overlay hierarchy, safe-area clearance, …) by actually reading the
+  images. A screenshot generated but never read is not validation. Each finding is
+  either fixed or recorded in the checklist as an accepted deviation.
+
+The full harness spec and the per-task build protocol live in `IMPLEMENTATION.md`.
 
 **Backend portability of the suite:** only the bottom two rows touch the Firebase
 emulator, and they're kept swappable on purpose:
@@ -564,62 +659,85 @@ Per your instruction, I decided these myself, optimizing for "you two playing AS
 13. **No iframe embed on the zackmfleischman.com apps page** — a themed link-out card
     instead (end of §7): iframing breaks PWA install, push permission prompts, and
     auth persistence.
+14. **Meta actions live in the move log** as typed entries (`kind: 'resign' |
+    'draw-offer' | …`), not UHP strings — the log stays the single reconstruction
+    source, and UHP stays pure board notation (§2.4, §5.2).
+15. **Every game mutation is a callable** — `createGame`, `joinGame`, `submitMove`,
+    `resign`, `offerDraw`/`respondDraw`, `rematch` (§5.3). Clients never write
+    `games/*` or `invites/*`; the only client-writable doc is your own `users/{uid}`.
+16. **Personal-site integration = an external-link card variant** (`externalUrl` on
+    `IApp`) added to the existing apps grid; the iframe path stays for the apps that
+    already use it. File-level plan at the end of §7; ships with M6.
+17. **Agent self-validation is a first-class deliverable** — per-milestone
+    `validate:mN` gates, the `/dev/gallery` fixture gallery, and mandatory
+    screenshot review against a committed visual checklist (§8). UHP toss/self-move
+    ambiguity canonicalizes to self-move (§2.4).
 
 ---
 
 ## 10. Implementation plan
 
-Each milestone is mergeable, demoable, and gated on its tests passing.
+Each milestone is mergeable, demoable, and gated on `pnpm validate:mN` passing. This
+section is the milestone map; the **task-level breakdown** (file-by-file tasks, per-task
+tests and gates, frozen engine API, fixture lists, harness spec, and the build protocol
+for agent builders) lives in **[IMPLEMENTATION.md](./IMPLEMENTATION.md)**.
 
 ### M0 — Scaffold (½ day)
-Workspace + `engine`/`app`/`functions` packages; Vite + React + TS + MUI + router shell;
-Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase project (your
-setup checklist: §5.6) + emulator suite config committed; CI deploys a hello-world PWA
-to Hosting on merge and a preview channel per PR.
-**Done when:** CI green; installable blank app served over HTTPS; a PR shows a working
-preview URL.
+Workspace + `engine`/`app`/`functions`/`e2e` packages; Vite + React + TS + MUI +
+router shell; Vitest wired everywhere; GitHub Actions CI (typecheck + test); Firebase
+project (your setup checklist: §5.6) + emulator suite config committed; CI deploys a
+hello-world PWA to Hosting on merge and a preview channel per PR.
+**Done when:** `pnpm validate:m0` green in CI; installable blank app served over
+HTTPS; a PR shows a working preview URL.
 
 ### M1 — Engine: base game (2–3 days)
 Hex math, state, placement rules, all five base bugs, one-hive + freedom-to-move,
 queen rule, pass, win/draw detection, UHP parse/serialize, Zobrist + repetition.
 Full unit + property suites.
-**Done when:** a scripted full game replays via UHP to the correct result; property
-suite runs 10k random games clean.
+**Done when:** `pnpm validate:m1` green — a scripted full game replays via UHP to the
+correct result; property suite runs 10k random games clean.
 
 ### M2 — Engine: expansions (1–2 days)
 Mosquito, Ladybug, Pillbug incl. stun/recency state and toss gate checks; edge-case
-suite from published rulings.
-**Done when:** all expansion fixtures pass; property suite re-run with expansions on.
+suite from published rulings (the pinned list in IMPLEMENTATION.md §fixtures).
+**Done when:** `pnpm validate:m2` green — all expansion fixtures pass; property suite
+re-run with expansions on.
 
 ### M3 — Local game UI (3–4 days)
 Board rendering (SVG, pan/zoom, stacks), draft sprite sheet (§6.4), hand tray,
 drag/tap interaction per §6.2, GameController with a local (hot-seat) transport,
-move list, end-of-game beat + result overlay (§6.3, minus rematch).
-Play a full expansion game on one device. Component + controller tests.
-**Done when:** two humans can pass the iPad back and forth for a complete legal game
-that ends in the victory sequence.
+move list, end-of-game beat + result overlay (§6.3, minus rematch). **Plus the
+validation harness itself:** `/dev/gallery`, fixtures, `validate:visual` +
+`validate:ux`, and the first full screenshot-review pass (§8).
+**Done when:** `pnpm validate:m3` green — a scripted hot-seat e2e plays a full
+expansion game to the victory sequence; visual/ux harness runs clean and the
+screenshots have been agent-reviewed against the checklist.
 
 ### M4 — Multiplayer backend (3–4 days)
-Auth + themed landing/sign-in screen (§6.1); Firestore schema + rules; `submitMove`
-function with emulator tests; invite create/join flow; rematch offers; lobby with
-multiple concurrent games; optimistic moves + reconciliation; Playwright two-browser
-e2e.
-**Done when:** the e2e full-game test passes; you and a second account can play from
-two devices.
+Auth + themed landing/sign-in screen (§6.1); Firestore schema + rules + indexes; the
+full callable set of §5.3 (`createGame`/`joinGame`/`submitMove`/`resign`/draw
+offers/`rematch`) with emulator tests; invite create/join flow; lobby with multiple
+concurrent games; optimistic moves + reconciliation; Playwright two-browser e2e.
+**Done when:** `pnpm validate:m4` green — the two-browser full-game e2e passes
+(create → invite → join → moves both ways → resign → rematch); you and a second
+account can play from two devices.
 
 ### M5 — PWA + notifications + async (2–3 days)
 `vite-plugin-pwa` manifest/SW, install coach marks, FCM push (all trigger events),
 icon/document badges, deadline stamping + hourly forfeit function + expiry warnings.
-**Done when:** phone gets a push when the other side moves; timed-out game forfeits
-in emulator test.
+**Done when:** `pnpm validate:m5` green — push payloads asserted for every trigger,
+timed-out game forfeits in emulator test; manual check: phone gets a real push when
+the other side moves.
 
 ### M6 — Polish & ship (2–3 days)
 Final glyph art pass on the sprite sheet, landing-hero and victory-screen polish,
-dark mode pass, animations, empty states, responsive audit (iPhone / iPad / desktop),
-error toasts, Lighthouse PWA audit, deploy to production Hosting, play a real game
-state-to-state.
-**Done when:** you've finished an actual game with your friend and neither of you hit
-a rough edge worth filing.
+dark mode pass, animations, empty states, responsive audit via a fresh
+`validate:visual` review at all viewports, error toasts, Lighthouse PWA audit, deploy
+to production Hosting + DNS, **the PersonalWebsite external-link card PR (§7)**, play
+a real game start-to-finish.
+**Done when:** `pnpm validate` (all gates) green; Lighthouse PWA pass; the apps page
+card links out correctly; you've finished an actual game with your friend and neither
+of you hit a rough edge worth filing.
 
 ### v1.1 candidates (in rough order)
 Real-time chess clocks → takebacks → offline move queueing → game chat/emotes →
