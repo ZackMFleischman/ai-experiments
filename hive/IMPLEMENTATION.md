@@ -171,7 +171,7 @@ screenshot review pass and commit the updated checklist.
 | # | Task | Notes | Gate |
 |---|---|---|---|
 | T6.1 | Final glyph art pass on `hive-sprites.svg` (one file); re-capture sprite contact sheet | **[visual]** | review vs. checklist |
-| T6.2 | Landing hero, victory overlay, empty states, error toasts, animation timing pass | **[visual]** | gallery review |
+| T6.2 | Landing hero, victory overlay, empty states, error toasts, animation timing pass; board z-order: paint stacks by vertical layer (all level-0 tiles first, then level-1, …) so tall stacks are never overdrawn by neighboring tiles | **[visual]** | gallery review |
 | T6.3 | Dark-mode + responsive audit: full `validate:visual` re-review at all 3 viewports × 2 themes; fix findings | **[visual]** | checklist clean |
 | T6.4 | Lighthouse PWA + perf audit; fix regressions | | Lighthouse pass |
 | T6.5 | ⚑ Production: `firebase deploy`, DNS record for `hive.zackmfleischman.com`, first real sign-in, real game | | live game |
