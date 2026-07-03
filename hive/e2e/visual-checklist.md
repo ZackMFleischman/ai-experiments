@@ -76,6 +76,14 @@ currently-accepted deviations stay listed at the bottom.
   hierarchy, dark-board legibility, lobby chips/thumbnails, and interaction
   affordances all clean at phone/tablet/desktop in both themes.
 
+- 2026-07-03 (landing hero fix, reported by Zack: "title screen hexes aren't
+  lined up"): the sprite sheet was mounted per-screen (game, gallery) so the
+  real `/` route rendered the hero with no glyphs — the stacked beetle's lift
+  offset read as a mis-snapped hex. Sheet now injected once at the app root;
+  hero re-read at phone/desktop, both themes: all 8 glyphs render, stack reads
+  as a climb. Gallery captures had masked this (the gallery mounts its own
+  providers), hence the smoke-test regression guard on the live route.
+
 ## Accepted deviations
 
 - Board tiles draw as inline polygons (exact grid geometry); the sprite sheet's

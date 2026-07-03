@@ -1,6 +1,7 @@
 import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Route, Routes, useParams } from 'react-router-dom';
+import { SpriteSheet } from './board/sprites';
 import { Game } from './screens/Game';
 import { Join } from './screens/Join';
 import { Landing } from './screens/Landing';
@@ -37,6 +38,9 @@ function GameGate() {
 export function AppRoutes() {
   return (
     <Box component="main">
+      {/* Injected once for the whole app (DESIGN §6.4): every screen that draws
+          tiles — landing/join heroes included — resolves <use href="#bug-*"> here. */}
+      <SpriteSheet />
       <Routes>
       <Route path="/" element={<Landing />} />
       <Route

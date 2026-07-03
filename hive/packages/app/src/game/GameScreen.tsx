@@ -8,7 +8,6 @@ import { Link as RouterLink } from 'react-router-dom';
 import { cellCenter } from '../board/hexGeometry';
 import { GameBoard } from '../board/GameBoard';
 import { HandTray } from '../board/HandTray';
-import { SpriteSheet } from '../board/sprites';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
 import { GameMenu } from './GameMenu';
@@ -55,7 +54,6 @@ export function GameScreen({
 
   return (
     <Box sx={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <SpriteSheet />
       <Box sx={{ display: 'flex', alignItems: 'center', px: 1, py: 0.5, gap: 0.5 }}>
         <IconButton component={RouterLink} to="/lobby" aria-label="back to lobby" size="small">
           <ArrowBackIcon fontSize="small" />

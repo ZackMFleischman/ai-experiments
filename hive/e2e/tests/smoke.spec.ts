@@ -16,3 +16,13 @@ test('app boots with a clean console', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+// Regression: the landing hero draws tiles via <use href="#bug-*">, so the
+// sprite sheet must be in the document on every route — not just the game
+// screen. Without it the hero renders bare hexes and the stacked tile reads
+// as a misaligned duplicate.
+test('sprite sheet is mounted on the landing route', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('landing-hero')).toBeVisible();
+  await expect(page.locator('svg #bug-queen')).toHaveCount(1);
+});
