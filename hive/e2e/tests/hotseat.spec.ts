@@ -27,6 +27,13 @@ async function tapCell(page: Page, key: string) {
     await ghost.click();
     return;
   }
+  // Stacks paint by layer (T6.2): tap the cell's topmost element, like a
+  // real finger would — the base [data-cell] group is covered by upper tiles.
+  const layered = page.locator(`[data-cell-layer="${key}"]`);
+  if ((await layered.count()) > 0) {
+    await layered.last().click();
+    return;
+  }
   await page.locator(`[data-cell="${key}"]`).first().click();
 }
 

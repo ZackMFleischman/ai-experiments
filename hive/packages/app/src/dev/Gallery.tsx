@@ -2,7 +2,6 @@
 // full-bleed for capture; ?static=1 freezes animation and pins fixture values.
 import { Box, CssBaseline, List, ListItemButton, ListItemText, ThemeProvider, Typography } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
-import { SpriteSheet } from '../board/sprites';
 import { createAppTheme } from '../theme';
 import { GALLERY } from './galleryRegistry';
 import { createContext, useContext, useMemo } from 'react';
@@ -29,7 +28,6 @@ export function Gallery() {
       <CssBaseline />
       <style>{tileColors}</style>
       {isStatic && <style>{'*, *::before, *::after { animation: none !important; transition: none !important; }'}</style>}
-      <SpriteSheet />
       {entry ? (
         <Box data-gallery-entry={entry.id}>{entry.render()}</Box>
       ) : (

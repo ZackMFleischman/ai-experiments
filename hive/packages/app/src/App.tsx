@@ -1,6 +1,8 @@
-import { CssBaseline, ThemeProvider } from '@mui/material';
+import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Route, Routes, useParams } from 'react-router-dom';
+import { PieceArtProvider } from './board/pieceArt';
+import { SpriteSheet } from './board/sprites';
 import { Game } from './screens/Game';
 import { Join } from './screens/Join';
 import { Landing } from './screens/Landing';
@@ -36,7 +38,11 @@ function GameGate() {
 
 export function AppRoutes() {
   return (
-    <Routes>
+    <Box component="main">
+      {/* Injected once for the whole app (DESIGN §6.4): every screen that draws
+          tiles — landing/join heroes included — resolves <use href="#bug-*"> here. */}
+      <SpriteSheet />
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route
         path="/lobby"
@@ -64,17 +70,18 @@ export function AppRoutes() {
       />
       <Route path="/game/:id" element={<GameGate />} />
       <Route path="/settings" element={<Settings />} />
-      {Gallery && (
-        <Route
-          path="/dev/gallery"
-          element={
-            <Suspense fallback={null}>
-              <Gallery />
-            </Suspense>
-          }
-        />
-      )}
-    </Routes>
+        {Gallery && (
+          <Route
+            path="/dev/gallery"
+            element={
+              <Suspense fallback={null}>
+                <Gallery />
+              </Suspense>
+            }
+          />
+        )}
+      </Routes>
+    </Box>
   );
 }
 
@@ -89,7 +96,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {children}
+        <PieceArtProvider>{children}</PieceArtProvider>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );

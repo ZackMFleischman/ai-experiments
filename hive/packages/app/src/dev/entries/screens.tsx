@@ -3,6 +3,8 @@
 import { Box, Typography } from '@mui/material';
 import { initialState, serializeState } from '@hive/engine';
 import type { GalleryEntry } from '../galleryRegistry';
+import { ForcedBearMode } from '../../board/pieceArt';
+import { PieceGuideDialog } from '../../game/PieceGuide';
 import { Landing } from '../../screens/Landing';
 import { JoinCard } from '../../screens/Join';
 import { LandingLayout } from '../../screens/LandingLayout';
@@ -113,6 +115,15 @@ export const screenEntries: GalleryEntry[] = [
       <LandingLayout>
         <JoinCard state={{ kind: 'invalid' }} onAccept={() => {}} />
       </LandingLayout>
+    ),
+  },
+  { id: 'piece-guide', render: () => <PieceGuideDialog open onClose={() => {}} /> },
+  {
+    id: 'piece-guide-bears',
+    render: () => (
+      <ForcedBearMode>
+        <PieceGuideDialog open onClose={() => {}} />
+      </ForcedBearMode>
     ),
   },
 ];

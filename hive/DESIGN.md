@@ -461,6 +461,9 @@ as a moment, not a modal that teleports in.
   - the **8 bug glyphs** (Queen, Ant, Spider, Grasshopper, Beetle, Mosquito, Ladybug,
     Pillbug) — flat, geometric, single-path marks on a fixed 100×100 grid with a
     consistent stroke weight, readable at 40px;
+  - the **8 bear glyphs** (bear mode, a Settings reskin): one bear species per
+    piece in the same mark system, resolved per-render by `board/pieceArt.tsx` —
+    rules and engine never see the art choice;
   - the **hex tile base** (cream/charcoal variants matching the physical game's
     white/black tiles), the ghost/target hex, and small motifs (result-chip crown,
     empty-state tile).

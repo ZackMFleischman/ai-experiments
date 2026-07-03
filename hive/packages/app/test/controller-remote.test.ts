@@ -117,6 +117,7 @@ describe('remote entries', () => {
     await tick();
     expect(c.getSnapshot().state.board.size).toBe(0);
     expect(c.getSnapshot().log).toHaveLength(0);
+    expect(c.getSnapshot().notice?.text).toMatch(/rejected/i); // T6.2 toast
   });
 });
 

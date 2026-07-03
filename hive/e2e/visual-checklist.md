@@ -58,11 +58,48 @@ currently-accepted deviations stay listed at the bottom.
   themes): share icon + headline + install instructions legible both themes;
   dismiss target comfortable; card border reads as callout, not error.
 
+- 2026-07-03 (T6.1 art pass, sprite contact sheet re-read at 80px + 40px, both
+  themes): all eight species distinguishable at 40px — striped queen w/ crown,
+  jointed-leg ant, eight-legged spider, leaping grasshopper, split-elytra
+  beetle, proboscis mosquito, spotted ladybug, segmented pillbug; strokes stay
+  inside the hex at 80px; PWA icons regenerate cleanly from the new queen.
+
+- 2026-07-03 (T6.2, tall-stack + interaction captures re-read after the board
+  z-order rewrite): stacks now paint by vertical layer — top tiles never
+  overdrawn by the neighbor in front; selection ring, ghosts and dim behave
+  identically after the DOM restructure; ux drag/tap flows green.
+
+- 2026-07-03 (T6.3 full re-review pass, sampled across all 29 entries × 3
+  viewports × 2 themes after the T6.1/T6.2 changes): finding fixed — dark-theme
+  tray count badges were near-invisible (background.paper on dark tray), now
+  primary-tinted with contrast text, re-captured and verified. Overlay
+  hierarchy, dark-board legibility, lobby chips/thumbnails, and interaction
+  affordances all clean at phone/tablet/desktop in both themes.
+
+- 2026-07-03 (landing hero fix, reported by Zack: "title screen hexes aren't
+  lined up"): the sprite sheet was mounted per-screen (game, gallery) so the
+  real `/` route rendered the hero with no glyphs — the stacked beetle's lift
+  offset read as a mis-snapped hex. Sheet now injected once at the app root;
+  hero re-read at phone/desktop, both themes: all 8 glyphs render, stack reads
+  as a climb. Gallery captures had masked this (the gallery mounts its own
+  providers), hence the smoke-test regression guard on the live route.
+
+- 2026-07-03 (piece guide, new `piece-guide` entry read at all 6
+  viewport×theme combos): cream reference tiles keep glyphs legible on both
+  dialog surfaces; name/rule hierarchy clear; dialog scrolls on phone with the
+  close action pinned; one-hive footnote readable.
+
+- 2026-07-03 (bear mode, `board-mid-bears` + `piece-guide-bears` entries read
+  at all 6 combos, plus the approval contact sheet at 100px/40px on both tile
+  colors): all 8 species distinguishable at 40px by silhouette + field mark —
+  crown (brown), long clean face (polar), eye rings (spectacled), chest blaze
+  (sun), branch pose (American black), big ears + chest V (Asiatic black),
+  solid patches (panda), shaggy jaw + claws (sloth). Strokes stay inside the
+  hex; legible on cream and charcoal in both themes; guide pairs species and
+  piece names.
+
 ## Accepted deviations
 
-- Draft glyph geometry (circle/arc primitives) until the T6.1 art pass.
 - Board tiles draw as inline polygons (exact grid geometry); the sprite sheet's
   `hex-base` symbol is used everywhere outside the board grid. One visual
   language, two code paths — revisit in T6.1.
-- Stacks paint per-cell, so a tall stack's upper tiles can be overdrawn by the
-  neighbor in front — z-order polish queued for T6.2 (per Zack, 2026-07-02).

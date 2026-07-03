@@ -2,17 +2,17 @@
 // move list, menu, end-of-game beat and result overlay.
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import { Box, IconButton, Typography } from '@mui/material';
+import { Box, IconButton, Typography, Snackbar } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { cellCenter } from '../board/hexGeometry';
 import { GameBoard } from '../board/GameBoard';
 import { HandTray } from '../board/HandTray';
-import { SpriteSheet } from '../board/sprites';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
 import { GameMenu } from './GameMenu';
 import { MoveList } from './MoveList';
+import { PieceGuideButton } from './PieceGuide';
 import { PlayerBar } from './PlayerBar';
 import { ResultBanner, ResultOverlay } from './ResultOverlay';
 
@@ -28,6 +28,7 @@ export function GameScreen({
 }) {
   const snap = useGameController(controller);
   const [movesOpen, setMovesOpen] = useState(false);
+  const [dismissedNotice, setDismissedNotice] = useState(0);
   const beatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debug surface for validators (the loom `window.__loom` convention).
@@ -54,7 +55,6 @@ export function GameScreen({
 
   return (
     <Box sx={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <SpriteSheet />
       <Box sx={{ display: 'flex', alignItems: 'center', px: 1, py: 0.5, gap: 0.5 }}>
         <IconButton component={RouterLink} to="/lobby" aria-label="back to lobby" size="small">
           <ArrowBackIcon fontSize="small" />
@@ -62,6 +62,7 @@ export function GameScreen({
         <Typography variant="subtitle1" fontWeight={700} letterSpacing="0.15em" sx={{ flex: 1 }}>
           HIVE
         </Typography>
+        <PieceGuideButton />
         <IconButton aria-label="move list" size="small" onClick={() => setMovesOpen(true)}>
           <ListAltIcon fontSize="small" />
         </IconButton>
@@ -78,6 +79,15 @@ export function GameScreen({
       </Box>
       <MoveList log={snap.log} open={movesOpen} onClose={() => setMovesOpen(false)} />
       <ResultOverlay controller={controller} snap={snap} {...(onRematch ? { onRematch } : {})} />
+      <Snackbar
+        key={snap.notice?.id ?? 0}
+        open={!!snap.notice && snap.notice.id !== dismissedNotice}
+        autoHideDuration={4000}
+        onClose={() => setDismissedNotice(snap.notice?.id ?? 0)}
+        message={snap.notice?.text}
+        data-testid="notice-toast"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 }

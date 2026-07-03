@@ -8,13 +8,14 @@ import { useGameController } from '../controller/useGameController';
 import { snapshotToBoardUi } from './boardUi';
 import type { BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
-import { BUG_SYMBOL } from './sprites';
+import { usePieceArt } from './pieceArt';
 import { cellCenter, HEX_SIZE, hexKey, hexPoints, keyToHex } from './hexGeometry';
 
 const DRAG_THRESHOLD = HEX_SIZE * 0.3;
 
 export function GameBoard({ controller }: { controller: GameController }) {
   const snap = useGameController(controller);
+  const { symbolFor } = usePieceArt();
   const handle = useRef<BoardViewportHandle | null>(null);
   const press = useRef<{ cell: Hex; x: number; y: number; dragging: boolean; wasTarget: boolean } | null>(null);
 
@@ -81,7 +82,7 @@ export function GameBoard({ controller }: { controller: GameController }) {
       <DragPreview
         x={snap.drag.allowed && snap.drag.over ? cellCenter(keyToHex(snap.drag.over)).x : snap.drag.x}
         y={snap.drag.allowed && snap.drag.over ? cellCenter(keyToHex(snap.drag.over)).y : snap.drag.y}
-        symbol={BUG_SYMBOL[dragTile.kind]}
+        symbol={symbolFor(dragTile.kind)}
         color={dragTile.color}
         allowed={snap.drag.allowed}
       />

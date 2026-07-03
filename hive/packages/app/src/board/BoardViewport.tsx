@@ -105,11 +105,13 @@ export function BoardViewport({
   }));
 
   const onPointerDown = (e: ReactPointerEvent<SVGElement>) => {
-    const cellEl = (e.target as Element).closest('[data-cell]');
+    const cellEl = (e.target as Element).closest('[data-cell], [data-cell-layer]');
     if (cellEl && interaction && dragPointer.current === null) {
       dragPointer.current = e.pointerId;
       (e.currentTarget as SVGElement).setPointerCapture?.(e.pointerId);
-      const cell = keyToHex(cellEl.getAttribute('data-cell') as string);
+      const cell = keyToHex(
+        (cellEl.getAttribute('data-cell') ?? cellEl.getAttribute('data-cell-layer')) as string,
+      );
       interaction.onTileDown(cell, toBoard(e.currentTarget, e.clientX, e.clientY));
       return;
     }

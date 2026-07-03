@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import type { ReactNode } from 'react';
 import { BoardView } from '../../board/BoardView';
+import { ForcedBearMode } from '../../board/pieceArt';
 import { EARLY_GAME, LATE_GAME, MID_GAME, replayUhp, TALL_STACK } from '../fixtures';
 
 function Frame({ children }: { children: ReactNode }) {
@@ -33,6 +34,16 @@ export const boardEntries = [
           ui={{ lastMove: { from: { q: -1, r: -1 }, to: { q: -1, r: 0 } } }}
         />
       </Frame>
+    ),
+  },
+  {
+    id: 'board-mid-bears',
+    render: () => (
+      <ForcedBearMode>
+        <Frame>
+          <BoardView board={replayUhp(MID_GAME).board} />
+        </Frame>
+      </ForcedBearMode>
     ),
   },
   {
