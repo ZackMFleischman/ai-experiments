@@ -131,6 +131,11 @@ jobs:
         run: |
           printf '%s' "$FIREBASE_SA" > "$RUNNER_TEMP/firebase-sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          # First-run bootstrap: the CLI queries the Cloud Billing API when
+          # deploying v2 functions but never auto-enables it (it auto-enables
+          # the rest). Idempotent, so it just runs every time.
+          gcloud auth login --brief --quiet --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          gcloud services enable cloudbilling.googleapis.com --project hive-zmf
           pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force
           rm -f "$RUNNER_TEMP/firebase-sa.json"
       - name: smoke-check hosting
