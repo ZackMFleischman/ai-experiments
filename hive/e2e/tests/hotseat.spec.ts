@@ -66,3 +66,33 @@ test('a full all-expansions game plays to the victory overlay in tap-mode', asyn
 function cellOf(move: { type: string; to?: { q: number; r: number } }): string {
   return move.to ? `${move.to.q},${move.to.r}` : '0,0';
 }
+
+test('refresh mid-game resumes the hot-seat game (T3.11)', async ({ page }) => {
+  await page.goto('/game/local');
+  await page.evaluate(() => window.localStorage.clear());
+  await page.getByRole('button', { name: 'game menu' }).click();
+  await page.getByText('New game').click();
+  await page.getByTestId('confirm-action').click();
+
+  let state: GameState = initialState(OPTIONS);
+  for (const uhp of MOVES.slice(0, 6)) {
+    const move = parseUhp(uhp, state);
+    if (move.type === 'place') {
+      await page.getByTestId(`tray-${move.tile.kind}`).click();
+      await tapCell(page, `${move.to.q},${move.to.r}`);
+    }
+    state = applyMove(state, move);
+  }
+  await expect(page.locator('[data-cell]')).toHaveCount(6);
+
+  await page.reload();
+  await expect(page.locator('[data-cell]')).toHaveCount(6, { timeout: 10_000 });
+  await expect(page.getByTestId('player-bar-w')).toHaveAttribute('data-active', 'true');
+
+  // "New game" clears the stored game.
+  await page.getByRole('button', { name: 'game menu' }).click();
+  await page.getByText('New game').click();
+  await page.getByTestId('confirm-action').click();
+  await page.reload();
+  await expect(page.locator('[data-cell]')).toHaveCount(0);
+});

@@ -1,7 +1,7 @@
 // The hot-seat session singleton: survives route changes; "New game" resets it.
 import type { GameOptions } from '@hive/engine';
 import { GameController } from '../controller/GameController';
-import { LocalTransport } from '../controller/transport';
+import { LocalStorageTransport } from '../controller/localStorageTransport';
 
 export const DEFAULT_OPTIONS: GameOptions = {
   mosquito: true,
@@ -14,7 +14,9 @@ let controller: GameController | null = null;
 let initialized = false;
 
 export function getLocalController(): GameController {
-  if (!controller) controller = new GameController(new LocalTransport(DEFAULT_OPTIONS), DEFAULT_OPTIONS);
+  if (!controller) {
+    controller = new GameController(new LocalStorageTransport(DEFAULT_OPTIONS), DEFAULT_OPTIONS);
+  }
   return controller;
 }
 
