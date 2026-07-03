@@ -3,6 +3,7 @@
 import { Box, Typography } from '@mui/material';
 import { initialState, serializeState } from '@hive/engine';
 import type { GalleryEntry } from '../galleryRegistry';
+import { PieceGuideDialog } from '../../game/PieceGuide';
 import { Landing } from '../../screens/Landing';
 import { JoinCard } from '../../screens/Join';
 import { LandingLayout } from '../../screens/LandingLayout';
@@ -115,4 +116,5 @@ export const screenEntries: GalleryEntry[] = [
       </LandingLayout>
     ),
   },
+  { id: 'piece-guide', render: () => <PieceGuideDialog open onClose={() => {}} /> },
 ];

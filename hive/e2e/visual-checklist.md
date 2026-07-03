@@ -84,6 +84,11 @@ currently-accepted deviations stay listed at the bottom.
   as a climb. Gallery captures had masked this (the gallery mounts its own
   providers), hence the smoke-test regression guard on the live route.
 
+- 2026-07-03 (piece guide, new `piece-guide` entry read at all 6
+  viewport×theme combos): cream reference tiles keep glyphs legible on both
+  dialog surfaces; name/rule hierarchy clear; dialog scrolls on phone with the
+  close action pinned; one-hive footnote readable.
+
 ## Accepted deviations
 
 - Board tiles draw as inline polygons (exact grid geometry); the sprite sheet's

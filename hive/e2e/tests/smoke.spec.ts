@@ -29,6 +29,19 @@ test('new game and settings screens can be exited back to the lobby', async ({ p
   await expect(page.getByRole('heading', { name: /your games/i })).toBeVisible();
 });
 
+test('piece guide opens from the game screen and names every piece', async ({ page }) => {
+  await page.goto('/game/local');
+  await page.getByRole('button', { name: /piece guide/i }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Queen Bee')).toBeVisible();
+  for (const name of ['Ant', 'Spider', 'Grasshopper', 'Beetle', 'Mosquito', 'Ladybug', 'Pillbug']) {
+    await expect(dialog.getByText(name, { exact: true })).toBeVisible();
+  }
+  await expect(dialog.locator('use').first()).toBeVisible(); // glyphs resolve
+  await dialog.getByRole('button', { name: /close/i }).click();
+  await expect(dialog).not.toBeVisible();
+});
+
 // Regression: the landing hero draws tiles via <use href="#bug-*">, so the
 // sprite sheet must be in the document on every route — not just the game
 // screen. Without it the hero renders bare hexes and the stacked tile reads

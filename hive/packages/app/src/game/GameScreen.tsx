@@ -12,6 +12,7 @@ import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
 import { GameMenu } from './GameMenu';
 import { MoveList } from './MoveList';
+import { PieceGuideButton } from './PieceGuide';
 import { PlayerBar } from './PlayerBar';
 import { ResultBanner, ResultOverlay } from './ResultOverlay';
 
@@ -61,6 +62,7 @@ export function GameScreen({
         <Typography variant="subtitle1" fontWeight={700} letterSpacing="0.15em" sx={{ flex: 1 }}>
           HIVE
         </Typography>
+        <PieceGuideButton />
         <IconButton aria-label="move list" size="small" onClick={() => setMovesOpen(true)}>
           <ListAltIcon fontSize="small" />
         </IconButton>
