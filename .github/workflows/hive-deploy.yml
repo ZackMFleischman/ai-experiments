@@ -11,6 +11,7 @@ on:
   push:
     branches: [main]
     paths: ['hive/**', '.github/workflows/hive-deploy.yml']
+  workflow_dispatch: # manual redeploy (e.g. retry a flaky IAM/first-create step)
 
 concurrency:
   group: hive-deploy-${{ github.ref }}
@@ -104,7 +105,7 @@ jobs:
   # GOOGLE_APPLICATION_CREDENTIALS (login:ci tokens are deprecated).
   firebase:
     name: firebase deploy (hosting · functions · firestore)
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HIVE_ZMF }}
