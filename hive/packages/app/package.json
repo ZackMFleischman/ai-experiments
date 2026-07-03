@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mp": "vite --mode multiplayer",
     "build": "vite build",
+    "build:mp": "vite build --mode multiplayer",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prebuild": "node scripts/build-icons.mjs"
+    "prebuild": "node scripts/build-icons.mjs",
+    "prebuild:mp": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -17,6 +20,8 @@
     "@hive/engine": "workspace:*",
     "@mui/icons-material": "^5.16.14",
     "@mui/material": "^5.16.14",
+    "@tanstack/react-query": "^5.101.2",
+    "firebase": "^12.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.1"
