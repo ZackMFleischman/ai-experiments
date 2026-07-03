@@ -1,11 +1,12 @@
-import { Box, Button, Stack, TextField, Typography } from '@mui/material';
+import { Button, Stack, TextField } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import { useState, type FormEvent } from 'react';
 import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../sync/authContext';
+import { LandingLayout } from './LandingLayout';
 
-/** Landing (T4.1): hot-seat builds keep the Play flow; full builds sign in.
- * The themed hero treatment lands with T4.2. */
+/** Landing (T4.1/T4.2): themed hero layout; hot-seat builds keep the Play
+ * flow, full builds sign in with Google (emulator test form in dev/e2e). */
 export function Landing() {
   const auth = useAuth();
   const location = useLocation();
@@ -16,31 +17,25 @@ export function Landing() {
   }
 
   return (
-    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 3 }}>
-      <Stack spacing={2} alignItems="center">
-        <Typography variant="h2" component="h1" fontWeight={700} letterSpacing="0.2em">
-          HIVE
-        </Typography>
-        <Typography color="text.secondary">Two players. One hive. Don&apos;t get surrounded.</Typography>
-        {auth.mode === 'full' ? (
-          <Stack spacing={2} alignItems="center">
-            <Button
-              onClick={() => void auth.signInWithGoogle()}
-              variant="contained"
-              size="large"
-              startIcon={<GoogleIcon />}
-            >
-              Sign in with Google
-            </Button>
-            {auth.emulators && <TestSignIn />}
-          </Stack>
-        ) : (
-          <Button component={RouterLink} to="/lobby" variant="contained" size="large">
-            Play
+    <LandingLayout>
+      {auth.mode === 'full' ? (
+        <Stack spacing={2} alignItems="center">
+          <Button
+            onClick={() => void auth.signInWithGoogle()}
+            variant="contained"
+            size="large"
+            startIcon={<GoogleIcon />}
+          >
+            Sign in with Google
           </Button>
-        )}
-      </Stack>
-    </Box>
+          {auth.emulators && <TestSignIn />}
+        </Stack>
+      ) : (
+        <Button component={RouterLink} to="/lobby" variant="contained" size="large">
+          Play
+        </Button>
+      )}
+    </LandingLayout>
   );
 }
 

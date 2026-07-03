@@ -41,6 +41,12 @@ currently-accepted deviations stay listed at the bottom.
   the end-of-game beat. Minor (queued for T6): tray count badges are low-ish
   contrast in dark theme.
 
+- 2026-07-03 (T4.2, 24 new captures read: landing-signin/landing-hotseat/
+  join-ready/join-invalid × 3 viewports × 2 themes): hero cluster legible in
+  both themes incl. the beetle stack; wordmark/tagline/CTA hierarchy clean;
+  join card states readable over the dark background; accept/sign-in buttons
+  ≥44px on phone; no overflow at any viewport. No new findings.
+
 ## Accepted deviations
 
 - Draft glyph geometry (circle/arc primitives) until the T6.1 art pass.
