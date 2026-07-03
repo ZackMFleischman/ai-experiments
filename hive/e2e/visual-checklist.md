@@ -58,9 +58,14 @@ currently-accepted deviations stay listed at the bottom.
   themes): share icon + headline + install instructions legible both themes;
   dismiss target comfortable; card border reads as callout, not error.
 
+- 2026-07-03 (T6.1 art pass, sprite contact sheet re-read at 80px + 40px, both
+  themes): all eight species distinguishable at 40px — striped queen w/ crown,
+  jointed-leg ant, eight-legged spider, leaping grasshopper, split-elytra
+  beetle, proboscis mosquito, spotted ladybug, segmented pillbug; strokes stay
+  inside the hex at 80px; PWA icons regenerate cleanly from the new queen.
+
 ## Accepted deviations
 
-- Draft glyph geometry (circle/arc primitives) until the T6.1 art pass.
 - Board tiles draw as inline polygons (exact grid geometry); the sprite sheet's
   `hex-base` symbol is used everywhere outside the board grid. One visual
   language, two code paths — revisit in T6.1.
