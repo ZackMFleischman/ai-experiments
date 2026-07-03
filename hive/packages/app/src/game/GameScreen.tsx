@@ -2,7 +2,7 @@
 // move list, menu, end-of-game beat and result overlay.
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import { Box, IconButton, Typography } from '@mui/material';
+import { Box, IconButton, Typography, Snackbar } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { cellCenter } from '../board/hexGeometry';
@@ -28,6 +28,7 @@ export function GameScreen({
 }) {
   const snap = useGameController(controller);
   const [movesOpen, setMovesOpen] = useState(false);
+  const [dismissedNotice, setDismissedNotice] = useState(0);
   const beatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debug surface for validators (the loom `window.__loom` convention).
@@ -78,6 +79,15 @@ export function GameScreen({
       </Box>
       <MoveList log={snap.log} open={movesOpen} onClose={() => setMovesOpen(false)} />
       <ResultOverlay controller={controller} snap={snap} {...(onRematch ? { onRematch } : {})} />
+      <Snackbar
+        key={snap.notice?.id ?? 0}
+        open={!!snap.notice && snap.notice.id !== dismissedNotice}
+        autoHideDuration={4000}
+        onClose={() => setDismissedNotice(snap.notice?.id ?? 0)}
+        message={snap.notice?.text}
+        data-testid="notice-toast"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 }

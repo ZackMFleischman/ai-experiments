@@ -121,39 +121,86 @@ export function BoardView({ board, ui = {}, viewBox, onCellPointerDown, overlay,
         </g>
       )}
 
+      {/* T6.2: paint stacks by vertical layer (all level-0 tiles, then level-1, …)
+          so tall stacks are never overdrawn by the neighbor in front. Layer 0
+          carries the per-cell [data-cell] group; badges paint above all tiles.
+          Fanned stacks render in their own top layer (inspection overlay). */}
+      {Array.from(
+        { length: Math.max(1, ...cells.map(({ key, stack }) => (ui.hideTopOf === key ? stack.length - 1 : stack.length))) },
+        (_, level) => (
+          <g key={`layer-${level}`}>
+            {cells.map(({ key, cell, stack }) => {
+              if (ui.fannedStack === key) return null;
+              const visible = ui.hideTopOf === key ? stack.slice(0, -1) : stack;
+              if (level > 0 && level >= visible.length) return null;
+              const tile = visible[level];
+              const isSelected = ui.selectedCell === key;
+              const isMovable = ui.movableCells?.has(key) ?? false;
+              const isClimb = climbTargets.has(key);
+              const dim =
+                (ui.dimOthers ?? false) && !isSelected && !isClimb && !targets.has(key) && ui.hideTopOf !== key;
+              const isTop = level === visible.length - 1;
+              return (
+                <g
+                  key={key}
+                  transform={translateTo(cell)}
+                  {...(level === 0 ? { 'data-cell': key } : {})}
+                  className={dim ? 'hive-dimmed' : undefined}
+                  onPointerDown={onCellPointerDown ? (e) => onCellPointerDown(cell, e) : undefined}
+                >
+                  {tile && (
+                    <Tile
+                      tile={tile}
+                      level={level}
+                      pulse={ui.pulseCells?.has(key) && isTop}
+                      className={
+                        isTop
+                          ? `${isSelected ? 'hive-selected' : ''} ${isMovable && !isSelected ? 'hive-movable' : ''}`
+                          : undefined
+                      }
+                    />
+                  )}
+                </g>
+              );
+            })}
+          </g>
+        ),
+      )}
+
       {cells.map(({ key, cell, stack }) => {
+        if (ui.fannedStack !== key) return null;
         const visible = ui.hideTopOf === key ? stack.slice(0, -1) : stack;
-        const isSelected = ui.selectedCell === key;
-        const isMovable = ui.movableCells?.has(key) ?? false;
-        const isClimb = climbTargets.has(key);
-        const dim =
-          (ui.dimOthers ?? false) && !isSelected && !isClimb && !targets.has(key) && ui.hideTopOf !== key;
-        const fanned = ui.fannedStack === key;
         return (
           <g
-            key={key}
+            key={`fan-${key}`}
             transform={translateTo(cell)}
             data-cell={key}
-            className={dim ? 'hive-dimmed' : undefined}
             onPointerDown={onCellPointerDown ? (e) => onCellPointerDown(cell, e) : undefined}
           >
             {visible.map((tile, level) => (
               <g
                 key={`${tile.color}${tile.kind}${tile.ordinal}`}
-                transform={fanned ? `translate(${level * HEX_SIZE * 1.1}, ${level * -8})` : undefined}
+                transform={`translate(${level * HEX_SIZE * 1.1}, ${level * -8})`}
               >
                 <Tile
                   tile={tile}
-                  level={fanned ? 0 : level}
-                  pulse={ui.pulseCells?.has(key) && level === visible.length - 1}
+                  level={0}
                   className={
-                    level === visible.length - 1
-                      ? `${isSelected ? 'hive-selected' : ''} ${isMovable && !isSelected ? 'hive-movable' : ''}`
-                      : undefined
+                    level === visible.length - 1 && ui.selectedCell === key ? 'hive-selected' : undefined
                   }
                 />
               </g>
             ))}
+          </g>
+        );
+      })}
+
+      {cells.map(({ key, cell, stack }) => {
+        const visible = ui.hideTopOf === key ? stack.slice(0, -1) : stack;
+        const isClimb = climbTargets.has(key);
+        if (lastTo !== key && !isClimb) return null;
+        return (
+          <g key={`badge-${key}`} transform={translateTo(cell)}>
             {lastTo === key && (
               <g transform={`translate(${(visible.length - 1) * STACK_OFFSET.x}, ${(visible.length - 1) * STACK_OFFSET.y})`}>
                 <polygon points={hexPoints(HEX_SIZE * 0.92)} className="hive-last-move" data-testid="last-move-to" />

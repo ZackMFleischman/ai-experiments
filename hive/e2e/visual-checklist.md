@@ -64,10 +64,13 @@ currently-accepted deviations stay listed at the bottom.
   beetle, proboscis mosquito, spotted ladybug, segmented pillbug; strokes stay
   inside the hex at 80px; PWA icons regenerate cleanly from the new queen.
 
+- 2026-07-03 (T6.2, tall-stack + interaction captures re-read after the board
+  z-order rewrite): stacks now paint by vertical layer — top tiles never
+  overdrawn by the neighbor in front; selection ring, ghosts and dim behave
+  identically after the DOM restructure; ux drag/tap flows green.
+
 ## Accepted deviations
 
 - Board tiles draw as inline polygons (exact grid geometry); the sprite sheet's
   `hex-base` symbol is used everywhere outside the board grid. One visual
   language, two code paths — revisit in T6.1.
-- Stacks paint per-cell, so a tall stack's upper tiles can be overdrawn by the
-  neighbor in front — z-order polish queued for T6.2 (per Zack, 2026-07-02).

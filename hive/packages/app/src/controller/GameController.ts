@@ -59,6 +59,8 @@ export interface Snapshot {
   /** End-of-game beat (T3.9): board moment before the overlay. */
   beat?: { center: Hex; pulseCells: ReadonlySet<CellKey> };
   overlayOpen: boolean;
+  /** Transient error surfaced as a toast (T6.2); new id per occurrence. */
+  notice?: { id: number; text: string };
 }
 
 const tileKey = (t: TileId) => `${t.color}${t.kind}${t.ordinal}`;
@@ -88,6 +90,8 @@ export class GameController {
   private drawAgreed = false;
   private beatDone = false;
   private overlayDismissed = false;
+  private noticeSeq = 0;
+  private notice: { id: number; text: string } | undefined;
 
   private remoteUnsub: (() => void) | undefined;
 
@@ -232,6 +236,7 @@ export class GameController {
       ...(this.pendingDrawOffer ? { pendingDrawOffer: this.pendingDrawOffer } : {}),
       ...(end && !this.beatDone && end.by === 'surround' ? { beat: this.buildBeat() } : {}),
       overlayOpen: !!end && (this.beatDone || end.by !== 'surround') && !this.overlayDismissed,
+      ...(this.notice ? { notice: this.notice } : {}),
     };
   }
 
@@ -374,6 +379,7 @@ export class GameController {
       this.state = previous.state;
       this.log = previous.log;
       this.lastMove = previous.lastMove;
+      this.notice = { id: ++this.noticeSeq, text: 'Move rejected by the server — undone.' };
       this.emit();
     });
   }
@@ -382,7 +388,10 @@ export class GameController {
     this.log = [...this.log, entry];
     this.emit();
     // A refused meta action means we were out of sync — rebuild from source.
-    void this.transport.submit(entry, this.log.length - 1).catch(() => void this.reload());
+    void this.transport.submit(entry, this.log.length - 1).catch(() => {
+      this.notice = { id: ++this.noticeSeq, text: 'Action failed — resynced with the server.' };
+      void this.reload();
+    });
   }
 
   resign(by: Color): void {
