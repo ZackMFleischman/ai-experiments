@@ -7,7 +7,7 @@
     "node": "22"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=lib/index.js --external:firebase-admin --external:firebase-functions",
     "typecheck": "tsc --noEmit",
     "test": "pnpm build && firebase emulators:exec --only functions,firestore,auth --project demo-hive --import emulator-seed \"vitest run\""
   },
@@ -17,7 +17,9 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
+    "@hive/engine": "workspace:*",
     "@types/node": "^22.20.0",
+    "esbuild": "^0.28.1",
     "firebase": "^12.15.0",
     "firebase-tools": "^14.4.0",
     "typescript": "^5.6.3",

@@ -54,6 +54,9 @@ beforeEach(async () => {
     await setDoc(doc(db, 'games/g1/moves/0'), { n: 0, kind: 'move', uhp: 'wS1', by: 'ada' });
     await setDoc(doc(db, 'invites/CODE42'), { gameId: 'g1', createdBy: 'ada', expiresAt: 9 });
     await setDoc(doc(db, 'users/ada'), { displayName: 'Ada' });
+    // clearFirestore wipes the committed emulator seed too — restore it so
+    // suites that assert on it (ping.test.ts) stay order-independent.
+    await setDoc(doc(db, 'users/demo-user'), { displayName: 'Demo User' });
   });
 });
 

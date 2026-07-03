@@ -243,6 +243,7 @@ runs inside the Cloud Function** to validate moves server-side. No rules duplica
 ```
 users/{uid}:            { displayName, photoURL, fcmTokens: string[], settings }
 games/{gameId}:         { players: {white: uid, black: uid|null},
+                          playerNames: {white, black},       // denormalized (users/* is private)
                           playerIds: uid[],                  // array field for lobby indexability
                           options,
                           status: 'open'|'active'|'finished',
@@ -253,12 +254,13 @@ games/{gameId}:         { players: {white: uid, black: uid|null},
                           rematchOf?: gameId,                 // links the return game
                           deadlineAt?: Timestamp,             // async time control
                           updatedAt, createdAt,
-                          state: string }                     // serialized snapshot (fast load)
+                          state: string }                     // engine serializeState snapshot (fast load)
 games/{gameId}/moves/{n}: { n, kind: 'move'|'pass'|'resign'|'draw-offer'|'draw-accept'
                                |'draw-decline'|'timeout',
                             uhp?: string,                     // present iff kind is move/pass
                             by: uid, at: Timestamp }
-invites/{code}:          { gameId, createdBy, expiresAt }
+invites/{code}:          { gameId, createdBy, hostName, hostColor, options,
+                           expiresAt }                       // join screen renders from this alone
 ```
 
 - **The move log is the source of truth** — UHP moves *and* meta events in one
