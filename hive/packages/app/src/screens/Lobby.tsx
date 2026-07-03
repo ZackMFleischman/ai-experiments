@@ -1,5 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
-import { Box, Fab, Typography } from '@mui/material';
+import { Box, Button, Fab, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 
 export function Lobby() {
@@ -9,8 +9,11 @@ export function Lobby() {
         Your games
       </Typography>
       <Typography color="text.secondary" sx={{ mt: 2 }}>
-        No games yet.
+        Hot-seat play: two players, one device. Multiplayer arrives with M4.
       </Typography>
+      <Button component={RouterLink} to="/game/local" variant="contained" sx={{ mt: 2 }}>
+        Play hot-seat
+      </Button>
       <Fab
         component={RouterLink}
         to="/new"

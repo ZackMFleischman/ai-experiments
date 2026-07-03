@@ -75,71 +75,13 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ## 2. Milestone task lists
 
-### M0 — Scaffold
+### M0 — shipped, see DECISIONS.md
 
-| # | Task | Files / notes | Gate |
-|---|---|---|---|
-| T0.1 | Workspace root: `pnpm-workspace.yaml`, root `package.json` (scripts above as stubs), base `tsconfig.json`, `.gitignore` (`artifacts/`, `.firebase/`, `www/`… ) | `hive/` root | `pnpm install` clean |
-| T0.2 | `@hive/engine` skeleton: `src/index.ts` exporting the frozen types of §5 (bodies may `throw new Error('unimplemented')`), vitest config, one passing placeholder test | `packages/engine` | `pnpm --filter @hive/engine test` |
-| T0.3 | `@hive/app` shell: Vite + React + MUI + router; empty routed screens (Landing, Lobby, NewGame, Join, Game, Settings); MUI theme with light/dark toggle stub | `packages/app` | app boots, all routes render |
-| T0.4 | `@hive/functions` + emulator config: `firebase.json`, `.firebaserc`, Firestore rules stub (deny-all except own `users/{uid}`), `firestore.indexes.json`, one `ping` callable + emulator test; committed emulator seed fixture | `packages/functions`, repo root | `pnpm --filter @hive/functions test` (boots emulator) |
-| T0.5 | `e2e` package: Playwright config (chromium; 3 viewport projects: 390×844 / 1024×768 / 1440×900), smoke test that loads the app and asserts no console errors | `e2e/` | `pnpm --filter e2e test` |
-| T0.6 | CI: GitHub Actions — typecheck + unit layers on push, full `pnpm validate` (incl. e2e) on PR. No Firebase console/Hosting before M4 (DECISIONS 2026-07-02); the static hot-seat deploy ships in T3.12 | `.github/workflows/hive-ci.yml` | `pnpm validate:m0` |
-| T0.7 | Commit `hive/CLAUDE.md` (builder guide: commands, protocol pointer, frozen-surface warning) and wire `validate:m0` = typecheck + all tests + e2e smoke | root | `pnpm validate:m0` |
-| T0.8 | Docs lint: `scripts/check-docs.mjs` enforcing the §7 policy (budgets, closed file set, no "Update:" markers); wire into `pnpm typecheck` + CI | root | lint fails on a synthetic violation, passes on HEAD |
+### M1 — shipped, see DECISIONS.md
 
-### M1 — Engine: base game
+### M2 — shipped, see DECISIONS.md
 
-All tasks in `packages/engine`. Every task ends with unit tests in
-`packages/engine/test/`. **Signatures are pinned in §5 — do not drift.**
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T1.1 | `hex.ts`: axial coords, `neighbors(h)`, `add/sub`, `cellKey`/`parseKey`, pixel↔axial (`hexToPixel`, `pixelToHex` via fractional-cube round) | pointy-top; pixel math lives here so board + drag share it | hex tests (incl. round-trip fuzz) |
-| T1.2 | `state.ts`: `GameState`, `GameOptions`, `TileId`, `Move`, immutable update helpers, `initialState(options)` | §5 types verbatim | state tests |
-| T1.3 | `rules.ts` (part 1): placement legality — own-color contact, first two placements, queen-by-turn-4, tournament-opening toggle, "covered cell counts as covering color" | | placement tests |
-| T1.4 | `rules.ts` (part 2): one-hive via articulation points (iterative DFS); tops of stacks never articulation-blocked | | one-hive tests incl. stack cases |
-| T1.5 | `rules.ts` (part 3): freedom-to-move gate predicate, generalized by height (ground slide, climb up/down) | one predicate reused by bugs + pillbug toss | gate tests (both-neighbors-occupied, height cases) |
-| T1.6 | `bugs/queen.ts`, `bugs/beetle.ts`, `bugs/grasshopper.ts` + bug registry table | beetle: stacking, covered-tile freeze; hopper: ray-walk ≥1 | per-bug tests |
-| T1.7 | `bugs/spider.ts`, `bugs/ant.ts` | perimeter slide DFS/BFS; spider exactly-3 no-revisit; ant closure | per-bug tests |
-| T1.8 | `engine.ts`: `legalMoves` (placements + moves + forced pass), `applyMove` (throws on illegal), `result` (surround / double-surround draw) | pass is a `Move`, offered only when nothing else is legal | engine tests |
-| T1.9 | `uhp.ts`: parse/serialize vs. current state; toss/self-move ambiguity canonicalizes to **self-move** (DESIGN §2.4); one hand-authored full-game UHP fixture replaying to a win | fixture lives in `test/fixtures/` | round-trip + replay tests |
-| T1.10 | `zobrist.ts` + repetition: hash over (cell, stack slot, tile) + side-to-move; `positionHashes` maintained by `applyMove`; threefold ⇒ `result` = draw. Property suite (fast-check): invariants list in §6 over 10k random games | seeded PRNG for reproducibility | `pnpm validate:m1` |
-
-`validate:m1` = full engine suite + the 10k-game property run (property count
-configurable via env so CI can run 1k on PRs, 10k nightly).
-
-### M2 — Engine: expansions
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T2.1 | `bugs/ladybug.ts`: exactly 2 on-top steps then 1 down, gate-checked at height | | ladybug tests |
-| T2.2 | `bugs/pillbug.ts`: queen-move + toss generation; `lastMoved` bookkeeping in `applyMove`; stun (tossed piece immobile next turn); may not toss opponent's-last-moved piece, stacked pieces, or through a height-1 gate | this is the fiddly one — encode every constraint as its own test | pillbug tests |
-| T2.3 | `bugs/mosquito.ts`: union of adjacent generators; mosquito-only ⇒ stuck; on-top ⇒ beetle; copying pillbug grants toss | | mosquito tests |
-| T2.4 | Edge-case fixture pack: encode the pinned list in §6 as UHP fixtures; re-run property suite with all expansions on | `test/fixtures/expansions/` | `pnpm validate:m2` |
-
-### M3 — Local game UI (+ the validation harness)
-
-`packages/app` unless noted. **[visual]** tasks require the §0.2.5 screenshot review.
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T3.1 | Draft sprite sheet `src/assets/hive-sprites.svg`: 8 bug glyphs (circle/arc geometry is fine for now), hex bases (light/dark), ghost hex, motifs; all `currentColor` + one CSS var per DESIGN §6.4 | **[visual]** — capture a sprite-contact-sheet gallery entry | sprites render in gallery |
-| T3.2 | `board/BoardView.tsx`: SVG renderer — tiles from a `GameState`, stack offset+shadow, auto-fit viewBox, last-move highlight | pure: `(state, uiState) → SVG`; no engine logic | component tests + **[visual]** |
-| T3.3 | Pan/zoom: pointer + wheel/pinch on the SVG viewport, recenter button, auto-fit after growth | keep transform in controller-owned uiState | interaction tests + **[visual]** |
-| T3.4 | `controller/GameController.ts` + `LocalTransport` (hot-seat) + `useSyncExternalStore` hook. Controller owns: authoritative state, selection, legal-target set, drag state machine (§6.2 states 1–5), optimistic queue (no-op locally) | transport interface per DESIGN §3.2 | controller unit tests (state-machine transitions, incl. cancel paths) |
-| T3.5 | Selection & affordances: movable lift/shadow, ghost targets, climb badges, ~20% dim of everything else, queen-must-place pulse | **[visual]** | component tests + gallery entries |
-| T3.6 | Drag layer: raw pointer events, `pixelToHex` hit-testing (works mid-pan/zoom), snap preview, not-allowed tint, spring-back, Esc cancel; tap-tap fallback driving the same controller states | DESIGN §9.8 | controller tests + `validate:ux` frames **[visual]** |
-| T3.7 | Hand tray: dockable, per-bug counts, disabled=no legal placement, drag-to-place + tap-to-place | **[visual]** | component tests |
-| T3.8 | Game screen chrome: player bars (name, queen-liberties), move list drawer (UHP + meta rows), overflow menu with Pass / Resign / Offer draw (local-only handlers for now), confirm dialogs | **[visual]** | component tests |
-| T3.9 | End-of-game: auto-center on surrounded queen, six-tile pulse, ~1 s beat (tap-skip), result overlay per DESIGN §6.3 (minus rematch), per-outcome theming, view-board mode with persistent banner | **[visual]** — gallery entries for all outcomes × themes | component tests |
-| T3.10 | **Validation harness**: `/dev/gallery` route + fixture registry (§4), `?static=1` mode, `validate:visual` + `validate:ux` scripts, `e2e/visual-checklist.md` seeded with §4.3; hot-seat scripted e2e (full expansion game via tap-mode to victory overlay) | dev-only route, excluded from prod build | `pnpm validate:m3` |
-| T3.11 | Hot-seat persistence: `LocalTransport` saves the in-progress game (UHP log + options) to localStorage behind the `GameTransport` seam — refresh resumes, "New game" clears | controller tests: save/resume/clear round-trip | controller tests |
-| T3.12 | Static deploy: build `@hive/app` with `LocalTransport` default (verify no firebase in bundle), minimal PWA manifest + icons via `vite-plugin-pwa` (subset of T5.1), deploy via GitHub Actions — Cloudflare Pages project `hive` (loom's pattern; GitHub Pages fallback), main deploy + PR preview | **[visual]** — installability checked on the live URL | deploy green on merge |
-
-`validate:m3` = component/controller suites + hot-seat full-game e2e +
-`validate:visual` + `validate:ux` machine checks green. Then perform the first full
-screenshot review pass and commit the updated checklist.
+### M3 — shipped, see DECISIONS.md
 
 ### M4 — Multiplayer backend
 
@@ -171,7 +113,7 @@ screenshot review pass and commit the updated checklist.
 | # | Task | Notes | Gate |
 |---|---|---|---|
 | T6.1 | Final glyph art pass on `hive-sprites.svg` (one file); re-capture sprite contact sheet | **[visual]** | review vs. checklist |
-| T6.2 | Landing hero, victory overlay, empty states, error toasts, animation timing pass | **[visual]** | gallery review |
+| T6.2 | Landing hero, victory overlay, empty states, error toasts, animation timing pass; board z-order: paint stacks by vertical layer (all level-0 tiles first, then level-1, …) so tall stacks are never overdrawn by neighboring tiles | **[visual]** | gallery review |
 | T6.3 | Dark-mode + responsive audit: full `validate:visual` re-review at all 3 viewports × 2 themes; fix findings | **[visual]** | checklist clean |
 | T6.4 | Lighthouse PWA + perf audit; fix regressions | | Lighthouse pass |
 | T6.5 | ⚑ Production: `firebase deploy`, DNS record for `hive.zackmfleischman.com`, first real sign-in, real game | | live game |

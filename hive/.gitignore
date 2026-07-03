@@ -16,3 +16,5 @@ playwright-report/
 blob-report/
 .env.local
 packages/functions/lib/
+packages/app/public/icons/
+packages/app/dev-dist/

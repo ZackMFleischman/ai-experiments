@@ -1,0 +1,99 @@
+name: HIVE deploy
+
+# Static hot-seat PWA (T3.12): production deploy on merge to main, a preview
+# URL per PR touching hive/. Same Cloudflare Pages pattern as loom-ci.yml but
+# its own `hive` Pages project. Falls back gracefully (with a notice) when the
+# Cloudflare secrets are absent.
+
+on:
+  pull_request:
+    paths: ['hive/**', '.github/workflows/hive-deploy.yml']
+  push:
+    branches: [main]
+    paths: ['hive/**', '.github/workflows/hive-deploy.yml']
+
+concurrency:
+  group: hive-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write # sticky preview comment
+
+jobs:
+  deploy:
+    name: build · verify bundle · deploy
+    runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: hive
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: hive/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: hive/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: build the static PWA (icons generated from the sprite sheet)
+        run: pnpm --filter @hive/app build
+      - name: verify no firebase in the bundle (T3.12)
+        run: node scripts/check-bundle.mjs
+      # npm -g wrangler from the repo root — same isolation reasoning as loom-ci.
+      - name: deploy to Cloudflare Pages
+        id: deploy
+        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+        run: |
+          npm install -g wrangler@3
+          # Self-provision the Pages project (ignored if it already exists).
+          wrangler pages project create hive --production-branch main || true
+          set +e
+          branch="${GITHUB_HEAD_REF:-main}"
+          out=$(wrangler pages deploy hive/packages/app/dist \
+            --project-name=hive --branch="$branch" 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$out"
+          [ "$status" -eq 0 ] || exit "$status"
+          url=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev' | tail -1)
+          echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+      - name: smoke-check the deployment
+        if: steps.deploy.outcome == 'success'
+        working-directory: ${{ github.workspace }}
+        run: |
+          url="${{ steps.deploy.outputs.deployment-url }}"
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$url/") && [ "$code" = "200" ] && break
+            sleep 5
+          done
+          [ "$code" = "200" ] || { echo "::error::deployment not serving ($code)"; exit 1; }
+          grep -q 'id="root"' /tmp/index.html || { echo "::error::index.html missing app root"; exit 1; }
+          for path in manifest.webmanifest icons/icon-512.png game/local; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/$path")
+            [ "$code" = "200" ] || { echo "::error::$path returned $code"; exit 1; }
+          done
+          echo "deployment serving: index, manifest, icons, SPA fallback all 200"
+      - name: preview comment
+        if: github.event_name == 'pull_request' && steps.deploy.outcome == 'success'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: hive-preview
+          message: |
+            ### 🐝 HIVE preview
+
+            **[▶ Open the hot-seat game](${{ steps.deploy.outputs.deployment-url }})**
+
+            Built from `${{ github.event.pull_request.head.sha }}` — static PWA, LocalTransport only.
+      - name: notice when Cloudflare secrets are missing
+        if: env.CF_API_TOKEN == '' || env.CF_ACCOUNT_ID == ''
+        run: echo "::notice::Cloudflare secrets not set — built and verified the bundle but skipped deploy."
