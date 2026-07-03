@@ -1,8 +1,11 @@
 import { Box } from '@mui/material';
 import type { ReactNode } from 'react';
 import { BoardView } from '../../board/BoardView';
+import { GameBoard } from '../../board/GameBoard';
 import { ForcedBearMode } from '../../board/pieceArt';
-import { EARLY_GAME, LATE_GAME, MID_GAME, replayUhp, TALL_STACK } from '../fixtures';
+import { GameController } from '../../controller/GameController';
+import { LocalTransport } from '../../controller/transport';
+import { ALL_ON, EARLY_GAME, LATE_GAME, MID_GAME, replayUhp, TALL_STACK } from '../fixtures';
 
 function Frame({ children }: { children: ReactNode }) {
   return <Box sx={{ width: '100%', height: '100dvh' }}>{children}</Box>;
@@ -10,10 +13,11 @@ function Frame({ children }: { children: ReactNode }) {
 
 export const boardEntries = [
   {
+    // Turn 1 as the player sees it: the first-placement hint, not a void.
     id: 'board-empty',
     render: () => (
       <Frame>
-        <BoardView board={new Map()} />
+        <GameBoard controller={new GameController(new LocalTransport(ALL_ON), ALL_ON)} />
       </Frame>
     ),
   },

@@ -3,6 +3,7 @@ import { Avatar, Box, Button, Chip, Fab, Stack, Typography } from '@mui/material
 import { lazy, Suspense } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../sync/authContext';
+import { JoinByCodeButton } from './JoinByCode';
 
 // Full mode only: the firestore-backed games list (kept out of the static bundle).
 const OnlineGames =
@@ -40,14 +41,16 @@ export function Lobby() {
           Hot-seat play: two players, one device.
         </Typography>
       )}
-      <Button
-        component={RouterLink}
-        to="/game/local"
-        variant={OnlineGames ? 'outlined' : 'contained'}
-        sx={{ mt: 3 }}
-      >
-        Play hot-seat
-      </Button>
+      <Stack direction="row" spacing={1} sx={{ mt: 3 }}>
+        <Button
+          component={RouterLink}
+          to="/game/local"
+          variant={OnlineGames ? 'outlined' : 'contained'}
+        >
+          Play hot-seat
+        </Button>
+        {OnlineGames && <JoinByCodeButton />}
+      </Stack>
       <Fab
         component={RouterLink}
         to="/new"

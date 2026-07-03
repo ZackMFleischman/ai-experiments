@@ -4,7 +4,8 @@ import type { CellKey, Hex, TileId } from '@hive/engine';
 import { useTheme } from '@mui/material/styles';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import './board.css';
-import { usePieceArt } from './pieceArt';
+import { PIECE_INFO } from '../game/pieceInfo';
+import { BEAR_NAME, usePieceArt } from './pieceArt';
 import {
   cellBounds,
   cellCenter,
@@ -73,7 +74,9 @@ function Tile({
   pulse?: boolean | undefined;
 }) {
   const glyphSize = HEX_SIZE * 1.15;
-  const { symbolFor } = usePieceArt();
+  const { symbolFor, bearMode } = usePieceArt();
+  const info = PIECE_INFO[tile.kind];
+  const name = bearMode ? `${BEAR_NAME[tile.kind]} · ${info.name}` : info.name;
   return (
     <g
       className={`hive-tile-${tile.color} ${className ?? ''}`}
@@ -81,6 +84,8 @@ function Tile({
       data-tile={`${tile.color}${tile.kind}${tile.ordinal}`}
       data-level={level}
     >
+      {/* Desktop hover: what is this piece and how does it move. */}
+      <title>{`${name} — ${info.rule}`}</title>
       <polygon points={hexPoints()} fill="var(--hive-tile)" stroke="var(--hive-tile-edge)" strokeWidth={3} strokeLinejoin="round" />
       <use
         href={`#${symbolFor(tile.kind)}`}

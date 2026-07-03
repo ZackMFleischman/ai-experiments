@@ -10,9 +10,11 @@ import { GameBoard } from '../board/GameBoard';
 import { HandTray } from '../board/HandTray';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
+import type { BugKind } from '@hive/engine';
 import { GameMenu } from './GameMenu';
 import { MoveList } from './MoveList';
 import { PieceGuideButton } from './PieceGuide';
+import { PieceInfoCard } from './PieceInfoCard';
 import { PlayerBar } from './PlayerBar';
 import { ResultBanner, ResultOverlay } from './ResultOverlay';
 
@@ -20,15 +22,19 @@ export function GameScreen({
   controller,
   staticMode = false,
   onRematch,
+  playerNames,
 }: {
   controller: GameController;
   staticMode?: boolean;
   /** Multiplayer (T4.7): overlay offers Rematch instead of New game. */
   onRematch?: () => void;
+  /** Multiplayer: real display names for the player bars. */
+  playerNames?: { white: string | null; black: string | null };
 }) {
   const snap = useGameController(controller);
   const [movesOpen, setMovesOpen] = useState(false);
   const [dismissedNotice, setDismissedNotice] = useState(0);
+  const [pieceInfo, setPieceInfo] = useState<BugKind | null>(null);
   const beatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debug surface for validators (the loom `window.__loom` convention).
@@ -69,13 +75,16 @@ export function GameScreen({
         <GameMenu controller={controller} snap={snap} />
       </Box>
       <ResultBanner controller={controller} snap={snap} />
-      <PlayerBar snap={snap} color="b" />
-      <Box sx={{ flex: 1, minHeight: 0 }}>
-        <GameBoard controller={controller} />
+      {/* Multiplayer: opponent on top, your seat at the bottom (chess-app
+          convention); hot-seat keeps black-over-white. */}
+      <PlayerBar snap={snap} color={snap.myColor === 'b' ? 'w' : 'b'} names={playerNames} />
+      <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <GameBoard controller={controller} onPieceInfo={setPieceInfo} />
+        <PieceInfoCard kind={pieceInfo} />
       </Box>
-      <PlayerBar snap={snap} color="w" />
+      <PlayerBar snap={snap} color={snap.myColor === 'b' ? 'b' : 'w'} names={playerNames} />
       <Box sx={{ px: 1, pb: 'max(4px, env(safe-area-inset-bottom))' }}>
-        <HandTray controller={controller} />
+        <HandTray controller={controller} onPieceInfo={setPieceInfo} />
       </Box>
       <MoveList log={snap.log} open={movesOpen} onClose={() => setMovesOpen(false)} />
       <ResultOverlay controller={controller} snap={snap} {...(onRematch ? { onRematch } : {})} />

@@ -3,7 +3,9 @@
 // when queen-by-4 is binding.
 import { Box, Paper } from '@mui/material';
 import type { BugKind } from '@hive/engine';
+import { useRef } from 'react';
 import type { GameController } from '../controller/GameController';
+import { PIECE_INFO } from '../game/pieceInfo';
 import { useGameController } from '../controller/useGameController';
 import { usePieceArt } from './pieceArt';
 import './board.css';
@@ -11,12 +13,33 @@ import './board.css';
 const TRAY_ORDER: BugKind[] = ['Q', 'A', 'S', 'G', 'B', 'M', 'L', 'P'];
 const TILE = 52; // ≥44px touch target (checklist)
 
-export function HandTray({ controller }: { controller: GameController }) {
+const LONG_PRESS_MS = 550;
+
+export function HandTray({
+  controller,
+  onPieceInfo,
+}: {
+  controller: GameController;
+  /** Long-press piece info (GameScreen renders the card). */
+  onPieceInfo?: (kind: BugKind | null) => void;
+}) {
   const snap = useGameController(controller);
   const { symbolFor } = usePieceArt();
+  const infoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const color = snap.toMove;
   const hand = snap.state.hands[color];
   const kinds = TRAY_ORDER.filter((k) => initialCount(k, snap) > 0); // bugs in this game's options
+
+  const armInfo = (kind: BugKind) => {
+    if (!onPieceInfo) return;
+    if (infoTimer.current) clearTimeout(infoTimer.current);
+    infoTimer.current = setTimeout(() => onPieceInfo(kind), LONG_PRESS_MS);
+  };
+  const disarmInfo = () => {
+    if (infoTimer.current) clearTimeout(infoTimer.current);
+    infoTimer.current = null;
+    onPieceInfo?.(null);
+  };
 
   return (
     <Paper
@@ -35,15 +58,21 @@ export function HandTray({ controller }: { controller: GameController }) {
             key={kind}
             component="button"
             aria-label={`place ${kind}`}
+            title={`${PIECE_INFO[kind].name} — ${PIECE_INFO[kind].rule}`}
             data-testid={`tray-${kind}`}
             data-selected={selected || undefined}
             disabled={!enabled}
             onClick={() => enabled && controller.selectHandBug(kind)}
             onPointerDown={() => {
+              armInfo(kind);
               if (!enabled) return;
               controller.selectHandBug(kind);
               controller.handDragActive = true;
             }}
+            onPointerUp={disarmInfo}
+            onPointerCancel={disarmInfo}
+            onPointerLeave={disarmInfo}
+            onContextMenu={(e: { preventDefault(): void }) => e.preventDefault()}
             sx={{
               position: 'relative',
               border: 'none',

@@ -105,3 +105,11 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   repairs invoker bindings idempotently on every deploy (callables public,
   forfeitExpired scheduler-only); ⚑ Zack grants `roles/run.admin` to
   `github-actions-deploy@hive-zmf.iam.gserviceaccount.com`, then re-runs it.
+
+- **2026-07-03 — First-real-game UX batch (user feedback).** games/{id} carries
+  `inviteCode` while open (§5.2) and /game/{id} shows a waiting screen (invite
+  link + code, live flip on join) instead of an actable board the server would
+  reject. Player bars gain names/"(you)"/turn chip; empty boards a first-placement
+  hint; the lobby a join-by-typed-code entry; the guide a rules summary. Guide/info
+  glyphs are normalized via measured GLYPH_METRICS (getBBox) — board tiles keep the
+  reviewed T6.1 art. Long-press (touch) or hover (title) names any piece.

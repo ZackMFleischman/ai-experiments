@@ -31,6 +31,7 @@ interface GameDocData {
   options: GameOptions;
   moveCount: number;
   state: string;
+  inviteCode?: string; // present while status 'open' (DESIGN §5.2)
   rematchGameId?: string;
 }
 
@@ -46,6 +47,15 @@ export interface GameInfo {
   myColor: Color;
   status: GameDocData['status'];
   playerNames: { white: string | null; black: string | null };
+  inviteCode?: string;
+}
+
+/** Live slice of the game doc the chrome renders outside the move log:
+ * open→active flip, opponent name arrival, invite code while waiting. */
+export interface GameMeta {
+  status: GameDocData['status'];
+  playerNames: { white: string | null; black: string | null };
+  inviteCode?: string;
 }
 
 export class FirestoreTransport implements GameTransport {
@@ -71,7 +81,21 @@ export class FirestoreTransport implements GameTransport {
       myColor,
       status: data.status,
       playerNames: data.playerNames,
+      ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
     };
+  }
+
+  /** Subscribe to the game-doc slice the chrome needs live (GameMeta). */
+  watchMeta(cb: (meta: GameMeta) => void): () => void {
+    return onSnapshot(doc(getDb(), 'games', this.gameId), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data() as GameDocData;
+      cb({
+        status: data.status,
+        playerNames: data.playerNames,
+        ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
+      });
+    });
   }
 
   private toEntry(move: MoveDocData): LogEntry {

@@ -15,10 +15,21 @@ export function queenLiberties(snap: Snapshot, color: Color): number | null {
   return neighbors(cell).filter((n) => !snap.state.board.has(`${n.q},${n.r}`)).length;
 }
 
-export function PlayerBar({ snap, color }: { snap: Snapshot; color: Color }) {
+export function PlayerBar({
+  snap,
+  color,
+  names,
+}: {
+  snap: Snapshot;
+  color: Color;
+  /** Multiplayer: real display names (falls back to White/Black). */
+  names?: { white: string | null; black: string | null } | undefined;
+}) {
   const active = !snap.end && snap.toMove === color;
   const liberties = queenLiberties(snap, color);
-  const name = color === 'w' ? 'White' : 'Black';
+  const isYou = snap.myColor === color;
+  const name =
+    (color === 'w' ? names?.white : names?.black) ?? (color === 'w' ? 'White' : 'Black');
   return (
     <Box
       data-testid={`player-bar-${color}`}
@@ -44,9 +55,24 @@ export function PlayerBar({ snap, color }: { snap: Snapshot; color: Color }) {
           borderColor: 'divider',
         }}
       />
-      <Typography variant="subtitle2" sx={{ fontWeight: active ? 700 : 500 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: active ? 700 : 500 }} noWrap>
         {name}
+        {isYou && (
+          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+            (you)
+          </Typography>
+        )}
       </Typography>
+      {/* Multiplayer: an unmissable whose-turn cue (hot-seat keeps the subtle
+          highlight — both players share the device). */}
+      {snap.myColor && active && (
+        <Chip
+          size="small"
+          color={isYou ? 'primary' : 'default'}
+          label={isYou ? 'Your turn' : 'Their turn'}
+          data-testid="turn-chip"
+        />
+      )}
       {snap.pendingDrawOffer === color && <Chip size="small" label="offered a draw" />}
       <Box sx={{ flex: 1 }} />
       {liberties !== null && (

@@ -43,7 +43,10 @@ test('two browsers play a full multiplayer game', async ({ browser }) => {
   const code = url.split('/join/')[1]!;
   expect(code).toMatch(/^[A-Z2-9]{8}$/);
   await ada.getByTestId('open-created-game').click();
-  await expect(ada.getByTestId('hand-tray')).toBeVisible();
+  // No opponent yet: the board is withheld; the invite stays re-shareable
+  // (link + code) right on the game screen.
+  await expect(ada.getByTestId('waiting-for-opponent')).toBeVisible();
+  await expect(ada.getByTestId('invite-code')).toHaveText(code);
 
   // ── join ──────────────────────────────────────────────────────────────────
   await signInAs(sam, 'sam@example.com');
@@ -52,6 +55,9 @@ test('two browsers play a full multiplayer game', async ({ browser }) => {
   await expect(sam.getByTestId('join-card')).toContainText("You'll play black");
   await sam.getByTestId('join-accept').click();
   await expect(sam.getByTestId('hand-tray')).toBeVisible();
+  // ada's waiting screen flips to the live board without a reload
+  await expect(ada.getByTestId('hand-tray')).toBeVisible({ timeout: 15_000 });
+  await expect(ada.getByTestId('turn-chip')).toHaveText('Your turn');
 
   // ── alternating live moves ────────────────────────────────────────────────
   await place(ada, 'S', '0,0');
