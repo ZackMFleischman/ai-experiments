@@ -34,6 +34,7 @@ export type GameEnd =
   | { by: 'surround'; winner?: Color }
   | { by: 'repetition' }
   | { by: 'resign'; winner: Color }
+  | { by: 'timeout'; winner: Color }
   | { by: 'draw-agreed' };
 
 export interface Snapshot {
@@ -83,6 +84,7 @@ export class GameController {
   private pendingDrawOffer: Color | undefined;
   private lastMove: { from?: Hex; to: Hex } | undefined;
   private resigned: Color | undefined;
+  private timedOut: Color | undefined;
   private drawAgreed = false;
   private beatDone = false;
   private overlayDismissed = false;
@@ -120,6 +122,7 @@ export class GameController {
     let s = initialState(stored.options);
     this.pendingDrawOffer = undefined;
     this.resigned = undefined;
+    this.timedOut = undefined;
     this.drawAgreed = false;
     this.lastMove = undefined;
     for (const entry of stored.log) {
@@ -129,6 +132,7 @@ export class GameController {
         this.lastMove = moveCells(move);
         this.pendingDrawOffer = undefined;
       } else if (entry.kind === 'resign') this.resigned = entry.by;
+      else if (entry.kind === 'timeout') this.timedOut = entry.by;
       else if (entry.kind === 'draw-offer') this.pendingDrawOffer = entry.by;
       else if (entry.kind === 'draw-accept') this.drawAgreed = true;
       else if (entry.kind === 'draw-decline') this.pendingDrawOffer = undefined;
@@ -153,6 +157,7 @@ export class GameController {
       this.lastMove = moveCells(move);
       this.pendingDrawOffer = undefined;
     } else if (entry.kind === 'resign') this.resigned = entry.by;
+    else if (entry.kind === 'timeout') this.timedOut = entry.by;
     else if (entry.kind === 'draw-offer') this.pendingDrawOffer = entry.by;
     else if (entry.kind === 'draw-accept') this.drawAgreed = true;
     else if (entry.kind === 'draw-decline') this.pendingDrawOffer = undefined;
@@ -232,6 +237,7 @@ export class GameController {
 
   private computeEnd(res: GameResult): GameEnd | undefined {
     if (this.resigned) return { by: 'resign', winner: this.resigned === 'w' ? 'b' : 'w' };
+    if (this.timedOut) return { by: 'timeout', winner: this.timedOut === 'w' ? 'b' : 'w' };
     if (this.drawAgreed) return { by: 'draw-agreed' };
     if (res.status === 'won') return { by: 'surround', winner: res.winner };
     if (res.status === 'draw') return res.by === 'surround' ? { by: 'surround' } : { by: 'repetition' };
@@ -408,6 +414,7 @@ export class GameController {
     this.view = null;
     this.pendingDrawOffer = undefined;
     this.resigned = undefined;
+    this.timedOut = undefined;
     this.drawAgreed = false;
     this.beatDone = false;
     this.overlayDismissed = false;

@@ -88,6 +88,14 @@ describe('remote entries', () => {
     expect(c.getSnapshot().state.board.size).toBe(2);
   });
 
+  it('a remote timeout ends the game for the opponent (T5.5)', async () => {
+    const t = new ScriptedTransport();
+    const c = new GameController(t, OPTIONS, 'b');
+    await c.init();
+    t.pushRemote({ kind: 'timeout', by: 'b' });
+    expect(c.getSnapshot().end).toEqual({ by: 'timeout', winner: 'w' });
+  });
+
   it('applies remote meta entries (draw offer → accept ends the game)', async () => {
     const t = new ScriptedTransport();
     const c = new GameController(t, OPTIONS, 'w');

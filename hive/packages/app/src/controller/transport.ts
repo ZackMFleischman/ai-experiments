@@ -4,7 +4,7 @@ import type { Color, GameOptions } from '@hive/engine';
 
 export type LogEntry =
   | { kind: 'move' | 'pass'; uhp: string }
-  | { kind: 'resign' | 'draw-offer' | 'draw-accept' | 'draw-decline'; by: Color };
+  | { kind: 'resign' | 'timeout' | 'draw-offer' | 'draw-accept' | 'draw-decline'; by: Color };
 
 export interface StoredGame {
   options: GameOptions;

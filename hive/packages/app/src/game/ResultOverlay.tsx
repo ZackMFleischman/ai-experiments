@@ -23,6 +23,12 @@ export function endHeadline(end: GameEnd): { title: string; reason: string; hero
         reason: `${end.winner === 'w' ? 'White' : 'Black'} wins`,
         hero: end.winner,
       };
+    case 'timeout':
+      return {
+        title: 'Won on time',
+        reason: `${end.winner === 'w' ? 'Black' : 'White'} ran out the clock`,
+        hero: end.winner,
+      };
     case 'draw-agreed':
       return { title: 'Draw agreed', reason: 'Both players settled for the split', hero: null };
   }
@@ -31,6 +37,7 @@ export function endHeadline(end: GameEnd): { title: string; reason: string; hero
 const OUTCOME_TINT: Record<GameEnd['by'], string> = {
   surround: '#e8a013',
   resign: '#8d6e63',
+  timeout: '#8d6e63',
   repetition: '#78909c',
   'draw-agreed': '#78909c',
 };

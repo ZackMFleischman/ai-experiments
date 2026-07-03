@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { initialState, serializeState, type GameOptions } from '@hive/engine';
 import { AppProviders } from '../src/App';
-import { LobbyView, relativeTime, type LobbyGameSummary } from '../src/screens/lobbyView';
+import { LobbyView, relativeTime, timeLeft, type LobbyGameSummary } from '../src/screens/lobbyView';
 import { InviteLinkView, NewGameForm } from '../src/screens/newGameView';
 
 const OPTIONS: GameOptions = {
@@ -80,6 +80,23 @@ describe('LobbyView', () => {
     expect(screen.getByTestId('lobby-empty')).toBeTruthy();
   });
 
+  it('shows a deadline countdown on your-turn cards (T5.5)', () => {
+    renderIn(
+      <LobbyView
+        games={[game({ toMove: 'w', deadlineAtMs: NOW + 30 * 3_600_000 })]}
+        now={NOW}
+        onOpen={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('deadline-chip').textContent).toBe('30h left');
+  });
+
+  it('formats deadline countdowns', () => {
+    expect(timeLeft(NOW + 3 * 86_400_000, NOW)).toBe('3d left');
+    expect(timeLeft(NOW + 5 * 3_600_000, NOW)).toBe('5h left');
+    expect(timeLeft(NOW + 60_000, NOW)).toBe('expiring');
+  });
+
   it('formats relative times', () => {
     expect(relativeTime(NOW - 30_000, NOW)).toBe('just now');
     expect(relativeTime(NOW - 5 * 60_000, NOW)).toBe('5m ago');
@@ -93,7 +110,7 @@ describe('NewGameForm', () => {
     const onCreate = vi.fn();
     renderIn(<NewGameForm onCreate={onCreate} />);
     fireEvent.click(screen.getByTestId('create-game'));
-    expect(onCreate).toHaveBeenCalledWith({ options: OPTIONS, color: 'random' });
+    expect(onCreate).toHaveBeenCalledWith({ options: OPTIONS, color: 'random', timeControlDays: 3 });
   });
 
   it('honors toggles and color choice', () => {
@@ -101,10 +118,12 @@ describe('NewGameForm', () => {
     renderIn(<NewGameForm onCreate={onCreate} />);
     fireEvent.click(screen.getByTestId('color-b'));
     fireEvent.click(screen.getByTestId('toggle-pillbug'));
+    fireEvent.click(screen.getByTestId('time-none'));
     fireEvent.click(screen.getByTestId('create-game'));
     expect(onCreate).toHaveBeenCalledWith({
       options: { ...OPTIONS, pillbug: false },
       color: 'b',
+      timeControlDays: null,
     });
   });
 });

@@ -23,8 +23,17 @@ export interface LobbyGameSummary {
   result?: 'white' | 'black' | 'draw';
   endedBy?: string;
   updatedAtMs: number;
+  /** Async clock (T5.5): move deadline, when the game has a time control. */
+  deadlineAtMs?: number;
   /** games/{id}.state — renders the thumbnail without replaying. */
   state: string;
+}
+
+export function timeLeft(deadlineMs: number, nowMs: number): string {
+  const h = Math.max(0, Math.round((deadlineMs - nowMs) / 3_600_000));
+  if (h < 1) return 'expiring';
+  if (h < 48) return `${h}h left`;
+  return `${Math.round(h / 24)}d left`;
 }
 
 export function relativeTime(thenMs: number, nowMs: number): string {
@@ -85,6 +94,14 @@ export function GameCard({
               {relativeTime(game.updatedAtMs, now)}
             </Typography>
           </Stack>
+          {yourTurn && game.deadlineAtMs !== undefined && (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={timeLeft(game.deadlineAtMs, now)}
+              data-testid="deadline-chip"
+            />
+          )}
           {yourTurn && <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />}
           {game.status === 'open' && <Chip size="small" variant="outlined" label="Invited" />}
           {resultChip(game)}

@@ -2,7 +2,7 @@
 // payload per trigger is asserted here (DESIGN §5.5: mocked transport; real
 // device push is the ⚑ manual M5 check). sendPush runs against the emulator's
 // Firestore with a fake transport: token fan-out and stale-token pruning.
-import { initializeApp } from 'firebase-admin/app';
+import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildPayload, sendPush, type PushTransport } from '../src/notify';
@@ -10,7 +10,7 @@ import { buildPayload, sendPush, type PushTransport } from '../src/notify';
 beforeAll(() => {
   // Admin SDK against the emulator (FIRESTORE_EMULATOR_HOST is set by
   // emulators:exec); a bare app is enough.
-  initializeApp({ projectId: 'demo-hive' });
+  if (getApps().length === 0) initializeApp({ projectId: 'demo-hive' });
 });
 
 describe('buildPayload', () => {

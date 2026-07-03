@@ -20,6 +20,17 @@ import {
 } from '@hive/engine';
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function parseTimeControl(raw: unknown): { days: 1 | 3 | 7 } | null {
+  if (raw === null || raw === undefined) return null;
+  if (raw === 1 || raw === 3 || raw === 7) return { days: raw };
+  throw new HttpsError('invalid-argument', 'timeControlDays must be 1, 3, 7 or null');
+}
+
+function deadlineFor(timeControl: { days: number } | null): Timestamp | null {
+  return timeControl ? Timestamp.fromMillis(Date.now() + timeControl.days * DAY_MS) : null;
+}
 // No lookalikes (0/O, 1/I): codes read well off a phone screen.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -63,6 +74,7 @@ export const createGame = onCall(async (request) => {
     throw new HttpsError('invalid-argument', "color must be 'w' | 'b' | 'random'");
   }
   const color: Color = colorRaw === 'random' ? (randomInt(2) === 0 ? 'w' : 'b') : colorRaw;
+  const timeControl = parseTimeControl((request.data as { timeControlDays?: unknown })?.timeControlDays);
 
   const db = getFirestore();
   const gameRef = db.collection('games').doc();
@@ -84,6 +96,7 @@ export const createGame = onCall(async (request) => {
       toMove: 'w',
       turn: 1,
       moveCount: 0,
+      timeControl,
       state: serializeState(initialState(options)),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -126,6 +139,7 @@ export const joinGame = onCall(async (request) => {
       status: string;
       players: { white: string | null; black: string | null };
       playerIds: string[];
+      timeControl?: { days: number } | null;
     };
     if (data.status !== 'open') throw new HttpsError('failed-precondition', 'game already started');
     if (data.playerIds.includes(caller.uid)) {
@@ -138,6 +152,7 @@ export const joinGame = onCall(async (request) => {
       [`playerNames.${seat}`]: caller.name,
       playerIds: FieldValue.arrayUnion(caller.uid),
       status: 'active',
+      deadlineAt: deadlineFor(data.timeControl ?? null),
       updatedAt: FieldValue.serverTimestamp(),
     });
     tx.delete(inviteRef);
@@ -183,6 +198,7 @@ export const submitMove = onCall(async (request) => {
       toMove: Color;
       moveCount: number;
       state: string;
+      timeControl?: { days: number } | null;
     };
     if (!doc.playerIds.includes(caller.uid)) {
       throw new HttpsError('permission-denied', 'not a player in this game');
@@ -237,6 +253,8 @@ export const submitMove = onCall(async (request) => {
       turn: next.turn,
       moveCount: expectedMoveCount + 1,
       pendingDrawOffer: FieldValue.delete(),
+      deadlineAt: terminal ? null : deadlineFor(doc.timeControl ?? null),
+      deadlineWarnedAt: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
       ...(terminal ?? {}),
     });

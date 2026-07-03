@@ -11,3 +11,4 @@ export const ping = onCall<{ echo?: string }>((request) => {
 });
 
 export { createGame, joinGame, offerDraw, rematch, resign, respondDraw, submitMove } from './games';
+export { forfeitExpired } from './forfeit';

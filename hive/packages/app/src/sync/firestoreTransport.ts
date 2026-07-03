@@ -36,7 +36,7 @@ interface GameDocData {
 
 interface MoveDocData {
   n: number;
-  kind: 'move' | 'pass' | 'resign' | 'draw-offer' | 'draw-accept' | 'draw-decline';
+  kind: 'move' | 'pass' | 'resign' | 'timeout' | 'draw-offer' | 'draw-accept' | 'draw-decline';
   uhp?: string;
   by: string;
 }
