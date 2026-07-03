@@ -59,3 +59,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   committed. Judgment calls: board tiles draw as inline polygons for exact grid
   geometry (sprite symbols everywhere else); enemy pieces are selectable exactly
   when tossable, which makes tosses plain taps/drags on the tossed piece.
+
+- **2026-07-03 — M4 build/deploy decisions**: one codebase, two builds — default
+  `vite build` stays the firebase-free static hot-seat PWA (Cloudflare `hive`);
+  `--mode multiplayer` (VITE_HIVE_MODE=full) mounts the lazy firebase stack and
+  ships to Firebase Hosting via the new main-merge deploy job in hive-deploy.yml
+  (`--project prod`, smoke-checked at hive-zmf.web.app). Functions build is an
+  esbuild bundle so the workspace @hive/engine dep is inlined for deploy.
+  Emulator-only email/password test sign-in backs dev/e2e; production UI stays
+  Google-only. Deploy auth per the 2026-07-03 service-account entry.

@@ -4,7 +4,12 @@
 // identifiers (DESIGN §5.6).
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
-import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore';
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  type Firestore,
+} from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, type Functions } from 'firebase/functions';
 
 export const usingEmulators =
@@ -44,7 +49,12 @@ export function getAppAuth(): Auth {
 
 export function getDb(): Firestore {
   if (!db) {
-    db = getFirestore(getApp());
+    // Emulator + headless-browser WebChannel streams can 400 and flip the SDK
+    // into offline mode (breaks getDoc/onSnapshot in e2e) — force long polling
+    // there. Production keeps the default transport.
+    db = usingEmulators
+      ? initializeFirestore(getApp(), { experimentalForceLongPolling: true })
+      : getFirestore(getApp());
     if (usingEmulators) connectFirestoreEmulator(db, '127.0.0.1', 8080);
   }
   return db;

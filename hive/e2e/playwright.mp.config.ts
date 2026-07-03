@@ -7,6 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './multiplayer',
   fullyParallel: false, // tests share one emulator instance; keep them ordered
+  workers: 1, // …and files too: resetEmulators() in one file must not wipe another's game
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['list'], ['github']] : 'list',
