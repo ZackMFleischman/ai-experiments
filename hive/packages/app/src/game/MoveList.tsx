@@ -8,6 +8,8 @@ function metaText(entry: LogEntry): string {
   switch (entry.kind) {
     case 'resign':
       return `${who} resigned`;
+    case 'timeout':
+      return `${who} forfeited on time`;
     case 'draw-offer':
       return `${who} offered a draw`;
     case 'draw-accept':

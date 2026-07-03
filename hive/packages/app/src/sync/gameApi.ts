@@ -12,7 +12,7 @@ function callable<Req, Res>(name: string): (data: Req) => Promise<Res> {
 }
 
 export const createGame = callable<
-  { options: GameOptions; color: Color | 'random' },
+  { options: GameOptions; color: Color | 'random'; timeControlDays: 1 | 3 | 7 | null },
   { gameId: string; code: string }
 >('createGame');
 

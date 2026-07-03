@@ -83,30 +83,9 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M3 — shipped, see DECISIONS.md
 
-### M4 — Multiplayer backend
+### M4 — shipped, see DECISIONS.md
 
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T4.1 | Auth: Firebase Auth (Google) + emulator; auth state in TanStack Query; route guards; ⚑ real-OAuth check on production later | `app/src/sync/auth.ts` | emulator auth e2e |
-| T4.2 | Landing/sign-in + Join screens per DESIGN §6.1: hero = BoardView pointed at a fixed decorative state, idle float, wordmark | **[visual]** | gallery entries + review |
-| T4.3 | Firestore schema + security rules + indexes exactly per DESIGN §5.2/§5.3 (deny client writes to `games/*`, `invites/*`; own-doc `users/{uid}`); rules unit tests with `@firebase/rules-unit-testing` | `packages/functions` | rules tests |
-| T4.4 | Callables: `createGame`, `joinGame` (transactional seat claim), `submitMove` (protocol per DESIGN §5.3, engine-validated, concurrency guard) | emulator tests: happy path, wrong turn, stale `expectedMoveCount`, illegal move, non-player caller | function tests |
-| T4.5 | Callables: `resign`, `offerDraw`, `respondDraw`, `rematch` (meta events to move log, `pendingDrawOffer`, `rematchOf`) | emulator tests incl. offer-clears-on-move | function tests |
-| T4.6 | `FirestoreTransport`: snapshot listeners → controller; optimistic apply + rollback/resync on rejection; move-log ↔ snapshot regression check on load | controller tests with mocked transport already exist — add the real adapter + emulator integration test | integration test |
-| T4.7 | Lobby + NewGame + invite flow UI: your-turn/waiting groups, result chips, mini board thumbnails (BoardView, static), deadline countdown, FAB, invite-link copy; rematch flow into the §6.3 overlay | **[visual]** | component tests + gallery |
-| T4.8 | Two-browser Playwright e2e vs. emulators: create → invite → join → alternating moves → draw-offer declined → resign → rematch → reload-mid-game resume | shared `test-harness` module for emulator boot/seed/fake-auth (DESIGN §8) | `pnpm validate:m4` |
-
-### M5 — PWA + notifications + async
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T5.1 | `vite-plugin-pwa`: manifest, SW, offline app-shell (lobby read-only offline); icon build script exporting PWA/maskable/badge icons from the queen glyph | icons are generated — never hand-edit | Lighthouse PWA installable |
-| T5.2 | FCM: token capture to `users/{uid}.fcmTokens[]` (multi-device, stale-token pruning on send failure), push-permission UX, iOS install coach mark (DESIGN §7) | **[visual]** for the coach mark | unit tests |
-| T5.3 | Notification sends from functions on: opponent moved, game joined, draw offered, game over, deadline warning; deep-link payloads to `/game/{id}` | mocked messaging transport; assert exact payloads per trigger | function tests |
-| T5.4 | In-app awareness: your-turn badges, document title `(n) HIVE`, Badging API | | component tests |
-| T5.5 | Async clocks: `deadlineAt` stamping in `submitMove`/`joinGame`, hourly `forfeitExpired` (forfeits, warnings, invite culling) fired manually in tests | | `pnpm validate:m5` |
-
-⚑ Manual device pass at the end of M5: real push on a phone, iOS home-screen install.
+### M5 — shipped, see DECISIONS.md
 
 ### M6 — Polish & ship
 

@@ -17,10 +17,13 @@ import type { Color, GameOptions } from '@hive/engine';
 import { useState } from 'react';
 
 export type ColorChoice = Color | 'random';
+export type TimeControlDays = 1 | 3 | 7 | null;
 
 export interface NewGameChoices {
   options: GameOptions;
   color: ColorChoice;
+  /** Async per-move deadline (DESIGN §5.4); null = untimed. */
+  timeControlDays: TimeControlDays;
 }
 
 const DEFAULTS: GameOptions = {
@@ -46,6 +49,7 @@ export function NewGameForm({
 }) {
   const [options, setOptions] = useState<GameOptions>(DEFAULTS);
   const [color, setColor] = useState<ColorChoice>('random');
+  const [timeControlDays, setTimeControlDays] = useState<TimeControlDays>(3);
   return (
     <Stack spacing={3} sx={{ maxWidth: 420 }}>
       <Stack spacing={1}>
@@ -87,11 +91,38 @@ export function NewGameForm({
           />
         ))}
       </Stack>
+      <Stack spacing={1}>
+        <Typography variant="overline" color="text.secondary">
+          Time per move
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          value={timeControlDays === null ? 'none' : String(timeControlDays)}
+          onChange={(_, v: string | null) => {
+            if (v === null) return;
+            setTimeControlDays(v === 'none' ? null : (Number(v) as 1 | 3 | 7));
+          }}
+          fullWidth
+        >
+          <ToggleButton value="none" data-testid="time-none">
+            None
+          </ToggleButton>
+          <ToggleButton value="1" data-testid="time-1d">
+            1 day
+          </ToggleButton>
+          <ToggleButton value="3" data-testid="time-3d">
+            3 days
+          </ToggleButton>
+          <ToggleButton value="7" data-testid="time-7d">
+            7 days
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Stack>
       <Button
         variant="contained"
         size="large"
         disabled={busy}
-        onClick={() => onCreate({ options, color })}
+        onClick={() => onCreate({ options, color, timeControlDays })}
         data-testid="create-game"
       >
         Create game

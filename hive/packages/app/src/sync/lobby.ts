@@ -23,6 +23,7 @@ interface GameDocLobby {
   result?: 'white' | 'black' | 'draw';
   endedBy?: string;
   updatedAt?: { toMillis(): number };
+  deadlineAt?: { toMillis(): number };
   state: string;
 }
 
@@ -38,6 +39,7 @@ function toSummary(id: string, data: GameDocLobby, uid: string): LobbyGameSummar
     ...(data.result ? { result: data.result } : {}),
     ...(data.endedBy ? { endedBy: data.endedBy } : {}),
     updatedAtMs: data.updatedAt?.toMillis() ?? 0,
+    ...(data.deadlineAt ? { deadlineAtMs: data.deadlineAt.toMillis() } : {}),
     state: data.state,
   };
 }

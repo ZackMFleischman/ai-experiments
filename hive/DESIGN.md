@@ -252,7 +252,8 @@ games/{gameId}:         { players: {white: uid, black: uid|null},
                           toMove, turn, moveCount,
                           pendingDrawOffer?: 'white'|'black', // cleared by any move or decline
                           rematchOf?: gameId, rematchGameId?: gameId, // return-game links (idempotent rematch)
-                          deadlineAt?: Timestamp,             // async time control
+                          timeControl?: {days: 1|3|7} | null, // async clock setting (§5.4)
+                          deadlineAt?: Timestamp, deadlineWarnedAt?: Timestamp,
                           updatedAt, createdAt,
                           state: string }                     // engine serializeState snapshot (fast load)
 games/{gameId}/moves/{n}: { n, kind: 'move'|'pass'|'resign'|'draw-offer'|'draw-accept'

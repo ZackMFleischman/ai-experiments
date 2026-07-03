@@ -54,6 +54,10 @@ currently-accepted deviations stay listed at the bottom.
   clear. Minor accepted: long "Waiting for opponent…" truncates with ellipsis
   on phone cards.
 
+- 2026-07-03 (T5.2, 6 new captures read: lobby-coach-mark × 3 viewports × 2
+  themes): share icon + headline + install instructions legible both themes;
+  dismiss target comfortable; card border reads as callout, not error.
+
 ## Accepted deviations
 
 - Draft glyph geometry (circle/arc primitives) until the T6.1 art pass.

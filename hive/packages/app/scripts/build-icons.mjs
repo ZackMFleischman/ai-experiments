@@ -37,3 +37,11 @@ for (const { file, size, maskable } of jobs) {
   await sharp(Buffer.from(iconSvg({ maskable }))).resize(size, size).png().toFile(join(out, file));
   console.log(`icons: ${file}`);
 }
+
+// Notification badge (T5.1/T5.3): monochrome white queen on transparent —
+// Android renders it as a silhouette in the status bar.
+const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g fill="#fff">${queen.replaceAll('#4a3b20', '#fff')}</g>
+</svg>`;
+await sharp(Buffer.from(badgeSvg)).resize(72, 72).png().toFile(join(out, 'badge-72.png'));
+console.log('icons: badge-72.png');

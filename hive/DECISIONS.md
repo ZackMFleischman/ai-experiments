@@ -68,3 +68,22 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   esbuild bundle so the workspace @hive/engine dep is inlined for deploy.
   Emulator-only email/password test sign-in backs dev/e2e; production UI stays
   Google-only. Deploy auth per the 2026-07-03 service-account entry.
+
+- **2026-07-03 — M4 SHIPPED** (PR #28; deploy fixes #29/#30). Gates: validate:m4
+  (rules/callable/emulator suites, transport integration, two-browser full-game
+  e2e) + full validate green in CI; production Firebase deploy green (hosting,
+  8 callables, rules+indexes). Frozen-surface updates in DESIGN/IMPL: engine
+  serializeState/deserializeState; games.playerNames, invite summary fields,
+  rematchGameId. Stumbles: emulator WebChannel 400s in headless chromium ⇒
+  emulator mode forces long polling; mp Playwright must run single-worker; first
+  deploy needed the Cloud Billing API enabled and devDependencies stripped from
+  the packed functions dir (workspace:* breaks Cloud Build npm).
+
+- **2026-07-03 — M5 SHIPPED** (same PR as this entry). Gates: validate:m5
+  (offline/installability e2e vs a real production build) + 55 functions tests
+  (exact push payloads per trigger, forfeit sweep with pinned now) + full
+  validate green. SW moved to injectManifest (precache + SPA fallback + push
+  display/deep-link); pushes are data-only webpush; Firestore persistent cache
+  gives the offline read-only lobby. Async clocks: timeControl/deadlineAt/
+  deadlineWarnedAt (DESIGN §5.2), hourly forfeitExpired. ⚑ pending Zack: real
+  push on a device, iOS home-screen install check, first real OAuth sign-in.
