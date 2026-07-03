@@ -96,3 +96,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   (the look-alike = mimic), panda/ladybug (patches↔spots), sloth/pillbug (flips
   rocks). Same PR adds the always-available piece guide dialog (glyph + rule per
   piece) and back affordances on New Game/Settings.
+
+- **2026-07-03 — Production callables 403 → "internal" (first real game attempt).**
+  The 8 callables were first *created* in a failed deploy (run 8, workspace:*
+  npm error); retries were *updates*, which never set invoker IAM — and the
+  Editor deploy SA can't set it anyway (run 12 said so for forfeitExpired,
+  whose scheduler invoker is broken the same way). Fix: hive-deploy.yml now
+  repairs invoker bindings idempotently on every deploy (callables public,
+  forfeitExpired scheduler-only); ⚑ Zack grants `roles/run.admin` to
+  `github-actions-deploy@hive-zmf.iam.gserviceaccount.com`, then re-runs it.
