@@ -89,6 +89,15 @@ currently-accepted deviations stay listed at the bottom.
   dialog surfaces; name/rule hierarchy clear; dialog scrolls on phone with the
   close action pinned; one-hive footnote readable.
 
+- 2026-07-03 (bear mode, `board-mid-bears` + `piece-guide-bears` entries read
+  at all 6 combos, plus the approval contact sheet at 100px/40px on both tile
+  colors): all 8 species distinguishable at 40px by silhouette + field mark —
+  crown (brown), long clean face (polar), eye rings (spectacled), chest blaze
+  (sun), branch pose (American black), big ears + chest V (Asiatic black),
+  solid patches (panda), shaggy jaw + claws (sloth). Strokes stay inside the
+  hex; legible on cream and charcoal in both themes; guide pairs species and
+  piece names.
+
 ## Accepted deviations
 
 - Board tiles draw as inline polygons (exact grid geometry); the sprite sheet's

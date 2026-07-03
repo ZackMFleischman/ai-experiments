@@ -42,6 +42,26 @@ test('piece guide opens from the game screen and names every piece', async ({ pa
   await expect(dialog).not.toBeVisible();
 });
 
+test('bear mode reskins the pieces and survives a reload', async ({ page }) => {
+  await page.goto('/settings');
+  await page.getByRole('checkbox', { name: /bear mode/i }).check();
+  await page.goto('/game/local');
+  await expect(page.locator('use[href="#bear-ant"]').first()).toBeVisible();
+  await expect(page.locator('use[href="#bug-ant"]')).toHaveCount(0);
+  // the guide teaches the mapping
+  await page.getByRole('button', { name: /piece guide/i }).click();
+  await expect(page.getByRole('dialog').getByText(/Brown bear/)).toBeVisible();
+  await page.getByRole('button', { name: /close/i }).click();
+  // persisted
+  await page.reload();
+  await expect(page.locator('use[href="#bear-ant"]').first()).toBeVisible();
+  // and off again
+  await page.goto('/settings');
+  await page.getByRole('checkbox', { name: /bear mode/i }).uncheck();
+  await page.goto('/game/local');
+  await expect(page.locator('use[href="#bug-ant"]').first()).toBeVisible();
+});
+
 // Regression: the landing hero draws tiles via <use href="#bug-*">, so the
 // sprite sheet must be in the document on every route — not just the game
 // screen. Without it the hero renders bare hexes and the stacked tile reads

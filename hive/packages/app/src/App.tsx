@@ -1,6 +1,7 @@
 import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Route, Routes, useParams } from 'react-router-dom';
+import { PieceArtProvider } from './board/pieceArt';
 import { SpriteSheet } from './board/sprites';
 import { Game } from './screens/Game';
 import { Join } from './screens/Join';
@@ -95,7 +96,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {children}
+        <PieceArtProvider>{children}</PieceArtProvider>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );

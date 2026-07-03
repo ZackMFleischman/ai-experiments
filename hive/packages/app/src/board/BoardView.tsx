@@ -4,7 +4,7 @@ import type { CellKey, Hex, TileId } from '@hive/engine';
 import { useTheme } from '@mui/material/styles';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import './board.css';
-import { BUG_SYMBOL } from './sprites';
+import { usePieceArt } from './pieceArt';
 import {
   cellBounds,
   cellCenter,
@@ -73,6 +73,7 @@ function Tile({
   pulse?: boolean | undefined;
 }) {
   const glyphSize = HEX_SIZE * 1.15;
+  const { symbolFor } = usePieceArt();
   return (
     <g
       className={`hive-tile-${tile.color} ${className ?? ''}`}
@@ -82,7 +83,7 @@ function Tile({
     >
       <polygon points={hexPoints()} fill="var(--hive-tile)" stroke="var(--hive-tile-edge)" strokeWidth={3} strokeLinejoin="round" />
       <use
-        href={`#${BUG_SYMBOL[tile.kind]}`}
+        href={`#${symbolFor(tile.kind)}`}
         x={-glyphSize / 2}
         y={-glyphSize / 2}
         width={glyphSize}

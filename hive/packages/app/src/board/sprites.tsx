@@ -14,10 +14,23 @@ export const BUG_SYMBOL: Record<BugKind, string> = {
   P: 'bug-pillbug',
 };
 
+/** Bear-mode glyphs (pieceArt.tsx): same pieces, one bear species each. */
+export const BEAR_SYMBOL: Record<BugKind, string> = {
+  Q: 'bear-queen',
+  A: 'bear-ant',
+  S: 'bear-spider',
+  G: 'bear-grasshopper',
+  B: 'bear-beetle',
+  M: 'bear-mosquito',
+  L: 'bear-ladybug',
+  P: 'bear-pillbug',
+};
+
 export const ALL_SYMBOLS = [
   'hex-base',
   'hex-ghost',
   ...Object.values(BUG_SYMBOL),
+  ...Object.values(BEAR_SYMBOL),
   'motif-crown',
   'motif-tile',
 ];

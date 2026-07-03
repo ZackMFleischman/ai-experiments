@@ -5,7 +5,7 @@ import { Box, Paper } from '@mui/material';
 import type { BugKind } from '@hive/engine';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
-import { BUG_SYMBOL } from './sprites';
+import { usePieceArt } from './pieceArt';
 import './board.css';
 
 const TRAY_ORDER: BugKind[] = ['Q', 'A', 'S', 'G', 'B', 'M', 'L', 'P'];
@@ -13,6 +13,7 @@ const TILE = 52; // ≥44px touch target (checklist)
 
 export function HandTray({ controller }: { controller: GameController }) {
   const snap = useGameController(controller);
+  const { symbolFor } = usePieceArt();
   const color = snap.toMove;
   const hand = snap.state.hands[color];
   const kinds = TRAY_ORDER.filter((k) => initialCount(k, snap) > 0); // bugs in this game's options
@@ -63,7 +64,7 @@ export function HandTray({ controller }: { controller: GameController }) {
               aria-hidden
             >
               <use href="#hex-base" width={TILE} height={TILE} />
-              <use href={`#${BUG_SYMBOL[kind]}`} x={TILE * 0.1} y={TILE * 0.1} width={TILE * 0.8} height={TILE * 0.8} />
+              <use href={`#${symbolFor(kind)}`} x={TILE * 0.1} y={TILE * 0.1} width={TILE * 0.8} height={TILE * 0.8} />
             </svg>
             {count > 1 && (
               <Box

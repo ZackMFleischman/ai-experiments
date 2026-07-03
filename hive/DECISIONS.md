@@ -87,3 +87,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   gives the offline read-only lobby. Async clocks: timeControl/deadlineAt/
   deadlineWarnedAt (DESIGN §5.2), hourly forfeitExpired. ⚑ pending Zack: real
   push on a device, iOS home-screen install check, first real OAuth sign-in.
+
+- **2026-07-03 — Bear mode (user request, rides with M6).** A Settings toggle
+  reskins the 8 pieces as the 8 extant bear species (persisted in
+  localStorage, resolved by `board/pieceArt.tsx`; engine/rules untouched).
+  Movement-thematic mapping: brown/queen (crowned), polar/ant (roams), spectacled/
+  spider, sun/grasshopper, American black/beetle (climber), Asiatic black/mosquito
+  (the look-alike = mimic), panda/ladybug (patches↔spots), sloth/pillbug (flips
+  rocks). Same PR adds the always-available piece guide dialog (glyph + rule per
+  piece) and back affordances on New Game/Settings.

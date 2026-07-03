@@ -17,7 +17,7 @@ import type { BugKind } from '@hive/engine';
 import { useState } from 'react';
 import '../board/board.css';
 import { hexPoints } from '../board/hexGeometry';
-import { BUG_SYMBOL } from '../board/sprites';
+import { BEAR_NAME, usePieceArt } from '../board/pieceArt';
 
 const PIECES: ReadonlyArray<{ kind: BugKind; name: string; rule: string }> = [
   {
@@ -56,6 +56,7 @@ const PIECES: ReadonlyArray<{ kind: BugKind; name: string; rule: string }> = [
 
 function GuideTile({ kind }: { kind: BugKind }) {
   const glyph = 46;
+  const { symbolFor } = usePieceArt();
   return (
     <svg className="hive-board-scope" viewBox="-40 -40 80 80" width={44} height={44} aria-hidden>
       <g className="hive-tile-w">
@@ -66,13 +67,14 @@ function GuideTile({ kind }: { kind: BugKind }) {
           strokeWidth={3}
           strokeLinejoin="round"
         />
-        <use href={`#${BUG_SYMBOL[kind]}`} x={-glyph / 2} y={-glyph / 2} width={glyph} height={glyph} />
+        <use href={`#${symbolFor(kind)}`} x={-glyph / 2} y={-glyph / 2} width={glyph} height={glyph} />
       </g>
     </svg>
   );
 }
 
 export function PieceGuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { bearMode } = usePieceArt();
   return (
     <Dialog open={open} onClose={onClose} scroll="paper" data-testid="piece-guide">
       <DialogTitle>How the pieces move</DialogTitle>
@@ -81,7 +83,10 @@ export function PieceGuideDialog({ open, onClose }: { open: boolean; onClose: ()
           {PIECES.map((p) => (
             <ListItem key={p.kind} disableGutters sx={{ alignItems: 'flex-start', gap: 1.5 }}>
               <GuideTile kind={p.kind} />
-              <ListItemText primary={p.name} secondary={p.rule} />
+              <ListItemText
+                primary={bearMode ? `${BEAR_NAME[p.kind]} · ${p.name}` : p.name}
+                secondary={p.rule}
+              />
             </ListItem>
           ))}
         </List>

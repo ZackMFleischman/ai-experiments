@@ -130,6 +130,140 @@
     </g>
   </symbol>
 
+  <!-- Bear-mode glyph set: same mark system, one bear species per piece.
+       Field marks keep them apart at 40px: crown (brown/queen), long clean
+       face (polar), eye rings (spectacled), chest blaze + tongue (sun),
+       branch pose (black), big ears + chest V (moon), solid patches (panda),
+       shaggy jaw + claws (sloth). -->
+
+  <symbol id="bear-queen" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- crown (queen identity marker, shared with the bug set) -->
+      <path d="M34 24 L38 8 L46 17 L50 3 L54 17 L62 8 L66 24 Z" fill="currentColor" stroke-width="3"/>
+      <circle cx="34" cy="39" r="7.5"/>
+      <circle cx="66" cy="39" r="7.5"/>
+      <circle cx="50" cy="55" r="18"/>
+      <ellipse cx="50" cy="63" rx="8.5" ry="7"/>
+      <circle cx="50" cy="60" r="3" fill="currentColor" stroke="none"/>
+      <circle cx="42" cy="50" r="2.7" fill="currentColor" stroke="none"/>
+      <circle cx="58" cy="50" r="2.7" fill="currentColor" stroke="none"/>
+      <!-- burly shoulders -->
+      <path d="M26 94 C30 82 38 77 50 77 C62 77 70 82 74 94"/>
+    </g>
+  </symbol>
+
+  <symbol id="bear-ant" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- tiny far-set ears, long clean face: the white bear needs no marks -->
+      <circle cx="39" cy="26" r="4.2"/>
+      <circle cx="61" cy="26" r="4.2"/>
+      <ellipse cx="50" cy="50" rx="16" ry="24"/>
+      <circle cx="50" cy="70" r="3.6" fill="currentColor" stroke="none"/>
+      <circle cx="43.5" cy="42" r="2.6" fill="currentColor" stroke="none"/>
+      <circle cx="56.5" cy="42" r="2.6" fill="currentColor" stroke="none"/>
+      <path d="M22 94 C28 84 36 80 50 80 C64 80 72 84 78 94"/>
+    </g>
+  </symbol>
+
+  <symbol id="bear-spider" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="35" cy="31" r="7"/>
+      <circle cx="65" cy="31" r="7"/>
+      <circle cx="50" cy="49" r="18"/>
+      <!-- the spectacles -->
+      <circle cx="41.5" cy="45" r="7" stroke-width="5.5"/>
+      <circle cx="58.5" cy="45" r="7" stroke-width="5.5"/>
+      <path d="M48.5 45 L51.5 45" stroke-width="4"/>
+      <circle cx="41.5" cy="45" r="2.2" fill="currentColor" stroke="none"/>
+      <circle cx="58.5" cy="45" r="2.2" fill="currentColor" stroke="none"/>
+      <ellipse cx="50" cy="60" rx="6.5" ry="5"/>
+      <circle cx="50" cy="57.5" r="2.8" fill="currentColor" stroke="none"/>
+      <path d="M30 94 C34 84 41 80 50 80 C59 80 66 84 70 94"/>
+    </g>
+  </symbol>
+
+  <symbol id="bear-grasshopper" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="40" cy="22" r="4.2"/>
+      <circle cx="60" cy="22" r="4.2"/>
+      <circle cx="50" cy="34" r="13.5"/>
+      <ellipse cx="50" cy="41" rx="6.5" ry="5"/>
+      <circle cx="50" cy="38.5" r="2.7" fill="currentColor" stroke="none"/>
+      <circle cx="44.5" cy="30" r="2.4" fill="currentColor" stroke="none"/>
+      <circle cx="55.5" cy="30" r="2.4" fill="currentColor" stroke="none"/>
+      <!-- the famous tongue -->
+      <path d="M50 46 C50 56 45 58 43 61" stroke-width="5"/>
+      <!-- bust with the sunrise chest blaze -->
+      <path d="M26 94 C28 72 37 63 50 63 C63 63 72 72 74 94"/>
+      <path d="M40 90 C40 76 60 76 60 90"/>
+    </g>
+  </symbol>
+
+  <symbol id="bear-beetle" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- tall upright ears -->
+      <circle cx="34" cy="25" r="8.5"/>
+      <circle cx="66" cy="25" r="8.5"/>
+      <circle cx="50" cy="44" r="16.5"/>
+      <ellipse cx="50" cy="52" rx="7" ry="5.5"/>
+      <circle cx="50" cy="49.5" r="3" fill="currentColor" stroke="none"/>
+      <circle cx="42.5" cy="40" r="2.7" fill="currentColor" stroke="none"/>
+      <circle cx="57.5" cy="40" r="2.7" fill="currentColor" stroke="none"/>
+      <!-- the climber: paws over a branch -->
+      <path d="M18 76 L82 72" stroke-width="6"/>
+      <circle cx="38" cy="70" r="5.5" fill="currentColor" stroke="none"/>
+      <circle cx="62" cy="69" r="5.5" fill="currentColor" stroke="none"/>
+      <path d="M36 76 L36 84 M42 76 L42 83 M60 75 L60 83 M66 74 L66 82" stroke-width="4"/>
+    </g>
+  </symbol>
+
+  <symbol id="bear-mosquito" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- oversized round ears -->
+      <circle cx="32" cy="28" r="9.5"/>
+      <circle cx="68" cy="28" r="9.5"/>
+      <circle cx="50" cy="46" r="15.5"/>
+      <ellipse cx="50" cy="54" rx="6.5" ry="5"/>
+      <circle cx="50" cy="51.5" r="2.8" fill="currentColor" stroke="none"/>
+      <circle cx="43.5" cy="42" r="2.5" fill="currentColor" stroke="none"/>
+      <circle cx="56.5" cy="42" r="2.5" fill="currentColor" stroke="none"/>
+      <!-- bust with the crescent-moon chest V -->
+      <path d="M28 94 C30 74 38 66 50 66 C62 66 70 74 72 94"/>
+      <path d="M41 76 L50 87 L59 76" stroke-width="6.5"/>
+    </g>
+  </symbol>
+
+  <symbol id="bear-ladybug" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- solid ear + eye patches -->
+      <circle cx="33" cy="31" r="8.5" fill="currentColor" stroke="none"/>
+      <circle cx="67" cy="31" r="8.5" fill="currentColor" stroke="none"/>
+      <circle cx="50" cy="50" r="19"/>
+      <ellipse cx="41.5" cy="47" rx="5" ry="7.5" transform="rotate(20 41.5 47)" fill="currentColor" stroke="none"/>
+      <ellipse cx="58.5" cy="47" rx="5" ry="7.5" transform="rotate(-20 58.5 47)" fill="currentColor" stroke="none"/>
+      <circle cx="50" cy="58" r="3.2" fill="currentColor" stroke="none"/>
+      <path d="M50 61 C50 64.5 46.5 66 45 65" stroke-width="4"/>
+      <path d="M32 94 C34 82 41 76 50 76 C59 76 66 82 68 94"/>
+    </g>
+  </symbol>
+
+  <symbol id="bear-pillbug" viewBox="0 0 100 100">
+    <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- floppy ears + shaggy jaw fur -->
+      <circle cx="36" cy="27" r="6"/>
+      <circle cx="64" cy="27" r="6"/>
+      <circle cx="50" cy="42" r="15"/>
+      <path d="M39 53 L33 63 M46 56 L44 66 M54 56 L56 66 M61 53 L67 63" stroke-width="4"/>
+      <!-- long droopy muzzle -->
+      <ellipse cx="50" cy="52" rx="7" ry="8"/>
+      <circle cx="50" cy="57" r="3.2" fill="currentColor" stroke="none"/>
+      <circle cx="43.5" cy="37" r="2.5" fill="currentColor" stroke="none"/>
+      <circle cx="56.5" cy="37" r="2.5" fill="currentColor" stroke="none"/>
+      <!-- the rock-flipping claws -->
+      <path d="M38 74 C35 83 36 89 41 94 M50 76 C48 84 49 90 53 95 M62 74 C65 83 64 89 59 94" stroke-width="5.5"/>
+    </g>
+  </symbol>
+
   <symbol id="motif-crown" viewBox="0 0 100 100">
     <path
       d="M18 70 L14 34 L34 50 L50 26 L66 50 L86 34 L82 70 Z"
