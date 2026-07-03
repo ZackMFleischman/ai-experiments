@@ -233,3 +233,158 @@ export const submitMove = onCall(async (request) => {
 
   return { moveCount };
 });
+
+// ── meta actions (T4.5): typed entries in the same move log ────────────────
+
+interface GameDocData {
+  status: string;
+  players: { white: string | null; black: string | null };
+  playerNames: { white: string | null; black: string | null };
+  playerIds: string[];
+  options: GameOptions;
+  moveCount: number;
+  pendingDrawOffer?: 'white' | 'black';
+  rematchGameId?: string;
+}
+
+function callerColor(doc: GameDocData, uid: string): Color {
+  if (!doc.playerIds.includes(uid)) {
+    throw new HttpsError('permission-denied', 'not a player in this game');
+  }
+  return doc.players.white === uid ? 'w' : 'b';
+}
+
+function requireGameId(data: unknown): string {
+  const gameId = (data as { gameId?: unknown })?.gameId;
+  if (typeof gameId !== 'string' || gameId.length === 0) {
+    throw new HttpsError('invalid-argument', 'missing gameId');
+  }
+  return gameId;
+}
+
+function appendMeta(
+  tx: FirebaseFirestore.Transaction,
+  gameRef: FirebaseFirestore.DocumentReference,
+  doc: GameDocData,
+  kind: 'resign' | 'draw-offer' | 'draw-accept' | 'draw-decline',
+  uid: string,
+  gameUpdates: Record<string, unknown>,
+): void {
+  tx.set(gameRef.collection('moves').doc(String(doc.moveCount)), {
+    n: doc.moveCount,
+    kind,
+    by: uid,
+    at: FieldValue.serverTimestamp(),
+  });
+  tx.update(gameRef, {
+    moveCount: doc.moveCount + 1,
+    updatedAt: FieldValue.serverTimestamp(),
+    ...gameUpdates,
+  });
+}
+
+export const resign = onCall(async (request) => {
+  const caller = requireAuth(request);
+  const gameId = requireGameId(request.data);
+  const db = getFirestore();
+  const gameRef = db.collection('games').doc(gameId);
+  await db.runTransaction(async (tx) => {
+    const game = await tx.get(gameRef);
+    if (!game.exists) throw new HttpsError('not-found', 'game not found');
+    const doc = game.data() as GameDocData;
+    const color = callerColor(doc, caller.uid);
+    if (doc.status !== 'active') throw new HttpsError('failed-precondition', 'game is not active');
+    appendMeta(tx, gameRef, doc, 'resign', caller.uid, {
+      status: 'finished',
+      result: color === 'w' ? 'black' : 'white',
+      endedBy: 'resign',
+      pendingDrawOffer: FieldValue.delete(),
+    });
+  });
+  return { ok: true };
+});
+
+export const offerDraw = onCall(async (request) => {
+  const caller = requireAuth(request);
+  const gameId = requireGameId(request.data);
+  const db = getFirestore();
+  const gameRef = db.collection('games').doc(gameId);
+  await db.runTransaction(async (tx) => {
+    const game = await tx.get(gameRef);
+    if (!game.exists) throw new HttpsError('not-found', 'game not found');
+    const doc = game.data() as GameDocData;
+    const color = callerColor(doc, caller.uid);
+    if (doc.status !== 'active') throw new HttpsError('failed-precondition', 'game is not active');
+    if (doc.pendingDrawOffer) {
+      throw new HttpsError('failed-precondition', 'a draw offer is already pending');
+    }
+    appendMeta(tx, gameRef, doc, 'draw-offer', caller.uid, {
+      pendingDrawOffer: color === 'w' ? 'white' : 'black',
+    });
+  });
+  return { ok: true };
+});
+
+export const respondDraw = onCall(async (request) => {
+  const caller = requireAuth(request);
+  const gameId = requireGameId(request.data);
+  const accept = (request.data as { accept?: unknown })?.accept;
+  if (typeof accept !== 'boolean') throw new HttpsError('invalid-argument', 'missing accept');
+  const db = getFirestore();
+  const gameRef = db.collection('games').doc(gameId);
+  await db.runTransaction(async (tx) => {
+    const game = await tx.get(gameRef);
+    if (!game.exists) throw new HttpsError('not-found', 'game not found');
+    const doc = game.data() as GameDocData;
+    const color = callerColor(doc, caller.uid);
+    if (doc.status !== 'active') throw new HttpsError('failed-precondition', 'game is not active');
+    const pendingColor = doc.pendingDrawOffer === 'white' ? 'w' : doc.pendingDrawOffer === 'black' ? 'b' : undefined;
+    if (!pendingColor) throw new HttpsError('failed-precondition', 'no draw offer pending');
+    if (pendingColor === color) {
+      throw new HttpsError('failed-precondition', 'cannot respond to your own offer');
+    }
+    appendMeta(tx, gameRef, doc, accept ? 'draw-accept' : 'draw-decline', caller.uid, {
+      pendingDrawOffer: FieldValue.delete(),
+      ...(accept ? { status: 'finished', result: 'draw', endedBy: 'draw-agreed' } : {}),
+    });
+  });
+  return { ok: true };
+});
+
+export const rematch = onCall(async (request) => {
+  const caller = requireAuth(request);
+  const gameId = requireGameId(request.data);
+  const db = getFirestore();
+  const gameRef = db.collection('games').doc(gameId);
+  const newRef = db.collection('games').doc();
+  const newId = await db.runTransaction(async (tx) => {
+    const game = await tx.get(gameRef);
+    if (!game.exists) throw new HttpsError('not-found', 'game not found');
+    const doc = game.data() as GameDocData;
+    callerColor(doc, caller.uid);
+    if (doc.status !== 'finished') {
+      throw new HttpsError('failed-precondition', 'rematch is only available after a game ends');
+    }
+    if (doc.rematchGameId) return doc.rematchGameId; // both players converge
+    if (doc.players.white === null || doc.players.black === null) {
+      throw new HttpsError('failed-precondition', 'game never had two players');
+    }
+    tx.set(newRef, {
+      players: { white: doc.players.black, black: doc.players.white },
+      playerNames: { white: doc.playerNames.black, black: doc.playerNames.white },
+      playerIds: doc.playerIds,
+      options: doc.options,
+      status: 'active',
+      toMove: 'w',
+      turn: 1,
+      moveCount: 0,
+      state: serializeState(initialState(doc.options)),
+      rematchOf: gameRef.id,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    tx.update(gameRef, { rematchGameId: newRef.id, updatedAt: FieldValue.serverTimestamp() });
+    return newRef.id;
+  });
+  return { gameId: newId };
+});

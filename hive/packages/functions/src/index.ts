@@ -10,4 +10,4 @@ export const ping = onCall<{ echo?: string }>((request) => {
   return { pong: true, echo: request.data?.echo ?? null };
 });
 
-export { createGame, joinGame, submitMove } from './games';
+export { createGame, joinGame, offerDraw, rematch, resign, respondDraw, submitMove } from './games';

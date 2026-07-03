@@ -25,6 +25,29 @@ export async function signUp(name: string): Promise<TestUser> {
   return { uid: body.localId, token: body.idToken, email };
 }
 
+export interface JoinedGame {
+  gameId: string;
+  white: TestUser;
+  black: TestUser;
+}
+
+/** Create a game as white ('Ada'), join as black ('Sam'). */
+export async function createJoinedGame(options: {
+  mosquito: boolean;
+  ladybug: boolean;
+  pillbug: boolean;
+  tournamentOpening: boolean;
+}): Promise<JoinedGame> {
+  const white = await signUp('Ada');
+  const black = await signUp('Sam');
+  const created = await call('createGame', { options, color: 'w' }, white);
+  if (created.status !== 200) throw new Error(`createGame failed: ${created.errorMessage}`);
+  const { gameId, code } = created.result as { gameId: string; code: string };
+  const joined = await call('joinGame', { code }, black);
+  if (joined.status !== 200) throw new Error(`joinGame failed: ${joined.errorMessage}`);
+  return { gameId, white, black };
+}
+
 export interface CallResult {
   status: number;
   result?: unknown;

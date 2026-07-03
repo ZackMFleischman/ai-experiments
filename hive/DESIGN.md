@@ -251,7 +251,7 @@ games/{gameId}:         { players: {white: uid, black: uid|null},
                           endedBy?: 'surround'|'resign'|'timeout'|'draw-agreed'|'repetition',
                           toMove, turn, moveCount,
                           pendingDrawOffer?: 'white'|'black', // cleared by any move or decline
-                          rematchOf?: gameId,                 // links the return game
+                          rematchOf?: gameId, rematchGameId?: gameId, // return-game links (idempotent rematch)
                           deadlineAt?: Timestamp,             // async time control
                           updatedAt, createdAt,
                           state: string }                     // engine serializeState snapshot (fast load)
