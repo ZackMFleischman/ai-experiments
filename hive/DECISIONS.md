@@ -20,6 +20,23 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   default, no firebase in bundle, minimal manifest — subset of T5.1) via Cloudflare
   Pages project `hive` (GitHub Pages fallback). Firebase Hosting/M4+ unaffected.
 
+- **2026-07-02 — M0 SHIPPED** (PR #22). Gates: validate:m0 (typecheck+docs lint,
+  unit layers incl. functions-vs-emulator, Playwright smoke ×3 viewports) green in
+  CI. Deviations: no Firebase console (see above). Stumbles: CI webServer needed
+  `--host 127.0.0.1`; Playwright pinned ~1.56 to match the sandbox chromium.
+
+- **2026-07-02 — M1 SHIPPED** (PR #23). Gates: validate:m1 green in CI (1000-game
+  property run, fc seed pinned) + a clean 10,000-game run locally. Deviations:
+  none; frozen API implemented verbatim. Stumbles: long synchronous fc runs starve
+  vitest's worker RPC — the suite yields a macrotask between games; legalMoves
+  memoized by state identity for suite speed.
+
+- **2026-07-02 — M2 SHIPPED** (PR #24). Gates: validate:m2 green in CI (19 pinned
+  UHP edge-case fixtures, all-expansions + repetition full-game fixtures, property
+  suite ×2 rule sets). Judgment call: toss steps use the height-1 gate rule (piece
+  travels at height one, per DESIGN §2.2/FAQ) — stricter than the beetle rule; and
+  legalMoves drops tosses that duplicate a legal self-move (UHP canonicalization).
+
 - **2026-07-03 — Production Firebase project `hive-zmf` registered** (DESIGN §5.6
   steps 1–3 done by Zack): web-app config committed as `VITE_FIREBASE_*` in
   `packages/app/.env` (public identifiers). `.firebaserc` gains a `prod` alias;

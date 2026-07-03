@@ -75,48 +75,11 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ## 2. Milestone task lists
 
-### M0 — Scaffold
+### M0 — shipped, see DECISIONS.md
 
-| # | Task | Files / notes | Gate |
-|---|---|---|---|
-| T0.1 | Workspace root: `pnpm-workspace.yaml`, root `package.json` (scripts above as stubs), base `tsconfig.json`, `.gitignore` (`artifacts/`, `.firebase/`, `www/`… ) | `hive/` root | `pnpm install` clean |
-| T0.2 | `@hive/engine` skeleton: `src/index.ts` exporting the frozen types of §5 (bodies may `throw new Error('unimplemented')`), vitest config, one passing placeholder test | `packages/engine` | `pnpm --filter @hive/engine test` |
-| T0.3 | `@hive/app` shell: Vite + React + MUI + router; empty routed screens (Landing, Lobby, NewGame, Join, Game, Settings); MUI theme with light/dark toggle stub | `packages/app` | app boots, all routes render |
-| T0.4 | `@hive/functions` + emulator config: `firebase.json`, `.firebaserc`, Firestore rules stub (deny-all except own `users/{uid}`), `firestore.indexes.json`, one `ping` callable + emulator test; committed emulator seed fixture | `packages/functions`, repo root | `pnpm --filter @hive/functions test` (boots emulator) |
-| T0.5 | `e2e` package: Playwright config (chromium; 3 viewport projects: 390×844 / 1024×768 / 1440×900), smoke test that loads the app and asserts no console errors | `e2e/` | `pnpm --filter e2e test` |
-| T0.6 | CI: GitHub Actions — typecheck + unit layers on push, full `pnpm validate` (incl. e2e) on PR. No Firebase console/Hosting before M4 (DECISIONS 2026-07-02); the static hot-seat deploy ships in T3.12 | `.github/workflows/hive-ci.yml` | `pnpm validate:m0` |
-| T0.7 | Commit `hive/CLAUDE.md` (builder guide: commands, protocol pointer, frozen-surface warning) and wire `validate:m0` = typecheck + all tests + e2e smoke | root | `pnpm validate:m0` |
-| T0.8 | Docs lint: `scripts/check-docs.mjs` enforcing the §7 policy (budgets, closed file set, no "Update:" markers); wire into `pnpm typecheck` + CI | root | lint fails on a synthetic violation, passes on HEAD |
+### M1 — shipped, see DECISIONS.md
 
-### M1 — Engine: base game
-
-All tasks in `packages/engine`. Every task ends with unit tests in
-`packages/engine/test/`. **Signatures are pinned in §5 — do not drift.**
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T1.1 | `hex.ts`: axial coords, `neighbors(h)`, `add/sub`, `cellKey`/`parseKey`, pixel↔axial (`hexToPixel`, `pixelToHex` via fractional-cube round) | pointy-top; pixel math lives here so board + drag share it | hex tests (incl. round-trip fuzz) |
-| T1.2 | `state.ts`: `GameState`, `GameOptions`, `TileId`, `Move`, immutable update helpers, `initialState(options)` | §5 types verbatim | state tests |
-| T1.3 | `rules.ts` (part 1): placement legality — own-color contact, first two placements, queen-by-turn-4, tournament-opening toggle, "covered cell counts as covering color" | | placement tests |
-| T1.4 | `rules.ts` (part 2): one-hive via articulation points (iterative DFS); tops of stacks never articulation-blocked | | one-hive tests incl. stack cases |
-| T1.5 | `rules.ts` (part 3): freedom-to-move gate predicate, generalized by height (ground slide, climb up/down) | one predicate reused by bugs + pillbug toss | gate tests (both-neighbors-occupied, height cases) |
-| T1.6 | `bugs/queen.ts`, `bugs/beetle.ts`, `bugs/grasshopper.ts` + bug registry table | beetle: stacking, covered-tile freeze; hopper: ray-walk ≥1 | per-bug tests |
-| T1.7 | `bugs/spider.ts`, `bugs/ant.ts` | perimeter slide DFS/BFS; spider exactly-3 no-revisit; ant closure | per-bug tests |
-| T1.8 | `engine.ts`: `legalMoves` (placements + moves + forced pass), `applyMove` (throws on illegal), `result` (surround / double-surround draw) | pass is a `Move`, offered only when nothing else is legal | engine tests |
-| T1.9 | `uhp.ts`: parse/serialize vs. current state; toss/self-move ambiguity canonicalizes to **self-move** (DESIGN §2.4); one hand-authored full-game UHP fixture replaying to a win | fixture lives in `test/fixtures/` | round-trip + replay tests |
-| T1.10 | `zobrist.ts` + repetition: hash over (cell, stack slot, tile) + side-to-move; `positionHashes` maintained by `applyMove`; threefold ⇒ `result` = draw. Property suite (fast-check): invariants list in §6 over 10k random games | seeded PRNG for reproducibility | `pnpm validate:m1` |
-
-`validate:m1` = full engine suite + the 10k-game property run (property count
-configurable via env so CI can run 1k on PRs, 10k nightly).
-
-### M2 — Engine: expansions
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T2.1 | `bugs/ladybug.ts`: exactly 2 on-top steps then 1 down, gate-checked at height | | ladybug tests |
-| T2.2 | `bugs/pillbug.ts`: queen-move + toss generation; `lastMoved` bookkeeping in `applyMove`; stun (tossed piece immobile next turn); may not toss opponent's-last-moved piece, stacked pieces, or through a height-1 gate | this is the fiddly one — encode every constraint as its own test | pillbug tests |
-| T2.3 | `bugs/mosquito.ts`: union of adjacent generators; mosquito-only ⇒ stuck; on-top ⇒ beetle; copying pillbug grants toss | | mosquito tests |
-| T2.4 | Edge-case fixture pack: encode the pinned list in §6 as UHP fixtures; re-run property suite with all expansions on | `test/fixtures/expansions/` | `pnpm validate:m2` |
+### M2 — shipped, see DECISIONS.md
 
 ### M3 — Local game UI (+ the validation harness)
 
