@@ -25,3 +25,11 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `packages/app/.env` (public identifiers). `.firebaserc` gains a `prod` alias;
   `default` stays `demo-hive` so emulators/CI keep running fully offline —
   deploys use `--project prod`. VAPID key + deploy service account still pending.
+
+- **2026-07-03 — DESIGN §5.6 one-time setup complete**: VAPID public key committed
+  (`VITE_FIREBASE_VAPID_KEY` in `packages/app/.env`); CI deploy service account
+  (`github-actions-deploy`, Editor role on `hive-zmf`) created, its JSON key stored
+  as GitHub Actions secret **`FIREBASE_SERVICE_ACCOUNT_HIVE_ZMF`**. The M4+ deploy
+  job authenticates by writing that secret to a file and pointing
+  `GOOGLE_APPLICATION_CREDENTIALS` at it, then `firebase deploy --project prod`
+  (login:ci tokens are deprecated). No deploy workflow exists yet — agent work.
