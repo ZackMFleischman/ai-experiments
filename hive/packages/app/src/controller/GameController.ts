@@ -52,6 +52,8 @@ export interface Snapshot {
   lastMove?: { from?: Hex; to: Hex };
   drag?: DragState;
   view: ViewState | null;
+  /** Set in multiplayer (T4.6): the seat this client plays. Hot-seat: unset. */
+  myColor?: Color;
   pendingDrawOffer?: Color;
   /** End-of-game beat (T3.9): board moment before the overlay. */
   beat?: { center: Hex; pulseCells: ReadonlySet<CellKey> };
@@ -85,19 +87,41 @@ export class GameController {
   private beatDone = false;
   private overlayDismissed = false;
 
+  private remoteUnsub: (() => void) | undefined;
+
   constructor(
     private readonly transport: GameTransport,
     private readonly options: GameOptions,
+    /** Multiplayer (T4.6): the seat this client plays; hot-seat leaves it unset. */
+    private readonly perspective?: Color,
   ) {
     this.state = initialState(options);
   }
 
-  /** Restore from the transport's stored log (refresh resume, T3.11). */
+  /** Restore from the transport's stored log and start listening for remote
+   * entries (refresh resume T3.11; live sync T4.6). */
   async init(): Promise<void> {
+    await this.reload();
+    this.remoteUnsub ??= this.transport.onRemoteEntry((entry, index) => {
+      this.applyRemote(entry, index);
+    });
+  }
+
+  dispose(): void {
+    this.remoteUnsub?.();
+    this.remoteUnsub = undefined;
+  }
+
+  /** Rebuild everything from the transport's stored log (also the resync path
+   * after a rejected submit or a gap in the remote stream). */
+  private async reload(): Promise<void> {
     const stored = await this.transport.load();
     if (!stored) return;
     let s = initialState(stored.options);
     this.pendingDrawOffer = undefined;
+    this.resigned = undefined;
+    this.drawAgreed = false;
+    this.lastMove = undefined;
     for (const entry of stored.log) {
       if (entry.kind === 'move' || entry.kind === 'pass') {
         const move = parseUhp(entry.uhp, s);
@@ -112,6 +136,33 @@ export class GameController {
     this.state = s;
     this.log = [...stored.log];
     this.emit();
+  }
+
+  /** An entry arrived from elsewhere (opponent, other device). Echoes of
+   * already-applied local entries are ignored; a gap means we missed
+   * something and resync wholesale. */
+  private applyRemote(entry: LogEntry, index: number): void {
+    if (index < this.log.length) return;
+    if (index > this.log.length) {
+      void this.reload();
+      return;
+    }
+    if (entry.kind === 'move' || entry.kind === 'pass') {
+      const move = parseUhp(entry.uhp, this.state);
+      this.state = applyMove(this.state, move);
+      this.lastMove = moveCells(move);
+      this.pendingDrawOffer = undefined;
+    } else if (entry.kind === 'resign') this.resigned = entry.by;
+    else if (entry.kind === 'draw-offer') this.pendingDrawOffer = entry.by;
+    else if (entry.kind === 'draw-accept') this.drawAgreed = true;
+    else if (entry.kind === 'draw-decline') this.pendingDrawOffer = undefined;
+    this.log = [...this.log, entry];
+    this.emit();
+  }
+
+  /** True when the local player may act on the position (always, in hot-seat). */
+  private interactive(): boolean {
+    return !this.perspective || this.state.toMove === this.perspective;
   }
 
   // ── store plumbing ─────────────────────────────────────────────────────────
@@ -134,7 +185,7 @@ export class GameController {
   private buildSnapshot(): Snapshot {
     const res = result(this.state);
     const end = this.computeEnd(res);
-    const moves = end ? [] : legalMoves(this.state);
+    const moves = end || !this.interactive() ? [] : legalMoves(this.state);
 
     const movable = new Set<CellKey>();
     for (const m of moves) {
@@ -172,6 +223,7 @@ export class GameController {
       ...(this.lastMove ? { lastMove: this.lastMove } : {}),
       ...(this.drag ? { drag: this.drag } : {}),
       view: this.view,
+      ...(this.perspective ? { myColor: this.perspective } : {}),
       ...(this.pendingDrawOffer ? { pendingDrawOffer: this.pendingDrawOffer } : {}),
       ...(end && !this.beatDone && end.by === 'surround' ? { beat: this.buildBeat() } : {}),
       overlayOpen: !!end && (this.beatDone || end.by !== 'surround') && !this.overlayDismissed,
@@ -294,6 +346,7 @@ export class GameController {
   // ── moves & meta actions ───────────────────────────────────────────────────
 
   pass(): void {
+    if (!this.interactive()) return;
     const move = legalMoves(this.state).find((m) => m.type === 'pass');
     if (move) this.submitMove(move);
   }
@@ -322,7 +375,8 @@ export class GameController {
   private submitMeta(entry: LogEntry): void {
     this.log = [...this.log, entry];
     this.emit();
-    void this.transport.submit(entry, this.log.length - 1).catch(() => {});
+    // A refused meta action means we were out of sync — rebuild from source.
+    void this.transport.submit(entry, this.log.length - 1).catch(() => void this.reload());
   }
 
   resign(by: Color): void {
