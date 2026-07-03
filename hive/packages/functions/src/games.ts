@@ -5,6 +5,7 @@
 import { randomInt } from 'node:crypto';
 import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https';
+import { notify } from './notify';
 import {
   IllegalMoveError,
   applyMove,
@@ -110,6 +111,7 @@ export const joinGame = onCall(async (request) => {
   const db = getFirestore();
   const inviteRef = db.collection('invites').doc(code);
 
+  let creatorUid: string | null = null;
   const gameId = await db.runTransaction(async (tx) => {
     const invite = await tx.get(inviteRef);
     if (!invite.exists) throw new HttpsError('not-found', 'invite not found');
@@ -130,6 +132,7 @@ export const joinGame = onCall(async (request) => {
       throw new HttpsError('failed-precondition', 'cannot join your own game');
     }
     const seat: 'white' | 'black' = data.players.white === null ? 'white' : 'black';
+    creatorUid = seat === 'white' ? data.players.black : data.players.white;
     tx.update(gameRef, {
       [`players.${seat}`]: caller.uid,
       [`playerNames.${seat}`]: caller.name,
@@ -141,6 +144,7 @@ export const joinGame = onCall(async (request) => {
     return inv.gameId;
   });
 
+  await notify(db, creatorUid, 'game-joined', { gameId, opponentName: caller.name });
   return { gameId };
 });
 
@@ -167,6 +171,8 @@ export const submitMove = onCall(async (request) => {
   const db = getFirestore();
   const gameRef = db.collection('games').doc(gameId);
 
+  let recipientUid: string | null = null;
+  let recipientOutcome: string | null = null;
   const moveCount = await db.runTransaction(async (tx) => {
     const game = await tx.get(gameRef);
     if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -204,6 +210,7 @@ export const submitMove = onCall(async (request) => {
       throw err;
     }
 
+    recipientUid = myColor === 'w' ? doc.players.black : doc.players.white;
     const outcome = result(next);
     const terminal =
       outcome.status === 'won'
@@ -212,6 +219,11 @@ export const submitMove = onCall(async (request) => {
           ? { status: 'finished', result: 'draw', endedBy: outcome.by }
           : null;
 
+    if (terminal) {
+      const recipientColor = myColor === 'w' ? 'black' : 'white';
+      recipientOutcome =
+        terminal.result === 'draw' ? 'Draw' : terminal.result === recipientColor ? 'You won!' : 'You lost';
+    }
     tx.set(gameRef.collection('moves').doc(String(expectedMoveCount)), {
       n: expectedMoveCount,
       kind,
@@ -231,6 +243,11 @@ export const submitMove = onCall(async (request) => {
     return expectedMoveCount + 1;
   });
 
+  await notify(db, recipientUid, recipientOutcome ? 'game-over' : 'opponent-moved', {
+    gameId,
+    opponentName: caller.name,
+    ...(recipientOutcome ? { outcome: recipientOutcome } : {}),
+  });
   return { moveCount };
 });
 
@@ -288,18 +305,25 @@ export const resign = onCall(async (request) => {
   const gameId = requireGameId(request.data);
   const db = getFirestore();
   const gameRef = db.collection('games').doc(gameId);
+  let opponentUid: string | null = null;
   await db.runTransaction(async (tx) => {
     const game = await tx.get(gameRef);
     if (!game.exists) throw new HttpsError('not-found', 'game not found');
     const doc = game.data() as GameDocData;
     const color = callerColor(doc, caller.uid);
     if (doc.status !== 'active') throw new HttpsError('failed-precondition', 'game is not active');
+    opponentUid = color === 'w' ? doc.players.black : doc.players.white;
     appendMeta(tx, gameRef, doc, 'resign', caller.uid, {
       status: 'finished',
       result: color === 'w' ? 'black' : 'white',
       endedBy: 'resign',
       pendingDrawOffer: FieldValue.delete(),
     });
+  });
+  await notify(db, opponentUid, 'game-over', {
+    gameId,
+    opponentName: caller.name,
+    outcome: `You won — ${caller.name} resigned`,
   });
   return { ok: true };
 });
@@ -309,6 +333,7 @@ export const offerDraw = onCall(async (request) => {
   const gameId = requireGameId(request.data);
   const db = getFirestore();
   const gameRef = db.collection('games').doc(gameId);
+  let opponentUid: string | null = null;
   await db.runTransaction(async (tx) => {
     const game = await tx.get(gameRef);
     if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -318,10 +343,12 @@ export const offerDraw = onCall(async (request) => {
     if (doc.pendingDrawOffer) {
       throw new HttpsError('failed-precondition', 'a draw offer is already pending');
     }
+    opponentUid = color === 'w' ? doc.players.black : doc.players.white;
     appendMeta(tx, gameRef, doc, 'draw-offer', caller.uid, {
       pendingDrawOffer: color === 'w' ? 'white' : 'black',
     });
   });
+  await notify(db, opponentUid, 'draw-offered', { gameId, opponentName: caller.name });
   return { ok: true };
 });
 
@@ -332,6 +359,8 @@ export const respondDraw = onCall(async (request) => {
   if (typeof accept !== 'boolean') throw new HttpsError('invalid-argument', 'missing accept');
   const db = getFirestore();
   const gameRef = db.collection('games').doc(gameId);
+  let opponentUid: string | null = null;
+  let notifyAccept = false;
   await db.runTransaction(async (tx) => {
     const game = await tx.get(gameRef);
     if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -343,11 +372,20 @@ export const respondDraw = onCall(async (request) => {
     if (pendingColor === color) {
       throw new HttpsError('failed-precondition', 'cannot respond to your own offer');
     }
+    opponentUid = color === 'w' ? doc.players.black : doc.players.white;
     appendMeta(tx, gameRef, doc, accept ? 'draw-accept' : 'draw-decline', caller.uid, {
       pendingDrawOffer: FieldValue.delete(),
       ...(accept ? { status: 'finished', result: 'draw', endedBy: 'draw-agreed' } : {}),
     });
+    notifyAccept = accept;
   });
+  if (notifyAccept) {
+    await notify(db, opponentUid, 'game-over', {
+      gameId,
+      opponentName: caller.name,
+      outcome: 'Draw agreed',
+    });
+  }
   return { ok: true };
 });
 
@@ -357,6 +395,7 @@ export const rematch = onCall(async (request) => {
   const db = getFirestore();
   const gameRef = db.collection('games').doc(gameId);
   const newRef = db.collection('games').doc();
+  let opponentUid: string | null = null;
   const newId = await db.runTransaction(async (tx) => {
     const game = await tx.get(gameRef);
     if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -384,7 +423,9 @@ export const rematch = onCall(async (request) => {
       updatedAt: FieldValue.serverTimestamp(),
     });
     tx.update(gameRef, { rematchGameId: newRef.id, updatedAt: FieldValue.serverTimestamp() });
+    opponentUid = doc.players.white === caller.uid ? doc.players.black : doc.players.white;
     return newRef.id;
   });
+  await notify(db, opponentUid, 'rematch-offered', { gameId: newId, opponentName: caller.name });
   return { gameId: newId };
 });
