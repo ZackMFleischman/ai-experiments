@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-hive"
+    "default": "demo-hive",
+    "prod": "hive-zmf"
   }
 }

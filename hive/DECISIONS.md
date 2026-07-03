@@ -19,3 +19,9 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   refresh resumes) and T3.12 static deploy of the hot-seat PWA (LocalTransport
   default, no firebase in bundle, minimal manifest — subset of T5.1) via Cloudflare
   Pages project `hive` (GitHub Pages fallback). Firebase Hosting/M4+ unaffected.
+
+- **2026-07-03 — Production Firebase project `hive-zmf` registered** (DESIGN §5.6
+  steps 1–3 done by Zack): web-app config committed as `VITE_FIREBASE_*` in
+  `packages/app/.env` (public identifiers). `.firebaserc` gains a `prod` alias;
+  `default` stays `demo-hive` so emulators/CI keep running fully offline —
+  deploys use `--project prod`. VAPID key + deploy service account still pending.
