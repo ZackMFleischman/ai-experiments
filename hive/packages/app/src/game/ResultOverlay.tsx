@@ -1,4 +1,4 @@
-// Result overlay + persistent banner (T3.9, DESIGN §6.3 minus rematch).
+// Result overlay + persistent banner (T3.9/T4.7, DESIGN §6.3).
 // Full-screen sheet on phones, centered card above; restrained per-outcome tone.
 import { Box, Button, Dialog, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
@@ -38,9 +38,12 @@ const OUTCOME_TINT: Record<GameEnd['by'], string> = {
 export function ResultOverlay({
   controller,
   snap,
+  onRematch,
 }: {
   controller: GameController;
   snap: Snapshot;
+  /** Multiplayer (T4.7): create the colors-swapped return game. */
+  onRematch?: () => void;
 }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -92,9 +95,15 @@ export function ResultOverlay({
           {moveCount} moves
         </Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1, width: { xs: '100%', sm: 'auto' } }}>
-          <Button variant="contained" onClick={() => void controller.newGame()} data-testid="overlay-new-game">
-            New game
-          </Button>
+          {onRematch ? (
+            <Button variant="contained" onClick={onRematch} data-testid="overlay-rematch">
+              Rematch
+            </Button>
+          ) : (
+            <Button variant="contained" onClick={() => void controller.newGame()} data-testid="overlay-new-game">
+              New game
+            </Button>
+          )}
           <Button onClick={() => controller.dismissOverlay()} data-testid="overlay-view-board">
             View board
           </Button>

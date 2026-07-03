@@ -232,6 +232,8 @@ export function result(state: GameState): GameResult;        // board outcomes o
 export function toUhp(move: Move, state: GameState): string;
 export function parseUhp(uhp: string, state: GameState): Move; // ambiguity ⇒ self-move
 export function hash(state: GameState): bigint;
+export function serializeState(state: GameState): string;   // games/{id}.state (DESIGN §5.2)
+export function deserializeState(text: string): GameState;  // exact round-trip incl. hashes
 
 // hex utilities (shared with the renderer/drag layer)
 export function neighbors(h: Hex): Hex[];

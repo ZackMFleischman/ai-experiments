@@ -48,6 +48,7 @@ export { initialState } from './state';
 export { applyMove, IllegalMoveError, legalMoves, result } from './engine';
 export { parseUhp, toUhp } from './uhp';
 export { hash } from './zobrist';
+export { deserializeState, serializeState } from './serialize';
 
 // hex utilities (shared with the renderer/drag layer)
 export { hexToPixel, neighbors, pixelToHex } from './hex';

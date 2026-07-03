@@ -22,14 +22,18 @@ export function GameMenu({ controller, snap }: { controller: GameController; sna
   const [confirm, setConfirm] = useState<Confirm>(null);
   const close = () => setAnchor(null);
 
+  // Hot-seat: actions belong to whoever is to move. Multiplayer (T4.6): they
+  // always belong to this client's seat.
+  const acting = snap.myColor ?? snap.toMove;
+
   const act = () => {
-    if (confirm === 'resign') controller.resign(snap.toMove);
-    if (confirm === 'draw') controller.offerDraw(snap.toMove);
+    if (confirm === 'resign') controller.resign(acting);
+    if (confirm === 'draw') controller.offerDraw(acting);
     if (confirm === 'new-game') void controller.newGame();
     setConfirm(null);
   };
 
-  const who = snap.toMove === 'w' ? 'White' : 'Black';
+  const who = acting === 'w' ? 'White' : 'Black';
   const text = {
     resign: `${who} resigns the game?`,
     draw: `${who} offers a draw?`,
@@ -52,7 +56,7 @@ export function GameMenu({ controller, snap }: { controller: GameController; sna
           Pass
         </MenuItem>
         <MenuItem
-          disabled={!!snap.end || !!snap.pendingDrawOffer}
+          disabled={!!snap.end || !!snap.pendingDrawOffer || (!!snap.myColor && snap.toMove !== snap.myColor)}
           onClick={() => {
             setConfirm('draw');
             close();
@@ -69,14 +73,16 @@ export function GameMenu({ controller, snap }: { controller: GameController; sna
         >
           Resign
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setConfirm('new-game');
-            close();
-          }}
-        >
-          New game
-        </MenuItem>
+        {!snap.myColor && (
+          <MenuItem
+            onClick={() => {
+              setConfirm('new-game');
+              close();
+            }}
+          >
+            New game
+          </MenuItem>
+        )}
       </Menu>
 
       <Dialog open={confirm !== null} onClose={() => setConfirm(null)}>
@@ -92,22 +98,27 @@ export function GameMenu({ controller, snap }: { controller: GameController; sna
         </DialogActions>
       </Dialog>
 
-      {/* Hot-seat draw response: the other player answers on the same device. */}
-      <Dialog open={!!snap.pendingDrawOffer && !snap.end}>
+      {/* Draw response: in hot-seat the other player answers on the same
+          device; in multiplayer only the non-offering client sees it. */}
+      <Dialog open={!!snap.pendingDrawOffer && !snap.end && snap.pendingDrawOffer !== snap.myColor}>
         <DialogTitle>
           {snap.pendingDrawOffer === 'w' ? 'White' : 'Black'} offers a draw
         </DialogTitle>
         <DialogActions>
           <Button
             data-testid="draw-decline"
-            onClick={() => controller.respondDraw(snap.pendingDrawOffer === 'w' ? 'b' : 'w', false)}
+            onClick={() =>
+              controller.respondDraw(snap.myColor ?? (snap.pendingDrawOffer === 'w' ? 'b' : 'w'), false)
+            }
           >
             Decline
           </Button>
           <Button
             variant="contained"
             data-testid="draw-accept"
-            onClick={() => controller.respondDraw(snap.pendingDrawOffer === 'w' ? 'b' : 'w', true)}
+            onClick={() =>
+              controller.respondDraw(snap.myColor ?? (snap.pendingDrawOffer === 'w' ? 'b' : 'w'), true)
+            }
           >
             Accept
           </Button>

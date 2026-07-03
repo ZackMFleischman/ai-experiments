@@ -1,17 +1,51 @@
 import AddIcon from '@mui/icons-material/Add';
-import { Box, Button, Fab, Typography } from '@mui/material';
+import { Avatar, Box, Button, Chip, Fab, Stack, Typography } from '@mui/material';
+import { lazy, Suspense } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useAuth } from '../sync/authContext';
 
+// Full mode only: the firestore-backed games list (kept out of the static bundle).
+const OnlineGames =
+  import.meta.env.VITE_HIVE_MODE === 'full' ? lazy(() => import('../sync/OnlineGames')) : null;
+
+/** Lobby (T4.1): signed-in identity + sign-out in full mode. The real game
+ * list (your-turn/waiting groups, thumbnails) lands with T4.7. */
 export function Lobby() {
+  const auth = useAuth();
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" component="h1">
-        Your games
-      </Typography>
-      <Typography color="text.secondary" sx={{ mt: 2 }}>
-        Hot-seat play: two players, one device. Multiplayer arrives with M4.
-      </Typography>
-      <Button component={RouterLink} to="/game/local" variant="contained" sx={{ mt: 2 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Typography variant="h5" component="h1">
+          Your games
+        </Typography>
+        {auth.mode === 'full' && auth.user && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Chip
+              avatar={<Avatar {...(auth.user.photoURL ? { src: auth.user.photoURL } : {})} />}
+              label={auth.user.displayName ?? auth.user.email ?? 'Player'}
+              data-testid="lobby-user"
+            />
+            <Button size="small" onClick={() => void auth.signOut()} data-testid="sign-out">
+              Sign out
+            </Button>
+          </Stack>
+        )}
+      </Stack>
+      {OnlineGames ? (
+        <Suspense fallback={null}>
+          <OnlineGames />
+        </Suspense>
+      ) : (
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          Hot-seat play: two players, one device.
+        </Typography>
+      )}
+      <Button
+        component={RouterLink}
+        to="/game/local"
+        variant={OnlineGames ? 'outlined' : 'contained'}
+        sx={{ mt: 3 }}
+      >
         Play hot-seat
       </Button>
       <Fab

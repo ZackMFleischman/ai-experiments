@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { boardEntries } from './entries/boards';
 import { endgameEntries } from './entries/endgame';
 import { interactionEntries } from './entries/interactions';
+import { screenEntries } from './entries/screens';
 import { SpriteContactSheet } from './entries/SpriteContactSheet';
 
 export interface GalleryEntry {
@@ -16,4 +17,5 @@ export const GALLERY: GalleryEntry[] = [
   ...boardEntries,
   ...interactionEntries,
   ...endgameEntries,
+  ...screenEntries,
 ];

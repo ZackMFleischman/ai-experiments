@@ -19,9 +19,12 @@ import { ResultBanner, ResultOverlay } from './ResultOverlay';
 export function GameScreen({
   controller,
   staticMode = false,
+  onRematch,
 }: {
   controller: GameController;
   staticMode?: boolean;
+  /** Multiplayer (T4.7): overlay offers Rematch instead of New game. */
+  onRematch?: () => void;
 }) {
   const snap = useGameController(controller);
   const [movesOpen, setMovesOpen] = useState(false);
@@ -74,7 +77,7 @@ export function GameScreen({
         <HandTray controller={controller} />
       </Box>
       <MoveList log={snap.log} open={movesOpen} onClose={() => setMovesOpen(false)} />
-      <ResultOverlay controller={controller} snap={snap} />
+      <ResultOverlay controller={controller} snap={snap} {...(onRematch ? { onRematch } : {})} />
     </Box>
   );
 }

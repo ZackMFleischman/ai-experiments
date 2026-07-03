@@ -97,3 +97,55 @@ jobs:
       - name: notice when Cloudflare secrets are missing
         if: env.CF_API_TOKEN == '' || env.CF_ACCOUNT_ID == ''
         run: echo "::notice::Cloudflare secrets not set — built and verified the bundle but skipped deploy."
+
+  # Production Firebase deploy (M4): the multiplayer app to Hosting, the
+  # callables to Functions, rules + indexes to Firestore — main merges only.
+  # Auth per DECISIONS 2026-07-03: service-account JSON secret via
+  # GOOGLE_APPLICATION_CREDENTIALS (login:ci tokens are deprecated).
+  firebase:
+    name: firebase deploy (hosting · functions · firestore)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HIVE_ZMF }}
+    defaults:
+      run:
+        working-directory: hive
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: hive/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: hive/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: build the multiplayer app + functions
+        run: |
+          pnpm --filter @hive/app build:mp
+          pnpm --filter @hive/functions build
+      - name: firebase deploy
+        if: env.FIREBASE_SA != ''
+        run: |
+          printf '%s' "$FIREBASE_SA" > "$RUNNER_TEMP/firebase-sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force
+          rm -f "$RUNNER_TEMP/firebase-sa.json"
+      - name: smoke-check hosting
+        if: env.FIREBASE_SA != ''
+        run: |
+          url="https://hive-zmf.web.app"
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$url/") && [ "$code" = "200" ] && break
+            sleep 5
+          done
+          [ "$code" = "200" ] || { echo "::error::hosting not serving ($code)"; exit 1; }
+          grep -q 'id="root"' /tmp/index.html || { echo "::error::index.html missing app root"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$url/lobby")
+          [ "$code" = "200" ] || { echo "::error::SPA fallback returned $code"; exit 1; }
+          echo "hosting serving: index + SPA fallback 200"
+      - name: notice when the Firebase service-account secret is missing
+        if: env.FIREBASE_SA == ''
+        run: echo "::notice::FIREBASE_SERVICE_ACCOUNT_HIVE_ZMF not set — built but skipped the Firebase deploy."

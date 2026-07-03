@@ -18,7 +18,7 @@ describe('app shell routes', () => {
     ['/', 'HIVE'],
     ['/lobby', 'Your games'],
     ['/new', 'New game'],
-    ['/join/abc123', 'Join game'],
+    ['/join/abc123', 'HIVE'], // T4.2: Join shares the themed landing layout
     ['/settings', 'Settings'],
   ];
 
