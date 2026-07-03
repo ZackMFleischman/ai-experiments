@@ -87,7 +87,7 @@ export const screenEntries: GalleryEntry[] = [
   },
   {
     id: 'game-waiting-for-opponent',
-    render: () => <WaitingForOpponent code="HK4M2XQ9" />,
+    render: () => <WaitingForOpponent code="HK4M2XQ9" onCancel={() => {}} />,
   },
   {
     id: 'landing-signin',

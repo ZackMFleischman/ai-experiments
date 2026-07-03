@@ -288,6 +288,7 @@ their two players, invites by anyone holding the code.
 |---|---|
 | `createGame(options, color)` | creates the game (`status:'open'`) + invite code; returns both |
 | `joinGame(code)` | transactionally claims the open seat, activates the game, expires the invite |
+| `cancelGame(gameId)` | creator withdraws an *open* game: deletes the game + its invite |
 | `submitMove(gameId, expectedMoveCount, uhpMove)` | the move protocol below |
 | `resign(gameId)` | ends the game; records the `resign` meta event |
 | `offerDraw(gameId)` / `respondDraw(gameId, accept)` | sets/clears `pendingDrawOffer`; ends game on accept |

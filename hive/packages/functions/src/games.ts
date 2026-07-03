@@ -115,6 +115,27 @@ export const createGame = onCall(async (request) => {
   return { gameId: gameRef.id, code };
 });
 
+export const cancelGame = onCall(async (request) => {
+  const caller = requireAuth(request);
+  const gameId = requireGameId(request.data);
+  const db = getFirestore();
+  const gameRef = db.collection('games').doc(gameId);
+  await db.runTransaction(async (tx) => {
+    const game = await tx.get(gameRef);
+    if (!game.exists) throw new HttpsError('not-found', 'game not found');
+    const data = game.data() as { status: string; playerIds: string[]; inviteCode?: string };
+    if (!data.playerIds.includes(caller.uid)) {
+      throw new HttpsError('permission-denied', 'not a player in this game');
+    }
+    if (data.status !== 'open') {
+      throw new HttpsError('failed-precondition', 'only open games can be cancelled');
+    }
+    if (data.inviteCode) tx.delete(db.collection('invites').doc(data.inviteCode));
+    tx.delete(gameRef); // no moves exist while open — the doc is the whole game
+  });
+  return { ok: true };
+});
+
 export const joinGame = onCall(async (request) => {
   const caller = requireAuth(request);
   const code = (request.data as { code?: unknown })?.code;

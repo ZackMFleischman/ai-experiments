@@ -50,6 +50,9 @@ export interface Snapshot {
   placeableBugs: ReadonlySet<BugKind>;
   mustPlaceQueen: boolean;
   canPass: boolean;
+  /** Selected piece can TOSS neighbours (pillbug / mosquito-as-pillbug): the
+   * UI hints that tosses are made by moving the adjacent piece itself. */
+  tossHint: boolean;
   lastMove?: { from?: Hex; to: Hex };
   drag?: DragState;
   view: ViewState | null;
@@ -116,6 +119,13 @@ export class GameController {
   dispose(): void {
     this.remoteUnsub?.();
     this.remoteUnsub = undefined;
+  }
+
+  /** Rebuild from the transport's source of truth. Safety net for silently
+   * dead realtime streams (mobile Safari): called on visibility regain and
+   * when a push for this game reaches an open client. */
+  async resync(): Promise<void> {
+    await this.reload();
   }
 
   /** Rebuild everything from the transport's stored log (also the resync path
@@ -200,6 +210,16 @@ export class GameController {
     for (const m of moves) {
       if (m.type === 'move' || m.type === 'toss') movable.add(hexKey(m.from));
     }
+    // A pillbug can be pinned (one-hive) yet still able to toss — it must
+    // stay selectable and lifted, or its power reads as broken. Selecting it
+    // raises the toss hint (targets appear on the tossed neighbour instead).
+    for (const m of moves) {
+      if (m.type !== 'toss') continue;
+      for (const [key, stack] of this.state.board) {
+        const top = stack[stack.length - 1];
+        if (top && tileKey(top) === tileKey(m.by)) movable.add(key);
+      }
+    }
     const placeable = new Set<BugKind>();
     for (const m of moves) {
       if (m.type === 'place') placeable.add(m.tile.kind);
@@ -229,6 +249,13 @@ export class GameController {
       mustPlaceQueen:
         this.state.turn >= 4 && this.state.hands[this.state.toMove].Q > 0 && placeable.has('Q'),
       canPass: moves.some((m) => m.type === 'pass'),
+      tossHint:
+        this.selection?.kind === 'board' &&
+        moves.some(
+          (m) =>
+            m.type === 'toss' &&
+            tileKey(m.by) === tileKey((this.selection as { tile: TileId }).tile),
+        ),
       ...(this.lastMove ? { lastMove: this.lastMove } : {}),
       ...(this.drag ? { drag: this.drag } : {}),
       view: this.view,

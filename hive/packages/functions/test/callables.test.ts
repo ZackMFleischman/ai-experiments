@@ -110,6 +110,31 @@ describe('joinGame', () => {
   });
 });
 
+describe('cancelGame', () => {
+  it('creator withdraws an open game: game + invite deleted', async () => {
+    const ada = await signUp('Ada');
+    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const { gameId, code } = created.result as { gameId: string; code: string };
+    const res = await call('cancelGame', { gameId }, ada);
+    expect(res.status).toBe(200);
+    expect(await adminGetDoc(`games/${gameId}`)).toBeNull();
+    expect(await adminGetDoc(`invites/${code}`)).toBeNull();
+  });
+
+  it('rejects non-players and active games', async () => {
+    const ada = await signUp('Ada');
+    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const { gameId, code } = created.result as { gameId: string; code: string };
+    const stranger = await call('cancelGame', { gameId }, await signUp('Eve'));
+    expect(stranger.errorStatus).toBe('PERMISSION_DENIED');
+
+    const sam = await signUp('Sam');
+    await call('joinGame', { code }, sam);
+    const late = await call('cancelGame', { gameId }, ada);
+    expect(late.errorStatus).toBe('FAILED_PRECONDITION');
+  });
+});
+
 describe('submitMove', () => {
   it('accepts a legal move, advances the doc, appends the move log', async () => {
     const { gameId, white } = await createJoined();

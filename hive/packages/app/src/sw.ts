@@ -31,13 +31,26 @@ self.addEventListener('push', (event) => {
   const { title, body, link, tag } = payload.data ?? {};
   if (!title) return;
   event.waitUntil(
-    self.registration.showNotification(title, {
-      ...(body ? { body } : {}),
-      icon: '/icons/icon-192.png',
-      badge: '/icons/badge-72.png',
-      ...(tag ? { tag } : {}),
-      data: { link: link ?? '/' },
-    }),
+    (async () => {
+      const target = link ?? '/';
+      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      // Every open client gets the sync signal — the push proves something
+      // changed even when a Firestore stream has silently died (mobile Safari).
+      for (const win of wins) win.postMessage({ type: 'push-sync', link: target });
+      // Already looking at that screen? No banner — the board updates instead.
+      const pathname = new URL(target, self.location.origin).pathname;
+      const watching = wins.some(
+        (win) => win.visibilityState === 'visible' && new URL(win.url).pathname === pathname,
+      );
+      if (watching) return;
+      await self.registration.showNotification(title, {
+        ...(body ? { body } : {}),
+        icon: '/icons/icon-192.png',
+        badge: '/icons/badge-72.png',
+        ...(tag ? { tag } : {}),
+        data: { link: target },
+      });
+    })(),
   );
 });
 

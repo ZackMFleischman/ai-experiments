@@ -9,6 +9,7 @@ import { HandTray } from '../src/board/HandTray';
 import { PieceArtProvider } from '../src/board/pieceArt';
 import { GameController } from '../src/controller/GameController';
 import { LocalTransport } from '../src/controller/transport';
+import { GameScreen } from '../src/game/GameScreen';
 import { PieceGuideDialog } from '../src/game/PieceGuide';
 import { GAME_RULES } from '../src/game/pieceInfo';
 import { PlayerBar } from '../src/game/PlayerBar';
@@ -51,6 +52,63 @@ describe('WaitingForOpponent (open games keep the invite shareable)', () => {
     );
     expect(screen.getByTestId('waiting-for-opponent')).toBeTruthy();
     expect(screen.queryByTestId('invite-code')).toBeNull();
+  });
+
+  it('offers to cancel the pending invite', () => {
+    const onCancel = vi.fn();
+    render(
+      <MemoryRouter>
+        <WaitingForOpponent code="HK4M2XQ9" onCancel={onCancel} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('cancel-invite'));
+    expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+describe('Pillbug toss discoverability', () => {
+  // Straight-line placements: white chain grows left, black grows right, so
+  // wG1 ends up a leaf beside the pillbug and genuine toss moves exist.
+  function tossPosition(): GameController {
+    const c = new GameController(new LocalTransport(ALL_ON), ALL_ON);
+    const play = (kind: Parameters<GameController['selectHandBug']>[0], q: number) => {
+      c.selectHandBug(kind);
+      c.selectCell({ q, r: 0 });
+    };
+    play('S', 0); // w
+    play('S', 1); // b
+    play('Q', -1); // w
+    play('Q', 2); // b
+    play('P', -2); // w
+    play('G', 3); // b
+    play('G', -3); // w
+    play('A', 4); // b
+    return c; // white to move; wP at -2,0; leaf wG1 at -3,0
+  }
+
+  it('selecting the pillbug raises the toss hint', () => {
+    const c = tossPosition();
+    c.selectCell({ q: -2, r: 0 });
+    expect(c.getSnapshot().tossHint).toBe(true);
+    render(
+      <MemoryRouter>
+        <GameScreen controller={c} staticMode />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('toss-hint')).toBeTruthy();
+  });
+
+  it('selecting the neighbour exposes the toss destinations', () => {
+    const c = tossPosition();
+    c.selectCell({ q: -3, r: 0 }); // the tossable grasshopper
+    const targets = c.getSnapshot().targets;
+    expect(targets.has('-2,-1')).toBe(true); // an empty cell beside the pillbug
+  });
+
+  it('a non-toss selection never hints', () => {
+    const c = tossPosition();
+    c.selectCell({ q: -3, r: 0 });
+    expect(c.getSnapshot().tossHint).toBe(false);
   });
 });
 
