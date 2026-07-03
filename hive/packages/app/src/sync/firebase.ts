@@ -6,8 +6,9 @@ import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
 import {
   connectFirestoreEmulator,
-  getFirestore,
   initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   type Firestore,
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, type Functions } from 'firebase/functions';
@@ -52,9 +53,15 @@ export function getDb(): Firestore {
     // Emulator + headless-browser WebChannel streams can 400 and flip the SDK
     // into offline mode (breaks getDoc/onSnapshot in e2e) — force long polling
     // there. Production keeps the default transport.
-    db = usingEmulators
-      ? initializeFirestore(getApp(), { experimentalForceLongPolling: true })
-      : getFirestore(getApp());
+    // Persistent local cache (T5.1): the lobby renders cached games read-only
+    // when offline (DESIGN §7).
+    db = initializeFirestore(getApp(), {
+      // IndexedDB exists in browsers only — node-side tests keep memory cache.
+      ...(typeof indexedDB !== 'undefined'
+        ? { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }
+        : {}),
+      ...(usingEmulators ? { experimentalForceLongPolling: true } : {}),
+    });
     if (usingEmulators) connectFirestoreEmulator(db, '127.0.0.1', 8080);
   }
   return db;

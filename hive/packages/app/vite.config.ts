@@ -2,14 +2,18 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// Minimal PWA setup (T3.12, subset of T5.1): manifest + generated icons +
-// default precache so the shell is installable; the full offline story,
-// coach marks and push land in M5.
+// PWA setup (T3.12 + T5.1): manifest, generated icons, precached app shell
+// with SPA navigation fallback — the lobby renders cached games read-only
+// offline (Firestore persistent cache does the data half; see sync/firebase).
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        navigateFallback: '/index.html',
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+      },
       manifest: {
         name: 'HIVE',
         short_name: 'HIVE',
