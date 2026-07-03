@@ -12,6 +12,10 @@ export default defineConfig({
   timeout: 1_200_000,
   use: {
     baseURL: 'http://127.0.0.1:5187',
+    // Phone-sized by default: the §6.2 flows must work at 390×844 (gallery
+    // captures set their own viewport sizes explicitly).
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
   },
   webServer: {
     command: 'pnpm --filter @hive/app dev --port 5187 --strictPort',
