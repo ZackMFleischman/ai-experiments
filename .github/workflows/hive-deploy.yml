@@ -143,7 +143,28 @@ jobs:
           gcloud auth login --brief --quiet --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud services enable cloudbilling.googleapis.com --project hive-zmf
           pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force
+          # Functions first created during a failed deploy never get their
+          # invoker IAM binding, and the CLI never retries it on updates — the
+          # callables then 403 at the Cloud Run layer ("internal" in the app).
+          # Repair idempotently on every deploy: callables (DESIGN §5.3) are
+          # publicly invokable; forfeitExpired stays private to the Cloud
+          # Scheduler OIDC identity (the default compute SA). Requires
+          # roles/run.admin on the deploy service account.
+          repair_failed=0
+          for f in creategame joingame submitmove resign offerdraw responddraw rematch ping; do
+            gcloud run services add-iam-policy-binding "$f" --project hive-zmf \
+              --region us-central1 --member allUsers --role roles/run.invoker --quiet \
+              || repair_failed=1
+          done
+          gcloud run services add-iam-policy-binding forfeitexpired --project hive-zmf \
+            --region us-central1 --role roles/run.invoker --quiet \
+            --member "serviceAccount:$(gcloud projects describe hive-zmf --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+            || repair_failed=1
           rm -f "$RUNNER_TEMP/firebase-sa.json"
+          if [ "$repair_failed" = "1" ]; then
+            echo "::error::invoker IAM repair failed — grant roles/run.admin to github-actions-deploy@hive-zmf.iam.gserviceaccount.com and re-run this workflow"
+            exit 1
+          fi
       - name: smoke-check hosting
         if: env.FIREBASE_SA != ''
         run: |
