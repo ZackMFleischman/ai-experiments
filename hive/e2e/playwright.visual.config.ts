@@ -18,7 +18,7 @@ export default defineConfig({
     hasTouch: true,
   },
   webServer: {
-    command: 'pnpm --filter @hive/app dev --port 5187 --strictPort',
+    command: 'pnpm --filter @hive/app dev --port 5187 --strictPort --host 127.0.0.1',
     url: 'http://127.0.0.1:5187',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
