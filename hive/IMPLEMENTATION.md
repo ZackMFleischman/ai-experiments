@@ -81,28 +81,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M2 — shipped, see DECISIONS.md
 
-### M3 — Local game UI (+ the validation harness)
-
-`packages/app` unless noted. **[visual]** tasks require the §0.2.5 screenshot review.
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T3.1 | Draft sprite sheet `src/assets/hive-sprites.svg`: 8 bug glyphs (circle/arc geometry is fine for now), hex bases (light/dark), ghost hex, motifs; all `currentColor` + one CSS var per DESIGN §6.4 | **[visual]** — capture a sprite-contact-sheet gallery entry | sprites render in gallery |
-| T3.2 | `board/BoardView.tsx`: SVG renderer — tiles from a `GameState`, stack offset+shadow, auto-fit viewBox, last-move highlight | pure: `(state, uiState) → SVG`; no engine logic | component tests + **[visual]** |
-| T3.3 | Pan/zoom: pointer + wheel/pinch on the SVG viewport, recenter button, auto-fit after growth | keep transform in controller-owned uiState | interaction tests + **[visual]** |
-| T3.4 | `controller/GameController.ts` + `LocalTransport` (hot-seat) + `useSyncExternalStore` hook. Controller owns: authoritative state, selection, legal-target set, drag state machine (§6.2 states 1–5), optimistic queue (no-op locally) | transport interface per DESIGN §3.2 | controller unit tests (state-machine transitions, incl. cancel paths) |
-| T3.5 | Selection & affordances: movable lift/shadow, ghost targets, climb badges, ~20% dim of everything else, queen-must-place pulse | **[visual]** | component tests + gallery entries |
-| T3.6 | Drag layer: raw pointer events, `pixelToHex` hit-testing (works mid-pan/zoom), snap preview, not-allowed tint, spring-back, Esc cancel; tap-tap fallback driving the same controller states | DESIGN §9.8 | controller tests + `validate:ux` frames **[visual]** |
-| T3.7 | Hand tray: dockable, per-bug counts, disabled=no legal placement, drag-to-place + tap-to-place | **[visual]** | component tests |
-| T3.8 | Game screen chrome: player bars (name, queen-liberties), move list drawer (UHP + meta rows), overflow menu with Pass / Resign / Offer draw (local-only handlers for now), confirm dialogs | **[visual]** | component tests |
-| T3.9 | End-of-game: auto-center on surrounded queen, six-tile pulse, ~1 s beat (tap-skip), result overlay per DESIGN §6.3 (minus rematch), per-outcome theming, view-board mode with persistent banner | **[visual]** — gallery entries for all outcomes × themes | component tests |
-| T3.10 | **Validation harness**: `/dev/gallery` route + fixture registry (§4), `?static=1` mode, `validate:visual` + `validate:ux` scripts, `e2e/visual-checklist.md` seeded with §4.3; hot-seat scripted e2e (full expansion game via tap-mode to victory overlay) | dev-only route, excluded from prod build | `pnpm validate:m3` |
-| T3.11 | Hot-seat persistence: `LocalTransport` saves the in-progress game (UHP log + options) to localStorage behind the `GameTransport` seam — refresh resumes, "New game" clears | controller tests: save/resume/clear round-trip | controller tests |
-| T3.12 | Static deploy: build `@hive/app` with `LocalTransport` default (verify no firebase in bundle), minimal PWA manifest + icons via `vite-plugin-pwa` (subset of T5.1), deploy via GitHub Actions — Cloudflare Pages project `hive` (loom's pattern; GitHub Pages fallback), main deploy + PR preview | **[visual]** — installability checked on the live URL | deploy green on merge |
-
-`validate:m3` = component/controller suites + hot-seat full-game e2e +
-`validate:visual` + `validate:ux` machine checks green. Then perform the first full
-screenshot review pass and commit the updated checklist.
+### M3 — shipped, see DECISIONS.md
 
 ### M4 — Multiplayer backend
 

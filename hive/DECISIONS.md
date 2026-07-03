@@ -42,3 +42,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `packages/app/.env` (public identifiers). `.firebaserc` gains a `prod` alias;
   `default` stays `demo-hive` so emulators/CI keep running fully offline —
   deploys use `--project prod`. VAPID key + deploy service account still pending.
+
+- **2026-07-03 — M3 SHIPPED** (PR #26), incl. authorized T3.11 (localStorage
+  persistence) and T3.12 (static PWA deploy — the loom Cloudflare token DID
+  provision the new `hive` Pages project, so no GitHub Pages fallback). Gates:
+  validate:m3 (58 app tests, tap + drag full-game e2e at 390×844, visual sweep
+  120 captures, ux frames) + full validate green; first screenshot review pass
+  committed. Judgment calls: board tiles draw as inline polygons for exact grid
+  geometry (sprite symbols everywhere else); enemy pieces are selectable exactly
+  when tossable, which makes tosses plain taps/drags on the tossed piece.
