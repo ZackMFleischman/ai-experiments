@@ -34,9 +34,9 @@ export function Gallery() {
         <Box data-gallery-entry={entry.id}>{entry.render()}</Box>
       ) : (
         <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
-          <List dense sx={{ width: 280, borderRight: 1, borderColor: 'divider' }}>
+          <List dense data-gallery-index sx={{ width: 280, borderRight: 1, borderColor: 'divider' }}>
             {GALLERY.map((e) => (
-              <ListItemButton key={e.id} onClick={() => setParams({ entry: e.id })}>
+              <ListItemButton key={e.id} data-entry-id={e.id} onClick={() => setParams({ entry: e.id })}>
                 <ListItemText primary={e.id} />
               </ListItemButton>
             ))}

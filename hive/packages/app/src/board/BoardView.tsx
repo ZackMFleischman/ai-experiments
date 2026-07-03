@@ -165,7 +165,7 @@ export function BoardView({ board, ui = {}, viewBox, onCellPointerDown, overlay,
                 className="hive-ghost"
                 data-testid={`climb-${key}`}
               >
-                <polygon points={hexPoints(HEX_SIZE * 0.7)} fill="none" stroke="currentColor" strokeWidth={3.5} strokeDasharray="7 6" />
+                <polygon points={hexPoints(HEX_SIZE * 0.7)} fill="transparent" stroke="currentColor" strokeWidth={3.5} strokeDasharray="7 6" />
               </g>
             )}
           </g>

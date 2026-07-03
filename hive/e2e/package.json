@@ -8,6 +8,7 @@
     "test": "playwright test"
   },
   "devDependencies": {
+    "@hive/engine": "workspace:*",
     "@playwright/test": "~1.56.1",
     "@types/node": "^22.20.0",
     "typescript": "^5.6.3"

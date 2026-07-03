@@ -20,6 +20,9 @@ importers:
 
   e2e:
     devDependencies:
+      '@hive/engine':
+        specifier: workspace:*
+        version: link:../packages/engine
       '@playwright/test':
         specifier: ~1.56.1
         version: 1.56.1

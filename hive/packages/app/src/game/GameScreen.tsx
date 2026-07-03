@@ -27,6 +27,11 @@ export function GameScreen({
   const [movesOpen, setMovesOpen] = useState(false);
   const beatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Debug surface for validators (the loom `window.__loom` convention).
+  useEffect(() => {
+    (window as unknown as { __hive?: unknown }).__hive = { controller };
+  }, [controller]);
+
   // The end-of-game beat (§6.3): center the surrounded queen, pulse its ring,
   // pause ~1s (tap to skip), then the overlay.
   useEffect(() => {
