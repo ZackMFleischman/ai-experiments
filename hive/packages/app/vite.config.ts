@@ -6,6 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 // with SPA navigation fallback — the lobby renders cached games read-only
 // offline (Firestore persistent cache does the data half; see sync/firebase).
 export default defineConfig({
+  build: { sourcemap: true }, // published maps: debuggability > obscurity here
   plugins: [
     react(),
     VitePWA({

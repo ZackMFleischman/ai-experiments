@@ -1,4 +1,4 @@
-import { CssBaseline, ThemeProvider } from '@mui/material';
+import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Route, Routes, useParams } from 'react-router-dom';
 import { Game } from './screens/Game';
@@ -36,7 +36,8 @@ function GameGate() {
 
 export function AppRoutes() {
   return (
-    <Routes>
+    <Box component="main">
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route
         path="/lobby"
@@ -64,17 +65,18 @@ export function AppRoutes() {
       />
       <Route path="/game/:id" element={<GameGate />} />
       <Route path="/settings" element={<Settings />} />
-      {Gallery && (
-        <Route
-          path="/dev/gallery"
-          element={
-            <Suspense fallback={null}>
-              <Gallery />
-            </Suspense>
-          }
-        />
-      )}
-    </Routes>
+        {Gallery && (
+          <Route
+            path="/dev/gallery"
+            element={
+              <Suspense fallback={null}>
+                <Gallery />
+              </Suspense>
+            }
+          />
+        )}
+      </Routes>
+    </Box>
   );
 }
 
