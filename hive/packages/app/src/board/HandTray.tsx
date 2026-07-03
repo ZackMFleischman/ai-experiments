@@ -75,7 +75,10 @@ export function HandTray({ controller }: { controller: GameController }) {
                   top: 0,
                   fontSize: 12,
                   fontWeight: 700,
-                  bgcolor: 'background.paper',
+                  // T6.3: primary-tinted badge — background.paper vanished on
+                  // the dark tray.
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
                   borderRadius: '50%',
                   width: 18,
                   height: 18,

@@ -69,6 +69,13 @@ currently-accepted deviations stay listed at the bottom.
   overdrawn by the neighbor in front; selection ring, ghosts and dim behave
   identically after the DOM restructure; ux drag/tap flows green.
 
+- 2026-07-03 (T6.3 full re-review pass, sampled across all 29 entries × 3
+  viewports × 2 themes after the T6.1/T6.2 changes): finding fixed — dark-theme
+  tray count badges were near-invisible (background.paper on dark tray), now
+  primary-tinted with contrast text, re-captured and verified. Overlay
+  hierarchy, dark-board legibility, lobby chips/thumbnails, and interaction
+  affordances all clean at phone/tablet/desktop in both themes.
+
 ## Accepted deviations
 
 - Board tiles draw as inline polygons (exact grid geometry); the sprite sheet's
