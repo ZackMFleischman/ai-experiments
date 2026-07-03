@@ -6,12 +6,14 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameBoard } from '../src/board/GameBoard';
 import { HandTray } from '../src/board/HandTray';
+import { PieceArtProvider } from '../src/board/pieceArt';
 import { GameController } from '../src/controller/GameController';
 import { LocalTransport } from '../src/controller/transport';
 import { PieceGuideDialog } from '../src/game/PieceGuide';
 import { GAME_RULES } from '../src/game/pieceInfo';
 import { PlayerBar } from '../src/game/PlayerBar';
 import { JoinByCodeButton } from '../src/screens/JoinByCode';
+import { Lobby } from '../src/screens/Lobby';
 import { WaitingForOpponent } from '../src/screens/waitingView';
 import { ALL_ON } from './replay';
 
@@ -181,16 +183,39 @@ describe('Long-press piece info', () => {
     expect(onInfo).not.toHaveBeenCalledWith('Q');
   });
 
-  it('tray: holding a bug names it', () => {
+  it('board: a draggable piece NEVER grows the card (it would cover targets)', () => {
     vi.useFakeTimers();
     const c = new GameController(new LocalTransport(ALL_ON), ALL_ON);
+    c.selectHandBug('S');
+    c.selectCell({ q: 0, r: 0 });
+    c.selectHandBug('S');
+    c.selectCell({ q: 1, r: 0 });
+    c.selectHandBug('Q');
+    c.selectCell({ q: -1, r: 0 });
+    c.selectHandBug('Q');
+    c.selectCell({ q: 2, r: 0 });
     const onInfo = vi.fn();
-    render(<HandTray controller={c} onPieceInfo={onInfo} />);
+    const { container } = render(<GameBoard controller={c} onPieceInfo={onInfo} />);
+    mockRect(screen.getByTestId('board-view'));
+    expect(c.getSnapshot().movableCells.has('-1,0')).toBe(true); // white queen, white to move
+    fireEvent.pointerDown(container.querySelector('[data-cell="-1,0"]') as Element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    vi.advanceTimersByTime(1000);
+    expect(onInfo).not.toHaveBeenCalledWith('Q');
+  });
+
+  it('tray: presses start placements, never the info card', () => {
+    vi.useFakeTimers();
+    const c = new GameController(new LocalTransport(ALL_ON), ALL_ON);
+    render(<HandTray controller={c} />);
     fireEvent.pointerDown(screen.getByTestId('tray-A'));
-    vi.advanceTimersByTime(600);
-    expect(onInfo).toHaveBeenLastCalledWith('A');
-    fireEvent.pointerUp(screen.getByTestId('tray-A'));
-    expect(onInfo).toHaveBeenLastCalledWith(null);
+    vi.advanceTimersByTime(1000);
+    expect(c.getSnapshot().selection?.kind).toBe('hand'); // the press selected the bug
+    // and the tile still carries the hover title for desktop
+    expect(screen.getByTestId('tray-A').getAttribute('title')).toContain('Ant');
   });
 });
 
@@ -204,5 +229,30 @@ describe('Piece guide', () => {
     for (const rule of GAME_RULES) {
       expect(summary.textContent).toContain(rule.title);
     }
+  });
+
+  it('hosts the bear-mode toggle and retitles the pieces live', () => {
+    render(
+      <PieceArtProvider>
+        <PieceGuideDialog open onClose={() => {}} />
+      </PieceArtProvider>,
+    );
+    expect(screen.queryByText('Brown bear · Queen Bee')).toBeNull();
+    fireEvent.click(screen.getByTestId('guide-bear-toggle'));
+    expect(screen.getByText('Brown bear · Queen Bee')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('guide-bear-toggle'));
+    expect(screen.queryByText('Brown bear · Queen Bee')).toBeNull();
+  });
+});
+
+describe('Settings reachability', () => {
+  it('the lobby links to /settings', () => {
+    render(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>,
+    );
+    const gear = screen.getByTestId('lobby-settings');
+    expect(gear.getAttribute('href')).toBe('/settings');
   });
 });

@@ -8,7 +8,7 @@ import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import { Box, IconButton } from '@mui/material';
 import type { Hex } from '@hive/engine';
 import type { PointerEvent as ReactPointerEvent, Ref, WheelEvent as ReactWheelEvent } from 'react';
-import { useImperativeHandle, useRef } from 'react';
+import { useEffect, useImperativeHandle, useRef } from 'react';
 import type { BoardViewProps } from './BoardView';
 import { autoFitViewBox, BoardView } from './BoardView';
 import { keyToHex } from './hexGeometry';
@@ -81,6 +81,29 @@ export function BoardViewport({
   const viewBox = `${effective.cx - w / 2} ${effective.cy - h / 2} ${w} ${h}`;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // iOS Safari: a two-finger pinch on the board must zoom the BOARD, never the
+  // page. touch-action:none isn't enough — Safari's page zoom rides its
+  // proprietary gesture events and multi-touch touchmove, so both are
+  // swallowed here (non-passive; React can't attach those).
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const eat = (e: Event) => e.preventDefault();
+    const eatMultiTouch = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault();
+    };
+    el.addEventListener('gesturestart', eat);
+    el.addEventListener('gesturechange', eat);
+    el.addEventListener('gestureend', eat);
+    el.addEventListener('touchmove', eatMultiTouch, { passive: false });
+    return () => {
+      el.removeEventListener('gesturestart', eat);
+      el.removeEventListener('gesturechange', eat);
+      el.removeEventListener('gestureend', eat);
+      el.removeEventListener('touchmove', eatMultiTouch);
+    };
+  }, []);
   // Background pointers only (pan/pinch); the drag pointer is tracked apart.
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pan = useRef<{ id: number; startX: number; startY: number; view: ViewState; moved: boolean } | null>(null);

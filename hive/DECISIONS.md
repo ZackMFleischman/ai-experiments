@@ -113,3 +113,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   hint; the lobby a join-by-typed-code entry; the guide a rules summary. Guide/info
   glyphs are normalized via measured GLYPH_METRICS (getBBox) — board tiles keep the
   reviewed T6.1 art. Long-press (touch) or hover (title) names any piece.
+
+- **2026-07-03 — In-game reachability follow-ups (user feedback).** Settings was
+  a route with no inbound link — the lobby gains a gear, and the piece guide
+  (reachable mid-game via ?) hosts the bear-mode toggle directly, retitling its
+  own list live. Long-press info now arms only on pieces the player *cannot*
+  move — a draggable piece never grows a card over its drop targets; the tray
+  never does (its presses are placements). Pinch is contained to the board:
+  viewport pins page scale (respected installed) and the board svg swallows
+  Safari gesture events + multi-touch touchmove (touch-action isn't enough).

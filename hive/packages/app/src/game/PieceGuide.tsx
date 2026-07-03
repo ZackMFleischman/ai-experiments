@@ -8,11 +8,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   List,
   ListItem,
   ListItemText,
   Stack,
+  Switch,
   Typography,
 } from '@mui/material';
 import type { BugKind } from '@hive/engine';
@@ -49,7 +51,7 @@ export function GuideTile({ kind, size = 44 }: { kind: BugKind; size?: number })
 }
 
 export function PieceGuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { bearMode } = usePieceArt();
+  const { bearMode, toggle } = usePieceArt();
   return (
     <Dialog open={open} onClose={onClose} scroll="paper" data-testid="piece-guide">
       <DialogTitle>How the pieces move</DialogTitle>
@@ -79,7 +81,20 @@ export function PieceGuideDialog({ open, onClose }: { open: boolean; onClose: ()
           ))}
         </Stack>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
+        {/* Reachable from any game in progress via the ? button — the list
+            above re-renders live when toggled. */}
+        <FormControlLabel
+          control={
+            <Switch
+              checked={bearMode}
+              onChange={toggle}
+              size="small"
+              inputProps={{ 'data-testid': 'guide-bear-toggle' } as never}
+            />
+          }
+          label="Bear mode"
+        />
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>

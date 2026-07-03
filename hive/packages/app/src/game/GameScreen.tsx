@@ -84,7 +84,7 @@ export function GameScreen({
       </Box>
       <PlayerBar snap={snap} color={snap.myColor === 'b' ? 'b' : 'w'} names={playerNames} />
       <Box sx={{ px: 1, pb: 'max(4px, env(safe-area-inset-bottom))' }}>
-        <HandTray controller={controller} onPieceInfo={setPieceInfo} />
+        <HandTray controller={controller} />
       </Box>
       <MoveList log={snap.log} open={movesOpen} onClose={() => setMovesOpen(false)} />
       <ResultOverlay controller={controller} snap={snap} {...(onRematch ? { onRematch } : {})} />
