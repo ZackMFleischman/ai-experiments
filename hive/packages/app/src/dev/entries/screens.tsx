@@ -11,6 +11,7 @@ import { LandingLayout } from '../../screens/LandingLayout';
 import { InstallCoachMark } from '../../screens/InstallCoachMark';
 import { LobbyView, type LobbyGameSummary } from '../../screens/lobbyView';
 import { InviteLinkView, NewGameForm } from '../../screens/newGameView';
+import { WaitingForOpponent } from '../../screens/waitingView';
 import { AuthContext, HOTSEAT_AUTH, type AuthValue } from '../../sync/authContext';
 import { ALL_ON, EARLY_GAME, MID_GAME, replayUhp } from '../fixtures';
 
@@ -80,9 +81,13 @@ export const screenEntries: GalleryEntry[] = [
         <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
           New game
         </Typography>
-        <InviteLinkView url="https://hive.zackmfleischman.com/join/HK4M2XQ9" gameId="g1" onOpenGame={() => {}} />
+        <InviteLinkView code="HK4M2XQ9" gameId="g1" onOpenGame={() => {}} />
       </Box>
     ),
+  },
+  {
+    id: 'game-waiting-for-opponent',
+    render: () => <WaitingForOpponent code="HK4M2XQ9" />,
   },
   {
     id: 'landing-signin',

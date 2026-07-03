@@ -2,19 +2,18 @@
 // (default all on), tournament-opening toggle; then the invite-link view.
 // Firebase-free — sync/NewGameFlow drives it. Async time controls arrive with
 // M5 (T5.5).
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import {
   Button,
   FormControlLabel,
   Stack,
   Switch,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import type { Color, GameOptions } from '@hive/engine';
 import { useState } from 'react';
+import { InviteShare } from './waitingView';
 
 export type ColorChoice = Color | 'random';
 export type TimeControlDays = 1 | 3 | 7 | null;
@@ -132,36 +131,21 @@ export function NewGameForm({
 }
 
 export function InviteLinkView({
-  url,
+  code,
   gameId,
   onOpenGame,
 }: {
-  url: string;
+  code: string;
   gameId: string;
   onOpenGame: (gameId: string) => void;
 }) {
-  const [copied, setCopied] = useState(false);
   return (
     <Stack spacing={2} sx={{ maxWidth: 420 }} data-testid="invite-link-view">
-      <Typography>Send your friend this invite link — the game starts when they open it:</Typography>
-      <Stack direction="row" spacing={1}>
-        <TextField
-          fullWidth
-          size="small"
-          value={url}
-          inputProps={{ readOnly: true, 'data-testid': 'invite-url' }}
-        />
-        <Button
-          variant="outlined"
-          startIcon={<ContentCopyIcon />}
-          onClick={() => {
-            void navigator.clipboard?.writeText(url).then(() => setCopied(true));
-          }}
-          data-testid="copy-invite"
-        >
-          {copied ? 'Copied' : 'Copy'}
-        </Button>
-      </Stack>
+      <Typography>
+        Send your friend this invite — the game starts when they accept. The link and code stay
+        available on the game screen while you wait.
+      </Typography>
+      <InviteShare code={code} />
       <Button variant="contained" onClick={() => onOpenGame(gameId)} data-testid="open-created-game">
         Open the game
       </Button>

@@ -46,6 +46,7 @@ describe('createGame', () => {
 
     const game = await adminGetDoc(`games/${gameId}`);
     expect(game?.['status']).toBe('open');
+    expect(game?.['inviteCode']).toBe(code); // re-shareable while open (DESIGN §5.2)
     expect((game?.['players'] as Record<string, unknown>)['white']).toBe(ada.uid);
     expect((game?.['players'] as Record<string, unknown>)['black']).toBeNull();
     expect(game?.['moveCount']).toBe(0);
@@ -83,6 +84,7 @@ describe('joinGame', () => {
 
     const game = await adminGetDoc(`games/${gameId}`);
     expect(game?.['status']).toBe('active');
+    expect(game?.['inviteCode']).toBeUndefined(); // deleted on join
     const players = game?.['players'] as Record<string, unknown>;
     expect(players['black']).toBe(ada.uid); // creator picked black
     expect(players['white']).toBe(sam.uid);

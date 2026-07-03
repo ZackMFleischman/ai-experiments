@@ -33,11 +33,13 @@ test('piece guide opens from the game screen and names every piece', async ({ pa
   await page.goto('/game/local');
   await page.getByRole('button', { name: /piece guide/i }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Queen Bee')).toBeVisible();
+  // exact: the rules summary at the bottom also mentions the Queen Bee
+  await expect(dialog.getByText('Queen Bee', { exact: true })).toBeVisible();
   for (const name of ['Ant', 'Spider', 'Grasshopper', 'Beetle', 'Mosquito', 'Ladybug', 'Pillbug']) {
     await expect(dialog.getByText(name, { exact: true })).toBeVisible();
   }
   await expect(dialog.locator('use').first()).toBeVisible(); // glyphs resolve
+  await expect(dialog.getByTestId('rules-summary')).toBeVisible(); // the rest of the rules
   await dialog.getByRole('button', { name: /close/i }).click();
   await expect(dialog).not.toBeVisible();
 });

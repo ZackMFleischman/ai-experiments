@@ -1,5 +1,6 @@
-// Piece reference (the "key"): every piece, its tile glyph, and how it moves.
-// Rules text is descriptive only — legality still comes from the engine.
+// Piece reference (the "key"): every piece, its tile glyph, and how it moves,
+// plus the rest of the rules at the bottom. Rules text is descriptive only —
+// legality still comes from the engine.
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import {
   Button,
@@ -11,6 +12,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  Stack,
   Typography,
 } from '@mui/material';
 import type { BugKind } from '@hive/engine';
@@ -18,47 +20,20 @@ import { useState } from 'react';
 import '../board/board.css';
 import { hexPoints } from '../board/hexGeometry';
 import { BEAR_NAME, usePieceArt } from '../board/pieceArt';
+import { FittedGlyph } from '../board/sprites';
+import { GAME_RULES, PIECES } from './pieceInfo';
 
-const PIECES: ReadonlyArray<{ kind: BugKind; name: string; rule: string }> = [
-  {
-    kind: 'Q',
-    name: 'Queen Bee',
-    rule: 'Slides one space. Must be placed by your fourth turn — lose her to a full surround and you lose the game.',
-  },
-  { kind: 'A', name: 'Ant', rule: 'Slides any distance around the outside of the hive.' },
-  { kind: 'S', name: 'Spider', rule: 'Slides exactly three spaces around the hive, no backtracking.' },
-  {
-    kind: 'G',
-    name: 'Grasshopper',
-    rule: 'Jumps in a straight line over one or more pieces to the first empty space.',
-  },
-  {
-    kind: 'B',
-    name: 'Beetle',
-    rule: 'Moves one space, and may climb on top of the hive — the piece it covers is pinned.',
-  },
-  {
-    kind: 'M',
-    name: 'Mosquito',
-    rule: 'Copies the movement of any piece it touches. On top of the hive it moves as a beetle.',
-  },
-  {
-    kind: 'L',
-    name: 'Ladybug',
-    rule: 'Moves exactly two spaces on top of the hive, then one space down.',
-  },
-  {
-    kind: 'P',
-    name: 'Pillbug',
-    rule: 'Moves one space, or instead lifts an adjacent piece and sets it down on an empty space beside it.',
-  },
-];
-
-function GuideTile({ kind }: { kind: BugKind }) {
-  const glyph = 46;
+export function GuideTile({ kind, size = 44 }: { kind: BugKind; size?: number }) {
   const { symbolFor } = usePieceArt();
   return (
-    <svg className="hive-board-scope" viewBox="-40 -40 80 80" width={44} height={44} aria-hidden>
+    <svg
+      className="hive-board-scope"
+      viewBox="-40 -40 80 80"
+      width={size}
+      height={size}
+      aria-hidden
+      style={{ flexShrink: 0 }}
+    >
       <g className="hive-tile-w">
         <polygon
           points={hexPoints(38)}
@@ -67,7 +42,7 @@ function GuideTile({ kind }: { kind: BugKind }) {
           strokeWidth={3}
           strokeLinejoin="round"
         />
-        <use href={`#${symbolFor(kind)}`} x={-glyph / 2} y={-glyph / 2} width={glyph} height={glyph} />
+        <FittedGlyph symbol={symbolFor(kind)} size={46} />
       </g>
     </svg>
   );
@@ -81,7 +56,7 @@ export function PieceGuideDialog({ open, onClose }: { open: boolean; onClose: ()
       <DialogContent dividers>
         <List dense disablePadding>
           {PIECES.map((p) => (
-            <ListItem key={p.kind} disableGutters sx={{ alignItems: 'flex-start', gap: 1.5 }}>
+            <ListItem key={p.kind} disableGutters sx={{ alignItems: 'center', gap: 1.5 }}>
               <GuideTile kind={p.kind} />
               <ListItemText
                 primary={bearMode ? `${BEAR_NAME[p.kind]} · ${p.name}` : p.name}
@@ -90,10 +65,19 @@ export function PieceGuideDialog({ open, onClose }: { open: boolean; onClose: ()
             </ListItem>
           ))}
         </List>
-        <Typography variant="caption" color="text.secondary">
-          One hive, always: a move may never split the hive, and new pieces enter only beside
-          your own color.
+        <Typography variant="overline" color="text.secondary" component="h3" sx={{ mt: 2 }}>
+          How the game works
         </Typography>
+        <Stack spacing={0.75} data-testid="rules-summary">
+          {GAME_RULES.map((r) => (
+            <Typography key={r.title} variant="body2" color="text.secondary">
+              <Typography component="span" variant="body2" fontWeight={700} color="text.primary">
+                {r.title}.
+              </Typography>{' '}
+              {r.text}
+            </Typography>
+          ))}
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>

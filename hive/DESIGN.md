@@ -247,6 +247,7 @@ games/{gameId}:         { players: {white: uid, black: uid|null},
                           playerIds: uid[],                  // array field for lobby indexability
                           options,
                           status: 'open'|'active'|'finished',
+                          inviteCode?: string,                // present while open (re-share from the game screen)
                           result?: 'white'|'black'|'draw',
                           endedBy?: 'surround'|'resign'|'timeout'|'draw-agreed'|'repetition',
                           toMove, turn, moveCount,
@@ -388,10 +389,10 @@ your apps page: see the end of §7.
 | Screen | Purpose |
 |---|---|
 | **Landing / sign in** | A **themed** full-bleed landing, not a bare button: hive-cluster hero rendered by the real board renderer from a fixed decorative state (with a subtle idle float animation), HIVE wordmark, one-line tagline, Google sign-in button. This is also the first thing an invited friend sees, so it carries the visual identity. Signed-in users skip straight to the lobby. |
-| **Lobby (home)** | Your games in two groups: **Your turn** (badged) and *Waiting on opponent*, plus finished games below (with win/loss/draw result chips). Each card: opponent, mini board thumbnail, last-move time, deadline countdown if any. FAB → New game. |
-| **New game** | Pick color (white/black/random), expansions toggles (default all on), tournament-opening toggle, time control. Creates game → shows/copies **invite link**. |
-| **Join** | Landing route for invite links (`/join/{code}`): same themed layout as the landing screen with a game-summary card and one accept button (routes through sign-in if needed). |
-| **Game** | The board (§6.2), player bars (name, captured queen-liberties indicator, clock/deadline), your **hand** of unplaced tiles as a dockable tray, move list drawer, and Resign / Offer draw / Pass actions in an overflow menu. Ends in the victory sequence (§6.3). |
+| **Lobby (home)** | Your games in two groups: **Your turn** (badged) and *Waiting on opponent*, plus finished games below (with win/loss/draw result chips). Each card: opponent, mini board thumbnail, last-move time, deadline countdown if any. FAB → New game; a **Join with a code** entry routes typed codes to `/join/{code}`. |
+| **New game** | Pick color (white/black/random), expansions toggles (default all on), tournament-opening toggle, time control. Creates game → shows/copies the **invite link and code** (both stay retrievable on the game screen while the game is open). |
+| **Join** | Landing route for invite links (`/join/{code}`): same themed layout as the landing screen with a game-summary card and one accept button (routes through sign-in if needed). The code can also be typed by hand from the lobby. |
+| **Game** | While `status:'open'`: a waiting screen with the shareable invite (link + code) — the board is withheld so no move can be attempted before the opponent joins. Once active: the board (§6.2), player bars (name, "(you)" seat marker, a **Your turn / Their turn** chip, queen-liberties indicator, clock/deadline), your **hand** of unplaced tiles as a dockable tray, move list drawer, and Resign / Offer draw / Pass actions in an overflow menu. An empty board shows a first-placement hint; long-pressing (or hovering) any piece names it and states its move. Ends in the victory sequence (§6.3). |
 | **Settings** | Notifications opt-in state, theme (light/dark/system), sign out. |
 
 Routing: React Router; every screen is a URL (`/game/{id}`) so notification taps and

@@ -93,6 +93,7 @@ export const createGame = onCall(async (request) => {
       playerIds: [caller.uid],
       options,
       status: 'open',
+      inviteCode: code, // present while open — lets the creator re-share (DESIGN §5.2)
       toMove: 'w',
       turn: 1,
       moveCount: 0,
@@ -152,6 +153,7 @@ export const joinGame = onCall(async (request) => {
       [`playerNames.${seat}`]: caller.name,
       playerIds: FieldValue.arrayUnion(caller.uid),
       status: 'active',
+      inviteCode: FieldValue.delete(),
       deadlineAt: deadlineFor(data.timeControl ?? null),
       updatedAt: FieldValue.serverTimestamp(),
     });

@@ -1,7 +1,7 @@
 // Drag layer (T3.6): raw pointer events over the same controller state machine
 // as tap-tap — pick up, snap preview on targets, not-allowed tint, spring back,
 // Esc cancel. Hand-tray drags enter through the imperative handle.
-import type { Hex } from '@hive/engine';
+import type { BugKind, Hex } from '@hive/engine';
 import { useEffect, useRef } from 'react';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
@@ -13,11 +13,27 @@ import { cellCenter, HEX_SIZE, hexKey, hexPoints, keyToHex } from './hexGeometry
 
 const DRAG_THRESHOLD = HEX_SIZE * 0.3;
 
-export function GameBoard({ controller }: { controller: GameController }) {
+const LONG_PRESS_MS = 550;
+
+export function GameBoard({
+  controller,
+  onPieceInfo,
+}: {
+  controller: GameController;
+  /** Long-press piece info (GameScreen renders the card). */
+  onPieceInfo?: (kind: BugKind | null) => void;
+}) {
   const snap = useGameController(controller);
   const { symbolFor } = usePieceArt();
   const handle = useRef<BoardViewportHandle | null>(null);
   const press = useRef<{ cell: Hex; x: number; y: number; dragging: boolean; wasTarget: boolean } | null>(null);
+  const infoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearInfo = (hide: boolean) => {
+    if (infoTimer.current) clearTimeout(infoTimer.current);
+    infoTimer.current = null;
+    if (hide) onPieceInfo?.(null);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -54,24 +70,38 @@ export function GameBoard({ controller }: { controller: GameController }) {
       const key = hexKey(cell);
       const isTarget = snap.targets.has(key) || snap.climbTargets.has(key);
       press.current = { cell, x: pt.x, y: pt.y, dragging: false, wasTarget: isTarget };
+      // Hold a piece still to learn what it is (T6: long-press info).
+      const stack = snap.state.board.get(key);
+      const top = stack?.[stack.length - 1];
+      clearInfo(true);
+      if (top && onPieceInfo) {
+        infoTimer.current = setTimeout(() => onPieceInfo(top.kind), LONG_PRESS_MS);
+      }
       // Immediate lift for movable pieces; targets commit on release.
       if (!isTarget) controller.selectCell(cell);
     },
     onDragMove: (pt: { x: number; y: number }) => {
       const p = press.current;
       if (!p || p.wasTarget) return;
-      if (!p.dragging && Math.hypot(pt.x - p.x, pt.y - p.y) > DRAG_THRESHOLD) p.dragging = true;
+      if (!p.dragging && Math.hypot(pt.x - p.x, pt.y - p.y) > DRAG_THRESHOLD) {
+        p.dragging = true;
+        clearInfo(true); // a real drag replaces the info card
+      }
       if (p.dragging) controller.dragTo(pt.x, pt.y);
     },
     onDragEnd: (pt: { x: number; y: number }) => {
       const p = press.current;
       press.current = null;
+      clearInfo(true);
       if (!p) return;
       if (p.dragging) controller.drop(pt.x, pt.y);
       else if (p.wasTarget) controller.selectCell(p.cell); // tap-tap commit
       // plain tap on a piece: selection already happened on pointer-down
     },
-    onBackgroundTap: () => controller.cancel(),
+    onBackgroundTap: () => {
+      clearInfo(true);
+      controller.cancel();
+    },
   };
 
   const ui = snapshotToBoardUi(snap);
@@ -87,6 +117,19 @@ export function GameBoard({ controller }: { controller: GameController }) {
         allowed={snap.drag.allowed}
       />
     ) : undefined;
+  // Turn 1, nothing placed: show where the first tile lands instead of a
+  // blank void. Suppressed once anything is on the board or while dragging.
+  const emptyHint =
+    snap.state.board.size === 0 && !snap.end && !snap.drag && !snap.selection ? (
+      <EmptyBoardHint yourMove={snap.placeableBugs.size > 0} />
+    ) : undefined;
+  const overlay =
+    preview || emptyHint ? (
+      <>
+        {emptyHint}
+        {preview}
+      </>
+    ) : undefined;
 
   return (
     <BoardViewport
@@ -96,8 +139,35 @@ export function GameBoard({ controller }: { controller: GameController }) {
       onViewChange={(v) => controller.setView(v)}
       interaction={interaction}
       handleRef={handle}
-      {...(preview ? { overlay: preview } : {})}
+      {...(overlay ? { overlay } : {})}
     />
+  );
+}
+
+function EmptyBoardHint({ yourMove }: { yourMove: boolean }) {
+  return (
+    <g className="hive-empty-hint" data-testid="empty-board-hint" style={{ pointerEvents: 'none' }}>
+      <polygon
+        points={hexPoints(HEX_SIZE * 0.9)}
+        fill="transparent"
+        stroke="currentColor"
+        strokeWidth={3}
+        strokeDasharray="9 7"
+        strokeLinejoin="round"
+      />
+      <text y={HEX_SIZE * 1.8}>
+        {yourMove ? (
+          <>
+            <tspan x={0}>Your first tile goes here —</tspan>
+            <tspan x={0} dy="1.4em">
+              pick a bug below
+            </tspan>
+          </>
+        ) : (
+          'Waiting for the first move…'
+        )}
+      </text>
+    </g>
   );
 }
 

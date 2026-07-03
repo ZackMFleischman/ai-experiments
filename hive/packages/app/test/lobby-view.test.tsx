@@ -129,10 +129,14 @@ describe('NewGameForm', () => {
 });
 
 describe('InviteLinkView', () => {
-  it('shows the url and opens the game', () => {
+  it('shows the link and the bare code, and opens the game', () => {
     const onOpen = vi.fn();
-    renderIn(<InviteLinkView url="https://x/join/CODE1234" gameId="g9" onOpenGame={onOpen} />);
-    expect(screen.getByTestId('invite-url')).toHaveProperty('value', 'https://x/join/CODE1234');
+    renderIn(<InviteLinkView code="CODE1234" gameId="g9" onOpenGame={onOpen} />);
+    expect(screen.getByTestId('invite-url')).toHaveProperty(
+      'value',
+      `${window.location.origin}/join/CODE1234`,
+    );
+    expect(screen.getByTestId('invite-code').textContent).toBe('CODE1234');
     fireEvent.click(screen.getByTestId('open-created-game'));
     expect(onOpen).toHaveBeenCalledWith('g9');
   });

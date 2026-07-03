@@ -28,6 +28,23 @@
 .hive-board-scope .hive-ghost {
   color: #e8a013;
 }
+
+/* Empty-board hint (first placement): quiet ghost + caption, both themes. */
+.hive-board-scope .hive-empty-hint {
+  color: #a89a7c;
+}
+.hive-board-scope .hive-empty-hint text {
+  fill: #8a7f66;
+  /* board units, not px: the empty-board viewBox is ~200 units wide */
+  font: 600 8px system-ui, sans-serif;
+  text-anchor: middle;
+}
+.hive-board-scope.hive-dark .hive-empty-hint {
+  color: #8d846a;
+}
+.hive-board-scope.hive-dark .hive-empty-hint text {
+  fill: #b0a891;
+}
 .hive-board-scope .hive-ghost.hive-ghost-hover polygon {
   fill: #e8a01355;
 }

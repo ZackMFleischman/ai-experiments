@@ -15,7 +15,7 @@ export default function NewGameFlow() {
   if (created) {
     return (
       <InviteLinkView
-        url={`${window.location.origin}/join/${created.code}`}
+        code={created.code}
         gameId={created.gameId}
         onOpenGame={(id) => void navigate(`/game/${id}`)}
       />
