@@ -122,8 +122,10 @@ export function BoardView({ board, ui = {}, viewBox, onCellPointerDown, overlay,
       )}
 
       {/* T6.2: paint stacks by vertical layer (all level-0 tiles, then level-1, …)
-          so tall stacks are never overdrawn by the neighbor in front. Layer 0
-          carries the per-cell [data-cell] group; badges paint above all tiles.
+          so tall stacks are never overdrawn by the neighbor in front. Layer 0 carries
+          the unique per-cell [data-cell]; upper layers carry [data-cell-layer]
+          (the viewport resolves presses from either); badges paint above all
+          tiles.
           Fanned stacks render in their own top layer (inspection overlay). */}
       {Array.from(
         { length: Math.max(1, ...cells.map(({ key, stack }) => (ui.hideTopOf === key ? stack.length - 1 : stack.length))) },
@@ -144,7 +146,7 @@ export function BoardView({ board, ui = {}, viewBox, onCellPointerDown, overlay,
                 <g
                   key={key}
                   transform={translateTo(cell)}
-                  {...(level === 0 ? { 'data-cell': key } : {})}
+                  {...(level === 0 ? { 'data-cell': key } : { 'data-cell-layer': key })}
                   className={dim ? 'hive-dimmed' : undefined}
                   onPointerDown={onCellPointerDown ? (e) => onCellPointerDown(cell, e) : undefined}
                 >
@@ -200,7 +202,12 @@ export function BoardView({ board, ui = {}, viewBox, onCellPointerDown, overlay,
         const isClimb = climbTargets.has(key);
         if (lastTo !== key && !isClimb) return null;
         return (
-          <g key={`badge-${key}`} transform={translateTo(cell)}>
+          <g
+            key={`badge-${key}`}
+            transform={translateTo(cell)}
+            data-cell-layer={key}
+            onPointerDown={onCellPointerDown ? (e) => onCellPointerDown(cell, e) : undefined}
+          >
             {lastTo === key && (
               <g transform={`translate(${(visible.length - 1) * STACK_OFFSET.x}, ${(visible.length - 1) * STACK_OFFSET.y})`}>
                 <polygon points={hexPoints(HEX_SIZE * 0.92)} className="hive-last-move" data-testid="last-move-to" />
