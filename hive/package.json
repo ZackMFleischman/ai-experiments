@@ -12,7 +12,7 @@
     "validate:m0": "pnpm typecheck && pnpm test && pnpm --filter e2e test",
     "validate:m1": "HIVE_PROP_GAMES=500 pnpm --filter @hive/engine test",
     "validate:m2": "HIVE_PROP_GAMES=500 pnpm --filter @hive/engine exec vitest run test/expansions-fixtures.test.ts test/property.test.ts",
-    "validate:m3": "pnpm --filter @hive/app test && pnpm --filter e2e exec playwright test tests/hotseat.spec.ts && pnpm validate:visual && pnpm validate:ux",
+    "validate:m3": "pnpm --filter @hive/app test && pnpm --filter e2e exec playwright test tests/hotseat.spec.ts tests/hotseat-drag.spec.ts && pnpm validate:visual && pnpm validate:ux",
     "validate:visual": "pnpm --filter e2e exec playwright test -c playwright.visual.config.ts visual/gallery.spec.ts",
     "validate:ux": "pnpm --filter e2e exec playwright test -c playwright.visual.config.ts visual/ux.spec.ts"
   },
