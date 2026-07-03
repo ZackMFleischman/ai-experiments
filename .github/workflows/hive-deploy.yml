@@ -67,6 +67,22 @@ jobs:
           [ "$status" -eq 0 ] || exit "$status"
           url=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev' | tail -1)
           echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+      - name: smoke-check the deployment
+        if: steps.deploy.outcome == 'success'
+        working-directory: ${{ github.workspace }}
+        run: |
+          url="${{ steps.deploy.outputs.deployment-url }}"
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$url/") && [ "$code" = "200" ] && break
+            sleep 5
+          done
+          [ "$code" = "200" ] || { echo "::error::deployment not serving ($code)"; exit 1; }
+          grep -q 'id="root"' /tmp/index.html || { echo "::error::index.html missing app root"; exit 1; }
+          for path in manifest.webmanifest icons/icon-512.png game/local; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/$path")
+            [ "$code" = "200" ] || { echo "::error::$path returned $code"; exit 1; }
+          done
+          echo "deployment serving: index, manifest, icons, SPA fallback all 200"
       - name: preview comment
         if: github.event_name == 'pull_request' && steps.deploy.outcome == 'success'
         uses: marocchino/sticky-pull-request-comment@v2
