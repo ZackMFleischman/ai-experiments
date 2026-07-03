@@ -96,3 +96,14 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   (the look-alike = mimic), panda/ladybug (patches↔spots), sloth/pillbug (flips
   rocks). Same PR adds the always-available piece guide dialog (glyph + rule per
   piece) and back affordances on New Game/Settings.
+
+- **2026-07-03 — M6 SHIPPED** (PR #33 merged; this entry rides in the follow-up
+  collapse PR). Gates: full validate (m0–m5 + visual + ux) green in CI; Lighthouse
+  a11y 100 / best-practices 96 / perf 89 (v12 dropped the PWA category —
+  installability was verified manually in M5). Shipped: final glyph art pass,
+  stack z-order by vertical layer, dark-mode/responsive audit, favicon/landmark/
+  sourcemap fixes, app-root sprite mount (landing hero had no glyphs — gallery
+  captures masked it), New Game/Settings back affordances, piece guide, bear
+  mode, PersonalWebsite card (PR #3). Stumble: the z-order rewrite broke stack
+  pointer resolution; caught by full e2e, fixed via data-cell-layer.
+  ⚑ pending Zack: DNS for hive.zackmfleischman.com, first real sign-in, real game.
