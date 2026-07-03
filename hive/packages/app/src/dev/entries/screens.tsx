@@ -6,6 +6,7 @@ import type { GalleryEntry } from '../galleryRegistry';
 import { Landing } from '../../screens/Landing';
 import { JoinCard } from '../../screens/Join';
 import { LandingLayout } from '../../screens/LandingLayout';
+import { InstallCoachMark } from '../../screens/InstallCoachMark';
 import { LobbyView, type LobbyGameSummary } from '../../screens/lobbyView';
 import { InviteLinkView, NewGameForm } from '../../screens/newGameView';
 import { AuthContext, HOTSEAT_AUTH, type AuthValue } from '../../sync/authContext';
@@ -49,6 +50,14 @@ function LobbyFrame({ games }: { games: LobbyGameSummary[] }) {
 }
 
 export const screenEntries: GalleryEntry[] = [
+  {
+    id: 'lobby-coach-mark',
+    render: () => (
+      <Box sx={{ p: 3, maxWidth: 480 }}>
+        <InstallCoachMark onDismiss={() => {}} />
+      </Box>
+    ),
+  },
   { id: 'lobby-populated', render: () => <LobbyFrame games={LOBBY_GAMES} /> },
   { id: 'lobby-empty', render: () => <LobbyFrame games={[]} /> },
   {

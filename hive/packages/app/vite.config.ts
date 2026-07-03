@@ -10,8 +10,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: {
-        navigateFallback: '/index.html',
+      // Custom SW (src/sw.ts): precache + SPA fallback + push handlers (T5.2).
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
       },
       manifest: {

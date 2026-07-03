@@ -4,12 +4,18 @@ import { useNavigate } from 'react-router-dom';
 import { LobbyView } from '../screens/lobbyView';
 import { useAuth } from './authContext';
 import { useMyGames } from './lobby';
+import { NotificationsSetup } from './NotificationsSetup';
 
 export default function OnlineGames() {
   const { user } = useAuth();
   const navigate = useNavigate();
   if (!user) return null;
-  return <Loaded uid={user.uid} onOpen={(id) => void navigate(`/game/${id}`)} />;
+  return (
+    <Stack spacing={2} sx={{ mt: 2 }}>
+      <NotificationsSetup />
+      <Loaded uid={user.uid} onOpen={(id) => void navigate(`/game/${id}`)} />
+    </Stack>
+  );
 }
 
 function Loaded({ uid, onOpen }: { uid: string; onOpen: (id: string) => void }) {
