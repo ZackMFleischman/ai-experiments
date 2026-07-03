@@ -43,6 +43,14 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `default` stays `demo-hive` so emulators/CI keep running fully offline —
   deploys use `--project prod`. VAPID key + deploy service account still pending.
 
+- **2026-07-03 — DESIGN §5.6 one-time setup complete**: VAPID public key committed
+  (`VITE_FIREBASE_VAPID_KEY` in `packages/app/.env`); CI deploy service account
+  (`github-actions-deploy`, Editor role on `hive-zmf`) created, its JSON key stored
+  as GitHub Actions secret **`FIREBASE_SERVICE_ACCOUNT_HIVE_ZMF`**. The M4+ deploy
+  job authenticates by writing that secret to a file and pointing
+  `GOOGLE_APPLICATION_CREDENTIALS` at it, then `firebase deploy --project prod`
+  (login:ci tokens are deprecated). No deploy workflow exists yet — agent work.
+
 - **2026-07-03 — M3 SHIPPED** (PR #26), incl. authorized T3.11 (localStorage
   persistence) and T3.12 (static PWA deploy — the loom Cloudflare token DID
   provision the new `hive` Pages project, so no GitHub Pages fallback). Gates:
