@@ -1,6 +1,7 @@
 // Full-mode provider stack (T4.1): the only component that touches the
 // firebase SDK, loaded lazily by App.tsx when VITE_HIVE_MODE=full. Auth state
 // flows to the screens through AuthContext.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   GoogleAuthProvider,
@@ -17,6 +18,8 @@ import { AuthContext, type AppUser, type AuthValue } from './authContext';
 
 // One shared throwaway password: the auth emulator holds no real accounts.
 const TEST_PASSWORD = 'hive-test-password';
+
+const queryClient = new QueryClient();
 
 function toAppUser(u: User): AppUser {
   return { uid: u.uid, displayName: u.displayName, photoURL: u.photoURL, email: u.email };
@@ -61,5 +64,9 @@ export default function AppSyncProviders({ children }: { children: ReactNode }) 
     [user, loading],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+    </QueryClientProvider>
+  );
 }

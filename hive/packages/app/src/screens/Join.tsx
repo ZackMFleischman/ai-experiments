@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { Color, GameOptions } from '@hive/engine';
+import { lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 import { LandingLayout } from './LandingLayout';
 
@@ -66,11 +67,21 @@ export function JoinCard({ state, onAccept }: { state: JoinState; onAccept: () =
   );
 }
 
+// Full mode only: invite lookup + seat claim (kept out of the static bundle).
+const JoinFlow =
+  import.meta.env.VITE_HIVE_MODE === 'full' ? lazy(() => import('../sync/JoinFlow')) : null;
+
 export function Join() {
-  useParams<{ code: string }>(); // the code drives the T4.7 invite lookup
+  const { code } = useParams<{ code: string }>();
   return (
     <LandingLayout>
-      <JoinCard state={{ kind: 'loading' }} onAccept={() => {}} />
+      {JoinFlow && code ? (
+        <Suspense fallback={<JoinCard state={{ kind: 'loading' }} onAccept={() => {}} />}>
+          <JoinFlow code={code} />
+        </Suspense>
+      ) : (
+        <JoinCard state={{ kind: 'invalid' }} onAccept={() => {}} />
+      )}
     </LandingLayout>
   );
 }

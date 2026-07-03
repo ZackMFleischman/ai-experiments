@@ -1,7 +1,12 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Avatar, Box, Button, Chip, Fab, Stack, Typography } from '@mui/material';
+import { lazy, Suspense } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../sync/authContext';
+
+// Full mode only: the firestore-backed games list (kept out of the static bundle).
+const OnlineGames =
+  import.meta.env.VITE_HIVE_MODE === 'full' ? lazy(() => import('../sync/OnlineGames')) : null;
 
 /** Lobby (T4.1): signed-in identity + sign-out in full mode. The real game
  * list (your-turn/waiting groups, thumbnails) lands with T4.7. */
@@ -26,10 +31,21 @@ export function Lobby() {
           </Stack>
         )}
       </Stack>
-      <Typography color="text.secondary" sx={{ mt: 2 }}>
-        Hot-seat play: two players, one device. Online games arrive as M4 builds out.
-      </Typography>
-      <Button component={RouterLink} to="/game/local" variant="contained" sx={{ mt: 2 }}>
+      {OnlineGames ? (
+        <Suspense fallback={null}>
+          <OnlineGames />
+        </Suspense>
+      ) : (
+        <Typography color="text.secondary" sx={{ mt: 2 }}>
+          Hot-seat play: two players, one device.
+        </Typography>
+      )}
+      <Button
+        component={RouterLink}
+        to="/game/local"
+        variant={OnlineGames ? 'outlined' : 'contained'}
+        sx={{ mt: 3 }}
+      >
         Play hot-seat
       </Button>
       <Fab

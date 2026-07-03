@@ -3,18 +3,23 @@
 // Loaded lazily (full mode only) so the static build stays firebase-free.
 import { Alert, Box, CircularProgress } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GameController } from '../controller/GameController';
 import { GameScreen } from '../game/GameScreen';
 import { useAuth } from './authContext';
 import { FirestoreTransport } from './firestoreTransport';
+import * as api from './gameApi';
 
 export default function MultiplayerGame({ gameId }: { gameId: string }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [controller, setController] = useState<GameController | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+    setController(null); // gameId changed (e.g. rematch): drop the old session
+    setError(null);
     let cancelled = false;
     let built: GameController | undefined;
     const transport = new FirestoreTransport(gameId, user.uid);
@@ -48,5 +53,13 @@ export default function MultiplayerGame({ gameId }: { gameId: string }) {
       </Box>
     );
   }
-  return <GameScreen controller={controller} />;
+  const rematch = () => {
+    void api
+      .rematch({ gameId })
+      .then(({ gameId: next }) => void navigate(`/game/${next}`))
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'rematch failed');
+      });
+  };
+  return <GameScreen controller={controller} onRematch={rematch} />;
 }

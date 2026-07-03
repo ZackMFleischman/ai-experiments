@@ -47,6 +47,13 @@ currently-accepted deviations stay listed at the bottom.
   join card states readable over the dark background; accept/sign-in buttons
   ≥44px on phone; no overflow at any viewport. No new findings.
 
+- 2026-07-03 (T4.7, 24 new captures read: lobby-populated/lobby-empty/
+  new-game-form/new-game-invite-link × 3 viewports × 2 themes): group headers
+  and chips (Your turn / Invited / Won / Lost) legible both themes; thumbnails
+  render real positions; toggles and CTA ≥44px; invite URL + copy affordance
+  clear. Minor accepted: long "Waiting for opponent…" truncates with ellipsis
+  on phone cards.
+
 ## Accepted deviations
 
 - Draft glyph geometry (circle/arc primitives) until the T6.1 art pass.
