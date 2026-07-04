@@ -140,3 +140,21 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   activates. Friend list = distinct opponents from your own games (no new
   collection); only shared-game opponents are challengeable (spam guard).
   Challenges don't expire (either side can decline/withdraw anytime).
+
+- **2026-07-04 — iOS icon badge rides the push (user request).** iOS badges
+  installed PWAs only from an app/SW context, so the pending-move count can't be
+  set while the app is closed unless the push carries it. Functions now compute
+  the recipient's actionable count (your-turn + incoming challenges — the exact
+  useTurnBadge filter) at send time and attach it to every push as `badge`; the
+  SW applies it via `setAppBadge`. Server-computed-per-send over client
+  increments: every push self-corrects, no drift. Known gap: acting from the
+  game screen leaves the icon stale until the next push or lobby visit.
+
+- **2026-07-04 — Badge covers accepted invites & rematch offers (user request).**
+  "Someone accepted" wasn't badgeable when the acceptor moves first, and rematch
+  games start active with no accept step. New `activatedBy` on games/* (§5.2,
+  frozen-surface amendment): stamped by respondChallenge/joinGame/rematch; a
+  move-zero active game activated by the opponent counts as actionable until
+  white's first move — state-derived, no per-user seen tracking. Client and
+  server share the rule (actionableCount / countActionable). Code invites stay
+  unbadgeable for recipients: they're anonymous until joined.

@@ -20,6 +20,8 @@ interface GameDocLobby {
   playerNames: { white: string | null; black: string | null };
   status: 'open' | 'active' | 'finished';
   toMove: Color;
+  moveCount?: number;
+  activatedBy?: string;
   result?: 'white' | 'black' | 'draw';
   endedBy?: string;
   updatedAt?: { toMillis(): number };
@@ -50,6 +52,13 @@ function toSummary(id: string, data: GameDocLobby, uid: string): LobbyGameSummar
   const oppUid =
     [data.players.white, data.players.black].find((p) => p !== null && p !== uid) ??
     (data.challenge ? (data.challenge.to === uid ? data.challenge.from : data.challenge.to) : null);
+  // Just started by the opponent (accepted invite/challenge, rematch offer) —
+  // badge-worthy news even before it's my move (DESIGN §7).
+  const fresh =
+    data.status === 'active' &&
+    data.moveCount === 0 &&
+    data.activatedBy !== undefined &&
+    data.activatedBy !== uid;
   return {
     id,
     myColor,
@@ -62,6 +71,7 @@ function toSummary(id: string, data: GameDocLobby, uid: string): LobbyGameSummar
     ...(data.endedBy ? { endedBy: data.endedBy } : {}),
     updatedAtMs: data.updatedAt?.toMillis() ?? 0,
     ...(data.deadlineAt ? { deadlineAtMs: data.deadlineAt.toMillis() } : {}),
+    ...(fresh ? { freshFromOpponent: true } : {}),
     state: data.state,
   };
 }
