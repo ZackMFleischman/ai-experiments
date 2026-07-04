@@ -15,7 +15,7 @@ import { GAME_RULES } from '../src/game/pieceInfo';
 import { PlayerBar } from '../src/game/PlayerBar';
 import { JoinByCodeButton } from '../src/screens/JoinByCode';
 import { Lobby } from '../src/screens/Lobby';
-import { WaitingForOpponent } from '../src/screens/waitingView';
+import { ChallengeReceived, WaitingForOpponent } from '../src/screens/waitingView';
 import { ALL_ON } from './replay';
 
 function mockRect(el: Element) {
@@ -63,6 +63,33 @@ describe('WaitingForOpponent (open games keep the invite shareable)', () => {
     );
     fireEvent.click(screen.getByTestId('cancel-invite'));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('shows the challenge-sent variant instead of an invite when addressed', () => {
+    render(
+      <MemoryRouter>
+        <WaitingForOpponent challengeName="Sam" onCancel={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('waiting-for-opponent').textContent).toMatch(/challenge is out to Sam/i);
+    expect(screen.queryByTestId('invite-code')).toBeNull();
+    expect(screen.getByTestId('cancel-invite').textContent).toMatch(/withdraw/i);
+  });
+});
+
+describe('ChallengeReceived (the challenged player opens the game link)', () => {
+  it('names the challenger and wires accept/decline', () => {
+    const onRespond = vi.fn();
+    render(
+      <MemoryRouter>
+        <ChallengeReceived name="Ada" onRespond={onRespond} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('challenge-received').textContent).toMatch(/Ada challenges you/i);
+    fireEvent.click(screen.getByTestId('challenge-accept'));
+    expect(onRespond).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByTestId('challenge-decline'));
+    expect(onRespond).toHaveBeenCalledWith(false);
   });
 });
 

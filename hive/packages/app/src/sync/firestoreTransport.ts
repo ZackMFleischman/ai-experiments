@@ -32,6 +32,7 @@ interface GameDocData {
   moveCount: number;
   state: string;
   inviteCode?: string; // present while status 'open' (DESIGN §5.2)
+  challenge?: { from: string; fromName: string; to: string; toName: string };
   rematchGameId?: string;
 }
 
@@ -51,11 +52,13 @@ export interface GameInfo {
 }
 
 /** Live slice of the game doc the chrome renders outside the move log:
- * open→active flip, opponent name arrival, invite code while waiting. */
+ * open→active flip, opponent name arrival, invite code / pending challenge
+ * while waiting. */
 export interface GameMeta {
   status: GameDocData['status'];
   playerNames: { white: string | null; black: string | null };
   inviteCode?: string;
+  challenge?: { from: string; fromName: string; to: string; toName: string };
 }
 
 export class FirestoreTransport implements GameTransport {
@@ -85,15 +88,23 @@ export class FirestoreTransport implements GameTransport {
     };
   }
 
-  /** Subscribe to the game-doc slice the chrome needs live (GameMeta). */
-  watchMeta(cb: (meta: GameMeta) => void): () => void {
+  /** Subscribe to the game-doc slice the chrome needs live (GameMeta).
+   * `null` = the doc was deleted out from under us (declined/withdrawn
+   * challenge, cancelled invite). */
+  watchMeta(cb: (meta: GameMeta | null) => void): () => void {
+    let seen = false;
     return onSnapshot(doc(getDb(), 'games', this.gameId), (snap) => {
-      if (!snap.exists()) return;
+      if (!snap.exists()) {
+        if (seen) cb(null); // deletion, not a not-yet-loaded doc
+        return;
+      }
+      seen = true;
       const data = snap.data() as GameDocData;
       cb({
         status: data.status,
         playerNames: data.playerNames,
         ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
+        ...(data.challenge ? { challenge: data.challenge } : {}),
       });
     });
   }
