@@ -16,3 +16,7 @@ export {
   type TileFace,
   type TileSet,
 } from './ruleset.js';
+
+export { type PlacedTile, type Placement } from './board.js';
+
+export { initialState, type GameState, type PlayerView } from './state.js';
