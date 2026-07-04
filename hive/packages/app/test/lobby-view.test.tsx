@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { initialState, serializeState, type GameOptions } from '@hive/engine';
 import { AppProviders } from '../src/App';
 import { LobbyView, relativeTime, timeLeft, type LobbyGameSummary } from '../src/screens/lobbyView';
-import { InviteLinkView, NewGameForm } from '../src/screens/newGameView';
+import { InviteLinkView, NewGameForm, friendsFrom } from '../src/screens/newGameView';
 
 const OPTIONS: GameOptions = {
   mosquito: true,
@@ -155,7 +155,12 @@ describe('NewGameForm', () => {
     const onCreate = vi.fn();
     renderIn(<NewGameForm onCreate={onCreate} />);
     fireEvent.click(screen.getByTestId('create-game'));
-    expect(onCreate).toHaveBeenCalledWith({ options: OPTIONS, color: 'random', timeControlDays: 3 });
+    expect(onCreate).toHaveBeenCalledWith({
+      options: OPTIONS,
+      color: 'random',
+      timeControlDays: 3,
+      opponent: null,
+    });
   });
 
   it('honors toggles and color choice', () => {
@@ -169,7 +174,54 @@ describe('NewGameForm', () => {
       options: { ...OPTIONS, pillbug: false },
       color: 'b',
       timeControlDays: null,
+      opponent: null,
     });
+  });
+
+  it('hides the opponent picker when there are no past opponents', () => {
+    renderIn(<NewGameForm onCreate={() => {}} />);
+    expect(screen.queryByTestId('opponent-link')).toBeNull();
+  });
+
+  it('challenges a picked friend instead of minting an invite', () => {
+    const onCreate = vi.fn();
+    renderIn(
+      <NewGameForm
+        onCreate={onCreate}
+        friends={[
+          { uid: 'u-ada', name: 'Ada' },
+          { uid: 'u-sam', name: 'Sam' },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('opponent-u-sam'));
+    expect(screen.getByTestId('create-game').textContent).toMatch(/challenge Sam/i);
+    fireEvent.click(screen.getByTestId('create-game'));
+    expect(onCreate).toHaveBeenCalledWith({
+      options: OPTIONS,
+      color: 'random',
+      timeControlDays: 3,
+      opponent: { uid: 'u-sam', name: 'Sam' },
+    });
+    // switching back to the invite link restores the plain create
+    fireEvent.click(screen.getByTestId('opponent-link'));
+    expect(screen.getByTestId('create-game').textContent).toMatch(/create game/i);
+  });
+});
+
+describe('friendsFrom', () => {
+  it('dedupes opponents, most recent first, skipping unseated invites', () => {
+    expect(
+      friendsFrom([
+        { opponentUid: 'u1', opponentName: 'Ada', updatedAtMs: 100 },
+        { opponentName: null, updatedAtMs: 400 }, // open invite, nobody joined
+        { opponentUid: 'u2', opponentName: 'Sam', updatedAtMs: 300 },
+        { opponentUid: 'u1', opponentName: 'Ada L.', updatedAtMs: 200 },
+      ]),
+    ).toEqual([
+      { uid: 'u2', name: 'Sam' },
+      { uid: 'u1', name: 'Ada L.' }, // freshest name wins
+    ]);
   });
 });
 
