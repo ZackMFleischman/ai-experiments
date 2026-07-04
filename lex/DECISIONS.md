@@ -33,3 +33,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   numbered FR/NFR feature inventory, budget 250 (IMPLEMENTATION §7 table);
   IMPLEMENTATION budget raised 650→700 for the parlor wiring + second ruleset/
   dictionary tasks. Parlor keeps its own two ≤55-line docs.
+
+- **2026-07-04 — SHIPPED M0 (T0.1–T0.8).** Gates: typecheck (docs + boundaries +
+  strict tsc) + unit tests green in both workspaces; ping green vs demo-lex
+  emulators; Playwright smoke 9/9 at 3 viewports; `validate:m0` chains them; CI
+  ported (parlor / checks / validate jobs). Deviations: T0.5 ships minimal
+  deny-all firestore.rules (three-tier rules are T4.3); e2e package named
+  `lex-e2e` (a bare `e2e` collides with hive's in pnpm filters). Stumbles:
+  fast-check predicates must return boolean/undefined — a vitest matcher's
+  return value failed a seed property.

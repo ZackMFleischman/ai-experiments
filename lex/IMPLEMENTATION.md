@@ -91,18 +91,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ## 2. Milestone task lists
 
-### M0 — Scaffold
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T0.1 | Both workspaces: `parlor/` at repo root (4 package skeletons) + `lex/` (4 packages + e2e), strict TS, and the §1 source-link wiring between them **[port: hive root configs]** | engine/dict/@parlor/* export placeholder types; a lex test imports from `@parlor/core` to prove the wiring | `pnpm typecheck` in both |
-| T0.2 | App shell: Vite + React + MUI + router, stub routes for every DESIGN §7.1 screen, base theme **[port: hive app scaffold + theme.ts]** | | routes render test |
-| T0.3 | Vitest + fast-check + Testing Library wired in every package; one seed test each | | `pnpm test` |
-| T0.4 | Playwright + smoke e2e at 3 viewports **[port: hive e2e config]** | pin ~1.56; webServer `--host 127.0.0.1` (§8) | smoke green |
-| T0.5 | Firebase emulator suite config against `demo-lex`; functions package with a `ping` callable; seed script **[port: hive firebase.json, emulator-seed, functions scaffold]` | fully offline — no console setup yet (§8) | ping test vs emulator |
-| T0.6 | GitHub Actions CI: lex job (typecheck + unit layers + e2e vs fresh emulators, installs parlor first) + a small parlor job (typecheck + tests) **[port: hive workflow]** | | CI green |
-| T0.7 | `scripts/check-docs.mjs` (budgets, closed set, no "Update (" markers) + `scripts/check-boundaries.mjs` (`@parlor/*` imports no game packages; lex app imports firebase only via `@parlor/web` or `src/sync/`), wired into both workspaces' `typecheck` **[port: hive check-docs.mjs]** | | planted violations fail; clean passes |
-| T0.8 | `validate:m0` chaining all of the above | | `pnpm validate:m0` |
+### M0 — shipped, see DECISIONS.md
 
 ### M1 — Engine core (DESIGN §2.1–§2.2, §5)
 
