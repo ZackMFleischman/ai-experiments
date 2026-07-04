@@ -1,12 +1,22 @@
-// @parlor/core — game-agnostic platform kernel: the GameTransport seam,
-// LogSession (optimistic submit/rollback), shared meta types. Zero runtime
-// dependencies, pure, deterministic. Real surfaces arrive with their porting
-// tasks (lex/IMPLEMENTATION.md T3.4, T4.1); this is the T0.1 placeholder.
+// @parlor/core — game-agnostic platform kernel: the GameTransport seam and
+// LogSession (log replay + optimistic submit/rollback), ported from hive
+// (lex/IMPLEMENTATION.md T3.4). Zero runtime dependencies, pure,
+// deterministic; storage is injected, never touched directly.
 
-/** Placeholder wiring probe — consumed by lex's cross-workspace import test. */
+/** Wiring probe — consumed by lex's cross-workspace import test. */
 export const PARLOR_CORE = { workspace: 'parlor', package: 'core' } as const;
 
-/** Placeholder for the generic transport seam ported from hive (T3.4). */
-export interface GameTransportPlaceholder {
-  readonly kind: 'placeholder';
-}
+export {
+  LocalStorageTransport,
+  LocalTransport,
+  type GameTransport,
+  type KeyValueStorage,
+  type StoredGame,
+} from './transport.js';
+
+export {
+  LogSession,
+  type LogSessionConfig,
+  type LogSessionHooks,
+  type RejectMode,
+} from './logSession.js';

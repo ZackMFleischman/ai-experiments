@@ -97,23 +97,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M2 — shipped, see DECISIONS.md
 
-### M3 — Local game UI + validation harness (DESIGN §7)
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T3.1 | Grid board from `BoardLayout`: premium colors + DL/TL/DW/TW labels, star; committed-tile component (letter + point index) **[visual]** | CSS-variable tile skin from day one | render tests + gallery |
-| T3.2 | Viewport: fit-view, pan, pinch/wheel zoom, double-tap zoom, recenter **[port: hive BoardViewport → CSS transform]** **[visual]** | keep hive's pinch containment verbatim (§8) | viewport tests |
-| T3.3 | Rack tray: 7 slots, drag-reorder, shuffle, counts; bag-count chip **[visual]** | | component tests |
-| T3.4 | `GameController`: pending-placement model, verdict pipeline calls, optimistic submit over `GameTransport` **[port: hive transport.ts + LogSession core into `@parlor/core` first]** | controller tests: place/return/recall, submit, rollback | unit |
-| T3.5 | Drag layer (raw pointer events, transform-aware hit-test) + tap-tap fallback + recall; Esc cancels | | `validate:ux` flows |
-| T3.6 | Blank letter-picker sheet; exchange multi-select mode + confirm bar; pass confirm dialog **[visual]** | | component tests |
-| T3.7 | Live preview: per-word chips (word, points, ✓/✗ from local dict) + total badge; Play enablement rules **[visual]** | | component tests |
-| T3.8 | Hot-seat: `LocalTransport` (shuffles at the edge, full state in localStorage, refresh resumes) + **pass-device interstitial** (DESIGN §7.3) **[visual]** | | persistence + flow tests |
-| T3.9 | Score sheet drawer; last-play highlight; remote-play animation **[visual]** | | component tests |
-| T3.10 | End-of-game beat + result overlay with score story (adjustment line items) **[visual]** | fixtures for every ending incl. draw | gallery review |
-| T3.11 | Harness: `/dev/gallery` + registry + fixtures (§4.1 minimum registry), `validate:visual`, `validate:ux` **[port: hive dev/ + scripts into `@parlor/harness`, thin lex wrappers]**; first full screenshot-review pass | | harness green + review committed |
-| T3.12 | Static hot-seat PWA deploy (no firebase in bundle, minimal manifest) to Cloudflare Pages project `lex` **[port: hive T3.12 setup]** | | live URL serves installable hot-seat game |
-| T3.13 | `validate:m3`: scripted hot-seat e2e — full game through the pass-device flow to the victory sequence, tap AND drag variants at 390×844 | | `pnpm validate:m3` |
+### M3 — shipped, see DECISIONS.md
 
 ### M4 — Multiplayer backend (DESIGN §3.3, §6)
 

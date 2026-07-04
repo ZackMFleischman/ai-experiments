@@ -28,4 +28,10 @@ are logged at the bottom with date + reason, and deleted when fixed.
 
 ## Accepted deviations
 
-(none)
+- 2026-07-04 — Phone rack slots render ~41px (guideline says ≥44): a 7-slot
+  rack + shuffle/bag column at 390px can't give every slot 44px; slots cap at
+  44px when space allows. Revisit in T6.1 if the tray layout changes.
+- 2026-07-04 — Actions row wraps Resign onto a second line at 390×844.
+  Functional and readable; spacing polish belongs to T6.2.
+- 2026-07-04 — Negative-score draw headline shows a hyphen-minus ("Draw — -7
+  apiece", scoreless fixture only). Typographic minus with T6.2 copy pass.
