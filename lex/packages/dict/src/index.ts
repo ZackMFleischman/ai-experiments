@@ -1,10 +1,5 @@
-// @lex/dict — word lists compiled to a compact DAWG (zero dependencies).
-// The frozen surface (IMPLEMENTATION.md §5: DICTIONARIES, loadDictionary)
-// lands with M2; this is the T0.1 placeholder type.
-
-export interface DictionaryInfo {
-  id: string;
-  name: string;
-  description: string;
-  wordCount: number;
-}
+// @lex/dict — word lists compiled to a compact DAWG. This surface is frozen
+// (IMPLEMENTATION.md §5); the sync node variant lives at '@lex/dict/node'
+// so the browser surface stays exactly this.
+export { DICTIONARIES, type DictionaryInfo } from './registry.js';
+export { loadDictionary } from './loader.js';
