@@ -16,6 +16,9 @@ export interface ResultOverlayProps {
 
 function headline(end: GameEnd, names: readonly string[]): { title: string; reason: string } {
   const name = (seat: number) => names[seat] ?? `Player ${seat + 1}`;
+  // "You win!", not "You wins!" — the M4 perspective naming uses "You".
+  const wins = (seat: number, bang = false) =>
+    `${name(seat)} win${name(seat) === 'You' ? '' : 's'}${bang ? '!' : ''}`;
   switch (end.by) {
     case 'played-out':
     case 'scoreless': {
@@ -23,12 +26,12 @@ function headline(end: GameEnd, names: readonly string[]): { title: string; reas
       if (end.winner === 'draw') {
         return { title: `Draw — ${end.finalScores[0]} apiece`, reason };
       }
-      return { title: `${name(end.winner)} wins!`, reason };
+      return { title: wins(end.winner, true), reason };
     }
     case 'resign':
-      return { title: `${name(end.winner)} wins`, reason: `${name(end.winner === 0 ? 1 : 0)} resigned` };
+      return { title: wins(end.winner), reason: `${name(end.winner === 0 ? 1 : 0)} resigned` };
     case 'timeout':
-      return { title: `${name(end.winner)} wins`, reason: 'Won on time' };
+      return { title: wins(end.winner), reason: 'Won on time' };
   }
 }
 

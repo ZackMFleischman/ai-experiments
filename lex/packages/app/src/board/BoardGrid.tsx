@@ -6,7 +6,7 @@
 import { Box } from '@mui/material';
 import type { BoardLayout, Cell, CellKey, PlacedTile, Premium, TileFace, TileSet } from '@lex/engine';
 import { cellKey } from '@lex/engine';
-import { useColorMode } from '../theme';
+import { useTheme } from '@mui/material/styles';
 import { BOARD_PAD_PX, CELL_PX, skinVars } from './skin';
 import { Tile } from './Tile';
 
@@ -67,7 +67,7 @@ export function BoardGrid({
   lastPlayCells,
   static: isStatic = false,
 }: BoardGridProps) {
-  const { mode } = useColorMode();
+  const mode = useTheme().palette.mode;
   const startKey = cellKey(layout.start);
 
   const lastPlayIndex = new Map<CellKey, number>();

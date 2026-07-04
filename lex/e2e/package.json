@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:visual": "playwright test --config playwright.visual.config.ts visual/gallery.spec.ts",
+    "test:ux": "playwright test --config playwright.visual.config.ts visual/ux.spec.ts"
   },
   "devDependencies": {
+    "@parlor/harness": "link:../../parlor/packages/harness",
     "@playwright/test": "~1.56.1",
     "@types/node": "^22.20.0",
     "typescript": "^5.6.3"

@@ -47,7 +47,9 @@ function dictAssets(): Plugin {
 export default defineConfig({
   build: { sourcemap: true }, // published maps: debuggability > obscurity here
   plugins: [react(), dictAssets()],
-  server: { fs: { allow: ['.', parlorRoot] } },
+  // fs.allow: the app itself, the lex workspace root (the dev gallery imports
+  // engine fixtures/test helpers), and the parlor sibling workspace.
+  server: { fs: { allow: ['.', fileURLToPath(new URL('../..', import.meta.url)), parlorRoot] } },
   optimizeDeps: {
     exclude: ['@parlor/core', '@parlor/web', '@parlor/server', '@parlor/harness'],
   },

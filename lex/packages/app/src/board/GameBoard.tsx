@@ -21,7 +21,7 @@ import { PreviewOverlay } from './PreviewOverlay';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
 import { RackTray } from './RackTray';
-import { useColorMode } from '../theme';
+import { useTheme } from '@mui/material/styles';
 import { skinVars } from './skin';
 import { Tile } from './Tile';
 
@@ -47,7 +47,7 @@ export function GameBoard({
   onBackToLobby?: () => void;
 }) {
   const snap = useGameController(controller);
-  const { mode } = useColorMode();
+  const mode = useTheme().palette.mode;
   const viewportRef = useRef<BoardViewportHandle | null>(null);
   const [rackDrag, setRackDrag] = useState<RackDrag | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);

@@ -8,7 +8,7 @@ import { Box, Chip, IconButton, Paper } from '@mui/material';
 import type { TileFace, TileSet } from '@lex/engine';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useRef, useState } from 'react';
-import { useColorMode } from '../theme';
+import { useTheme } from '@mui/material/styles';
 import { skinVars } from './skin';
 import { Tile } from './Tile';
 
@@ -54,7 +54,7 @@ export function RackTray({
   onShuffle,
   onDragOut,
 }: RackTrayProps) {
-  const { mode } = useColorMode();
+  const mode = useTheme().palette.mode;
   const trayRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<DragRef | null>(null);
   const [dragVisual, setDragVisual] = useState<{ index: number; dx: number } | null>(null);
@@ -123,17 +123,19 @@ export function RackTray({
       onPointerCancel={endPointer}
       sx={{
         ...skinVars(mode),
-        '--lex-cell': '48px',
+        // Slots shrink to fit the viewport (phone: ~41px) and cap at 44px.
+        '--lex-cell': `min(44px, calc((100vw - 100px) / ${rackSize}))`,
         display: 'flex',
         alignItems: 'center',
-        gap: 0.75,
-        px: 1,
+        gap: 0.5,
+        px: 0.75,
         py: 0.75,
         touchAction: 'none',
         userSelect: 'none',
+        overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', gap: 0.5, flex: 1, justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'center', minWidth: 0 }}>
         {Array.from({ length: rackSize }, (_, i) => {
           const face = tiles[i] ?? null;
           const dragging = dragVisual?.index === i;

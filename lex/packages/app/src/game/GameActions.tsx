@@ -16,6 +16,8 @@ export interface GameActionsProps {
   onExchange: () => void;
   onPass: () => void;
   onResign: () => void;
+  /** Gallery hook: open a confirm dialog on mount. */
+  initialConfirm?: 'pass' | 'resign';
 }
 
 export function GameActions({
@@ -30,8 +32,9 @@ export function GameActions({
   onExchange,
   onPass,
   onResign,
+  initialConfirm,
 }: GameActionsProps) {
-  const [confirm, setConfirm] = useState<'pass' | 'resign' | null>(null);
+  const [confirm, setConfirm] = useState<'pass' | 'resign' | null>(initialConfirm ?? null);
   const exchangeShort = interactive && !canExchange && bagCount < exchangeMinBag;
 
   return (

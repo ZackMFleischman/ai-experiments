@@ -20,6 +20,9 @@ importers:
 
   e2e:
     devDependencies:
+      '@parlor/harness':
+        specifier: link:../../parlor/packages/harness
+        version: link:../../parlor/packages/harness
       '@playwright/test':
         specifier: ~1.56.1
         version: 1.56.1
@@ -38,6 +41,9 @@ importers:
       '@emotion/styled':
         specifier: ^11.14.0
         version: 11.14.1(@emotion/react@11.14.0(@types/react@18.3.31)(react@18.3.1))(@types/react@18.3.31)(react@18.3.1)
+      '@lex/dict':
+        specifier: workspace:*
+        version: link:../dict
       '@lex/engine':
         specifier: workspace:*
         version: link:../engine
@@ -50,6 +56,9 @@ importers:
       '@parlor/core':
         specifier: link:../../../parlor/packages/core
         version: link:../../../parlor/packages/core
+      '@parlor/harness':
+        specifier: link:../../../parlor/packages/harness
+        version: link:../../../parlor/packages/harness
       '@parlor/web':
         specifier: link:../../../parlor/packages/web
         version: link:../../../parlor/packages/web

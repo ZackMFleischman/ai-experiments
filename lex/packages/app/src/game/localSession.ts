@@ -72,9 +72,22 @@ export function initLocalController(deps: LocalSessionDeps = {}): Promise<GameCo
     const dict = await loadDict(options.dictionaryId);
     controller = new GameController(transport, options, { dict, rng });
     await controller.init();
+    exposeDebugHandle(controller);
     return controller;
   })();
   return initPromise;
+}
+
+/** Dev/e2e debug surface (validate:ux reads controller state through it). */
+function exposeDebugHandle(c: GameController): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (import.meta.env?.DEV) {
+      (window as unknown as { __lex?: { controller: GameController } }).__lex = { controller: c };
+    }
+  } catch {
+    // import.meta.env absent outside vite — nothing to expose.
+  }
 }
 
 export function getLocalController(): GameController | null {
