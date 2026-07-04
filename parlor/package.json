@@ -1,0 +1,13 @@
+{
+  "name": "parlor-root",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "typecheck": "node scripts/check-docs.mjs && node scripts/check-boundaries.mjs && pnpm -r --sequential typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

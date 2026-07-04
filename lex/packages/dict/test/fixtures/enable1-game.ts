@@ -1,0 +1,52 @@
+// T2.5 pinned real-dictionary full game (IMPLEMENTATION §6): generated once
+// by a deterministic dict-validated search over the pinned bag order below
+// (difficulty-ordered bag: awkward letters mid-game, vowel-rich tail), then
+// frozen here. Every word is ENABLE-valid; exchanges and both blanks
+// (sTaIG, BUGs) appear; the game ends played-out.
+export const ENABLE1_GAME = {
+  rulesetId: 'classic',
+  dictionaryId: 'enable1',
+  seats: 2,
+  bagOrder:
+    'CATSERDGONILEAQZJX??KVVWWBBCFFHHMMPPYYGGUUUUDDDLLLNNNNNOOOOOOOIIIIIIIITTTTTRRRRRSSSAAAAAAAEEEEEEEEEE',
+  moves: [
+    '8E ACED +14',
+    '7B AEON +7',
+    'B5 TZARS +34',
+    '5A sTaIG +8',
+    'G7 JEW +25',
+    'D4 CIBOL +29',
+    '9B SH +9',
+    '10C MM +13',
+    '7A PAEON +7',
+    'E7 NAP +5',
+    '-QXVW',
+    'D10 MY +7',
+    'A2 BUGs +8',
+    '2A BY +14',
+    '-HUUU',
+    '-KVFF',
+    '-DDLL',
+    'F8 CODON +20',
+    'G11 NOON +9',
+    '7G JINGO +17',
+    '14C INION +7',
+    '6K TILT +8',
+    '8K RIOT +8',
+    '9I IRIS +11',
+    '1B AIRS +10',
+    '4D CARAT +11',
+    '3E SATE +16',
+    'M2 AREAL +10',
+    '3K EAR +3',
+    '5G WHEE +22',
+    'N8 TUQUE +34',
+    '2L FAKE +27',
+    '12F NODDLE +10',
+    '13A LUX +38',
+    '13K FEE +17',
+  ],
+  finalScores: [219, 239] as readonly number[],
+  endedBy: 'played-out' as const,
+  winner: 1,
+};

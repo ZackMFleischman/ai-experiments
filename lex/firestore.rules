@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// T0.5 minimal scaffold: only your own users/{uid} doc is client-accessible.
+// The real three-tier game schema rules (public game docs, owner-only racks,
+// no-client-read private bag) land with T4.3 — with negative rules tests.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

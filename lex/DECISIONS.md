@@ -33,3 +33,29 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   numbered FR/NFR feature inventory, budget 250 (IMPLEMENTATION §7 table);
   IMPLEMENTATION budget raised 650→700 for the parlor wiring + second ruleset/
   dictionary tasks. Parlor keeps its own two ≤55-line docs.
+
+- **2026-07-04 — SHIPPED M0 (T0.1–T0.8).** Gates: typecheck (docs + boundaries +
+  strict tsc) + unit tests green in both workspaces; ping green vs demo-lex
+  emulators; Playwright smoke 9/9 at 3 viewports; `validate:m0` chains them; CI
+  ported (parlor / checks / validate jobs). Deviations: T0.5 ships minimal
+  deny-all firestore.rules (three-tier rules are T4.3); e2e package named
+  `lex-e2e` (a bare `e2e` collides with hive's in pnpm filters). Stumbles:
+  fast-check predicates must return boolean/undefined — a vitest matcher's
+  return value failed a seed property.
+
+- **2026-07-04 — SHIPPED M1 (T1.1–T1.11).** Gates: 111 engine tests green;
+  `validate:m1` = 1000-game property run (~40s) over both rulesets, fc seed
+  pinned in CI. Deviations: `modern` premium census pinned 8TW/12DW/16TL/24DL
+  with a plain-star center (WWF-style); engine exchange appends returned tiles
+  to the bag end (server re-shuffle is a T4.5 transport event, so invariant-5
+  replay is exact from bagOrder + moves at engine level); playerView throws on
+  out-of-range seats. Stumbles: none — fixtures were generated, then pinned.
+
+- **2026-07-04 — SHIPPED M2 (T2.1–T2.5).** Gates: 31 dict tests; `validate:m2`
+  = DAWG build (enable1 480 KB / 2of12inf 227 KB, ≤800 KB) + full suite incl.
+  the pinned played-out ENABLE game. Deviations: 2of12inf `%`/`!` marker words
+  KEPT (markers stripped — they are real playable words per the 12dicts docs);
+  sync loader exported at subpath `@lex/dict/node` to keep the frozen browser
+  surface exact; provenance in `words/README.md` (outside the doc gate's walk).
+  Stumbles: norvig.com blocked by the proxy — vendored enable1 from the
+  dolph/dictionary mirror, 2of12inf from the official SourceForge zip.

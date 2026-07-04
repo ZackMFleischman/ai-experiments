@@ -91,44 +91,11 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ## 2. Milestone task lists
 
-### M0 — Scaffold
+### M0 — shipped, see DECISIONS.md
 
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T0.1 | Both workspaces: `parlor/` at repo root (4 package skeletons) + `lex/` (4 packages + e2e), strict TS, and the §1 source-link wiring between them **[port: hive root configs]** | engine/dict/@parlor/* export placeholder types; a lex test imports from `@parlor/core` to prove the wiring | `pnpm typecheck` in both |
-| T0.2 | App shell: Vite + React + MUI + router, stub routes for every DESIGN §7.1 screen, base theme **[port: hive app scaffold + theme.ts]** | | routes render test |
-| T0.3 | Vitest + fast-check + Testing Library wired in every package; one seed test each | | `pnpm test` |
-| T0.4 | Playwright + smoke e2e at 3 viewports **[port: hive e2e config]** | pin ~1.56; webServer `--host 127.0.0.1` (§8) | smoke green |
-| T0.5 | Firebase emulator suite config against `demo-lex`; functions package with a `ping` callable; seed script **[port: hive firebase.json, emulator-seed, functions scaffold]` | fully offline — no console setup yet (§8) | ping test vs emulator |
-| T0.6 | GitHub Actions CI: lex job (typecheck + unit layers + e2e vs fresh emulators, installs parlor first) + a small parlor job (typecheck + tests) **[port: hive workflow]** | | CI green |
-| T0.7 | `scripts/check-docs.mjs` (budgets, closed set, no "Update (" markers) + `scripts/check-boundaries.mjs` (`@parlor/*` imports no game packages; lex app imports firebase only via `@parlor/web` or `src/sync/`), wired into both workspaces' `typecheck` **[port: hive check-docs.mjs]** | | planted violations fail; clean passes |
-| T0.8 | `validate:m0` chaining all of the above | | `pnpm validate:m0` |
+### M1 — shipped, see DECISIONS.md
 
-### M1 — Engine core (DESIGN §2.1–§2.2, §5)
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T1.1 | Types + Ruleset data for **both** v1 rulesets (`classic` + `modern` premium layouts over the standard TileSet) + immutable registry | invariant tests: classic = 8 TW / 17 DW / 12 TL / 24 DL; both layouts 4-fold symmetric, premium counts pinned per layout; 100 tiles, 187 points, 2 blanks | unit |
-| T1.2 | Bag + `initialState(ruleset, bagOrder)`: permutation validation, deal racks in seat order; draw helper | determinism: same order ⇒ identical states | unit |
-| T1.3 | `checkPlay`: rack legality (incl. blanks), single line, contiguity through existing tiles, first-play center + ≥2 tiles, connectivity; word extraction (main + cross, length-1 cross ≠ word) | typed rejection reasons for UI copy | unit vs hand-built boards |
-| T1.4 | `scorePlay`: letter premiums (new tiles only), stacking word multipliers, cross-word scores, bingo flag | pinned score fixtures (§6) | unit |
-| T1.5 | `applyMove` play/exchange/pass: full pipeline, refill draw, `scorelessRun` bookkeeping, `IllegalMoveError` paths | exchange needs bag ≥ `exchangeMinBag`; 0-point plays increment scorelessRun | unit |
-| T1.6 | End conditions + final adjustments + `result()`: played-out bonus/deduction, scoreless-limit end, tie ⇒ draw; terminal `applyMove` finalizes scores | fixtures for each ending | unit |
-| T1.7 | GCG-style `toGcg`/`parseGcg` (row-first = horizontal; blanks lowercase; exchange/pass forms) | round-trip at every fixture position | unit |
-| T1.8 | `serializeState`/`deserializeState` (full, exact round-trip), `playerView(state, seat)`, `serializePublic`/`parsePublic` | playerView leak assertions | unit |
-| T1.9 | Full-game fixture: scripted game (stub dictionary, pinned bag order) replaying to known final scores, exercising bingo + blank + exchange + played-out ending | drives gallery + e2e later | replay test |
-| T1.10 | Property suite (invariants list, §6) over random legal games | fc seed pinned in CI; yield between games (§8) | 1000-game run |
-| T1.11 | `validate:m1` script | | `pnpm validate:m1` |
-
-### M2 — Dictionary (DESIGN §5.4)
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T2.1 | Vendor **both** lists (`enable1.txt`, `2of12inf.txt`) + license notes; pin exact word counts + content hashes in tests | both public domain — record provenance in the package README lines | unit |
-| T2.2 | DAWG builder (build-time script → one binary artifact per list, ≤ 800 KB each) + loader; `Dictionary` implementation | generated, never committed | per-list equivalence vs a reference `Set` + fuzzed negatives |
-| T2.3 | `DICTIONARIES` registry metadata (id, name, description, word count — feeds the FR-7 picker) + async app loader (fetch + SW cache, per-game lazy) and sync functions loader (bundles both) sharing one decoder | id + hash asserted both sides; registry matches vendored files | unit |
-| T2.4 | Engine integration: `applyMove` play path takes `dict`; per-word verdicts surface for UI; invalid-word fixtures (one bad cross-word rejects the whole play, names it) | | unit |
-| T2.5 | Real-dictionary full-game fixture; `validate:m2` | | `pnpm validate:m2` |
+### M2 — shipped, see DECISIONS.md
 
 ### M3 — Local game UI + validation harness (DESIGN §7)
 
