@@ -68,3 +68,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   the checklist); result-overlay stats omit duration (no clock exists pre-M4).
   Stumbles: jsdom hid two real-browser bugs (tray wedged after drag hand-off —
   no pointerup after capture release; skin read a context, not the MUI theme).
+
+- **2026-07-04 — Production Firebase project `lex-zmf` registered** (owner, per
+  hive §5.6 steps 1–4): web-app config committed as `VITE_FIREBASE_*` in
+  `packages/app/.env` (public identifiers). `.firebaserc` gains a `prod` alias;
+  `default` stays `demo-lex` so emulators/CI keep running fully offline (§8.9) —
+  deploys use `--project prod`. VAPID public key committed too
+  (`VITE_FIREBASE_VAPID_KEY` — M5's push setup), and the deploy service
+  account (Editor + roles/run.admin) is stored as the GitHub Actions secret
+  `FIREBASE_SERVICE_ACCOUNT_LEX_ZMF` — hive §5.6 setup complete; nothing
+  manual blocks M4.
