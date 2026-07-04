@@ -10,11 +10,14 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "build": "esbuild src/build-cli.ts --bundle --platform=node --format=esm --outfile=generated/.build-cli.mjs && node generated/.build-cli.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
+    "esbuild": "^0.28.1",
+    "fast-check": "^3.23.2",
     "typescript": "^5.6.3",
     "vitest": "^3.0.0"
   }
