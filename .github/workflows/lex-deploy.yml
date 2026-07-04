@@ -76,16 +76,22 @@ jobs:
           set -e
           printf '%s\n' "$out"
           [ "$status" -eq 0 ] || exit "$status"
-          url=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev' | tail -1)
-          echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+          # First URL = the unique deployment; last = the branch alias. The
+          # alias hostname can lag DNS by minutes on a fresh project, so the
+          # smoke check probes the deployment URL and the preview comment
+          # links the alias (falling back to the deployment URL).
+          urls=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev')
+          echo "deployment-url=$(printf '%s\n' "$urls" | head -1)" >> "$GITHUB_OUTPUT"
+          echo "alias-url=$(printf '%s\n' "$urls" | tail -1)" >> "$GITHUB_OUTPUT"
       - name: smoke-check the deployment
         if: steps.deploy.outcome == 'success'
         working-directory: ${{ github.workspace }}
         run: |
           url="${{ steps.deploy.outputs.deployment-url }}"
-          for i in $(seq 1 10); do
+          # Fresh *.pages.dev hostnames can take a few minutes on first deploy.
+          for i in $(seq 1 30); do
             code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$url/") && [ "$code" = "200" ] && break
-            sleep 5
+            sleep 10
           done
           [ "$code" = "200" ] || { echo "::error::deployment not serving ($code)"; exit 1; }
           grep -q 'id="root"' /tmp/index.html || { echo "::error::index.html missing app root"; exit 1; }
@@ -102,7 +108,7 @@ jobs:
           message: |
             ### 🅛 LEX preview
 
-            **[▶ Open the hot-seat game](${{ steps.deploy.outputs.deployment-url }}/game/local)**
+            **[▶ Open the hot-seat game](${{ steps.deploy.outputs.alias-url || steps.deploy.outputs.deployment-url }}/game/local)**
 
             Built from `${{ github.event.pull_request.head.sha }}` — static PWA, LocalTransport only.
       - name: notice when Cloudflare secrets are missing
