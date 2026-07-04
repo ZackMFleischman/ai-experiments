@@ -103,6 +103,51 @@ describe('LobbyView', () => {
     expect(relativeTime(NOW - 3 * 3_600_000, NOW)).toBe('3h ago');
     expect(relativeTime(NOW - 2 * 86_400_000, NOW)).toBe('2d ago');
   });
+
+  it('renders an incoming challenge with accept/decline wired', () => {
+    const onRespond = vi.fn();
+    renderIn(
+      <LobbyView
+        games={[
+          game({
+            id: 'ch1',
+            status: 'open',
+            opponentName: 'Ada',
+            challenge: { direction: 'incoming', name: 'Ada' },
+          }),
+        ]}
+        now={NOW}
+        onOpen={() => {}}
+        onRespondChallenge={onRespond}
+      />,
+    );
+    expect(screen.getByTestId('group-challenges')).toBeTruthy();
+    expect(screen.getByText(/Ada/)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('challenge-accept-ch1'));
+    expect(onRespond).toHaveBeenCalledWith('ch1', true);
+    fireEvent.click(screen.getByTestId('challenge-decline-ch1'));
+    expect(onRespond).toHaveBeenCalledWith('ch1', false);
+  });
+
+  it('shows an outgoing challenge under waiting with a challenge-sent chip', () => {
+    renderIn(
+      <LobbyView
+        games={[
+          game({
+            id: 'ch2',
+            status: 'open',
+            opponentName: 'Sam',
+            challenge: { direction: 'outgoing', name: 'Sam' },
+          }),
+        ]}
+        now={NOW}
+        onOpen={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('group-waiting')).toBeTruthy();
+    expect(screen.getByText('Challenge sent')).toBeTruthy();
+    expect(screen.queryByTestId('group-challenges')).toBeNull();
+  });
 });
 
 describe('NewGameForm', () => {

@@ -1,9 +1,11 @@
 // Online games list container (T4.7): lazy-loaded by the Lobby in full mode.
-import { CircularProgress, Stack } from '@mui/material';
+import { Alert, CircularProgress, Stack } from '@mui/material';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LobbyView } from '../screens/lobbyView';
 import { useTurnBadge } from '../screens/turnBadge';
 import { useAuth } from './authContext';
+import * as api from './gameApi';
 import { useMyGames } from './lobby';
 import { NotificationsSetup } from './NotificationsSetup';
 
@@ -21,8 +23,14 @@ export default function OnlineGames() {
 
 function Loaded({ uid, onOpen }: { uid: string; onOpen: (id: string) => void }) {
   const { games, loading } = useMyGames(uid);
+  const [error, setError] = useState<string | null>(null);
+  // Incoming challenges are actionable too — badge them like your-turn games.
   useTurnBadge(
-    games.filter((g) => g.status === 'active' && g.toMove === g.myColor).length,
+    games.filter(
+      (g) =>
+        (g.status === 'active' && g.toMove === g.myColor) ||
+        (g.status === 'open' && g.challenge?.direction === 'incoming'),
+    ).length,
   );
   if (loading) {
     return (
@@ -31,5 +39,21 @@ function Loaded({ uid, onOpen }: { uid: string; onOpen: (id: string) => void }) 
       </Stack>
     );
   }
-  return <LobbyView games={games} now={Date.now()} onOpen={onOpen} />;
+  const respond = (id: string, accept: boolean) => {
+    setError(null);
+    api
+      .respondChallenge({ gameId: id, accept })
+      .then(() => {
+        if (accept) onOpen(id); // straight into the fresh game
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'could not respond to the challenge');
+      });
+  };
+  return (
+    <>
+      {error && <Alert severity="error">{error}</Alert>}
+      <LobbyView games={games} now={Date.now()} onOpen={onOpen} onRespondChallenge={respond} />
+    </>
+  );
 }

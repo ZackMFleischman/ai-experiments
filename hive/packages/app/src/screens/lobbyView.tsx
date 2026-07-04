@@ -3,8 +3,10 @@
 // sync container (sync/OnlineGames) feeds it; the gallery feeds it fixtures.
 import {
   Box,
+  Button,
   Card,
   CardActionArea,
+  CardActions,
   Chip,
   Stack,
   Typography,
@@ -27,6 +29,10 @@ export interface LobbyGameSummary {
   deadlineAtMs?: number;
   /** games/{id}.state — renders the thumbnail without replaying. */
   state: string;
+  /** The other player's uid where known — feeds the new-game friend picker. */
+  opponentUid?: string;
+  /** Direct challenge while open (DESIGN §5.2): who challenged whom. */
+  challenge?: { direction: 'incoming' | 'outgoing'; name: string };
 }
 
 export function timeLeft(deadlineMs: number, nowMs: number): string {
@@ -103,10 +109,58 @@ export function GameCard({
             />
           )}
           {yourTurn && <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />}
-          {game.status === 'open' && <Chip size="small" variant="outlined" label="Invited" />}
+          {game.status === 'open' && (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={game.challenge ? 'Challenge sent' : 'Invited'}
+            />
+          )}
           {resultChip(game)}
         </Stack>
       </CardActionArea>
+    </Card>
+  );
+}
+
+/** Incoming direct challenge: accept starts the game, decline removes it.
+ * Buttons live outside the action area (no nested-button DOM). */
+export function ChallengeCard({
+  game,
+  onRespond,
+}: {
+  game: LobbyGameSummary;
+  onRespond: (id: string, accept: boolean) => void;
+}) {
+  return (
+    <Card variant="outlined" data-testid={`challenge-card-${game.id}`}>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ p: 1.5, pb: 0 }}>
+        <Thumbnail state={game.state} />
+        <Stack sx={{ minWidth: 0, flex: 1 }} spacing={0.5}>
+          <Typography fontWeight={600} noWrap>
+            {game.challenge?.name ?? 'A friend'} challenges you
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            You&apos;d play {game.myColor === 'w' ? 'white' : 'black'}
+          </Typography>
+        </Stack>
+      </Stack>
+      <CardActions sx={{ justifyContent: 'flex-end' }}>
+        <Button
+          color="error"
+          onClick={() => onRespond(game.id, false)}
+          data-testid={`challenge-decline-${game.id}`}
+        >
+          Decline
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => onRespond(game.id, true)}
+          data-testid={`challenge-accept-${game.id}`}
+        >
+          Accept
+        </Button>
+      </CardActions>
     </Card>
   );
 }
@@ -115,14 +169,21 @@ export function LobbyView({
   games,
   now,
   onOpen,
+  onRespondChallenge,
 }: {
   games: LobbyGameSummary[];
   now: number;
   onOpen: (id: string) => void;
+  onRespondChallenge?: (id: string, accept: boolean) => void;
 }) {
+  const challenges = games.filter(
+    (g) => g.status === 'open' && g.challenge?.direction === 'incoming',
+  );
   const yourTurn = games.filter((g) => g.status === 'active' && g.toMove === g.myColor);
   const waiting = games.filter(
-    (g) => g.status === 'open' || (g.status === 'active' && g.toMove !== g.myColor),
+    (g) =>
+      (g.status === 'open' && g.challenge?.direction !== 'incoming') ||
+      (g.status === 'active' && g.toMove !== g.myColor),
   );
   const finished = games.filter((g) => g.status === 'finished');
 
@@ -148,6 +209,16 @@ export function LobbyView({
 
   return (
     <Stack spacing={3} sx={{ mt: 2 }}>
+      {challenges.length > 0 && (
+        <Stack spacing={1} data-testid="group-challenges">
+          <Typography variant="overline" color="text.secondary">
+            Challenges
+          </Typography>
+          {challenges.map((g) => (
+            <ChallengeCard key={g.id} game={g} onRespond={(id, accept) => onRespondChallenge?.(id, accept)} />
+          ))}
+        </Stack>
+      )}
       {section('Your turn', yourTurn, 'group-your-turn')}
       {section('Waiting on opponent', waiting, 'group-waiting')}
       {section('Finished', finished, 'group-finished')}
