@@ -1,0 +1,19 @@
+{
+  "name": "@lex/app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lex/engine": "workspace:*",
+    "@parlor/core": "link:../../../parlor/packages/core",
+    "@parlor/web": "link:../../../parlor/packages/web"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^3.0.0"
+  }
+}

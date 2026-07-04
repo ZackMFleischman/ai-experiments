@@ -1,0 +1,13 @@
+{
+  "name": "lex-root",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "typecheck": "pnpm -r --sequential typecheck",
+    "test": "pnpm -r --filter '!lex-e2e' test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

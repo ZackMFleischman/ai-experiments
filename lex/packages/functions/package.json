@@ -1,0 +1,20 @@
+{
+  "name": "@lex/functions",
+  "private": true,
+  "version": "0.0.0",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@parlor/server": "link:../../../parlor/packages/server"
+  },
+  "devDependencies": {
+    "@lex/engine": "workspace:*",
+    "@types/node": "^22.20.0",
+    "typescript": "^5.6.3"
+  }
+}
