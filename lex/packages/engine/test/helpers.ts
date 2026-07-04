@@ -17,3 +17,31 @@ export function rotatedBagOrder(ruleset: Ruleset, shift: number): TileFace[] {
   const order = canonicalBagOrder(ruleset);
   return [...order.slice(shift % order.length), ...order.slice(0, shift % order.length)];
 }
+
+/**
+ * A full bag order that deals the given racks (seat order), then continues
+ * with `bagPrefix`, then the remaining tiles in sorted order. Lets tests pin
+ * exact racks and next draws while staying a legal permutation.
+ */
+export function riggedBagOrder(ruleset: Ruleset, racks: ReadonlyArray<readonly TileFace[]>, bagPrefix: readonly TileFace[] = []): TileFace[] {
+  const remaining: Record<string, number> = {};
+  for (const [face, count] of Object.entries(ruleset.tiles.counts)) remaining[face] = count;
+  const take = (face: TileFace) => {
+    if (!remaining[face]) throw new Error(`rigged order over-draws '${face}'`);
+    remaining[face] -= 1;
+    return face;
+  };
+  const order: TileFace[] = [];
+  for (const rack of racks) for (const face of rack) order.push(take(face));
+  for (const face of bagPrefix) order.push(take(face));
+  for (const face of Object.keys(remaining).sort() as TileFace[]) {
+    for (let i = 0; i < remaining[face]!; i++) order.push(face);
+  }
+  return order;
+}
+
+/** A dictionary stub: accepts everything except the listed words. */
+export function stubDict(rejects: readonly string[] = []): { id: string; has(word: string): boolean } {
+  const bad = new Set(rejects.map((w) => w.toUpperCase()));
+  return { id: 'stub', has: (word: string) => !bad.has(word.toUpperCase()) };
+}
