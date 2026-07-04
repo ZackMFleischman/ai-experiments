@@ -93,21 +93,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M0 — shipped, see DECISIONS.md
 
-### M1 — Engine core (DESIGN §2.1–§2.2, §5)
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T1.1 | Types + Ruleset data for **both** v1 rulesets (`classic` + `modern` premium layouts over the standard TileSet) + immutable registry | invariant tests: classic = 8 TW / 17 DW / 12 TL / 24 DL; both layouts 4-fold symmetric, premium counts pinned per layout; 100 tiles, 187 points, 2 blanks | unit |
-| T1.2 | Bag + `initialState(ruleset, bagOrder)`: permutation validation, deal racks in seat order; draw helper | determinism: same order ⇒ identical states | unit |
-| T1.3 | `checkPlay`: rack legality (incl. blanks), single line, contiguity through existing tiles, first-play center + ≥2 tiles, connectivity; word extraction (main + cross, length-1 cross ≠ word) | typed rejection reasons for UI copy | unit vs hand-built boards |
-| T1.4 | `scorePlay`: letter premiums (new tiles only), stacking word multipliers, cross-word scores, bingo flag | pinned score fixtures (§6) | unit |
-| T1.5 | `applyMove` play/exchange/pass: full pipeline, refill draw, `scorelessRun` bookkeeping, `IllegalMoveError` paths | exchange needs bag ≥ `exchangeMinBag`; 0-point plays increment scorelessRun | unit |
-| T1.6 | End conditions + final adjustments + `result()`: played-out bonus/deduction, scoreless-limit end, tie ⇒ draw; terminal `applyMove` finalizes scores | fixtures for each ending | unit |
-| T1.7 | GCG-style `toGcg`/`parseGcg` (row-first = horizontal; blanks lowercase; exchange/pass forms) | round-trip at every fixture position | unit |
-| T1.8 | `serializeState`/`deserializeState` (full, exact round-trip), `playerView(state, seat)`, `serializePublic`/`parsePublic` | playerView leak assertions | unit |
-| T1.9 | Full-game fixture: scripted game (stub dictionary, pinned bag order) replaying to known final scores, exercising bingo + blank + exchange + played-out ending | drives gallery + e2e later | replay test |
-| T1.10 | Property suite (invariants list, §6) over random legal games | fc seed pinned in CI; yield between games (§8) | 1000-game run |
-| T1.11 | `validate:m1` script | | `pnpm validate:m1` |
+### M1 — shipped, see DECISIONS.md
 
 ### M2 — Dictionary (DESIGN §5.4)
 

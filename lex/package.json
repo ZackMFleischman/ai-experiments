@@ -8,8 +8,9 @@
     "dev:emulators": "pnpm --filter @lex/functions build && firebase emulators:start --project demo-lex --import packages/functions/emulator-seed",
     "typecheck": "node scripts/check-docs.mjs && node scripts/check-boundaries.mjs && pnpm -r --sequential typecheck",
     "test": "pnpm -r --filter '!lex-e2e' test",
-    "validate": "pnpm validate:m0",
-    "validate:m0": "pnpm typecheck && pnpm test && pnpm --filter lex-e2e test"
+    "validate": "pnpm validate:m0 && pnpm validate:m1",
+    "validate:m0": "pnpm typecheck && pnpm test && pnpm --filter lex-e2e test",
+    "validate:m1": "LEX_PROP_GAMES=1000 pnpm --filter @lex/engine test"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

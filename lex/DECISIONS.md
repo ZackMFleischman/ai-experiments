@@ -42,3 +42,11 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `lex-e2e` (a bare `e2e` collides with hive's in pnpm filters). Stumbles:
   fast-check predicates must return boolean/undefined — a vitest matcher's
   return value failed a seed property.
+
+- **2026-07-04 — SHIPPED M1 (T1.1–T1.11).** Gates: 111 engine tests green;
+  `validate:m1` = 1000-game property run (~40s) over both rulesets, fc seed
+  pinned in CI. Deviations: `modern` premium census pinned 8TW/12DW/16TL/24DL
+  with a plain-star center (WWF-style); engine exchange appends returned tiles
+  to the bag end (server re-shuffle is a T4.5 transport event, so invariant-5
+  replay is exact from bagOrder + moves at engine level); playerView throws on
+  out-of-range seats. Stumbles: none — fixtures were generated, then pinned.
