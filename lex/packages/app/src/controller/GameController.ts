@@ -77,6 +77,8 @@ export interface Snapshot {
   preview: Preview | null;
   /** Rack slot armed by the tap-tap flow (T3.5); null = none. */
   selection: number | null;
+  /** Exchange multi-select mode (T3.6): selected rack slots; null = off. */
+  exchange: ReadonlySet<number> | null;
   /** May the local player act right now (their turn, game not over)? */
   interactive: boolean;
   canExchange: boolean;
@@ -143,6 +145,7 @@ export class GameController {
 
   private pending = new Map<CellKey, PendingTile>();
   private selection: number | null = null;
+  private exchangeSelection: Set<number> | null = null;
   private rackSlots: Array<TileFace | null> = [];
   private syncedGame: GameState | null = null;
   private syncedSeat: Seat | null = null;
@@ -296,6 +299,7 @@ export class GameController {
     const ruleset = this.rulesetFor(this.currentOptions());
     this.pending.clear();
     this.selection = null;
+    this.exchangeSelection = null;
     this.rackSlots = reconcileSlots(this.rackSlots, s.game.racks[seat] ?? [], ruleset.rackSize);
     this.syncedGame = s.game;
     this.syncedSeat = seat;
@@ -341,6 +345,7 @@ export class GameController {
       pending: new Map(this.pending),
       preview,
       selection: this.selection,
+      exchange: this.exchangeSelection ? new Set(this.exchangeSelection) : null,
       interactive: this.interactive(),
       canExchange:
         this.interactive() && this.pending.size === 0 && s.game.bag.length >= ruleset.exchangeMinBag,
@@ -536,6 +541,39 @@ export class GameController {
     if (!this.interactive()) return;
     this.recallAll();
     this.session.submit({ kind: 'pass' }, 'rollback');
+  }
+
+  // ── exchange multi-select mode (T3.6) ──────────────────────────────────────
+
+  beginExchange(): void {
+    this.recallAll();
+    if (!this.getSnapshot().canExchange) return;
+    this.exchangeSelection = new Set();
+    this.selection = null;
+    this.emit();
+  }
+
+  toggleExchange(index: number): void {
+    if (!this.exchangeSelection) return;
+    this.syncRack();
+    if (!this.rackSlots[index]) return;
+    if (this.exchangeSelection.has(index)) this.exchangeSelection.delete(index);
+    else this.exchangeSelection.add(index);
+    this.emit();
+  }
+
+  cancelExchange(): void {
+    if (!this.exchangeSelection) return;
+    this.exchangeSelection = null;
+    this.emit();
+  }
+
+  confirmExchange(): void {
+    const selected = this.exchangeSelection;
+    if (!selected || selected.size === 0) return;
+    this.exchangeSelection = null;
+    this.exchangeTiles([...selected]);
+    this.emit();
   }
 
   exchangeTiles(rackIndices: readonly number[]): void {

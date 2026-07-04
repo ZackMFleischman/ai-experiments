@@ -24,6 +24,8 @@ export interface RackTrayProps {
   disabled?: boolean;
   /** Slot highlighted for the tap-tap flow (T3.5). */
   selectedIndex?: number | null;
+  /** Exchange multi-select mode (T3.6): selected slots raise, others dim. */
+  exchangeSelection?: ReadonlySet<number> | null;
   onTileTap?: (index: number) => void;
   onReorder?: (from: number, to: number) => void;
   onShuffle?: () => void;
@@ -46,6 +48,7 @@ export function RackTray({
   bagCount,
   disabled = false,
   selectedIndex = null,
+  exchangeSelection = null,
   onTileTap,
   onReorder,
   onShuffle,
@@ -134,11 +137,13 @@ export function RackTray({
         {Array.from({ length: rackSize }, (_, i) => {
           const face = tiles[i] ?? null;
           const dragging = dragVisual?.index === i;
+          const exchangeSelected = exchangeSelection?.has(i) ?? false;
           return (
             <Box
               key={i}
               data-rack-slot={i}
               data-selected={selectedIndex === i ? 'true' : undefined}
+              data-exchange-selected={exchangeSelected ? 'true' : undefined}
               sx={{
                 width: 'var(--lex-cell)',
                 height: 'var(--lex-cell)',
@@ -148,7 +153,12 @@ export function RackTray({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                outline: selectedIndex === i ? '2px solid var(--lex-tile-pending-edge)' : 'none',
+                outline:
+                  selectedIndex === i || exchangeSelected
+                    ? '2px solid var(--lex-tile-pending-edge)'
+                    : 'none',
+                ...(exchangeSelection && !exchangeSelected && { opacity: 0.55 }),
+                ...(exchangeSelected && { transform: 'translateY(-4px)' }),
                 ...(dragging && {
                   transform: `translateX(${dragVisual.dx}px)`,
                   zIndex: 2,

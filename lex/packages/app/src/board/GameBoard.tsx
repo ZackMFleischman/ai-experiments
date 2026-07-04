@@ -3,13 +3,15 @@
 // rack drags ride window listeners after the tray hands the pointer over;
 // staged-tile drags ride the viewport's interaction seam. All hit-testing is
 // board-space (transform-proof). Rules stay in the controller's verdicts.
-import ReplayIcon from '@mui/icons-material/Replay';
-import { Box, Button } from '@mui/material';
+import { Box } from '@mui/material';
 import type { Cell, CellKey, TileFace } from '@lex/engine';
-import { cellKey } from '@lex/engine';
+import { cellKey, parseCellKey } from '@lex/engine';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
+import { BlankPicker } from '../game/BlankPicker';
+import { ExchangeBar } from '../game/ExchangeBar';
+import { GameActions } from '../game/GameActions';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
@@ -137,16 +139,27 @@ export function GameBoard({ controller }: { controller: GameController }) {
           />
         </BoardViewport>
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1, py: 0.5 }}>
-        <Button
-          size="small"
-          startIcon={<ReplayIcon />}
-          disabled={snap.pending.size === 0}
-          onClick={() => controller.recallAll()}
-        >
-          Recall
-        </Button>
-      </Box>
+      {snap.exchange ? (
+        <ExchangeBar
+          count={snap.exchange.size}
+          onConfirm={() => controller.confirmExchange()}
+          onCancel={() => controller.cancelExchange()}
+        />
+      ) : (
+        <GameActions
+          playable={snap.preview?.playable ?? false}
+          hasPending={snap.pending.size > 0}
+          interactive={snap.interactive}
+          canExchange={snap.canExchange}
+          exchangeMinBag={snap.ruleset.exchangeMinBag}
+          bagCount={snap.bagCount}
+          onPlay={() => controller.submitPlay()}
+          onRecall={() => controller.recallAll()}
+          onExchange={() => controller.beginExchange()}
+          onPass={() => controller.pass()}
+          onResign={() => controller.resign()}
+        />
+      )}
       <RackTray
         tiles={snap.rack}
         rackSize={snap.ruleset.rackSize}
@@ -154,12 +167,22 @@ export function GameBoard({ controller }: { controller: GameController }) {
         bagCount={snap.bagCount}
         disabled={!snap.interactive}
         selectedIndex={snap.selection}
-        onTileTap={(i) => controller.selectRackSlot(i)}
+        exchangeSelection={snap.exchange}
+        onTileTap={(i) => (snap.exchange ? controller.toggleExchange(i) : controller.selectRackSlot(i))}
         onReorder={(from, to) => controller.reorderRack(from, to)}
         onShuffle={() => controller.shuffleRack()}
         onDragOut={(index, pointerId, x, y) => {
+          if (snap.exchange) return; // no board drags while exchanging
           const face = controller.getSnapshot().rack[index];
           if (face) setRackDrag({ index, face, pointerId, x, y });
+        }}
+      />
+      <BlankPicker
+        open={snap.preview?.needsBlank != null}
+        tiles={snap.ruleset.tiles}
+        onPick={(letter) => {
+          const cell = controller.getSnapshot().preview?.needsBlank;
+          if (cell) controller.setBlankLetter(parseCellKey(cell), letter);
         }}
       />
       {rackDrag && (
