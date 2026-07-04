@@ -99,6 +99,23 @@ describe('RackTray', () => {
     expect(onReorder).not.toHaveBeenCalled();
   });
 
+  it('forgets a handed-off pointer immediately — the next drag works without a tray pointerup', () => {
+    // Regression (T3.13): after onDragOut, the pointerup lands outside the
+    // tray and never reaches it; a wedged drag ref killed all later drags.
+    const onDragOut = vi.fn();
+    const onTileTap = vi.fn();
+    const { tray } = renderTray({ onDragOut, onTileTap });
+    const first = tray.querySelector('[data-rack-slot="0"]') as Element;
+    fireEvent.pointerDown(first, { pointerId: 1, clientX: 25, clientY: 630, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 1, clientX: 30, clientY: 500 });
+    expect(onDragOut).toHaveBeenCalledOnce();
+    // No pointerup on the tray (it landed on the board). Next interaction:
+    const second = tray.querySelector('[data-rack-slot="1"]') as Element;
+    fireEvent.pointerDown(second, { pointerId: 2, clientX: 75, clientY: 630, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 2, clientX: 80, clientY: 500 });
+    expect(onDragOut).toHaveBeenCalledTimes(2);
+  });
+
   it('empty slots and disabled trays start no interaction', () => {
     const onTileTap = vi.fn();
     const { tray } = renderTray({ onTileTap, disabled: true });

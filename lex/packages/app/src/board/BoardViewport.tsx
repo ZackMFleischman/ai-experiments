@@ -29,7 +29,9 @@ const MAX_ZOOM = 8;
 /** Double-tap target: absolute scale where cells are placement-sized. */
 const PLACEMENT_SCALE = 1.2;
 const DOUBLE_TAP_MS = 350;
-const DOUBLE_TAP_PX = 30;
+// Tighter than a fit-view cell (~25px on a phone): fast tap-tap placement on
+// ADJACENT cells must never read as a double-tap zoom.
+const DOUBLE_TAP_PX = 12;
 
 export function zoomViewState(view: ViewState, factor: number, px: number, py: number): ViewState {
   const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.zoom * factor));

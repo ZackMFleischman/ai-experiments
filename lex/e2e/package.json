@@ -7,7 +7,8 @@
     "typecheck": "tsc --noEmit",
     "test": "playwright test",
     "test:visual": "playwright test --config playwright.visual.config.ts visual/gallery.spec.ts",
-    "test:ux": "playwright test --config playwright.visual.config.ts visual/ux.spec.ts"
+    "test:ux": "playwright test --config playwright.visual.config.ts visual/ux.spec.ts",
+    "test:m3": "playwright test --config playwright.m3.config.ts"
   },
   "devDependencies": {
     "@parlor/harness": "link:../../parlor/packages/harness",

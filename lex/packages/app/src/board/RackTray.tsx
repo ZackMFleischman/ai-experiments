@@ -38,7 +38,6 @@ interface DragRef {
   pointerId: number;
   startX: number;
   moved: boolean;
-  out: boolean;
 }
 
 export function RackTray({
@@ -75,18 +74,20 @@ export function RackTray({
     if (!slotEl) return;
     const index = Number(slotEl.getAttribute('data-rack-slot'));
     if (!tiles[index]) return;
-    drag.current = { index, pointerId: e.pointerId, startX: e.clientX, moved: false, out: false };
+    drag.current = { index, pointerId: e.pointerId, startX: e.clientX, moved: false };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = drag.current;
-    if (!d || d.pointerId !== e.pointerId || d.out) return;
+    if (!d || d.pointerId !== e.pointerId) return;
     const rect = e.currentTarget.getBoundingClientRect();
     if (onDragOut && e.clientY < (rect.top || 0) - DRAG_OUT_PX) {
-      d.out = true;
+      // Hand the pointer to the drag layer and forget it NOW — once capture
+      // is released, the pointerup lands elsewhere and never reaches the
+      // tray, so waiting for it would wedge every subsequent drag.
+      reset();
       e.currentTarget.releasePointerCapture?.(e.pointerId);
-      setDragVisual(null);
       onDragOut(d.index, e.pointerId, e.clientX, e.clientY);
       return;
     }
@@ -98,10 +99,6 @@ export function RackTray({
   const endPointer = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d || d.pointerId !== e.pointerId) return;
-    if (d.out) {
-      reset();
-      return;
-    }
     if (d.moved) {
       const offset = Math.round((e.clientX - d.startX) / slotWidth());
       const target = Math.min(tiles.length - 1, Math.max(0, d.index + offset));

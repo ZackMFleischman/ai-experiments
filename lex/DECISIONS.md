@@ -59,3 +59,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   surface exact; provenance in `words/README.md` (outside the doc gate's walk).
   Stumbles: norvig.com blocked by the proxy — vendored enable1 from the
   dolph/dictionary mirror, 2of12inf from the official SourceForge zip.
+
+- **2026-07-04 — SHIPPED M3 (T3.1–T3.13).** Gates: 101 app + 20 parlor tests;
+  validate:m3 = visual sweep (24 gallery entries × 3 viewports × 2 themes with
+  machine checks) + §4.2 ux flows + tap AND drag full-game e2e at 390×844 vs
+  the production build; full `pnpm validate` green. Deviations: per-task gallery
+  review consolidated into T3.11's first pass (3 accepted deviations logged in
+  the checklist); result-overlay stats omit duration (no clock exists pre-M4).
+  Stumbles: jsdom hid two real-browser bugs (tray wedged after drag hand-off —
+  no pointerup after capture release; skin read a context, not the MUI theme).

@@ -14,7 +14,7 @@
     "validate:m2": "pnpm --filter @lex/dict build && pnpm --filter @lex/dict test",
     "validate:visual": "pnpm --filter lex-e2e test:visual",
     "validate:ux": "pnpm --filter lex-e2e test:ux",
-    "validate:m3": "pnpm typecheck && pnpm test && pnpm validate:visual && pnpm validate:ux"
+    "validate:m3": "pnpm validate:visual && pnpm validate:ux && pnpm --filter lex-e2e test:m3"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
