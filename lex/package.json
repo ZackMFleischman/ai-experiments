@@ -4,10 +4,14 @@
   "version": "0.0.0",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
+    "dev": "concurrently -n app,emu -c blue,yellow \"pnpm --filter @lex/app dev\" \"pnpm dev:emulators\"",
+    "dev:emulators": "pnpm --filter @lex/functions build && firebase emulators:start --project demo-lex --import packages/functions/emulator-seed",
     "typecheck": "pnpm -r --sequential typecheck",
     "test": "pnpm -r --filter '!lex-e2e' test"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
+    "firebase-tools": "^14.4.0",
     "typescript": "^5.6.3"
   }
 }

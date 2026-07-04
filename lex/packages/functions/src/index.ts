@@ -1,5 +1,12 @@
-// @lex/functions — server-authoritative callables (= @parlor/server shells +
-// lex's submitMove). The firebase scaffold + ping callable land with T0.5;
-// this is the T0.1 placeholder proving the package skeleton typechecks.
+// ported from hive/packages/functions/src/index.ts (adapted)
+// @lex/functions — server-authoritative game API (DESIGN §6.3). Game
+// callables (@parlor/server shells + lex's submitMove) land with M4; `ping`
+// is the emulator-wiring smoke check.
+import { initializeApp } from 'firebase-admin/app';
+import { onCall } from 'firebase-functions/v2/https';
 
-export const LEX_FUNCTIONS = { package: 'functions' } as const;
+initializeApp();
+
+export const ping = onCall<{ echo?: string }>((request) => {
+  return { pong: true, echo: request.data?.echo ?? null };
+});

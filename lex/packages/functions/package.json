@@ -7,15 +7,20 @@
     "node": "22"
   },
   "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=lib/index.js --external:firebase-admin --external:firebase-functions",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "pnpm build && firebase emulators:exec --only functions,firestore,auth --project demo-lex --import emulator-seed \"vitest run\""
   },
   "dependencies": {
-    "@parlor/server": "link:../../../parlor/packages/server"
+    "@parlor/server": "link:../../../parlor/packages/server",
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.2.0"
   },
   "devDependencies": {
     "@lex/engine": "workspace:*",
     "@types/node": "^22.20.0",
+    "esbuild": "^0.28.1",
+    "firebase-tools": "^14.4.0",
     "typescript": "^5.6.3",
     "vitest": "^3.0.0"
   }
