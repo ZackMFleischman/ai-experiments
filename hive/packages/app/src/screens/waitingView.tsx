@@ -66,7 +66,14 @@ export function InviteShare({ code }: { code: string }) {
   );
 }
 
-export function WaitingForOpponent({ code }: { code?: string | undefined }) {
+export function WaitingForOpponent({
+  code,
+  onCancel,
+}: {
+  code?: string | undefined;
+  /** Cancel the open game + invite (multiplayer container wires the callable). */
+  onCancel?: () => void;
+}) {
   return (
     <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2 }}>
       <Card sx={{ width: '100%', maxWidth: 440 }} data-testid="waiting-for-opponent">
@@ -90,14 +97,21 @@ export function WaitingForOpponent({ code }: { code?: string | undefined }) {
                 Your invite is out — this screen starts the game the moment they accept.
               </Typography>
             )}
-            <Button
-              component={RouterLink}
-              to="/lobby"
-              startIcon={<ArrowBackIcon />}
-              data-testid="waiting-back-to-lobby"
-            >
-              Back to lobby
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                component={RouterLink}
+                to="/lobby"
+                startIcon={<ArrowBackIcon />}
+                data-testid="waiting-back-to-lobby"
+              >
+                Back to lobby
+              </Button>
+              {onCancel && (
+                <Button color="error" onClick={onCancel} data-testid="cancel-invite">
+                  Cancel invite
+                </Button>
+              )}
+            </Stack>
           </Stack>
         </CardContent>
       </Card>

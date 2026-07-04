@@ -17,6 +17,7 @@ export const createGame = callable<
 >('createGame');
 
 export const joinGame = callable<{ code: string }, { gameId: string }>('joinGame');
+export const cancelGame = callable<{ gameId: string }, { ok: boolean }>('cancelGame');
 
 export const submitMove = callable<
   { gameId: string; expectedMoveCount: number; uhpMove: string },

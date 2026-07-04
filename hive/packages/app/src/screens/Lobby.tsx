@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
-import { Avatar, Box, Button, Chip, Fab, Stack, Typography } from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
+import { Avatar, Box, Button, Chip, Fab, IconButton, Stack, Typography } from '@mui/material';
 import { lazy, Suspense } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../sync/authContext';
@@ -19,18 +20,28 @@ export function Lobby() {
         <Typography variant="h5" component="h1">
           Your games
         </Typography>
-        {auth.mode === 'full' && auth.user && (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip
-              avatar={<Avatar {...(auth.user.photoURL ? { src: auth.user.photoURL } : {})} />}
-              label={auth.user.displayName ?? auth.user.email ?? 'Player'}
-              data-testid="lobby-user"
-            />
-            <Button size="small" onClick={() => void auth.signOut()} data-testid="sign-out">
-              Sign out
-            </Button>
-          </Stack>
-        )}
+        <Stack direction="row" spacing={1} alignItems="center">
+          {auth.mode === 'full' && auth.user && (
+            <>
+              <Chip
+                avatar={<Avatar {...(auth.user.photoURL ? { src: auth.user.photoURL } : {})} />}
+                label={auth.user.displayName ?? auth.user.email ?? 'Player'}
+                data-testid="lobby-user"
+              />
+              <Button size="small" onClick={() => void auth.signOut()} data-testid="sign-out">
+                Sign out
+              </Button>
+            </>
+          )}
+          <IconButton
+            component={RouterLink}
+            to="/settings"
+            aria-label="settings"
+            data-testid="lobby-settings"
+          >
+            <SettingsIcon />
+          </IconButton>
+        </Stack>
       </Stack>
       {OnlineGames ? (
         <Suspense fallback={null}>

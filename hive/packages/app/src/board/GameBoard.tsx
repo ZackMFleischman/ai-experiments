@@ -70,11 +70,13 @@ export function GameBoard({
       const key = hexKey(cell);
       const isTarget = snap.targets.has(key) || snap.climbTargets.has(key);
       press.current = { cell, x: pt.x, y: pt.y, dragging: false, wasTarget: isTarget };
-      // Hold a piece still to learn what it is (T6: long-press info).
+      // Hold a piece still to learn what it is — but ONLY pieces you can't
+      // pick up (opponent's, pinned, off-turn). A draggable piece must never
+      // grow a card that covers the drop targets.
       const stack = snap.state.board.get(key);
       const top = stack?.[stack.length - 1];
       clearInfo(true);
-      if (top && onPieceInfo) {
+      if (top && onPieceInfo && !snap.movableCells.has(key) && !isTarget) {
         infoTimer.current = setTimeout(() => onPieceInfo(top.kind), LONG_PRESS_MS);
       }
       // Immediate lift for movable pieces; targets commit on release.

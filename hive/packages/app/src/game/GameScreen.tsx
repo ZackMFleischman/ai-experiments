@@ -2,7 +2,7 @@
 // move list, menu, end-of-game beat and result overlay.
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import { Box, IconButton, Typography, Snackbar } from '@mui/material';
+import { Box, IconButton, Paper, Typography, Snackbar } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { cellCenter } from '../board/hexGeometry';
@@ -81,10 +81,35 @@ export function GameScreen({
       <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <GameBoard controller={controller} onPieceInfo={setPieceInfo} />
         <PieceInfoCard kind={pieceInfo} />
+        {/* The toss is performed by moving the ADJACENT piece — without this
+            hint the pillbug's power looks broken (its own targets are just
+            one-step slides). */}
+        {snap.tossHint && !snap.drag && (
+          <Paper
+            elevation={4}
+            data-testid="toss-hint"
+            sx={{
+              position: 'absolute',
+              top: 8,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              maxWidth: 'min(92%, 360px)',
+              px: 1.5,
+              py: 1,
+              pointerEvents: 'none',
+              zIndex: 2,
+            }}
+          >
+            <Typography variant="caption">
+              <b>Toss:</b> this piece can also throw its neighbours — tap the piece next to it you
+              want to move, then drop it on a free space beside this one.
+            </Typography>
+          </Paper>
+        )}
       </Box>
       <PlayerBar snap={snap} color={snap.myColor === 'b' ? 'b' : 'w'} names={playerNames} />
       <Box sx={{ px: 1, pb: 'max(4px, env(safe-area-inset-bottom))' }}>
-        <HandTray controller={controller} onPieceInfo={setPieceInfo} />
+        <HandTray controller={controller} />
       </Box>
       <MoveList log={snap.log} open={movesOpen} onClose={() => setMovesOpen(false)} />
       <ResultOverlay controller={controller} snap={snap} {...(onRematch ? { onRematch } : {})} />

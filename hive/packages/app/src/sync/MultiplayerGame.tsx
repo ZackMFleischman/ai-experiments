@@ -49,6 +49,29 @@ export default function MultiplayerGame({ gameId }: { gameId: string }) {
     };
   }, [gameId, user]);
 
+  // Realtime streams can die silently on mobile Safari (the push arrives but
+  // the open board never moves). Two safety nets: resync when the tab becomes
+  // visible again, and resync when the service worker relays a push for this
+  // game to an already-open client.
+  useEffect(() => {
+    if (!controller) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void controller.resync();
+    };
+    const onSwMessage = (e: MessageEvent) => {
+      const msg = e.data as { type?: string; link?: string } | null;
+      if (msg?.type === 'push-sync' && msg.link?.includes(`/game/${gameId}`)) {
+        void controller.resync();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+    };
+  }, [controller, gameId]);
+
   if (error) {
     return (
       <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 3 }}>
@@ -59,7 +82,15 @@ export default function MultiplayerGame({ gameId }: { gameId: string }) {
   // No opponent yet: never hand the player an actable board (the server would
   // reject the move anyway) — show the shareable invite instead.
   if (meta?.status === 'open') {
-    return <WaitingForOpponent code={meta.inviteCode} />;
+    const cancel = () => {
+      void api
+        .cancelGame({ gameId })
+        .then(() => void navigate('/lobby'))
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : 'could not cancel the game');
+        });
+    };
+    return <WaitingForOpponent code={meta.inviteCode} onCancel={cancel} />;
   }
   if (!controller || !meta) {
     return (
