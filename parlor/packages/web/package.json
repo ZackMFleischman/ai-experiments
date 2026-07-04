@@ -7,18 +7,39 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./firebase": "./src/firebase.ts",
+    "./gameApi": "./src/gameApi.ts",
+    "./lobby": "./src/lobby.ts",
+    "./AppSyncProviders": "./src/AppSyncProviders.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "peerDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
     "@mui/material": "^5.16.14",
+    "@tanstack/react-query": "^5.101.2",
     "firebase": "^12.15.0",
-    "react": "^18.3.1"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.1"
   },
   "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/material": "^5.16.14",
+    "@tanstack/react-query": "^5.101.2",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "firebase": "^12.15.0",
+    "jsdom": "^25.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.1",
     "typescript": "^5.6.3",
     "vitest": "^3.0.0"
   }
