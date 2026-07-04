@@ -11,6 +11,8 @@ import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
+import { AuthContext, HOTSEAT_AUTH } from '@parlor/web';
+import { Landing } from '../screens/Landing';
 import { fixtureController, WithController } from './fixtures';
 
 const classic = RULESETS['classic']!;
@@ -45,7 +47,29 @@ const stageCats = (c: import('../controller/GameController').GameController) => 
 const earlyGame = { ...FULL_GAME, moves: FULL_GAME.moves.slice(0, 2) };
 const midGame = { ...FULL_GAME, moves: FULL_GAME.moves.slice(0, 6) };
 
+// Full-mode landing (T4.2): sign-in against emulators, injected via context —
+// no firebase in the gallery.
+const FULL_EMULATOR_AUTH = { ...HOTSEAT_AUTH, mode: 'full' as const, emulators: true };
+
 export const GALLERY: GalleryEntry[] = [
+  {
+    id: 'landing',
+    render: () => (
+      <Box data-gallery-ready>
+        <Landing />
+      </Box>
+    ),
+  },
+  {
+    id: 'landing-sign-in',
+    render: () => (
+      <AuthContext.Provider value={FULL_EMULATOR_AUTH}>
+        <Box data-gallery-ready>
+          <Landing />
+        </Box>
+      </AuthContext.Provider>
+    ),
+  },
   { id: 'board-empty-classic', render: () => <EmptyBoard rulesetId="classic" /> },
   { id: 'board-empty-modern', render: () => <EmptyBoard rulesetId="modern" /> },
   { id: 'board-early', render: () => game(() => fixtureController(earlyGame)) },

@@ -26,6 +26,14 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Text contrast ≥ 4.5:1 (spot-check theme tokens, all tile skins).
 - No layout shift between `?static=1` captures of the same entry (determinism).
 
+## Landing (T4.2)
+
+- Hero vignette: real board cells (premium colors + labels) with L-E-X tiles
+  and their point indexes legible at every viewport; float animation frozen
+  under `?static=1` / reduced motion.
+- Hot-seat build shows Play hot-seat + Your games; full mode shows Google
+  sign-in; the test sign-in form appears **only** against emulators.
+
 ## Accepted deviations
 
 - 2026-07-04 — Phone rack slots render ~41px (guideline says ≥44): a 7-slot
