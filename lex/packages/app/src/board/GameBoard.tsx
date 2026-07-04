@@ -10,8 +10,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
 import { BlankPicker } from '../game/BlankPicker';
+import { EndBeat } from '../game/EndBeat';
 import { ExchangeBar } from '../game/ExchangeBar';
 import { GameActions } from '../game/GameActions';
+import { ResultOverlay } from '../game/ResultOverlay';
 import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
@@ -36,9 +38,13 @@ const DEFAULT_NAMES = ['Player 1', 'Player 2'];
 export function GameBoard({
   controller,
   seatNames = DEFAULT_NAMES,
+  onRematch,
+  onBackToLobby,
 }: {
   controller: GameController;
   seatNames?: readonly string[];
+  onRematch?: () => void;
+  onBackToLobby?: () => void;
 }) {
   const snap = useGameController(controller);
   const { mode } = useColorMode();
@@ -231,6 +237,42 @@ export function GameBoard({
         rows={snap.sheet}
         names={seatNames}
       />
+      {snap.beat && <EndBeat onDone={() => controller.finishBeat()} />}
+      {snap.end && (
+        <ResultOverlay
+          open={snap.overlayOpen}
+          end={snap.end}
+          names={seatNames}
+          sheet={snap.sheet}
+          onRematch={() => onRematch?.()}
+          onViewBoard={() => controller.dismissOverlay()}
+          {...(onBackToLobby ? { onBackToLobby } : {})}
+        />
+      )}
+      {snap.end && !snap.overlayOpen && !snap.beat && (
+        <Box
+          data-testid="result-banner"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1,
+            py: 0.5,
+            bgcolor: 'action.selected',
+          }}
+        >
+          <Box component="span" sx={{ fontSize: 14 }}>
+            Game over
+          </Box>
+          <Box
+            component="button"
+            onClick={() => controller.reopenOverlay()}
+            sx={{ border: 'none', background: 'none', color: 'primary.main', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+          >
+            View result
+          </Box>
+        </Box>
+      )}
       <BlankPicker
         open={snap.preview?.needsBlank != null}
         tiles={snap.ruleset.tiles}

@@ -2,6 +2,7 @@
 // localStorage behind the transport seam, refresh resumes, and the
 // pass-device interstitial hides racks between turns (DESIGN §7.3).
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { RULESETS } from '@lex/engine';
 import type { TileFace } from '@lex/engine';
 import { LocalStorageTransport, type KeyValueStorage } from '@parlor/core';
@@ -121,7 +122,11 @@ describe('pass-device interstitial (T3.8, DESIGN §7.3)', () => {
       { dict: stubDict(), rng: () => 0.5 },
     );
     await controller.init();
-    const utils = render(<HotSeatGame controller={controller} />);
+    const utils = render(
+      <MemoryRouter>
+        <HotSeatGame controller={controller} />
+      </MemoryRouter>,
+    );
     return { controller, ...utils };
   }
 
@@ -147,7 +152,11 @@ describe('pass-device interstitial (T3.8, DESIGN §7.3)', () => {
     const { unmount, controller } = await renderHotSeat();
     fireEvent.click(screen.getByTestId('pass-device'));
     unmount();
-    render(<HotSeatGame controller={controller} />);
+    render(
+      <MemoryRouter>
+        <HotSeatGame controller={controller} />
+      </MemoryRouter>,
+    );
     expect(screen.getByTestId('pass-device')).toBeTruthy();
   });
 

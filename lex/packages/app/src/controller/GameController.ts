@@ -46,7 +46,14 @@ export interface Preview {
 }
 
 export type GameEnd =
-  | { by: 'played-out' | 'scoreless'; winner: Seat | 'draw'; finalScores: readonly number[] }
+  | {
+      by: 'played-out' | 'scoreless';
+      winner: Seat | 'draw';
+      finalScores: readonly number[];
+      /** Per-seat end adjustment (rack gains/deductions), for the score
+       * story's line items — finalScores minus the pre-adjustment totals. */
+      adjustments: readonly number[];
+    }
   | { by: 'resign' | 'timeout'; winner: Seat; finalScores: readonly number[] };
 
 export interface LastPlay {
@@ -97,6 +104,9 @@ export interface Snapshot {
   lastPlay?: LastPlay;
   sheet: readonly SheetRow[];
   view: ViewState | null;
+  /** End-of-game beat (T3.10): camera settles on these cells before the
+   * overlay. Present only until finishBeat() (board endings only). */
+  beat?: { cells: readonly CellKey[] };
   overlayOpen: boolean;
   notice?: { id: number; text: string };
 }
@@ -239,10 +249,21 @@ export class GameController {
   private applyEntry(state: SessionState, entry: LexEntry): SessionState {
     const ruleset = this.rulesetFor(this.session.options ?? this.defaultOptions);
     const by = state.game.toMove;
-    const row = (partial: Omit<SheetRow, 'n' | 'totals'>, game: GameState): readonly SheetRow[] => [
-      ...state.sheet,
-      { ...partial, n: state.sheet.length, totals: game.scores },
-    ];
+    // Running totals accumulate from recorded scores, NOT game.scores — the
+    // terminal move's engine scores already include end adjustments, and the
+    // sheet (like a paper one) shows pre-adjustment totals; the adjustments
+    // become the result overlay's line items (computeEnd).
+    const row = (partial: Omit<SheetRow, 'n' | 'totals'>): readonly SheetRow[] => {
+      const prev = state.sheet[state.sheet.length - 1]?.totals ?? state.game.scores.map(() => 0);
+      return [
+        ...state.sheet,
+        {
+          ...partial,
+          n: state.sheet.length,
+          totals: prev.map((t, seat) => (seat === partial.by ? t + partial.score : t)),
+        },
+      ];
+    };
     switch (entry.kind) {
       case 'play': {
         const score = scorePlay(state.game.board, entry.placements, ruleset);
@@ -257,16 +278,13 @@ export class GameController {
             words: score.words,
             total: score.total,
           },
-          sheet: row(
-            {
-              by,
-              kind: 'play',
-              word: score.words[0]?.word ?? null,
-              words: score.words,
-              score: score.total,
-            },
-            game,
-          ),
+          sheet: row({
+            by,
+            kind: 'play',
+            word: score.words[0]?.word ?? null,
+            words: score.words,
+            score: score.total,
+          }),
         };
       }
       case 'exchange': {
@@ -281,10 +299,7 @@ export class GameController {
           ...state,
           game: { ...game, bag: entry.bagAfter },
           lastPlay: { by, kind: 'exchange', cells: [], words: [], total: 0, count: entry.tiles.length },
-          sheet: row(
-            { by, kind: 'exchange', word: null, words: [], score: 0, count: entry.tiles.length },
-            game,
-          ),
+          sheet: row({ by, kind: 'exchange', word: null, words: [], score: 0, count: entry.tiles.length }),
         };
       }
       case 'pass': {
@@ -293,20 +308,20 @@ export class GameController {
           ...state,
           game,
           lastPlay: { by, kind: 'pass', cells: [], words: [], total: 0 },
-          sheet: row({ by, kind: 'pass', word: null, words: [], score: 0 }, game),
+          sheet: row({ by, kind: 'pass', word: null, words: [], score: 0 }),
         };
       }
       case 'resign':
         return {
           ...state,
           resigned: entry.by,
-          sheet: row({ by: entry.by, kind: 'resign', word: null, words: [], score: 0 }, state.game),
+          sheet: row({ by: entry.by, kind: 'resign', word: null, words: [], score: 0 }),
         };
       case 'timeout':
         return {
           ...state,
           timedOut: entry.by,
-          sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0 }, state.game),
+          sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0 }),
         };
     }
   }
@@ -397,6 +412,9 @@ export class GameController {
       ...(s.lastPlay ? { lastPlay: s.lastPlay } : {}),
       sheet: s.sheet,
       view: this.view,
+      ...(end && !this.beatDone && (end.by === 'played-out' || end.by === 'scoreless')
+        ? { beat: { cells: s.lastPlay?.cells ?? [] } }
+        : {}),
       overlayOpen: !!end && (this.beatDone || end.by === 'resign' || end.by === 'timeout') && !this.overlayDismissed,
       ...(this.notice ? { notice: this.notice } : {}),
     };
@@ -410,7 +428,15 @@ export class GameController {
       return { by: 'timeout', winner: s.timedOut === 0 ? 1 : 0, finalScores: s.game.scores };
     }
     if (res.status === 'finished') {
-      return { by: res.by, winner: res.winner, finalScores: res.finalScores };
+      // Line items = engine finals minus the recorded pre-adjustment totals
+      // (arithmetic over verdicts already computed — no rules re-derived).
+      const before = s.sheet[s.sheet.length - 1]?.totals ?? res.finalScores.map(() => 0);
+      return {
+        by: res.by,
+        winner: res.winner,
+        finalScores: res.finalScores,
+        adjustments: res.finalScores.map((score, seat) => score - (before[seat] ?? 0)),
+      };
     }
     return undefined;
   }
