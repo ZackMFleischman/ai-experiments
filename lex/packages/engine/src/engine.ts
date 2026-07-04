@@ -40,6 +40,11 @@ export function rulesetOf(state: GameState): Ruleset {
   return ruleset;
 }
 
+/** scorePlay against a state's own board + ruleset (gcg + fixtures). */
+export function scorePlayOf(state: GameState, placements: readonly Placement[]): ReturnType<typeof scorePlay> {
+  return scorePlay(state.board, placements, rulesetOf(state));
+}
+
 function rackSum(rack: readonly TileFace[], ruleset: Ruleset): number {
   return rack.reduce((sum, face) => sum + (ruleset.tiles.points[face] ?? 0), 0);
 }

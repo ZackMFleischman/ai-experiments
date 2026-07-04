@@ -25,4 +25,6 @@ export { scorePlay, type PlayScore } from './score.js';
 
 export { IllegalMoveError, applyMove, result, type Dictionary, type GameResult, type Move } from './engine.js';
 
+export { parseGcg, toGcg } from './gcg.js';
+
 export { initialState, type GameState, type PlayerView } from './state.js';
