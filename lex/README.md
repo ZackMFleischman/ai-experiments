@@ -8,8 +8,10 @@ Private, non-commercial. Board layout, tileset, and dictionary are data, not cod
 swappable by design (DESIGN.md §2.2).
 
 Sibling to [`../hive/`](../hive/README.md), whose architecture and platform code
-this project deliberately inherits (DESIGN.md §4).
+this project inherits via the shared [`../parlor/`](../parlor/README.md)
+workspace (DESIGN.md §4).
 
+- **[REQUIREMENTS.md](./REQUIREMENTS.md)** — the numbered feature inventory
 - **[DESIGN.md](./DESIGN.md)** — what & why
 - **[IMPLEMENTATION.md](./IMPLEMENTATION.md)** — ordered build plan + protocol
 - **[DECISIONS.md](./DECISIONS.md)** — append-only decision log

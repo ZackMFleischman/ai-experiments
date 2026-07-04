@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `ai-experiments` is an umbrella repo. The active project is **`loom/`** — LOOM, an AI-driven live-visuals instrument: you describe visuals in natural language, agents write typed TypeScript, and the engine hot-renders it the moment the file is saved.
 
-Two sibling game projects have their own entry points — **`hive/`** (a two-player Hive PWA, built and live) and **`lex/`** (a two-player crossword-tile-game PWA, spec'd and ready to build; it deliberately ports hive's architecture and platform code) — see `hive/CLAUDE.md` and `lex/CLAUDE.md`; everything below this line is loom-specific and does not apply there.
+Two sibling game projects have their own entry points — **`hive/`** (a two-player Hive PWA, built and live) and **`lex/`** (a two-player crossword-tile-game PWA, spec'd and ready to build) — plus **`parlor/`**, the shared game-platform workspace lex consumes (ported from hive; hive's own migration is planned). See each directory's `CLAUDE.md`; everything below this line is loom-specific and does not apply there.
 
 Doc map (pull on demand, don't pre-read):
 - `loom/docs/architecture.md` — how it's built: layout, kernel contracts, the "Testing & validation" section (all four test layers: when/why/how). **Read before changing `packages/`.**

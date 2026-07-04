@@ -14,6 +14,10 @@ architecture, backend, validation harness, and much of its code (§4).
 The name is "LEX" (fittingly, a playable word). Renaming would be a find-replace
 plus a DNS choice; nothing in the architecture depends on it.
 
+The complete numbered feature inventory lives in
+[REQUIREMENTS.md](./REQUIREMENTS.md); this document is the *how and why* behind
+those requirements and cross-references them where useful.
+
 ---
 
 ## 1. Goals & non-goals
@@ -30,7 +34,8 @@ plus a DNS choice; nothing in the architecture depends on it.
 - **Dictionary-enforced plays** (Words-with-Friends style): an invalid word can't be
   played — the app tells you which word failed. No challenge mechanic in v1 (§2.3).
 - **Swappable board layout, tileset, and dictionary** — first-class architectural
-  requirement, not a nice-to-have (§2.2).
+  requirement, not a nice-to-have (§2.2) — and the **board layout and dictionary
+  are chosen per game at creation** (v1 ships two of each).
 - **Turn awareness & notifications.** Push ("Sam played QUIZ for 68 — your move"),
   lobby badges, icon badge.
 - **Multiple concurrent games** per account; lobby grouped by your-turn/waiting.
@@ -86,28 +91,35 @@ Standard crossword-game rules, played to the **strict-dictionary** house rule:
 
 ### 2.2 Configurable surfaces (the "easily changeable" requirement)
 
-The whole rules parameterization lives in one immutable value, the **`Ruleset`**:
+The rules parameterization lives in one immutable value, the **`Ruleset`**, with
+the dictionary chosen **independently** per game (so any board pairs with any
+word list):
 
 ```
 Ruleset = {
   board:   BoardLayout      // rows, cols, premium map, start cell
   tiles:   TileSet          // per-letter count + points, blank count
-  rackSize, bingoBonus, exchangeMinBag, scorelessLimit,
-  dictionaryId              // which Dictionary the game validates against
+  rackSize, bingoBonus, exchangeMinBag, scorelessLimit
 }
+GameOptions = { rulesetId, dictionaryId, timeControl }   // pinned at creation (FR-6..11)
 ```
 
 - The engine computes **everything** — geometry, scoring, end conditions — from the
   `Ruleset`; no dimension, premium, letter count, or bonus is hard-coded anywhere.
-- Rulesets live in a registry in `@lex/engine` keyed by id (`classic` in v1). Games
-  store the **id**; registry entries are immutable — changing a ruleset means adding
-  a new id, so finished games always replay under the rules they were played with.
-- The **dictionary** is a separate swappable asset behind a 2-method interface
-  (§5.4): v1 ships ENABLE (public domain, ~173k words); dropping in another list is
-  a new dictionary id + word file.
+- Rulesets live in a registry in `@lex/engine` keyed by id. **v1 ships two**, both
+  15×15 over the standard tile set, differing only in premium arrangement:
+  `classic` (the traditional layout) and `modern` (a WWF-style layout). Games
+  store the **id**; registry entries are immutable — changing a ruleset means
+  adding a new id, so finished games always replay under their original rules.
+- Dictionaries are swappable assets behind a 2-method interface with their own
+  registry in `@lex/dict` (§5.4). **v1 ships two**, both public domain:
+  `enable1` ("Tournament-style", ~173k words) and `2of12inf` ("Everyday words",
+  ~82k — the 12dicts common-vocabulary list, friendlier for casual play).
+- **Both are picked in the New Game flow** (FR-6/FR-7), shown to the invitee
+  before accepting, and immutable afterwards (§7.1).
 - Board size is *not* assumed 15×15 by the UI: the grid renders `rows × cols` from
-  the layout, and the viewport auto-fits (§7.2). An 11×11 quick-play board is a
-  registry entry away.
+  the layout, and the viewport auto-fits (§7.2). An 11×11 quick-play board (with a
+  reduced tile set) is a post-v1 registry entry.
 
 ### 2.3 Meta rules
 
@@ -170,21 +182,23 @@ lex/
 │   ├── dict/                   # @lex/dict — word lists compiled to a compact DAWG
 │   │   ├── words/enable1.txt   # vendored public-domain list (+ LICENSE note)
 │   │   └── src/                # build script, loader, Dictionary implementation
-│   ├── platform/               # @lex/platform — the game-AGNOSTIC layer ported from hive (§4)
-│   │   └── src/
-│   │       ├── core/           # transport seam, log session, optimistic queue (zero deps)
-│   │       ├── web/            # firebase init, auth, push, lobby queries, providers (React)
-│   │       ├── server/         # callable shells, notify, forfeit, invite/challenge/rematch
-│   │       └── harness/        # gallery registry runtime, validate script cores
 │   ├── app/                    # @lex/app — React + MUI + Vite PWA
 │   │   └── src/
 │   │       ├── screens/        # Landing, Lobby, NewGame, Join, Game, Settings
 │   │       ├── board/          # grid board, rack tray, drag layer, viewport
 │   │       ├── controller/     # GameController: engine ↔ UI ↔ transport
-│   │       ├── sync/           # thin game-specific bindings over @lex/platform/web
+│   │       ├── sync/           # thin game-specific bindings over @parlor/web
 │   │       └── dev/            # /dev/gallery entries
-│   └── functions/              # @lex/functions — callables = platform/server + submitMove
+│   └── functions/              # @lex/functions — callables = @parlor/server + submitMove
 └── e2e/                        # Playwright: two-browser full-game tests
+
+../parlor/                      # SIBLING WORKSPACE at the repo root (§4): the
+├── packages/                   # game-agnostic platform layer, ported from hive
+│   ├── core/                   # @parlor/core — transport seam, log session, optimistic queue (zero deps)
+│   ├── web/                    # @parlor/web — firebase init, auth, push, lobby queries, providers (React)
+│   ├── server/                 # @parlor/server — callable shells, notify, forfeit, invite/challenge/rematch
+│   └── harness/                # @parlor/harness — gallery runtime, validate script cores
+└── README.md                   # parlor's own rules; build tasks live in lex/IMPLEMENTATION.md
 ```
 
 ### 3.2 The three layers (deltas from hive only)
@@ -244,7 +258,7 @@ Firestore**. Consequences, designed once here and referenced everywhere:
   platform/lobby/UI assume 2 seats.
 - **Tile skinning:** tile/board visuals are CSS-variable-driven themes (the hive
   "bear mode" lesson institutionalized): rules and engine never see the skin.
-- **Backend swap:** Firebase confined to `packages/platform` (`web/`+`server/`),
+- **Backend swap:** Firebase confined to `@parlor/web`, `@parlor/server`,
   `app/src/sync/`, and `packages/functions` — same discipline as hive's.
 
 ---
@@ -261,20 +275,21 @@ verbatim), server-authoritative callables, the emulator-first dev loop, the PWA/
 approach, async time controls, the milestone-gate + `/dev/gallery` + screenshot-review
 validation harness, and the CI-enforced documentation policy.
 
-**Share — port into `@lex/platform`, genericized (game-agnostic by construction):**
+**Share — port into the repo-level `parlor/` workspace, genericized (game-agnostic
+by construction):**
 
 | Hive source | Becomes | Notes |
 |---|---|---|
-| `app/src/controller/transport.ts`, `localStorageTransport.ts` | `platform/core` | `GameTransport` with a generic entry type instead of hive's `LogEntry` |
-| `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `platform/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
-| `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `platform/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config |
-| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `platform/server` | `submitMove` is game-specific; its transaction shell (load → turn check → concurrency guard → write + push) is the shared part |
-| `functions/src/notify.ts`, `forfeit.ts` | `platform/server` | payload copy injected per game |
-| `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `platform/harness` + `scripts/` | near-verbatim |
-| `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `platform/web` | theme tokens re-skinned per game |
+| `app/src/controller/transport.ts`, `localStorageTransport.ts` | `@parlor/core` | `GameTransport` with a generic entry type instead of hive's `LogEntry` |
+| `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `@parlor/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
+| `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config |
+| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove` is game-specific; its transaction shell (load → turn check → concurrency guard → write + push) is the shared part |
+| `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
+| `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `@parlor/harness` (+ thin `scripts/` wrappers in lex) | near-verbatim |
+| `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `@parlor/web` | theme tokens re-skinned per game |
 
-`@lex/platform` **must not import `@lex/engine`** (machine-checked, IMPLEMENTATION
-§3) — that's what keeps it honestly generic.
+`@parlor/*` **must not import any game package** (`@lex/*`, `@hive/*` —
+machine-checked, IMPLEMENTATION §3) — that's what keeps it honestly generic.
 
 **Copy-adapt — start from the hive file, edit meaningfully (screens are ~layout-
 identical but content-different; infra files differ in names/fields):**
@@ -292,16 +307,21 @@ components, pending-placement UX (preview chips, recall, blank picker, exchange
 mode), the hot-seat **pass-device** privacy interstitial, sprite/art assets
 (lex tiles are typography — far lighter art burden than hive's 16 glyphs).
 
-**Why a package inside this workspace, not a repo-level shared library, in v1:**
-hive is live, CI-gated, and doc-budget-frozen — retrofitting it to consume an
-extracted library is real risk for zero user-facing gain, and pnpm workspaces don't
-span repo-root directories cleanly (hive decision §9.10 keeps workspaces separate on
-purpose). So v1 ports hive code *into* `@lex/platform`, written generic; **promotion
-to a repo-root shared workspace + hive migrating onto it is an explicit post-v1
-milestone**, mechanical by then because the interfaces were kept convergent by
-construction. Divergence risk (a bug fixed in one copy, not the other) is contained
-by provenance headers: every ported file's header names its hive source path, so a
-fix on either side is greppable to its twin.
+**The shared library is repo-level from day one (owner decision): `parlor/`** —
+named for what it is, a parlor-games platform: the game-agnostic layer for
+turn-based, two-player, invite-a-friend PWA games on Firebase. It is its own pnpm
+workspace at the repo root with four packages (`@parlor/core`, `@parlor/web`,
+`@parlor/server`, `@parlor/harness`), its own tests and CI, and **no game
+imports** — lex is its only consumer to start; hive's migration onto it stays a
+deliberate later project (hive is live and CI-gated; nothing forces it).
+Consumption mechanics — pnpm workspaces don't span repo roots, so lex consumes
+parlor as **source-linked sibling packages** (`link:` dependencies + TS path
+mapping; exact wiring in IMPLEMENTATION §1). Peer dependencies (react, firebase,
+MUI) are declared by parlor and provided by the consuming game, so parlor never
+pins a second copy of a framework. Divergence risk against hive's originals (a bug
+fixed in hive but not in the port) is contained by provenance headers — every
+ported file names its hive source path, so fixes are greppable to their twin —
+and shrinks to zero when hive migrates.
 
 ---
 
@@ -360,13 +380,19 @@ not performance:
 
 - Interface the engine sees: `{ id: string; has(word: string): boolean }` — the
   engine stays zero-dep; the dictionary is injected.
-- v1 list: **ENABLE** (public domain, ~173k words; exact count pinned at vendor
-  time). NWL/SOWPODS are copyrighted — swap-in is the owner's call, and is just a
-  new dictionary id (§2.2).
-- A build script compiles the word list into a **compact binary DAWG** (target
-  ≤ 800 KB, generated at build — not committed), loaded async in the app (cached by
-  the service worker) and bundled into the functions deploy. Lookups are
-  microseconds; the client validates as you place tiles with zero latency.
+- `@lex/dict` owns the **dictionary registry**: `DICTIONARIES` metadata
+  (id, display name, description, word count — what the New Game picker renders,
+  FR-7) plus `loadDictionary(id)`. v1 ships two public-domain lists:
+  **`enable1`** ("Tournament-style", ENABLE, ~173k words) and **`2of12inf`**
+  ("Everyday words", the 12dicts common-vocabulary inflected list, ~82k words —
+  friendlier for casual play). Exact counts pinned at vendor time. NWL/SOWPODS
+  are copyrighted — swap-in is the owner's call, and is just a new registry
+  entry + word file (§2.2).
+- A build script compiles each word list into a **compact binary DAWG** (target
+  ≤ 800 KB each, generated at build — not committed). The app lazily loads the
+  dictionary **of the game being viewed** (cached by the service worker); the
+  functions deploy bundles both. Lookups are microseconds; the client validates
+  as you place tiles with zero latency.
 - Same list version on client and server, pinned by dictionary id + a content hash
   the tests assert, so client and server can never disagree on a word.
 
@@ -429,7 +455,7 @@ invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expi
 | Callable | Delta vs hive |
 |---|---|
 | `createGame(options, seat)` | seat = `me / them / random` (turn order, not color); shuffles + persists the bag, deals both racks |
-| `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@lex/platform/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + swaps who starts) |
+| `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + swaps who starts) |
 | `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary), draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent |
 | `resign(gameId)` | = hive |
 | `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull) |
@@ -457,9 +483,12 @@ with pinned bag orders.
 Same map as hive §6.1 — Landing (themed hero: a board vignette spelling the
 wordmark from real tile components), Lobby (challenges / your-turn / waiting /
 finished groups; cards show scores + last play: "Sam played QUIZ +68"), New game
-(opponent chip or invite link; turn order; time control — ruleset/dictionary pickers
-stay hidden while there's one of each), Join, Settings (notifications, theme,
-tile skin), and Game.
+(opponent chip or invite link; **board picker** — classic/modern with a mini
+premium-map preview; **dictionary picker** — labeled with name + word count;
+turn order; time control; FR-6..9), Join (the game-summary card lists board,
+dictionary, time control, and your seat — the invitee sees the rules before
+accepting, FR-10), Settings (notifications, theme, tile skin), and Game (the
+game menu restates the chosen options mid-game).
 
 Game-screen deltas: player bars carry **scores** and a bag-count chip; the hand tray
 is the **rack** (7 slots, drag-reorder, shuffle button); a **score sheet** drawer
@@ -557,8 +586,9 @@ inherits that task as specified in hive DESIGN §7. Production domain:
 1. **Strict dictionary, no challenges, v1** — Words-with-Friends convention; right
    for casual friends-play. Challenge-mode is a post-v1 ruleset flag; the split
    verdict pipeline (§5.2) already accommodates it.
-2. **ENABLE word list** — public domain beats licensing questions; swappable by
-   design if the owner obtains NWL/SOWPODS.
+2. **Two public-domain word lists, chosen per game** — `enable1` (tournament-ish)
+   and `2of12inf` (everyday words); licensing-clean, and the picker is real from
+   day one. NWL/SOWPODS are registry entries away if the owner obtains them.
 3. **Two players in v1, N-player engine** — lobby/invite flows are the 2-seat
    part; the engine is seat-indexed arrays from day one.
 4. **No draw offers** — score ties are the natural draw; hive's offer flow would be
@@ -572,15 +602,19 @@ inherits that task as specified in hive DESIGN §7. Production domain:
    plays; prevents zombie async games the way hive's repetition rule does.
 8. **DOM grid over SVG** for the board (§7.2) — typography-heavy tiles, trivial
    hit-testing; hive's viewport/pinch math ports anyway.
-9. **`@lex/platform` inside this workspace, promotion to a shared repo-level
-   library deferred post-v1** — full rationale in §4; provenance headers keep the
-   twins greppable until then.
+9. **The shared platform is the repo-level `parlor/` workspace from day one**
+   (owner decision, superseding the earlier defer-extraction plan) — lex is its
+   only consumer to start; hive migrates later. Mechanics + rationale in §4.
 10. **Rematch swaps who starts**; turn order at create is me/them/random
     (default random) — the seat analog of hive's color pick.
 11. **Same doc policy, same enforcement** as hive (IMPLEMENTATION §7): closed doc
     set, line budgets, DECISIONS.md as the only growing file, `check-docs.mjs`
     wired into typecheck.
 12. **Named LEX** (owner-confirmed); nothing in the architecture depends on it.
+13. **Board layout and dictionary are per-game options in v1** (owner
+    requirement): v1 ships `classic` + `modern` layouts and both word lists;
+    `dictionaryId` lives in `GameOptions`, not inside the `Ruleset`, so any
+    board pairs with any list.
 
 ---
 
@@ -592,7 +626,7 @@ Hive §8's layer table carries over with these substitutions:
 |---|---|
 | Engine unit | checkPlay geometry cases, scoring fixtures (premium stacking, cross-words, bingo, blanks), end adjustments, exchange/pass legality, GCG round-trips — the pinned list in IMPLEMENTATION §6 |
 | Engine property | random legal games over injected bag orders: tile conservation across board+racks+bag, apply-never-throws, serialize/replay identity, **`playerView` never leaks hidden info**, scoreless-run bookkeeping, termination |
-| Dictionary | DAWG lookup ≡ reference word-set on the full list + fuzzed negatives; content-hash pin |
+| Dictionary | DAWG lookup ≡ reference word-set on both full lists + fuzzed negatives; content-hash pins; registry metadata matches vendored files |
 | Controller | pending-placement model, optimistic apply + rack-refill merge + rejection rollback, exchange selection, drag/tap state machine |
 | Functions + rules | submitMove happy/illegal/concurrency paths, **rack/bag read-denial rules tests**, exchange privacy (public doc has count only), draw correctness, forfeit sweep |
 | UI components | board/rack render from fixed states, preview chips, blank picker, pass-device flow |
@@ -610,21 +644,25 @@ Task-level breakdown, gates, and the frozen engine API live in
 [IMPLEMENTATION.md](./IMPLEMENTATION.md). Estimates assume agent builders, matching
 hive's actuals.
 
-- **M0 — Scaffold (½ day).** Workspace, six packages, CI, emulators, doc-lint —
-  hive's M0 outputs copied wholesale. *Gate:* `validate:m0` in CI.
-- **M1 — Engine core (2–3 days).** Ruleset data + registry, bag/draw, checkPlay,
-  scoring, applyMove, end conditions, GCG, serialization, property suite.
-  *Gate:* scripted full game replays to known final scores; property run clean.
-- **M2 — Dictionary (1 day).** ENABLE vendored, DAWG build + loader, engine
-  integration, invalid-word fixtures. *Gate:* `validate:m2`.
+- **M0 — Scaffold (½ day).** The `parlor/` workspace + the lex workspace (five
+  packages) with source-link wiring, CI for both, emulators, doc-lint — hive's
+  M0 outputs copied wholesale. *Gate:* `validate:m0` in CI.
+- **M1 — Engine core (2–3 days).** Ruleset data + registry (`classic` +
+  `modern`), bag/draw, checkPlay, scoring, applyMove, end conditions, GCG,
+  serialization, property suite. *Gate:* scripted full game replays to known
+  final scores; property run clean.
+- **M2 — Dictionaries (1–2 days).** Both lists vendored, DAWG build + loaders,
+  registry metadata, engine integration, invalid-word fixtures.
+  *Gate:* `validate:m2`.
 - **M3 — Local game UI (3–4 days).** Grid board + viewport, rack, drag/tap,
   pending-placement UX with live preview, blank/exchange/pass flows, pass-device
   hot-seat with persistence, end-of-game sequence, **the whole validation harness**,
   static hot-seat PWA deploy. *Gate:* hot-seat e2e full game; visual review done.
 - **M4 — Multiplayer backend (3–4 days).** Auth + landing, three-tier schema +
   rules (+ privacy rules tests), callables, invite/challenge/rematch, lobby,
-  optimistic + refill reconciliation, two-browser e2e, multiplayer build + deploy
-  workflow. *Gate:* `validate:m4`; a real game from two devices.
+  new-game flow with board/dictionary pickers, optimistic + refill
+  reconciliation, two-browser e2e, multiplayer build + deploy workflow.
+  *Gate:* `validate:m4`; a real game from two devices.
 - **M5 — PWA + notifications + async (2–3 days).** Manifest/SW, push (all
   triggers, payloads asserted), badges, deadlines + hourly forfeit.
   *Gate:* `validate:m5`; real push on a phone.
@@ -634,8 +672,8 @@ hive's actuals.
 
 **v1.1 candidates:** challenge-mode ruleset · real-time clocks · 3–4 players ·
 keyboard entry on desktop · game chat/emotes · AI opponent (`@lex/ai`, DAWG move
-gen) · analysis/best-play review · platform promotion to a shared library + hive
-migration · `.gcg` export.
+gen) · analysis/best-play review · hive's migration onto `parlor/` · `.gcg` export ·
+more rulesets/word lists (11×11 quick board; NWL/SOWPODS if licensed).
 
 ---
 
@@ -653,7 +691,9 @@ migration · `.gcg` export.
   scales.
 - **IP concerns if ever public** → layout/tileset/name are all data/config by
   requirement (§2.2); swapping to original values is a one-file change.
-- **Divergence from hive's shared code** → provenance headers + the post-v1
-  extraction milestone (§4).
+- **Divergence from hive's originals in `parlor/`** → provenance headers make
+  fixes greppable to their twin (§4); goes away when hive migrates onto parlor.
+- **Cross-workspace linking friction (parlor ↔ lex)** → one documented wiring
+  (IMPLEMENTATION §1) with the vite/pnpm gotchas pre-solved in §8's lessons.
 - **iOS push quirks, Firestore costs** → hive's mitigations inherited (coach mark,
   in-app badges; per-game docs).

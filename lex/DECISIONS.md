@@ -17,3 +17,19 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   without a second stable consumer. Platform is generic by construction (machine
   check: no `@lex/engine` imports); promotion to a repo-root shared workspace and
   hive's migration onto it is tagged `post-v1`.
+
+- **2026-07-04 — SUPERSEDED ↑: platform is repo-level `parlor/` from day one**
+  (owner decision). Own workspace at the repo root (`@parlor/core|web|server|
+  harness`), lex consumes via `link:` + TS paths (IMPLEMENTATION §1); lex-only
+  to start, hive migration stays `post-v1`. Named for what it hosts: parlor games.
+
+- **2026-07-04 — Board layout + dictionary are per-game options (owner req).**
+  `dictionaryId` moved out of `Ruleset` into `GameOptions`; v1 ships rulesets
+  `classic` + `modern` (WWF-style premiums) and dictionaries `enable1` (~173k)
+  + `2of12inf` (12dicts everyday list, ~82k) — both public domain. Pickers in
+  New Game (FR-6/7); options shown to the invitee pre-accept (FR-10).
+
+- **2026-07-04 — REQUIREMENTS.md added to the doc set** (owner request): the
+  numbered FR/NFR feature inventory, budget 250 (IMPLEMENTATION §7 table);
+  IMPLEMENTATION budget raised 650→700 for the parlor wiring + second ruleset/
+  dictionary tasks. Parlor keeps its own two ≤55-line docs.

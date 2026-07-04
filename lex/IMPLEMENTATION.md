@@ -37,8 +37,8 @@ do not write it from scratch.
    order is an input (DESIGN §3.3); shuffling lives in functions/transports only;
    time comes in as an argument.
 7. **Porting discipline:** every file ported from hive gets a one-line header
-   `// ported from hive/<path> (adapted)`. `@lex/platform` must never import
-   `@lex/engine` (machine-checked, T0.7).
+   `// ported from hive/<path> (adapted)`. `@parlor/*` must never import a game
+   package (`@lex/*`, `@hive/*`) — machine-checked, T0.7.
 
 ### Definition of done (every task)
 
@@ -53,11 +53,22 @@ do not write it from scratch.
 
 ## 1. Toolchain & workspace targets
 
-- **pnpm workspace** rooted at `lex/` (independent of `loom/` and `hive/`).
-  Packages: `packages/engine`, `packages/dict`, `packages/platform`,
-  `packages/app`, `packages/functions`, plus `e2e/`.
+- **Two pnpm workspaces**, both independent of `loom/` and `hive/`:
+  - `parlor/` at the **repo root** — the shared game-platform library
+    (DESIGN §4): `packages/core`, `packages/web`, `packages/server`,
+    `packages/harness` (`@parlor/*`). Own tsconfig, tests, and CI job.
+  - `lex/` — the game: `packages/engine`, `packages/dict`, `packages/app`,
+    `packages/functions`, plus `e2e/`.
+- **Parlor consumption wiring** (pnpm workspaces don't span repo roots): lex
+  packages declare `"@parlor/core": "link:../../../parlor/packages/core"` etc.
+  (symlinks; parlor ships TS **source**, no build step); lex `tsconfig.base.json`
+  maps `@parlor/*` paths for tsc; Vite config adds `server.fs.allow` for
+  `../parlor` and excludes `@parlor/*` from `optimizeDeps` so source gets
+  transformed; the functions esbuild bundle inlines it like any dep. Parlor
+  declares react/firebase/MUI as **peerDependencies** (the consuming game
+  provides them); run `pnpm install` in `parlor/` before `lex/` (CI does both).
 - **TypeScript strict** everywhere (`strict`, `noUncheckedIndexedAccess`,
-  `exactOptionalPropertyTypes`). `engine`, `dict`, and `platform/core` have
+  `exactOptionalPropertyTypes`). `engine`, `dict`, and `@parlor/core` have
   `"sideEffects": false` and **zero runtime dependencies**.
 - Dependencies: **match hive's majors exactly** (React 18, MUI 5, Vite 5,
   `vite-plugin-pwa`, react-router 6, TanStack Query 5, Vitest 3 + fast-check +
@@ -84,20 +95,20 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 | # | Task | Notes | Gate |
 |---|---|---|---|
-| T0.1 | Workspace: `pnpm-workspace.yaml`, `tsconfig.base.json`, six package skeletons with strict TS **[port: hive root configs]** | engine/dict/platform export placeholder types | `pnpm typecheck` |
+| T0.1 | Both workspaces: `parlor/` at repo root (4 package skeletons) + `lex/` (4 packages + e2e), strict TS, and the §1 source-link wiring between them **[port: hive root configs]** | engine/dict/@parlor/* export placeholder types; a lex test imports from `@parlor/core` to prove the wiring | `pnpm typecheck` in both |
 | T0.2 | App shell: Vite + React + MUI + router, stub routes for every DESIGN §7.1 screen, base theme **[port: hive app scaffold + theme.ts]** | | routes render test |
 | T0.3 | Vitest + fast-check + Testing Library wired in every package; one seed test each | | `pnpm test` |
 | T0.4 | Playwright + smoke e2e at 3 viewports **[port: hive e2e config]** | pin ~1.56; webServer `--host 127.0.0.1` (§8) | smoke green |
 | T0.5 | Firebase emulator suite config against `demo-lex`; functions package with a `ping` callable; seed script **[port: hive firebase.json, emulator-seed, functions scaffold]` | fully offline — no console setup yet (§8) | ping test vs emulator |
-| T0.6 | GitHub Actions CI: typecheck + unit layers + e2e vs fresh emulators **[port: hive workflow]** | | CI green |
-| T0.7 | `scripts/check-docs.mjs` (budgets, closed set, no "Update (" markers) + `scripts/check-platform.mjs` (platform must not import `@lex/engine`; app imports firebase only via platform/web or `src/sync/`), both wired into `pnpm typecheck` **[port: hive check-docs.mjs]** | | planted violations fail; clean passes |
+| T0.6 | GitHub Actions CI: lex job (typecheck + unit layers + e2e vs fresh emulators, installs parlor first) + a small parlor job (typecheck + tests) **[port: hive workflow]** | | CI green |
+| T0.7 | `scripts/check-docs.mjs` (budgets, closed set, no "Update (" markers) + `scripts/check-boundaries.mjs` (`@parlor/*` imports no game packages; lex app imports firebase only via `@parlor/web` or `src/sync/`), wired into both workspaces' `typecheck` **[port: hive check-docs.mjs]** | | planted violations fail; clean passes |
 | T0.8 | `validate:m0` chaining all of the above | | `pnpm validate:m0` |
 
 ### M1 — Engine core (DESIGN §2.1–§2.2, §5)
 
 | # | Task | Notes | Gate |
 |---|---|---|---|
-| T1.1 | Types + `classic` Ruleset data (BoardLayout premiums, TileSet distribution) + immutable registry | invariant tests: 8 TW / 17 DW / 12 TL / 24 DL, symmetric; 100 tiles, 187 points, 2 blanks | unit |
+| T1.1 | Types + Ruleset data for **both** v1 rulesets (`classic` + `modern` premium layouts over the standard TileSet) + immutable registry | invariant tests: classic = 8 TW / 17 DW / 12 TL / 24 DL; both layouts 4-fold symmetric, premium counts pinned per layout; 100 tiles, 187 points, 2 blanks | unit |
 | T1.2 | Bag + `initialState(ruleset, bagOrder)`: permutation validation, deal racks in seat order; draw helper | determinism: same order ⇒ identical states | unit |
 | T1.3 | `checkPlay`: rack legality (incl. blanks), single line, contiguity through existing tiles, first-play center + ≥2 tiles, connectivity; word extraction (main + cross, length-1 cross ≠ word) | typed rejection reasons for UI copy | unit vs hand-built boards |
 | T1.4 | `scorePlay`: letter premiums (new tiles only), stacking word multipliers, cross-word scores, bingo flag | pinned score fixtures (§6) | unit |
@@ -113,9 +124,9 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 | # | Task | Notes | Gate |
 |---|---|---|---|
-| T2.1 | Vendor `enable1.txt` + license note; pin exact word count + content hash in a test | public domain — record provenance in the package README lines | unit |
-| T2.2 | DAWG builder (build-time script → binary artifact in dist, ≤ 800 KB) + loader; `Dictionary` implementation | generated, never committed | full-list equivalence vs a reference `Set` + fuzzed negatives |
-| T2.3 | Async app loader (fetch + cache) and sync functions loader (bundled) sharing one decoder | id + hash asserted both sides | unit |
+| T2.1 | Vendor **both** lists (`enable1.txt`, `2of12inf.txt`) + license notes; pin exact word counts + content hashes in tests | both public domain — record provenance in the package README lines | unit |
+| T2.2 | DAWG builder (build-time script → one binary artifact per list, ≤ 800 KB each) + loader; `Dictionary` implementation | generated, never committed | per-list equivalence vs a reference `Set` + fuzzed negatives |
+| T2.3 | `DICTIONARIES` registry metadata (id, name, description, word count — feeds the FR-7 picker) + async app loader (fetch + SW cache, per-game lazy) and sync functions loader (bundles both) sharing one decoder | id + hash asserted both sides; registry matches vendored files | unit |
 | T2.4 | Engine integration: `applyMove` play path takes `dict`; per-word verdicts surface for UI; invalid-word fixtures (one bad cross-word rejects the whole play, names it) | | unit |
 | T2.5 | Real-dictionary full-game fixture; `validate:m2` | | `pnpm validate:m2` |
 
@@ -126,14 +137,14 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 | T3.1 | Grid board from `BoardLayout`: premium colors + DL/TL/DW/TW labels, star; committed-tile component (letter + point index) **[visual]** | CSS-variable tile skin from day one | render tests + gallery |
 | T3.2 | Viewport: fit-view, pan, pinch/wheel zoom, double-tap zoom, recenter **[port: hive BoardViewport → CSS transform]** **[visual]** | keep hive's pinch containment verbatim (§8) | viewport tests |
 | T3.3 | Rack tray: 7 slots, drag-reorder, shuffle, counts; bag-count chip **[visual]** | | component tests |
-| T3.4 | `GameController`: pending-placement model, verdict pipeline calls, optimistic submit over `GameTransport` **[port: hive transport.ts + LogSession core into platform/core first]** | controller tests: place/return/recall, submit, rollback | unit |
+| T3.4 | `GameController`: pending-placement model, verdict pipeline calls, optimistic submit over `GameTransport` **[port: hive transport.ts + LogSession core into `@parlor/core` first]** | controller tests: place/return/recall, submit, rollback | unit |
 | T3.5 | Drag layer (raw pointer events, transform-aware hit-test) + tap-tap fallback + recall; Esc cancels | | `validate:ux` flows |
 | T3.6 | Blank letter-picker sheet; exchange multi-select mode + confirm bar; pass confirm dialog **[visual]** | | component tests |
 | T3.7 | Live preview: per-word chips (word, points, ✓/✗ from local dict) + total badge; Play enablement rules **[visual]** | | component tests |
 | T3.8 | Hot-seat: `LocalTransport` (shuffles at the edge, full state in localStorage, refresh resumes) + **pass-device interstitial** (DESIGN §7.3) **[visual]** | | persistence + flow tests |
 | T3.9 | Score sheet drawer; last-play highlight; remote-play animation **[visual]** | | component tests |
 | T3.10 | End-of-game beat + result overlay with score story (adjustment line items) **[visual]** | fixtures for every ending incl. draw | gallery review |
-| T3.11 | Harness: `/dev/gallery` + registry + fixtures (§4.1 minimum registry), `validate:visual`, `validate:ux` **[port: hive dev/ + scripts]**; first full screenshot-review pass | | harness green + review committed |
+| T3.11 | Harness: `/dev/gallery` + registry + fixtures (§4.1 minimum registry), `validate:visual`, `validate:ux` **[port: hive dev/ + scripts into `@parlor/harness`, thin lex wrappers]**; first full screenshot-review pass | | harness green + review committed |
 | T3.12 | Static hot-seat PWA deploy (no firebase in bundle, minimal manifest) to Cloudflare Pages project `lex` **[port: hive T3.12 setup]** | | live URL serves installable hot-seat game |
 | T3.13 | `validate:m3`: scripted hot-seat e2e — full game through the pass-device flow to the victory sequence, tap AND drag variants at 390×844 | | `pnpm validate:m3` |
 
@@ -141,13 +152,13 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 | # | Task | Notes | Gate |
 |---|---|---|---|
-| T4.1 | Port `platform/web`: firebase init, authContext, RequireAuth, AppSyncProviders, gameApi, lobby queries **[port: hive app/src/sync/*]** | genericize field/payload types while copying | unit |
+| T4.1 | Port `@parlor/web`: firebase init, authContext, RequireAuth, AppSyncProviders, gameApi, lobby queries **[port: hive app/src/sync/*]** | genericize field/payload types while copying; parlor's own tests run in its workspace | unit |
 | T4.2 | Themed landing/sign-in (tile-vignette hero) + emulator email/password test sign-in for dev/e2e (prod = Google only, §8) **[visual]** | | auth tests |
 | T4.3 | Schema + `firestore.rules` + indexes: public tier, `racks/{uid}` owner-read, `private/*` no-read **[port: hive rules as base]** | **negative rules tests**: opponent rack denied, bag denied, direct game writes denied | rules suite |
-| T4.4 | Callables: create/join/cancel/challenge/respond/rematch via `platform/server` **[port: hive functions/games.ts, notify.ts]**; `createGame` shuffles + persists bag, deals racks | | emulator tests |
+| T4.4 | Callables: create/join/cancel/challenge/respond/rematch via `@parlor/server` **[port: hive functions/games.ts, notify.ts]**; `createGame` validates rulesetId/dictionaryId against the registries, shuffles + persists bag, deals racks | | emulator tests |
 | T4.5 | `submitMove`: reconstruct full state (public log + private doc), turn + concurrency guard, `applyMove` w/ dict, transactional writes (move, game+public+lastPlay, rack, bag), opponent push | tests: happy, illegal word, illegal geometry, wrong turn, stale count, exchange privacy (count only public), tile conservation across docs, exchange re-shuffle event recorded | emulator tests |
 | T4.6 | `firestoreTransport` + own-rack listener + optimistic/refill reconciliation ("drawing…" placeholder) **[port: hive firestoreTransport]** | integration tests vs emulator | integration |
-| T4.7 | Lobby (challenges/your-turn/waiting/finished; cards with scores + lastPlay), join flow, new-game flow (opponent chip / invite link, turn order, time control), waiting screen with re-shareable invite **[port: hive screens]** **[visual]** | | screen tests + gallery |
+| T4.7 | Lobby (challenges/your-turn/waiting/finished; cards with scores + lastPlay), join flow (summary card lists board/dictionary/time control, FR-10), new-game flow (opponent chip / invite link, **board picker with mini premium-map preview, dictionary picker with word counts** — FR-6/7, turn order, time control), waiting screen with re-shareable invite; game menu restates options **[port: hive screens]** **[visual]** | | screen tests + gallery |
 | T4.8 | Two-browser Playwright e2e: create → invite → join → plays both ways → exchange → bingo → resign → rematch; reload-mid-game resume | single worker; force long polling in emulator mode (§8) | e2e green |
 | T4.9 | Multiplayer build mode + deploy workflow: default build stays firebase-free static hot-seat; `--mode multiplayer` ships to Firebase Hosting; esbuild-bundled functions; idempotent invoker-repair step **[port: hive-deploy.yml]** ⚑ console/project setup | | deploy job green vs `lex-zmf` once ⚑ done |
 | T4.10 | `validate:m4` | | `pnpm validate:m4` |
@@ -181,9 +192,12 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 - Put rules knowledge in the UI — it renders engine verdicts (`checkPlay`,
   `scorePlay`, dict lookups) only. No score math, no legality logic, in components.
-- Let `@lex/platform` import `@lex/engine`, or firebase escape
-  `platform/web|server`, `app/src/sync/`, `packages/functions` (T0.7 enforces).
-- Add dependencies to `engine`/`dict`/`platform/core`, or DOM/React types to them.
+- Let `@parlor/*` import a game package (`@lex/*`, `@hive/*`), or firebase
+  escape `@parlor/web|server`, `app/src/sync/`, `packages/functions` (T0.7
+  enforces both).
+- Add dependencies to `engine`/`dict`/`@parlor/core`, or DOM/React types to them.
+- Depend on parlor via copy-paste — lex consumes it only through the §1
+  source-link wiring, so a parlor fix lands in every consumer.
 - Shuffle or read clocks inside the engine (bag order and time are inputs).
 - Expose rack letters or bag contents in any public doc, log entry, push payload,
   or client-visible error message. Exchange entries carry a **count**.
@@ -249,9 +263,8 @@ export interface Ruleset {
   id: string; board: BoardLayout; tiles: TileSet;
   rackSize: number; bingoBonus: number;
   exchangeMinBag: number; scorelessLimit: number;
-  dictionaryId: string;
-}
-export const RULESETS: Readonly<Record<string, Ruleset>>;  // v1: { classic }
+}                                                          // dictionary chosen per game (GameOptions)
+export const RULESETS: Readonly<Record<string, Ruleset>>;  // v1: { classic, modern }
 
 export interface Dictionary { id: string; has(word: string): boolean }
 
@@ -311,6 +324,14 @@ export function serializeState(state: GameState): string;    // exact round-trip
 export function deserializeState(text: string): GameState;
 export function serializePublic(state: GameState): string;   // games/{id}.public (DESIGN §6.2)
 export function parsePublic(text: string): Omit<PlayerView, 'rack'>;
+```
+
+`@lex/dict` additionally freezes (DESIGN §5.4):
+
+```ts
+export interface DictionaryInfo { id: string; name: string; description: string; wordCount: number }
+export const DICTIONARIES: readonly DictionaryInfo[];        // v1: enable1, 2of12inf — feeds the FR-7 picker
+export function loadDictionary(id: string): Promise<Dictionary>;  // app (fetch); functions get a sync bundled variant
 ```
 
 ---
@@ -384,10 +405,14 @@ the only growing file, `check-docs.mjs` enforcement. Lex's table:
 |---|---|---|
 | `README.md` | elevator pitch + pointers | 25 |
 | `CLAUDE.md` | agent entry point: hard rules + commands | 55 |
+| `REQUIREMENTS.md` | numbered v1 feature inventory (FR/NFR) | 250 |
 | `DESIGN.md` | the *current* design — what & why | 900 |
-| `IMPLEMENTATION.md` | how to build what isn't built yet + reference | 650 |
+| `IMPLEMENTATION.md` | how to build what isn't built yet + reference | 700 |
 | `DECISIONS.md` | append-only decision + SHIPPED log | no cap; ≤8 lines/entry |
 | `e2e/visual-checklist.md` | living visual-review checklist | 150 |
+
+(`../parlor/` keeps its own two docs — `README.md` + `CLAUDE.md`, ≤55 lines each —
+checked by parlor's copy of the doc gate.)
 
 When a milestone ships: collapse its §2 table to `### MN — shipped, see
 DECISIONS.md` and append a SHIPPED entry (date, gates, deviations, stumbles).
@@ -422,10 +447,15 @@ From `hive/DECISIONS.md` — each cost a debugging session there:
    deploys use `--project prod`.
 10. Ship a waiting screen while `status:'open'` (board withheld) — players *will*
     open the game before the opponent joins.
+11. *(New, parlor-specific)* pnpm `link:` deps don't install the linked package's
+    own deps — install `parlor/` first; Vite needs `server.fs.allow` for
+    `../parlor` and `optimizeDeps.exclude` for `@parlor/*` to serve linked TS
+    source (§1). If a tool still balks at symlinked source, the fallback is
+    `preserveSymlinks` off + explicit aliases — don't invent a build step.
 
 ## 9. Open items / deliberately deferred
 
 Challenge-mode ruleset, real-time clocks, 3–4 players, keyboard entry, chat, AI
-(`@lex/ai` DAWG move generator), analysis, `.gcg` export, platform promotion to a
-repo-level shared library + hive migration — post-v1 (DESIGN §11). Pixel-diff
+(`@lex/ai` DAWG move generator), analysis, `.gcg` export, hive's migration onto
+`parlor/`, more rulesets/word lists — post-v1 (DESIGN §11). Pixel-diff
 snapshots: same stance as hive (defer; if added, gate only the tile contact sheet).
