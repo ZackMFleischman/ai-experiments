@@ -74,6 +74,7 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `packages/app/.env` (public identifiers). `.firebaserc` gains a `prod` alias;
   `default` stays `demo-lex` so emulators/CI keep running fully offline (§8.9) —
   deploys use `--project prod`. VAPID public key committed too
-  (`VITE_FIREBASE_VAPID_KEY` — M5's push setup). Still pending before M4's
-  T4.9 deploy: the `FIREBASE_SERVICE_ACCOUNT_LEX_ZMF` GitHub secret (deploy
-  SA with Editor + roles/run.admin).
+  (`VITE_FIREBASE_VAPID_KEY` — M5's push setup), and the deploy service
+  account (Editor + roles/run.admin) is stored as the GitHub Actions secret
+  `FIREBASE_SERVICE_ACCOUNT_LEX_ZMF` — hive §5.6 setup complete; nothing
+  manual blocks M4.
