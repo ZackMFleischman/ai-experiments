@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "typecheck": "pnpm -r --sequential typecheck",
+    "typecheck": "node scripts/check-docs.mjs && node scripts/check-boundaries.mjs && pnpm -r --sequential typecheck",
     "test": "pnpm -r test"
   },
   "devDependencies": {

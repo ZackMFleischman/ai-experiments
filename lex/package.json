@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -n app,emu -c blue,yellow \"pnpm --filter @lex/app dev\" \"pnpm dev:emulators\"",
     "dev:emulators": "pnpm --filter @lex/functions build && firebase emulators:start --project demo-lex --import packages/functions/emulator-seed",
-    "typecheck": "pnpm -r --sequential typecheck",
+    "typecheck": "node scripts/check-docs.mjs && node scripts/check-boundaries.mjs && pnpm -r --sequential typecheck",
     "test": "pnpm -r --filter '!lex-e2e' test"
   },
   "devDependencies": {
