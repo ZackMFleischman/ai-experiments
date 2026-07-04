@@ -112,4 +112,4 @@ jobs:
       - name: install playwright chromium
         working-directory: lex/e2e
         run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm typecheck && pnpm test && pnpm --filter lex-e2e test
+      - run: pnpm validate
