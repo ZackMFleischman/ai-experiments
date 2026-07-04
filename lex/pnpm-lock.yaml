@@ -90,6 +90,9 @@ importers:
 
   packages/dict:
     devDependencies:
+      '@lex/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@types/node':
         specifier: ^22.20.0
         version: 22.20.0

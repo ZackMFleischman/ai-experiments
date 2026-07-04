@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@lex/engine": "workspace:*",
     "@types/node": "^22.20.0",
     "esbuild": "^0.28.1",
     "fast-check": "^3.23.2",
