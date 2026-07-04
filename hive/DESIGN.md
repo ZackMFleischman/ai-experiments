@@ -253,6 +253,8 @@ games/{gameId}:         { players: {white: uid, black: uid|null},
                           result?: 'white'|'black'|'draw',
                           endedBy?: 'surround'|'resign'|'timeout'|'draw-agreed'|'repetition',
                           toMove, turn, moveCount,
+                          activatedBy?: uid,                  // who made it active (accepted/joined/offered
+                                                              //   rematch) — fresh-game badge until move 1 (§7)
                           pendingDrawOffer?: 'white'|'black', // cleared by any move or decline
                           rematchOf?: gameId, rematchGameId?: gameId, // return-game links (idempotent rematch)
                           timeControl?: {days: 1|3|7} | null, // async clock setting (§5.4)
@@ -513,8 +515,10 @@ as a moment, not a modal that teleports in.
 - **In-app awareness** (works even with push denied): lobby "your turn" section +
   per-game badges, document title `(2) HIVE`, and app **icon badge** via the Badging API
   where supported. Every push also carries the recipient's fresh actionable count
-  (`badge`: your-turn games + incoming challenges); the service worker applies it via
-  `setAppBadge`, so the installed icon (iOS 16.4+) stays current while the app is closed.
+  (`badge`: your-turn games, incoming challenges, and games the opponent just activated —
+  accepted invite/challenge or rematch offer — until white's first move); the service
+  worker applies it via `setAppBadge`, so the installed icon (iOS 16.4+) stays current
+  while the app is closed.
 
 **The zackmfleischman.com apps page — link out, don't iframe.** The site's apps
 infrastructure (`PersonalWebsite/src/ts/Apps/`) is built around iframe embeds: every

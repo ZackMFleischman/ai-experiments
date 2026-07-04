@@ -3,7 +3,7 @@ import { Alert, CircularProgress, Stack } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LobbyView } from '../screens/lobbyView';
-import { useTurnBadge } from '../screens/turnBadge';
+import { actionableCount, useTurnBadge } from '../screens/turnBadge';
 import { useAuth } from './authContext';
 import * as api from './gameApi';
 import { useMyGames } from './lobby';
@@ -24,14 +24,7 @@ export default function OnlineGames() {
 function Loaded({ uid, onOpen }: { uid: string; onOpen: (id: string) => void }) {
   const { games, loading } = useMyGames(uid);
   const [error, setError] = useState<string | null>(null);
-  // Incoming challenges are actionable too — badge them like your-turn games.
-  useTurnBadge(
-    games.filter(
-      (g) =>
-        (g.status === 'active' && g.toMove === g.myColor) ||
-        (g.status === 'open' && g.challenge?.direction === 'incoming'),
-    ).length,
-  );
+  useTurnBadge(actionableCount(games));
   if (loading) {
     return (
       <Stack alignItems="center" sx={{ mt: 4 }}>

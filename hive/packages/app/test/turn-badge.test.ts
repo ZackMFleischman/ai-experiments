@@ -1,7 +1,8 @@
 // T5.4: in-app turn awareness — document title "(n) HIVE" + app icon badge
 // via the Badging API where supported (DESIGN §7).
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyTurnBadge } from '../src/screens/turnBadge';
+import type { LobbyGameSummary } from '../src/screens/lobbyView';
+import { actionableCount, applyTurnBadge } from '../src/screens/turnBadge';
 
 afterEach(() => {
   document.title = 'HIVE';
@@ -34,5 +35,41 @@ describe('applyTurnBadge', () => {
     delete (navigator as { clearAppBadge?: unknown }).clearAppBadge;
     expect(() => applyTurnBadge(1)).not.toThrow();
     expect(document.title).toBe('(1) HIVE');
+  });
+});
+
+describe('actionableCount', () => {
+  const base = (over: Partial<LobbyGameSummary>): LobbyGameSummary => ({
+    id: 'g',
+    myColor: 'w',
+    opponentName: 'Opp',
+    status: 'active',
+    toMove: 'b',
+    updatedAtMs: 0,
+    state: '',
+    ...over,
+  });
+
+  it('counts your-turn games, incoming challenges, and fresh opponent-activated games once each', () => {
+    expect(
+      actionableCount([
+        base({ id: 'my-turn', toMove: 'w' }),
+        base({ id: 'challenge-in', status: 'open', challenge: { direction: 'incoming', name: 'Opp' } }),
+        base({ id: 'fresh-accepted', myColor: 'b', toMove: 'w', freshFromOpponent: true }),
+        // fresh AND my turn (rematch offer where I'm white) counts once
+        base({ id: 'fresh-my-turn', toMove: 'w', freshFromOpponent: true }),
+      ]),
+    ).toBe(4);
+  });
+
+  it('ignores waiting, outgoing-challenge, and finished games', () => {
+    expect(
+      actionableCount([
+        base({ id: 'their-turn' }),
+        base({ id: 'challenge-out', status: 'open', challenge: { direction: 'outgoing', name: 'Opp' } }),
+        base({ id: 'invited', status: 'open' }),
+        base({ id: 'done', status: 'finished', result: 'white' }),
+      ]),
+    ).toBe(0);
   });
 });

@@ -145,7 +145,7 @@ describe('sendPush', () => {
     });
   });
 
-  it('sends the recipient actionable count as the badge (turns + incoming challenges)', async () => {
+  it('sends the recipient actionable count as the badge (turns, challenges, fresh games)', async () => {
     const db = getFirestore();
     const transport = new FakeTransport();
     await db.doc('users/badgey').set({ fcmTokens: ['tok-badge'] });
@@ -153,15 +153,28 @@ describe('sendPush', () => {
       playerIds: ['badgey', 'opp'],
       players: { white, black },
     });
-    // Counts: an active game on badgey's move, an incoming challenge.
-    await db.doc('games/badge-my-turn').set({ ...seat('badgey', 'opp'), status: 'active', toMove: 'w' });
+    // Counts: an active game on badgey's move (fresh too — no double count),
+    // an incoming challenge, and an opponent-activated game at move zero even
+    // though it's not badgey's move (accepted invite / rematch offer).
+    await db.doc('games/badge-my-turn').set({
+      ...seat('badgey', 'opp'), status: 'active', toMove: 'w', moveCount: 0, activatedBy: 'opp',
+    });
     await db.doc('games/badge-challenge-in').set({
       ...seat('opp', null),
       status: 'open',
       challenge: { from: 'opp', fromName: 'Opp', to: 'badgey', toName: 'Badgey' },
     });
-    // Doesn't count: opponent's move, outgoing challenge, finished game.
-    await db.doc('games/badge-their-turn').set({ ...seat('badgey', 'opp'), status: 'active', toMove: 'b' });
+    await db.doc('games/badge-fresh-accepted').set({
+      ...seat('opp', 'badgey'), status: 'active', toMove: 'w', moveCount: 0, activatedBy: 'opp',
+    });
+    // Doesn't count: a fresh game badgey activated themselves, opponent's move
+    // mid-game, outgoing challenge, finished game.
+    await db.doc('games/badge-fresh-mine').set({
+      ...seat('opp', 'badgey'), status: 'active', toMove: 'w', moveCount: 0, activatedBy: 'badgey',
+    });
+    await db.doc('games/badge-their-turn').set({
+      ...seat('badgey', 'opp'), status: 'active', toMove: 'b', moveCount: 4,
+    });
     await db.doc('games/badge-challenge-out').set({
       ...seat('badgey', null),
       status: 'open',
@@ -170,7 +183,7 @@ describe('sendPush', () => {
     await db.doc('games/badge-finished').set({ ...seat('badgey', 'opp'), status: 'finished', toMove: 'w' });
 
     await sendPush(db, transport, 'badgey', buildPayload('opponent-moved', { gameId: 'g', opponentName: 'Opp' }));
-    expect(transport.sent[0]?.data['badge']).toBe('2');
+    expect(transport.sent[0]?.data['badge']).toBe('3');
   });
 
   it('prunes tokens the push service no longer recognizes', async () => {

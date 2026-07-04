@@ -33,6 +33,9 @@ export interface LobbyGameSummary {
   opponentUid?: string;
   /** Direct challenge while open (DESIGN §5.2): who challenged whom. */
   challenge?: { direction: 'incoming' | 'outgoing'; name: string };
+  /** Active at move zero, activated by the opponent (accepted invite/challenge,
+   * rematch offer) — counts toward the badge even before it's my move. */
+  freshFromOpponent?: boolean;
 }
 
 export function timeLeft(deadlineMs: number, nowMs: number): string {

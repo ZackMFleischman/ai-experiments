@@ -219,6 +219,7 @@ export const respondChallenge = onCall(async (request) => {
       [`playerNames.${seat}`]: caller.name,
       status: 'active',
       challenge: FieldValue.delete(),
+      activatedBy: caller.uid, // fresh-game badge for the absent challenger (DESIGN §7)
       deadlineAt: deadlineFor(doc.timeControl ?? null),
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -291,6 +292,7 @@ export const joinGame = onCall(async (request) => {
       playerIds: FieldValue.arrayUnion(caller.uid),
       status: 'active',
       inviteCode: FieldValue.delete(),
+      activatedBy: caller.uid, // fresh-game badge for the absent creator (DESIGN §7)
       deadlineAt: deadlineFor(data.timeControl ?? null),
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -576,6 +578,7 @@ export const rematch = onCall(async (request) => {
       moveCount: 0,
       state: serializeState(initialState(doc.options)),
       rematchOf: gameRef.id,
+      activatedBy: caller.uid, // fresh-game badge for the offered-to player (DESIGN §7)
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });

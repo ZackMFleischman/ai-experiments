@@ -110,23 +110,32 @@ export interface PushTransport {
   }): Promise<{ responses: Array<{ success: boolean; error?: { code?: string } }> }>;
 }
 
-/** How many games await the recipient: active games on their move plus
- * incoming challenges — the same filter as the client's useTurnBadge, so the
- * home-screen icon badge (Badging API, set by the SW) matches the lobby. */
+/** How many games await the recipient: active games on their move, incoming
+ * challenges, and just-started games the opponent activated (accepted invite
+ * or challenge, rematch offer) even when white — them — moves first. Same
+ * filter as the client's actionableCount, so the home-screen icon badge
+ * (Badging API, set by the SW) matches the lobby. */
 export async function countActionable(db: Firestore, uid: string): Promise<number> {
   const mine = db.collection('games').where('playerIds', 'array-contains', uid);
   const [active, open] = await Promise.all([
     mine.where('status', '==', 'active').get(),
     mine.where('status', '==', 'open').get(),
   ]);
-  const myTurn = active.docs.filter((d) => {
-    const g = d.data() as { players: { white: string | null }; toMove: string };
-    return g.toMove === (g.players.white === uid ? 'w' : 'b');
+  const actionable = active.docs.filter((d) => {
+    const g = d.data() as {
+      players: { white: string | null };
+      toMove: string;
+      moveCount?: number;
+      activatedBy?: string;
+    };
+    const myTurn = g.toMove === (g.players.white === uid ? 'w' : 'b');
+    const fresh = g.moveCount === 0 && g.activatedBy !== undefined && g.activatedBy !== uid;
+    return myTurn || fresh;
   });
   const challenges = open.docs.filter(
     (d) => (d.data() as { challenge?: { to: string } }).challenge?.to === uid,
   );
-  return myTurn.length + challenges.length;
+  return actionable.length + challenges.length;
 }
 
 const DEAD_TOKEN_CODES = new Set([
