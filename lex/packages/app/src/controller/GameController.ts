@@ -75,6 +75,10 @@ export interface Snapshot {
   rack: ReadonlyArray<TileFace | null>;
   pending: ReadonlyMap<CellKey, PendingTile>;
   preview: Preview | null;
+  /** Rack slot armed by the tap-tap flow (T3.5); null = none. */
+  selection: number | null;
+  /** May the local player act right now (their turn, game not over)? */
+  interactive: boolean;
   canExchange: boolean;
   lastPlay?: LastPlay;
   view: ViewState | null;
@@ -138,6 +142,7 @@ export class GameController {
   private snapshot: Snapshot | null = null;
 
   private pending = new Map<CellKey, PendingTile>();
+  private selection: number | null = null;
   private rackSlots: Array<TileFace | null> = [];
   private syncedGame: GameState | null = null;
   private syncedSeat: Seat | null = null;
@@ -290,6 +295,7 @@ export class GameController {
     if (this.syncedGame === s.game && this.syncedSeat === seat) return;
     const ruleset = this.rulesetFor(this.currentOptions());
     this.pending.clear();
+    this.selection = null;
     this.rackSlots = reconcileSlots(this.rackSlots, s.game.racks[seat] ?? [], ruleset.rackSize);
     this.syncedGame = s.game;
     this.syncedSeat = seat;
@@ -334,6 +340,8 @@ export class GameController {
       rack: this.rackSlots,
       pending: new Map(this.pending),
       preview,
+      selection: this.selection,
+      interactive: this.interactive(),
       canExchange:
         this.interactive() && this.pending.size === 0 && s.game.bag.length >= ruleset.exchangeMinBag,
       ...(s.lastPlay ? { lastPlay: s.lastPlay } : {}),
@@ -382,6 +390,39 @@ export class GameController {
     const playable =
       !ended && !needsBlank && this.interactive() && words.every((w) => w.valid) && words.length > 0;
     return { check, words, total: score.total, bingo: score.bingo, needsBlank, playable };
+  }
+
+  // ── tap-tap selection (DESIGN §7.2) ────────────────────────────────────────
+
+  /** Arm (or toggle off) a rack slot for tap-tap placement. */
+  selectRackSlot(index: number): void {
+    if (!this.interactive()) return;
+    this.syncRack();
+    if (!this.rackSlots[index]) return;
+    this.selection = this.selection === index ? null : index;
+    this.emit();
+  }
+
+  cancelSelection(): void {
+    if (this.selection === null) return;
+    this.selection = null;
+    this.emit();
+  }
+
+  /** A tap landed on a board cell: bounce a staged tile home, or place the
+   * armed rack tile. */
+  tapCell(cell: Cell): void {
+    this.syncRack();
+    if (this.pending.has(cellKey(cell))) {
+      this.returnPending(cell);
+      return;
+    }
+    if (this.selection !== null) {
+      const index = this.selection;
+      this.selection = null;
+      this.placeAt(cell, index);
+      this.emit();
+    }
   }
 
   // ── pending placements (the lex drag/tap model, DESIGN §7.2) ───────────────

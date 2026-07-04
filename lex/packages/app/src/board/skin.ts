@@ -25,7 +25,13 @@ export interface SkinVars {
   '--lex-tile-pending-edge': string; // gold edge on staged tiles (DESIGN §7.2)
 }
 
-const CELL = '36px';
+/** Native cell edge in px — the single geometry constant hit-testing shares
+ * with the CSS (`--lex-cell`). The viewport scales everything else. */
+export const CELL_PX = 36;
+/** Board padding in px around the grid (must match BoardGrid's `p`). */
+export const BOARD_PAD_PX = 2;
+
+const CELL = `${CELL_PX}px`;
 
 export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, SkinVars>>>> = {
   classic: {

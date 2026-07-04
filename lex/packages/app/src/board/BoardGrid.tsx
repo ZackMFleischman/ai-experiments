@@ -4,10 +4,10 @@
 // The grid is fixed-size in px (cells = var(--lex-cell)); the viewport (T3.2)
 // scales it with a CSS transform.
 import { Box } from '@mui/material';
-import type { BoardLayout, CellKey, PlacedTile, Premium, TileSet } from '@lex/engine';
+import type { BoardLayout, Cell, CellKey, PlacedTile, Premium, TileFace, TileSet } from '@lex/engine';
 import { cellKey } from '@lex/engine';
 import { useColorMode } from '../theme';
-import { skinVars } from './skin';
+import { BOARD_PAD_PX, CELL_PX, skinVars } from './skin';
 import { Tile } from './Tile';
 
 const PREMIUM_BG: Record<Premium, string> = {
@@ -17,14 +17,43 @@ const PREMIUM_BG: Record<Premium, string> = {
   TW: 'var(--lex-cell-tw)',
 };
 
+/** Untransformed board size in px — feeds the viewport (T3.2). */
+export function boardPixelSize(layout: BoardLayout): { width: number; height: number } {
+  return {
+    width: layout.cols * CELL_PX + 2 * BOARD_PAD_PX,
+    height: layout.rows * CELL_PX + 2 * BOARD_PAD_PX,
+  };
+}
+
+/** Board-space point → cell, or null off the grid. One subtraction + one
+ * division — the whole transform-proof hit test (DESIGN §7.2). */
+export function pointToCell(pt: { x: number; y: number }, layout: BoardLayout): Cell | null {
+  const col = Math.floor((pt.x - BOARD_PAD_PX) / CELL_PX);
+  const row = Math.floor((pt.y - BOARD_PAD_PX) / CELL_PX);
+  if (row < 0 || col < 0 || row >= layout.rows || col >= layout.cols) return null;
+  return { row, col };
+}
+
+/** What the grid needs to draw a staged tile (structural subset of the
+ * controller's PendingTile). */
+export interface PendingCellTile {
+  face: TileFace;
+  letter: string | null;
+  isBlank: boolean;
+}
+
 export interface BoardGridProps {
   layout: BoardLayout;
   /** Point values from the ruleset's TileSet — data, not rules. */
   points: TileSet['points'];
   tiles: ReadonlyMap<CellKey, PlacedTile>;
+  /** Staged-but-unsubmitted tiles — lifted, gold edge (T3.5). */
+  pending?: ReadonlyMap<CellKey, PendingCellTile>;
+  /** Cell under an in-flight drag. */
+  hover?: CellKey | null;
 }
 
-export function BoardGrid({ layout, points, tiles }: BoardGridProps) {
+export function BoardGrid({ layout, points, tiles, pending, hover }: BoardGridProps) {
   const { mode } = useColorMode();
   const startKey = cellKey(layout.start);
 
@@ -34,6 +63,7 @@ export function BoardGrid({ layout, points, tiles }: BoardGridProps) {
       const key: CellKey = `${row},${col}`;
       const premium = layout.premiums[key];
       const tile = tiles.get(key);
+      const staged = pending?.get(key);
       cells.push(
         <Box
           key={key}
@@ -49,10 +79,22 @@ export function BoardGrid({ layout, points, tiles }: BoardGridProps) {
             alignItems: 'center',
             justifyContent: 'center',
             boxSizing: 'border-box',
+            ...(hover === key && {
+              outline: '2px solid var(--lex-tile-pending-edge)',
+              outlineOffset: '-2px',
+              zIndex: 1,
+            }),
           }}
         >
           {tile ? (
             <Tile letter={tile.letter} isBlank={tile.isBlank} points={points[tile.letter] ?? 0} />
+          ) : staged ? (
+            <Tile
+              letter={staged.letter ?? ''}
+              isBlank={staged.isBlank}
+              points={points[staged.face] ?? 0}
+              pending
+            />
           ) : key === startKey ? (
             <Box
               component="span"
