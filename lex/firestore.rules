@@ -1,12 +1,47 @@
 rules_version = '2';
 
-// T0.5 minimal scaffold: only your own users/{uid} doc is client-accessible.
-// The real three-tier game schema rules (public game docs, owner-only racks,
-// no-client-read private bag) land with T4.3 — with negative rules tests.
+// ported from hive/firestore.rules (adapted)
+// DESIGN §6.2/§6.3: every game mutation goes through a callable — clients get
+// NO write access to games/* or invites/*. Three read tiers per game (§3.3):
+// the public game doc + move log (both players), racks/{uid} (owner only),
+// and private/* (no client, ever — Cloud Functions bypass rules). The only
+// client-writable doc is your own users/{uid}. Rules tests assert every
+// boundary, including the negative cases — this is a security invariant.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /games/{gameId} {
+      allow read: if request.auth != null
+        && request.auth.uid in resource.data.playerIds;
+      allow write: if false;
+
+      match /moves/{n} {
+        allow read: if request.auth != null
+          && request.auth.uid
+            in get(/databases/$(database)/documents/games/$(gameId)).data.playerIds;
+        allow write: if false;
+      }
+
+      // Own rack only: the doc id IS the owner uid (§6.2). Nobody else —
+      // including the opponent — can read it; nobody writes but the server.
+      match /racks/{uid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+
+      // Bag order + draw log: server-secret. No client read, no client write.
+      match /private/{docId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /invites/{code} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow write: if false;
     }
 
     match /{document=**} {
