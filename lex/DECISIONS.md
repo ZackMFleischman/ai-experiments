@@ -7,7 +7,7 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
 
 ---
 
-- **2026-07-04 — Project adopted; docs are the deliverable of PR #1.** DESIGN.md +
+- **2026-07-04 — Project adopted; docs are the deliverable of PR #39.** DESIGN.md +
   IMPLEMENTATION.md authored from an analysis of shipped hive (M0–M5 + user-feedback
   fixes). Documentation policy adopted verbatim from hive (IMPLEMENTATION.md §7):
   closed doc set, CI-enforced budgets, this file is the only doc that grows.

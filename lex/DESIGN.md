@@ -11,8 +11,8 @@ architecture, backend, validation harness, and much of its code (§4).
 > and letter distribution are the trademark-adjacent parts, **both are data, not code**
 > (§2.2): swapping to an original layout/tileset is a one-file change, by requirement.
 
-"LEX" is a working name (it is, fittingly, a playable word). Renaming is a
-find-replace plus a DNS choice; nothing in the architecture depends on it.
+The name is "LEX" (fittingly, a playable word). Renaming would be a find-replace
+plus a DNS choice; nothing in the architecture depends on it.
 
 ---
 
@@ -580,7 +580,7 @@ inherits that task as specified in hive DESIGN §7. Production domain:
 11. **Same doc policy, same enforcement** as hive (IMPLEMENTATION §7): closed doc
     set, line budgets, DECISIONS.md as the only growing file, `check-docs.mjs`
     wired into typecheck.
-12. **Working name LEX**; nothing depends on it.
+12. **Named LEX** (owner-confirmed); nothing in the architecture depends on it.
 
 ---
 
