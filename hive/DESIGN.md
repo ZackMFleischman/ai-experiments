@@ -248,6 +248,8 @@ games/{gameId}:         { players: {white: uid, black: uid|null},
                           options,
                           status: 'open'|'active'|'finished',
                           inviteCode?: string,                // present while open (re-share from the game screen)
+                          challenge?: {from, fromName, to, toName}, // direct challenge while open (no invite;
+                                                              //   both uids in playerIds from creation)
                           result?: 'white'|'black'|'draw',
                           endedBy?: 'surround'|'resign'|'timeout'|'draw-agreed'|'repetition',
                           toMove, turn, moveCount,
@@ -289,6 +291,8 @@ their two players, invites by anyone holding the code.
 | `createGame(options, color)` | creates the game (`status:'open'`) + invite code; returns both |
 | `joinGame(code)` | transactionally claims the open seat, activates the game, expires the invite |
 | `cancelGame(gameId)` | creator withdraws an *open* game: deletes the game + its invite |
+| `challengeUser(opponentUid, options, color)` | creates an open game addressed to a past opponent (no code); pushes the challenge |
+| `respondChallenge(gameId, accept)` | challenged player only: accept seats them + activates; decline deletes the game |
 | `submitMove(gameId, expectedMoveCount, uhpMove)` | the move protocol below |
 | `resign(gameId)` | ends the game; records the `resign` meta event |
 | `offerDraw(gameId)` / `respondDraw(gameId, accept)` | sets/clears `pendingDrawOffer`; ends game on accept |
@@ -501,8 +505,9 @@ as a moment, not a modal that teleports in.
   desktop, offline app-shell (lobby renders cached games read-only when offline;
   moves require connectivity — offline move queuing is post-v1).
 - **Push:** FCM Web Push. On grant, token stored on `users/{uid}.fcmTokens[]`
-  (multi-device). Cloud Function sends on: opponent moved, game joined, draw offered,
-  game over, deadline warning. Tap ⇒ deep-link to `/game/{id}`.
+  (multi-device). Cloud Function sends on: opponent moved, game joined, challenge
+  received/accepted/declined, draw offered, game over, deadline warning. Tap ⇒
+  deep-link to `/game/{id}`.
   - iOS requires the PWA to be installed to Home Screen for Web Push (iOS 16.4+) —
     the app detects this and shows a one-time "install to get notified" coach mark.
 - **In-app awareness** (works even with push denied): lobby "your turn" section +
@@ -628,8 +633,9 @@ Per your instruction, I decided these myself, optimizing for "you two playing AS
    reset/email verification entirely. Easy to add other providers later.
 3. **All three expansions** (Mosquito + Ladybug + Pillbug) default **on**, each
    toggleable per game; tournament opening rule (no queen first) default on.
-4. **Invite links only** — no public lobby, no friend lists. A game is created open and
-   whoever opens the link becomes the opponent.
+4. **Invite links + direct challenges** — no public lobby or matchmaking. A game is
+   created open for a link/code join, or addressed to a past opponent as a challenge
+   (§5.3); people you've played are the only "friend list".
 5. **Async time controls in v1; real-time clocks in v1.1.** Untimed live play works in
    v1 by nature of realtime sync (see §5.4 for why clocks are deferred).
 6. **Resign + draw offers in v1; takebacks post-v1** (mutual-consent takeback is easy

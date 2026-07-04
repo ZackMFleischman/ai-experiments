@@ -135,6 +135,86 @@ describe('cancelGame', () => {
   });
 });
 
+describe('challengeUser / respondChallenge', () => {
+  const CHALLENGE = { options: OPTIONS, color: 'w', timeControlDays: 3 };
+
+  it('challenges a past opponent; accept seats them and activates the game', async () => {
+    const { white: ada, black: sam } = await createJoined();
+    const res = await call('challengeUser', { ...CHALLENGE, opponentUid: sam.uid }, ada);
+    expect(res.status).toBe(200);
+    const { gameId } = res.result as { gameId: string };
+
+    const open = await adminGetDoc(`games/${gameId}`);
+    expect(open?.['status']).toBe('open');
+    expect(open?.['inviteCode']).toBeUndefined(); // direct challenge — no code
+    const challenge = open?.['challenge'] as Record<string, unknown>;
+    expect(challenge['from']).toBe(ada.uid);
+    expect(challenge['to']).toBe(sam.uid);
+    expect(challenge['fromName']).toBe('Ada');
+    expect(challenge['toName']).toBe('Sam');
+    expect(open?.['playerIds']).toEqual(expect.arrayContaining([ada.uid, sam.uid]));
+    expect((open?.['players'] as Record<string, unknown>)['white']).toBe(ada.uid);
+    expect((open?.['players'] as Record<string, unknown>)['black']).toBeNull();
+
+    const accepted = await call('respondChallenge', { gameId, accept: true }, sam);
+    expect(accepted.status).toBe(200);
+    const active = await adminGetDoc(`games/${gameId}`);
+    expect(active?.['status']).toBe('active');
+    expect((active?.['players'] as Record<string, unknown>)['black']).toBe(sam.uid);
+    expect(active?.['challenge']).toBeUndefined();
+    expect(active?.['deadlineAt']).toBeTruthy(); // timeControlDays stamped on accept
+  });
+
+  it('decline deletes the challenge game', async () => {
+    const { white: ada, black: sam } = await createJoined();
+    const res = await call('challengeUser', { ...CHALLENGE, opponentUid: sam.uid }, ada);
+    const { gameId } = res.result as { gameId: string };
+    const declined = await call('respondChallenge', { gameId, accept: false }, sam);
+    expect(declined.status).toBe(200);
+    expect(await adminGetDoc(`games/${gameId}`)).toBeNull();
+  });
+
+  it('rejects challenging someone you have never played', async () => {
+    const ada = await signUp('Ada');
+    const eve = await signUp('Eve');
+    const res = await call('challengeUser', { ...CHALLENGE, opponentUid: eve.uid }, ada);
+    expect(res.errorStatus).toBe('FAILED_PRECONDITION');
+  });
+
+  it('rejects challenging yourself', async () => {
+    const ada = await signUp('Ada');
+    const res = await call('challengeUser', { ...CHALLENGE, opponentUid: ada.uid }, ada);
+    expect(res.errorStatus).toBe('INVALID_ARGUMENT');
+  });
+
+  it('only the challenged player can respond', async () => {
+    const { white: ada, black: sam } = await createJoined();
+    const res = await call('challengeUser', { ...CHALLENGE, opponentUid: sam.uid }, ada);
+    const { gameId } = res.result as { gameId: string };
+    const fromChallenger = await call('respondChallenge', { gameId, accept: true }, ada);
+    expect(fromChallenger.errorStatus).toBe('PERMISSION_DENIED');
+    const fromStranger = await call('respondChallenge', { gameId, accept: true }, await signUp('Eve'));
+    expect(fromStranger.errorStatus).toBe('PERMISSION_DENIED');
+  });
+
+  it('rejects responding to a non-challenge open game', async () => {
+    const ada = await signUp('Ada');
+    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const { gameId } = created.result as { gameId: string };
+    const res = await call('respondChallenge', { gameId, accept: true }, await signUp('Sam'));
+    expect(res.errorStatus).toBe('FAILED_PRECONDITION');
+  });
+
+  it('challenger can withdraw a pending challenge via cancelGame', async () => {
+    const { white: ada, black: sam } = await createJoined();
+    const res = await call('challengeUser', { ...CHALLENGE, opponentUid: sam.uid }, ada);
+    const { gameId } = res.result as { gameId: string };
+    const cancelled = await call('cancelGame', { gameId }, ada);
+    expect(cancelled.status).toBe(200);
+    expect(await adminGetDoc(`games/${gameId}`)).toBeNull();
+  });
+});
+
 describe('submitMove', () => {
   it('accepts a legal move, advances the doc, appends the move log', async () => {
     const { gameId, white } = await createJoined();

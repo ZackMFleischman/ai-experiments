@@ -8,6 +8,9 @@ export type Trigger =
   | 'opponent-moved'
   | 'game-joined'
   | 'rematch-offered'
+  | 'challenge-received'
+  | 'challenge-accepted'
+  | 'challenge-declined'
   | 'draw-offered'
   | 'game-over'
   | 'deadline-warning';
@@ -50,6 +53,28 @@ export function buildPayload(trigger: Trigger, args: TriggerArgs): PushPayload {
         title: `${args.opponentName} wants a rematch`,
         body: 'The return game is ready — colors swapped.',
         link,
+        tag,
+      };
+    case 'challenge-received':
+      return {
+        title: `${args.opponentName} challenges you`,
+        body: 'Accept or decline in your lobby.',
+        link,
+        tag,
+      };
+    case 'challenge-accepted':
+      return {
+        title: `${args.opponentName} accepted your challenge`,
+        body: 'The game is on — white opens.',
+        link,
+        tag,
+      };
+    case 'challenge-declined':
+      // The game doc is deleted on decline — deep-link to the lobby instead.
+      return {
+        title: `${args.opponentName} declined your challenge`,
+        body: 'Maybe another time — start a new game from the lobby.',
+        link: '/lobby',
         tag,
       };
     case 'draw-offered':

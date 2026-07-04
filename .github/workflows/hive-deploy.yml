@@ -151,7 +151,7 @@ jobs:
           # Scheduler OIDC identity (the default compute SA). Requires
           # roles/run.admin on the deploy service account.
           repair_failed=0
-          for f in creategame joingame cancelgame submitmove resign offerdraw responddraw rematch ping; do
+          for f in creategame joingame cancelgame challengeuser respondchallenge submitmove resign offerdraw responddraw rematch ping; do
             gcloud run services add-iam-policy-binding "$f" --project hive-zmf \
               --region us-central1 --member allUsers --role roles/run.invoker --quiet \
               || repair_failed=1

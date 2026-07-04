@@ -115,6 +115,122 @@ export const createGame = onCall(async (request) => {
   return { gameId: gameRef.id, code };
 });
 
+// Direct challenge (DESIGN §5.3): no invite code — the game is addressed to a
+// past opponent, who accepts/declines via respondChallenge. Both uids sit in
+// playerIds from creation so the challenged player's lobby sees the open game.
+export const challengeUser = onCall(async (request) => {
+  const caller = requireAuth(request);
+  const options = parseOptions((request.data as { options?: unknown })?.options);
+  const colorRaw = (request.data as { color?: unknown })?.color;
+  if (colorRaw !== 'w' && colorRaw !== 'b' && colorRaw !== 'random') {
+    throw new HttpsError('invalid-argument', "color must be 'w' | 'b' | 'random'");
+  }
+  const color: Color = colorRaw === 'random' ? (randomInt(2) === 0 ? 'w' : 'b') : colorRaw;
+  const timeControl = parseTimeControl((request.data as { timeControlDays?: unknown })?.timeControlDays);
+  const opponentUid = (request.data as { opponentUid?: unknown })?.opponentUid;
+  if (typeof opponentUid !== 'string' || opponentUid.length === 0) {
+    throw new HttpsError('invalid-argument', 'missing opponentUid');
+  }
+  if (opponentUid === caller.uid) {
+    throw new HttpsError('invalid-argument', 'cannot challenge yourself');
+  }
+
+  const db = getFirestore();
+  // Only past opponents are challengeable: the caller and opponent must share
+  // a game. The shared doc also supplies the opponent's display name (users/*
+  // is private; playerNames is the denormalized source — DESIGN §5.2).
+  const myGames = await db
+    .collection('games')
+    .where('playerIds', 'array-contains', caller.uid)
+    .select('playerIds', 'players', 'playerNames')
+    .get();
+  let opponentName: string | null = null;
+  for (const snap of myGames.docs) {
+    const d = snap.data() as {
+      playerIds: string[];
+      players: { white: string | null; black: string | null };
+      playerNames: { white: string | null; black: string | null };
+    };
+    if (!d.playerIds.includes(opponentUid)) continue;
+    opponentName =
+      (d.players.white === opponentUid ? d.playerNames.white : d.playerNames.black) ?? 'Player';
+    break;
+  }
+  if (opponentName === null) {
+    throw new HttpsError('failed-precondition', 'you can only challenge players from your games');
+  }
+
+  const gameRef = db.collection('games').doc();
+  await gameRef.set({
+    players: { white: color === 'w' ? caller.uid : null, black: color === 'b' ? caller.uid : null },
+    playerNames: {
+      white: color === 'w' ? caller.name : null,
+      black: color === 'b' ? caller.name : null,
+    },
+    playerIds: [caller.uid, opponentUid],
+    options,
+    status: 'open',
+    challenge: { from: caller.uid, fromName: caller.name, to: opponentUid, toName: opponentName },
+    toMove: 'w',
+    turn: 1,
+    moveCount: 0,
+    timeControl,
+    state: serializeState(initialState(options)),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  await notify(db, opponentUid, 'challenge-received', { gameId: gameRef.id, opponentName: caller.name });
+  return { gameId: gameRef.id };
+});
+
+export const respondChallenge = onCall(async (request) => {
+  const caller = requireAuth(request);
+  const gameId = requireGameId(request.data);
+  const accept = (request.data as { accept?: unknown })?.accept;
+  if (typeof accept !== 'boolean') throw new HttpsError('invalid-argument', 'missing accept');
+
+  const db = getFirestore();
+  const gameRef = db.collection('games').doc(gameId);
+  let challengerUid: string | null = null;
+  await db.runTransaction(async (tx) => {
+    const game = await tx.get(gameRef);
+    if (!game.exists) throw new HttpsError('not-found', 'game not found');
+    const doc = game.data() as {
+      status: string;
+      players: { white: string | null; black: string | null };
+      challenge?: { from: string; to: string };
+      timeControl?: { days: number } | null;
+    };
+    if (doc.status !== 'open' || !doc.challenge) {
+      throw new HttpsError('failed-precondition', 'no challenge pending on this game');
+    }
+    if (doc.challenge.to !== caller.uid) {
+      throw new HttpsError('permission-denied', 'this challenge is not addressed to you');
+    }
+    challengerUid = doc.challenge.from;
+    if (!accept) {
+      tx.delete(gameRef); // no moves exist while open — the doc is the whole game
+      return;
+    }
+    const seat: 'white' | 'black' = doc.players.white === null ? 'white' : 'black';
+    tx.update(gameRef, {
+      [`players.${seat}`]: caller.uid,
+      [`playerNames.${seat}`]: caller.name,
+      status: 'active',
+      challenge: FieldValue.delete(),
+      deadlineAt: deadlineFor(doc.timeControl ?? null),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  await notify(db, challengerUid, accept ? 'challenge-accepted' : 'challenge-declined', {
+    gameId,
+    opponentName: caller.name,
+  });
+  return { gameId };
+});
+
 export const cancelGame = onCall(async (request) => {
   const caller = requireAuth(request);
   const gameId = requireGameId(request.data);

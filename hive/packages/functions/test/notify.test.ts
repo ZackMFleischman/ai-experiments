@@ -61,6 +61,33 @@ describe('buildPayload', () => {
     });
   });
 
+  it('challenge received', () => {
+    expect(buildPayload('challenge-received', { gameId: 'g3', opponentName: 'Sam' })).toEqual({
+      title: 'Sam challenges you',
+      body: 'Accept or decline in your lobby.',
+      link: '/game/g3',
+      tag: 'game-g3',
+    });
+  });
+
+  it('challenge accepted', () => {
+    expect(buildPayload('challenge-accepted', { gameId: 'g3', opponentName: 'Sam' })).toEqual({
+      title: 'Sam accepted your challenge',
+      body: 'The game is on — white opens.',
+      link: '/game/g3',
+      tag: 'game-g3',
+    });
+  });
+
+  it('challenge declined', () => {
+    expect(buildPayload('challenge-declined', { gameId: 'g3', opponentName: 'Sam' })).toEqual({
+      title: 'Sam declined your challenge',
+      body: 'Maybe another time — start a new game from the lobby.',
+      link: '/lobby',
+      tag: 'game-g3',
+    });
+  });
+
   it('deadline warning', () => {
     expect(
       buildPayload('deadline-warning', { gameId: 'g1', opponentName: 'Sam', hoursLeft: 24 }),
