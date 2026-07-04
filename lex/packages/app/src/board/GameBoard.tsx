@@ -12,6 +12,8 @@ import { useGameController } from '../controller/useGameController';
 import { BlankPicker } from '../game/BlankPicker';
 import { ExchangeBar } from '../game/ExchangeBar';
 import { GameActions } from '../game/GameActions';
+import { ScoreBar } from '../game/ScoreBar';
+import { ScoreSheet } from '../game/ScoreSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
 import { PreviewOverlay } from './PreviewOverlay';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
@@ -29,12 +31,21 @@ interface RackDrag {
   y: number;
 }
 
-export function GameBoard({ controller }: { controller: GameController }) {
+const DEFAULT_NAMES = ['Player 1', 'Player 2'];
+
+export function GameBoard({
+  controller,
+  seatNames = DEFAULT_NAMES,
+}: {
+  controller: GameController;
+  seatNames?: readonly string[];
+}) {
   const snap = useGameController(controller);
   const { mode } = useColorMode();
   const viewportRef = useRef<BoardViewportHandle | null>(null);
   const [rackDrag, setRackDrag] = useState<RackDrag | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
 
   const layout = snap.ruleset.board;
@@ -120,8 +131,17 @@ export function GameBoard({ controller }: { controller: GameController }) {
     return () => window.removeEventListener('keydown', key);
   }, [controller]);
 
+  const lastPlay = snap.lastPlay?.kind === 'play' ? snap.lastPlay : undefined;
+  const lastPlayEnd = lastPlay?.cells[lastPlay.cells.length - 1];
+
   return (
     <Box data-testid="game-board" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <ScoreBar
+        names={seatNames}
+        scores={snap.scores}
+        toMove={snap.toMove}
+        onOpenSheet={() => setSheetOpen(true)}
+      />
       <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardViewport
           boardWidth={width}
@@ -138,11 +158,32 @@ export function GameBoard({ controller }: { controller: GameController }) {
               tiles={snap.state.board}
               pending={snap.pending}
               hover={hover}
+              {...(lastPlay ? { lastPlayCells: lastPlay.cells } : {})}
             />
             <PreviewOverlay
               preview={snap.preview}
               anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
             />
+            {lastPlay && lastPlayEnd && snap.pending.size === 0 && (
+              <Box
+                data-testid="last-play-score"
+                sx={{
+                  position: 'absolute',
+                  left: 2 + (parseCellKey(lastPlayEnd).col + 1) * 36 + 4,
+                  top: 2 + parseCellKey(lastPlayEnd).row * 36,
+                  px: 0.75,
+                  borderRadius: 10,
+                  bgcolor: 'secondary.main',
+                  color: 'secondary.contrastText',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  pointerEvents: 'none',
+                  zIndex: 2,
+                }}
+              >
+                +{lastPlay.total}
+              </Box>
+            )}
           </Box>
         </BoardViewport>
       </Box>
@@ -183,6 +224,12 @@ export function GameBoard({ controller }: { controller: GameController }) {
           const face = controller.getSnapshot().rack[index];
           if (face) setRackDrag({ index, face, pointerId, x, y });
         }}
+      />
+      <ScoreSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        rows={snap.sheet}
+        names={seatNames}
       />
       <BlankPicker
         open={snap.preview?.needsBlank != null}

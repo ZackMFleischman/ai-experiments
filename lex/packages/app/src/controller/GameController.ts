@@ -59,6 +59,18 @@ export interface LastPlay {
   count?: number;
 }
 
+/** One score-sheet line (T3.9): what happened + running totals after it. */
+export interface SheetRow {
+  n: number;
+  by: Seat;
+  kind: LexEntry['kind'];
+  word: string | null; // main word of a play
+  words: readonly WordScore[];
+  score: number;
+  count?: number;
+  totals: readonly number[];
+}
+
 export interface Snapshot {
   options: HotSeatOptions;
   ruleset: Ruleset;
@@ -83,6 +95,7 @@ export interface Snapshot {
   interactive: boolean;
   canExchange: boolean;
   lastPlay?: LastPlay;
+  sheet: readonly SheetRow[];
   view: ViewState | null;
   overlayOpen: boolean;
   notice?: { id: number; text: string };
@@ -93,6 +106,7 @@ interface SessionState {
   resigned?: Seat;
   timedOut?: Seat;
   lastPlay?: LastPlay;
+  sheet: readonly SheetRow[];
 }
 
 export interface ControllerDeps {
@@ -168,7 +182,7 @@ export class GameController {
     this.session = new LogSession<HotSeatOptions, LexEntry, SessionState>(
       transport,
       {
-        init: (options) => ({ game: this.initialGame(options) }),
+        init: (options) => ({ game: this.initialGame(options), sheet: [] }),
         apply: (state, entry) => this.applyEntry(state, entry),
       },
       {
@@ -225,6 +239,10 @@ export class GameController {
   private applyEntry(state: SessionState, entry: LexEntry): SessionState {
     const ruleset = this.rulesetFor(this.session.options ?? this.defaultOptions);
     const by = state.game.toMove;
+    const row = (partial: Omit<SheetRow, 'n' | 'totals'>, game: GameState): readonly SheetRow[] => [
+      ...state.sheet,
+      { ...partial, n: state.sheet.length, totals: game.scores },
+    ];
     switch (entry.kind) {
       case 'play': {
         const score = scorePlay(state.game.board, entry.placements, ruleset);
@@ -239,6 +257,16 @@ export class GameController {
             words: score.words,
             total: score.total,
           },
+          sheet: row(
+            {
+              by,
+              kind: 'play',
+              word: score.words[0]?.word ?? null,
+              words: score.words,
+              score: score.total,
+            },
+            game,
+          ),
         };
       }
       case 'exchange': {
@@ -253,16 +281,33 @@ export class GameController {
           ...state,
           game: { ...game, bag: entry.bagAfter },
           lastPlay: { by, kind: 'exchange', cells: [], words: [], total: 0, count: entry.tiles.length },
+          sheet: row(
+            { by, kind: 'exchange', word: null, words: [], score: 0, count: entry.tiles.length },
+            game,
+          ),
         };
       }
       case 'pass': {
         const game = applyMove(state.game, { type: 'pass' }, this.dict);
-        return { ...state, game, lastPlay: { by, kind: 'pass', cells: [], words: [], total: 0 } };
+        return {
+          ...state,
+          game,
+          lastPlay: { by, kind: 'pass', cells: [], words: [], total: 0 },
+          sheet: row({ by, kind: 'pass', word: null, words: [], score: 0 }, game),
+        };
       }
       case 'resign':
-        return { ...state, resigned: entry.by };
+        return {
+          ...state,
+          resigned: entry.by,
+          sheet: row({ by: entry.by, kind: 'resign', word: null, words: [], score: 0 }, state.game),
+        };
       case 'timeout':
-        return { ...state, timedOut: entry.by };
+        return {
+          ...state,
+          timedOut: entry.by,
+          sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0 }, state.game),
+        };
     }
   }
 
@@ -272,7 +317,7 @@ export class GameController {
     if (this.session.state) return this.session.state;
     // Stable fallback until init()/reset() lands — a fresh object per call
     // would read as "the game changed" and wipe pending placements.
-    this.fallbackState ??= { game: this.initialGame(this.defaultOptions) };
+    this.fallbackState ??= { game: this.initialGame(this.defaultOptions), sheet: [] };
     return this.fallbackState;
   }
 
@@ -350,6 +395,7 @@ export class GameController {
       canExchange:
         this.interactive() && this.pending.size === 0 && s.game.bag.length >= ruleset.exchangeMinBag,
       ...(s.lastPlay ? { lastPlay: s.lastPlay } : {}),
+      sheet: s.sheet,
       view: this.view,
       overlayOpen: !!end && (this.beatDone || end.by === 'resign' || end.by === 'timeout') && !this.overlayDismissed,
       ...(this.notice ? { notice: this.notice } : {}),

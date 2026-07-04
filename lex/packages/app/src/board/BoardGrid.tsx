@@ -51,11 +51,27 @@ export interface BoardGridProps {
   pending?: ReadonlyMap<CellKey, PendingCellTile>;
   /** Cell under an in-flight drag. */
   hover?: CellKey | null;
+  /** Cells of the most recent play, in placement order — highlighted and
+   * animated in tile-by-tile (T3.9). */
+  lastPlayCells?: readonly CellKey[];
+  /** Freeze animations (gallery ?static=1). */
+  static?: boolean;
 }
 
-export function BoardGrid({ layout, points, tiles, pending, hover }: BoardGridProps) {
+export function BoardGrid({
+  layout,
+  points,
+  tiles,
+  pending,
+  hover,
+  lastPlayCells,
+  static: isStatic = false,
+}: BoardGridProps) {
   const { mode } = useColorMode();
   const startKey = cellKey(layout.start);
+
+  const lastPlayIndex = new Map<CellKey, number>();
+  lastPlayCells?.forEach((key, i) => lastPlayIndex.set(key, i));
 
   const cells = [];
   for (let row = 0; row < layout.rows; row++) {
@@ -64,6 +80,7 @@ export function BoardGrid({ layout, points, tiles, pending, hover }: BoardGridPr
       const premium = layout.premiums[key];
       const tile = tiles.get(key);
       const staged = pending?.get(key);
+      const playIndex = lastPlayIndex.get(key);
       cells.push(
         <Box
           key={key}
@@ -87,7 +104,28 @@ export function BoardGrid({ layout, points, tiles, pending, hover }: BoardGridPr
           }}
         >
           {tile ? (
-            <Tile letter={tile.letter} isBlank={tile.isBlank} points={points[tile.letter] ?? 0} />
+            playIndex !== undefined ? (
+              <Box
+                data-last-play
+                style={{ animationDelay: `${playIndex * 0.12}s` }}
+                sx={{
+                  borderRadius: '18%',
+                  outline: '2px solid var(--lex-tile-pending-edge)',
+                  outlineOffset: '1px',
+                  ...(!isStatic && {
+                    '@keyframes lex-tile-in': {
+                      from: { opacity: 0, transform: 'translateY(-6px) scale(0.8)' },
+                      to: { opacity: 1, transform: 'none' },
+                    },
+                    animation: 'lex-tile-in 0.25s ease-out backwards',
+                  }),
+                }}
+              >
+                <Tile letter={tile.letter} isBlank={tile.isBlank} points={points[tile.letter] ?? 0} />
+              </Box>
+            ) : (
+              <Tile letter={tile.letter} isBlank={tile.isBlank} points={points[tile.letter] ?? 0} />
+            )
           ) : staged ? (
             <Tile
               letter={staged.letter ?? ''}
