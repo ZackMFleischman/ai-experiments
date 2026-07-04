@@ -50,3 +50,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   to the bag end (server re-shuffle is a T4.5 transport event, so invariant-5
   replay is exact from bagOrder + moves at engine level); playerView throws on
   out-of-range seats. Stumbles: none — fixtures were generated, then pinned.
+
+- **2026-07-04 — SHIPPED M2 (T2.1–T2.5).** Gates: 31 dict tests; `validate:m2`
+  = DAWG build (enable1 480 KB / 2of12inf 227 KB, ≤800 KB) + full suite incl.
+  the pinned played-out ENABLE game. Deviations: 2of12inf `%`/`!` marker words
+  KEPT (markers stripped — they are real playable words per the 12dicts docs);
+  sync loader exported at subpath `@lex/dict/node` to keep the frozen browser
+  surface exact; provenance in `words/README.md` (outside the doc gate's walk).
+  Stumbles: norvig.com blocked by the proxy — vendored enable1 from the
+  dolph/dictionary mirror, 2of12inf from the official SourceForge zip.

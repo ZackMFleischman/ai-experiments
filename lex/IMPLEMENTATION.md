@@ -95,15 +95,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M1 — shipped, see DECISIONS.md
 
-### M2 — Dictionary (DESIGN §5.4)
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T2.1 | Vendor **both** lists (`enable1.txt`, `2of12inf.txt`) + license notes; pin exact word counts + content hashes in tests | both public domain — record provenance in the package README lines | unit |
-| T2.2 | DAWG builder (build-time script → one binary artifact per list, ≤ 800 KB each) + loader; `Dictionary` implementation | generated, never committed | per-list equivalence vs a reference `Set` + fuzzed negatives |
-| T2.3 | `DICTIONARIES` registry metadata (id, name, description, word count — feeds the FR-7 picker) + async app loader (fetch + SW cache, per-game lazy) and sync functions loader (bundles both) sharing one decoder | id + hash asserted both sides; registry matches vendored files | unit |
-| T2.4 | Engine integration: `applyMove` play path takes `dict`; per-word verdicts surface for UI; invalid-word fixtures (one bad cross-word rejects the whole play, names it) | | unit |
-| T2.5 | Real-dictionary full-game fixture; `validate:m2` | | `pnpm validate:m2` |
+### M2 — shipped, see DECISIONS.md
 
 ### M3 — Local game UI + validation harness (DESIGN §7)
 
