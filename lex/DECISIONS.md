@@ -73,6 +73,7 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   hive §5.6 steps 1–4): web-app config committed as `VITE_FIREBASE_*` in
   `packages/app/.env` (public identifiers). `.firebaserc` gains a `prod` alias;
   `default` stays `demo-lex` so emulators/CI keep running fully offline (§8.9) —
-  deploys use `--project prod`. Still pending before M4's T4.9 deploy: the
-  `FIREBASE_SERVICE_ACCOUNT_LEX_ZMF` GitHub secret (deploy SA with Editor +
-  roles/run.admin); VAPID key waits for M5.
+  deploys use `--project prod`. VAPID public key committed too
+  (`VITE_FIREBASE_VAPID_KEY` — M5's push setup). Still pending before M4's
+  T4.9 deploy: the `FIREBASE_SERVICE_ACCOUNT_LEX_ZMF` GitHub secret (deploy
+  SA with Editor + roles/run.admin).
