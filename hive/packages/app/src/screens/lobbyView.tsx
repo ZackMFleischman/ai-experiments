@@ -134,16 +134,14 @@ export function ChallengeCard({
 }) {
   return (
     <Card variant="outlined" data-testid={`challenge-card-${game.id}`}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ p: 1.5, pb: 0 }}>
-        <Thumbnail state={game.state} />
-        <Stack sx={{ minWidth: 0, flex: 1 }} spacing={0.5}>
-          <Typography fontWeight={600} noWrap>
-            {game.challenge?.name ?? 'A friend'} challenges you
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            You&apos;d play {game.myColor === 'w' ? 'white' : 'black'}
-          </Typography>
-        </Stack>
+      {/* No thumbnail: a challenge is always move zero — an empty board says nothing. */}
+      <Stack sx={{ minWidth: 0, p: 1.5, pb: 0 }} spacing={0.5}>
+        <Typography fontWeight={600} noWrap>
+          {game.challenge?.name ?? 'A friend'} challenges you
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          You&apos;d play {game.myColor === 'w' ? 'white' : 'black'}
+        </Typography>
       </Stack>
       <CardActions sx={{ justifyContent: 'flex-end' }}>
         <Button

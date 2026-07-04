@@ -11,7 +11,7 @@ import { LandingLayout } from '../../screens/LandingLayout';
 import { InstallCoachMark } from '../../screens/InstallCoachMark';
 import { LobbyView, type LobbyGameSummary } from '../../screens/lobbyView';
 import { InviteLinkView, NewGameForm } from '../../screens/newGameView';
-import { WaitingForOpponent } from '../../screens/waitingView';
+import { ChallengeReceived, WaitingForOpponent } from '../../screens/waitingView';
 import { AuthContext, HOTSEAT_AUTH, type AuthValue } from '../../sync/authContext';
 import { ALL_ON, EARLY_GAME, MID_GAME, replayUhp } from '../fixtures';
 
@@ -41,6 +41,18 @@ const LOBBY_GAMES: LobbyGameSummary[] = [
     endedBy: 'resign', toMove: 'w', updatedAtMs: NOW - 5 * 86_400_000, state: mkState(EARLY_GAME) },
 ];
 
+// Direct challenges (DESIGN §5.2/§6.1): an incoming one (accept/decline group)
+// and an outgoing one waiting under 'Challenge sent'.
+const LOBBY_WITH_CHALLENGES: LobbyGameSummary[] = [
+  { id: 'c1', myColor: 'b', opponentName: 'Ada', status: 'open', toMove: 'w',
+    challenge: { direction: 'incoming', name: 'Ada' },
+    updatedAtMs: NOW - 120_000, state: serializeState(initialState(ALL_ON)) },
+  { id: 'c2', myColor: 'w', opponentName: 'Priya', status: 'open', toMove: 'w',
+    challenge: { direction: 'outgoing', name: 'Priya' },
+    updatedAtMs: NOW - 600_000, state: serializeState(initialState(ALL_ON)) },
+  ...LOBBY_GAMES.slice(0, 2),
+];
+
 function LobbyFrame({ games }: { games: LobbyGameSummary[] }) {
   return (
     <Box sx={{ p: 3, minHeight: '100dvh' }}>
@@ -62,6 +74,7 @@ export const screenEntries: GalleryEntry[] = [
     ),
   },
   { id: 'lobby-populated', render: () => <LobbyFrame games={LOBBY_GAMES} /> },
+  { id: 'lobby-challenges', render: () => <LobbyFrame games={LOBBY_WITH_CHALLENGES} /> },
   { id: 'lobby-empty', render: () => <LobbyFrame games={[]} /> },
   {
     id: 'new-game-form',
@@ -71,6 +84,23 @@ export const screenEntries: GalleryEntry[] = [
           New game
         </Typography>
         <NewGameForm onCreate={() => {}} />
+      </Box>
+    ),
+  },
+  {
+    id: 'new-game-friends',
+    render: () => (
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
+          New game
+        </Typography>
+        <NewGameForm
+          onCreate={() => {}}
+          friends={[
+            { uid: 'u1', name: 'Sam' },
+            { uid: 'u2', name: 'Priya' },
+          ]}
+        />
       </Box>
     ),
   },
@@ -88,6 +118,14 @@ export const screenEntries: GalleryEntry[] = [
   {
     id: 'game-waiting-for-opponent',
     render: () => <WaitingForOpponent code="HK4M2XQ9" onCancel={() => {}} />,
+  },
+  {
+    id: 'game-challenge-sent',
+    render: () => <WaitingForOpponent challengeName="Sam" onCancel={() => {}} />,
+  },
+  {
+    id: 'game-challenge-received',
+    render: () => <ChallengeReceived name="Ada" onRespond={() => {}} />,
   },
   {
     id: 'landing-signin',

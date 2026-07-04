@@ -93,20 +93,29 @@ export class FirestoreTransport implements GameTransport {
    * challenge, cancelled invite). */
   watchMeta(cb: (meta: GameMeta | null) => void): () => void {
     let seen = false;
-    return onSnapshot(doc(getDb(), 'games', this.gameId), (snap) => {
-      if (!snap.exists()) {
-        if (seen) cb(null); // deletion, not a not-yet-loaded doc
-        return;
-      }
-      seen = true;
-      const data = snap.data() as GameDocData;
-      cb({
-        status: data.status,
-        playerNames: data.playerNames,
-        ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
-        ...(data.challenge ? { challenge: data.challenge } : {}),
-      });
-    });
+    return onSnapshot(
+      doc(getDb(), 'games', this.gameId),
+      (snap) => {
+        if (!snap.exists()) {
+          if (seen) cb(null);
+          return;
+        }
+        seen = true;
+        const data = snap.data() as GameDocData;
+        cb({
+          status: data.status,
+          playerNames: data.playerNames,
+          ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
+          ...(data.challenge ? { challenge: data.challenge } : {}),
+        });
+      },
+      (err) => {
+        // The read rule needs resource.data (playerIds), which a deleted doc
+        // no longer has — so deletion reaches a live listener as
+        // permission-denied, not as an exists:false snapshot.
+        if (seen && (err as { code?: string }).code === 'permission-denied') cb(null);
+      },
+    );
   }
 
   private toEntry(move: MoveDocData): LogEntry {

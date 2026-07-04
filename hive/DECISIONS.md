@@ -132,3 +132,11 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   Firestore stream died silently — the stuck-board report) and skip the banner
   when a visible client is already on that screen; games also resync on
   visibilitychange. Deploy invoker-repair list gains `cancelgame`.
+
+- **2026-07-04 — Direct challenges (user request: no codes for people already
+  played).** Amends decision 9.4: a challenge is an *open* game addressed to a
+  past opponent (`challenge` field, both uids in playerIds, no invite doc) via
+  `challengeUser`/`respondChallenge`; decline deletes the doc, accept seats +
+  activates. Friend list = distinct opponents from your own games (no new
+  collection); only shared-game opponents are challengeable (spam guard).
+  Challenges don't expire (either side can decline/withdraw anytime).
