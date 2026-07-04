@@ -140,3 +140,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   activates. Friend list = distinct opponents from your own games (no new
   collection); only shared-game opponents are challengeable (spam guard).
   Challenges don't expire (either side can decline/withdraw anytime).
+
+- **2026-07-04 — iOS icon badge rides the push (user request).** iOS badges
+  installed PWAs only from an app/SW context, so the pending-move count can't be
+  set while the app is closed unless the push carries it. Functions now compute
+  the recipient's actionable count (your-turn + incoming challenges — the exact
+  useTurnBadge filter) at send time and attach it to every push as `badge`; the
+  SW applies it via `setAppBadge`. Server-computed-per-send over client
+  increments: every push self-corrects, no drift. Known gap: acting from the
+  game screen leaves the icon stale until the next push or lobby visit.

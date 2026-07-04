@@ -512,7 +512,9 @@ as a moment, not a modal that teleports in.
     the app detects this and shows a one-time "install to get notified" coach mark.
 - **In-app awareness** (works even with push denied): lobby "your turn" section +
   per-game badges, document title `(2) HIVE`, and app **icon badge** via the Badging API
-  where supported.
+  where supported. Every push also carries the recipient's fresh actionable count
+  (`badge`: your-turn games + incoming challenges); the service worker applies it via
+  `setAppBadge`, so the installed icon (iOS 16.4+) stays current while the app is closed.
 
 **The zackmfleischman.com apps page — link out, don't iframe.** The site's apps
 infrastructure (`PersonalWebsite/src/ts/Apps/`) is built around iframe embeds: every

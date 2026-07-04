@@ -17,7 +17,21 @@ cleanupOutdatedCaches();
 registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
 
 interface PushPayload {
-  data?: { title?: string; body?: string; link?: string; tag?: string };
+  data?: { title?: string; body?: string; link?: string; tag?: string; badge?: string };
+}
+
+/** Icon badge (Badging API): iOS 16.4+ badges installed PWAs from the SW, so
+ * the count updates even while the app is closed. Functions send the fresh
+ * actionable count with every push — apply it verbatim, clear on zero. */
+function applyIconBadge(badge: string | undefined): void {
+  const count = Number(badge);
+  if (badge === undefined || !Number.isFinite(count)) return;
+  const nav = self.navigator as WorkerNavigator & {
+    setAppBadge?: (n: number) => Promise<void>;
+    clearAppBadge?: () => Promise<void>;
+  };
+  if (count > 0) void nav.setAppBadge?.(count).catch(() => {});
+  else void nav.clearAppBadge?.().catch(() => {});
 }
 
 self.addEventListener('push', (event) => {
@@ -28,10 +42,11 @@ self.addEventListener('push', (event) => {
   } catch {
     return;
   }
-  const { title, body, link, tag } = payload.data ?? {};
+  const { title, body, link, tag, badge } = payload.data ?? {};
   if (!title) return;
   event.waitUntil(
     (async () => {
+      applyIconBadge(badge);
       const target = link ?? '/';
       const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       // Every open client gets the sync signal — the push proves something

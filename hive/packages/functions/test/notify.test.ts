@@ -141,7 +141,36 @@ describe('sendPush', () => {
       body: 'Sam played — the hive awaits.',
       link: '/game/g7',
       tag: 'game-g7',
+      badge: '0',
     });
+  });
+
+  it('sends the recipient actionable count as the badge (turns + incoming challenges)', async () => {
+    const db = getFirestore();
+    const transport = new FakeTransport();
+    await db.doc('users/badgey').set({ fcmTokens: ['tok-badge'] });
+    const seat = (white: string, black: string | null) => ({
+      playerIds: ['badgey', 'opp'],
+      players: { white, black },
+    });
+    // Counts: an active game on badgey's move, an incoming challenge.
+    await db.doc('games/badge-my-turn').set({ ...seat('badgey', 'opp'), status: 'active', toMove: 'w' });
+    await db.doc('games/badge-challenge-in').set({
+      ...seat('opp', null),
+      status: 'open',
+      challenge: { from: 'opp', fromName: 'Opp', to: 'badgey', toName: 'Badgey' },
+    });
+    // Doesn't count: opponent's move, outgoing challenge, finished game.
+    await db.doc('games/badge-their-turn').set({ ...seat('badgey', 'opp'), status: 'active', toMove: 'b' });
+    await db.doc('games/badge-challenge-out').set({
+      ...seat('badgey', null),
+      status: 'open',
+      challenge: { from: 'badgey', fromName: 'Badgey', to: 'opp', toName: 'Opp' },
+    });
+    await db.doc('games/badge-finished').set({ ...seat('badgey', 'opp'), status: 'finished', toMove: 'w' });
+
+    await sendPush(db, transport, 'badgey', buildPayload('opponent-moved', { gameId: 'g', opponentName: 'Opp' }));
+    expect(transport.sent[0]?.data['badge']).toBe('2');
   });
 
   it('prunes tokens the push service no longer recognizes', async () => {
