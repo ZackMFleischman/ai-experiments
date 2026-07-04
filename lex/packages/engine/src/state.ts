@@ -28,6 +28,29 @@ export interface PlayerView {
   readonly scorelessRun: number;
 }
 
+/**
+ * The ONLY projection from full state to what one player may know: board,
+ * own rack, scores, bag COUNT, rack COUNTS (DESIGN §3.2–§3.3). A property
+ * test asserts it never leaks.
+ */
+export function playerView(state: GameState, seat: Seat): PlayerView {
+  const rack = state.racks[seat];
+  if (!Number.isInteger(seat) || rack === undefined) {
+    throw new Error(`seat ${seat} out of range (game has ${state.racks.length} seats)`);
+  }
+  return {
+    rulesetId: state.rulesetId,
+    board: state.board,
+    rack,
+    scores: state.scores,
+    bagCount: state.bag.length,
+    rackCounts: state.racks.map((r) => r.length),
+    toMove: state.toMove,
+    moveCount: state.moveCount,
+    scorelessRun: state.scorelessRun,
+  };
+}
+
 /** Draw `n` tiles off the bag front (or all that remain). Pure. */
 export function draw(bag: readonly TileFace[], n: number): { drawn: TileFace[]; rest: TileFace[] } {
   return { drawn: bag.slice(0, n), rest: bag.slice(n) };

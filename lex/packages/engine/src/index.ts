@@ -27,4 +27,6 @@ export { IllegalMoveError, applyMove, result, type Dictionary, type GameResult, 
 
 export { parseGcg, toGcg } from './gcg.js';
 
-export { initialState, type GameState, type PlayerView } from './state.js';
+export { initialState, playerView, type GameState, type PlayerView } from './state.js';
+
+export { deserializeState, parsePublic, serializePublic, serializeState } from './serialize.js';
