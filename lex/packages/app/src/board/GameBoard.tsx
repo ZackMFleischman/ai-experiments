@@ -13,6 +13,7 @@ import { BlankPicker } from '../game/BlankPicker';
 import { ExchangeBar } from '../game/ExchangeBar';
 import { GameActions } from '../game/GameActions';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
+import { PreviewOverlay } from './PreviewOverlay';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
 import { RackTray } from './RackTray';
@@ -130,13 +131,19 @@ export function GameBoard({ controller }: { controller: GameController }) {
           interaction={interaction}
           handleRef={viewportRef}
         >
-          <BoardGrid
-            layout={layout}
-            points={points}
-            tiles={snap.state.board}
-            pending={snap.pending}
-            hover={hover}
-          />
+          <Box sx={{ position: 'relative', width: 'fit-content' }}>
+            <BoardGrid
+              layout={layout}
+              points={points}
+              tiles={snap.state.board}
+              pending={snap.pending}
+              hover={hover}
+            />
+            <PreviewOverlay
+              preview={snap.preview}
+              anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
+            />
+          </Box>
         </BoardViewport>
       </Box>
       {snap.exchange ? (
