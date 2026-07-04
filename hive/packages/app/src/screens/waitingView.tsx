@@ -68,10 +68,13 @@ export function InviteShare({ code }: { code: string }) {
 
 export function WaitingForOpponent({
   code,
+  challengeName,
   onCancel,
 }: {
   code?: string | undefined;
-  /** Cancel the open game + invite (multiplayer container wires the callable). */
+  /** Direct challenge (no invite): who it was sent to. */
+  challengeName?: string | undefined;
+  /** Cancel the open game + invite/challenge (multiplayer container wires the callable). */
   onCancel?: () => void;
 }) {
   return (
@@ -81,9 +84,14 @@ export function WaitingForOpponent({
           <Stack spacing={2.5} alignItems="center" sx={{ py: 1 }}>
             <CircularProgress size={28} />
             <Typography variant="h6" component="h2">
-              Waiting for your opponent…
+              {challengeName ? `Waiting for ${challengeName}…` : 'Waiting for your opponent…'}
             </Typography>
-            {code ? (
+            {challengeName ? (
+              <Typography color="text.secondary" align="center">
+                Your challenge is out to {challengeName} — the game starts the moment they
+                accept.
+              </Typography>
+            ) : code ? (
               <>
                 <Typography color="text.secondary" align="center">
                   Send them this invite — the game starts the moment they accept.
@@ -108,10 +116,66 @@ export function WaitingForOpponent({
               </Button>
               {onCancel && (
                 <Button color="error" onClick={onCancel} data-testid="cancel-invite">
-                  Cancel invite
+                  {challengeName ? 'Withdraw challenge' : 'Cancel invite'}
                 </Button>
               )}
             </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}
+
+/** The challenged player's side of an open challenge game: accept to sit
+ * down, decline to delete it. Firebase-free — the multiplayer container
+ * wires respondChallenge. */
+export function ChallengeReceived({
+  name,
+  onRespond,
+  busy = false,
+}: {
+  name: string;
+  onRespond: (accept: boolean) => void;
+  busy?: boolean;
+}) {
+  return (
+    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2 }}>
+      <Card sx={{ width: '100%', maxWidth: 440 }} data-testid="challenge-received">
+        <CardContent>
+          <Stack spacing={2.5} alignItems="center" sx={{ py: 1 }}>
+            <Typography variant="h6" component="h2">
+              {name} challenges you
+            </Typography>
+            <Typography color="text.secondary" align="center">
+              Accept to take the open seat — the game starts right away.
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              <Button
+                color="error"
+                disabled={busy}
+                onClick={() => onRespond(false)}
+                data-testid="challenge-decline"
+              >
+                Decline
+              </Button>
+              <Button
+                variant="contained"
+                disabled={busy}
+                onClick={() => onRespond(true)}
+                data-testid="challenge-accept"
+              >
+                Accept
+              </Button>
+            </Stack>
+            <Button
+              component={RouterLink}
+              to="/lobby"
+              startIcon={<ArrowBackIcon />}
+              data-testid="waiting-back-to-lobby"
+            >
+              Back to lobby
+            </Button>
           </Stack>
         </CardContent>
       </Card>

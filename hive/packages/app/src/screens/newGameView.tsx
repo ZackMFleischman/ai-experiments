@@ -1,9 +1,11 @@
-// New-game presentation (T4.7, DESIGN §6.1): color pick, expansion toggles
+// New-game presentation (T4.7, DESIGN §6.1): opponent pick (invite link or a
+// past opponent to challenge directly), color pick, expansion toggles
 // (default all on), tournament-opening toggle; then the invite-link view.
 // Firebase-free — sync/NewGameFlow drives it. Async time controls arrive with
 // M5 (T5.5).
 import {
   Button,
+  Chip,
   FormControlLabel,
   Stack,
   Switch,
@@ -18,11 +20,19 @@ import { InviteShare } from './waitingView';
 export type ColorChoice = Color | 'random';
 export type TimeControlDays = 1 | 3 | 7 | null;
 
+/** A past opponent, challengeable without a code (DESIGN §5.3). */
+export interface Friend {
+  uid: string;
+  name: string;
+}
+
 export interface NewGameChoices {
   options: GameOptions;
   color: ColorChoice;
   /** Async per-move deadline (DESIGN §5.4); null = untimed. */
   timeControlDays: TimeControlDays;
+  /** Direct challenge target; null = open game with an invite link. */
+  opponent: Friend | null;
 }
 
 const DEFAULTS: GameOptions = {
@@ -42,15 +52,50 @@ const OPTION_LABELS: ReadonlyArray<[keyof GameOptions, string]> = [
 export function NewGameForm({
   onCreate,
   busy = false,
+  friends = [],
 }: {
   onCreate: (choices: NewGameChoices) => void;
   busy?: boolean;
+  /** Past opponents, most recent first — offered as direct-challenge targets. */
+  friends?: Friend[];
 }) {
   const [options, setOptions] = useState<GameOptions>(DEFAULTS);
   const [color, setColor] = useState<ColorChoice>('random');
   const [timeControlDays, setTimeControlDays] = useState<TimeControlDays>(3);
+  const [opponent, setOpponent] = useState<Friend | null>(null);
   return (
     <Stack spacing={3} sx={{ maxWidth: 420 }}>
+      {friends.length > 0 && (
+        <Stack spacing={1}>
+          <Typography variant="overline" color="text.secondary">
+            Opponent
+          </Typography>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <Chip
+              label="Invite link"
+              color={opponent === null ? 'primary' : 'default'}
+              variant={opponent === null ? 'filled' : 'outlined'}
+              onClick={() => setOpponent(null)}
+              data-testid="opponent-link"
+            />
+            {friends.map((f) => (
+              <Chip
+                key={f.uid}
+                label={f.name}
+                color={opponent?.uid === f.uid ? 'primary' : 'default'}
+                variant={opponent?.uid === f.uid ? 'filled' : 'outlined'}
+                onClick={() => setOpponent(f)}
+                data-testid={`opponent-${f.uid}`}
+              />
+            ))}
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            {opponent
+              ? `${opponent.name} gets the challenge right in their lobby — no code needed.`
+              : 'Anyone with the link or code can take the open seat.'}
+          </Typography>
+        </Stack>
+      )}
       <Stack spacing={1}>
         <Typography variant="overline" color="text.secondary">
           Your color
@@ -121,13 +166,25 @@ export function NewGameForm({
         variant="contained"
         size="large"
         disabled={busy}
-        onClick={() => onCreate({ options, color, timeControlDays })}
+        onClick={() => onCreate({ options, color, timeControlDays, opponent })}
         data-testid="create-game"
       >
-        Create game
+        {opponent ? `Challenge ${opponent.name}` : 'Create game'}
       </Button>
     </Stack>
   );
+}
+
+/** Distinct past opponents, most recent first — the challenge targets. */
+export function friendsFrom(
+  games: ReadonlyArray<{ opponentUid?: string; opponentName: string | null; updatedAtMs: number }>,
+): Friend[] {
+  const seen = new Map<string, Friend>();
+  for (const g of [...games].sort((a, b) => b.updatedAtMs - a.updatedAtMs)) {
+    if (!g.opponentUid || !g.opponentName || seen.has(g.opponentUid)) continue;
+    seen.set(g.opponentUid, { uid: g.opponentUid, name: g.opponentName });
+  }
+  return [...seen.values()];
 }
 
 export function InviteLinkView({

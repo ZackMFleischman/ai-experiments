@@ -25,15 +25,37 @@ interface GameDocLobby {
   updatedAt?: { toMillis(): number };
   deadlineAt?: { toMillis(): number };
   state: string;
+  challenge?: { from: string; fromName: string; to: string; toName: string };
 }
 
 function toSummary(id: string, data: GameDocLobby, uid: string): LobbyGameSummary {
-  const myColor: Color = data.players.white === uid ? 'w' : 'b';
-  const oppName = myColor === 'w' ? data.playerNames.black : data.playerNames.white;
+  // On an incoming challenge the caller isn't seated yet — their seat is the
+  // empty one (respondChallenge fills it on accept).
+  const myColor: Color =
+    data.players.white === uid
+      ? 'w'
+      : data.players.black === uid
+        ? 'b'
+        : data.players.white === null
+          ? 'w'
+          : 'b';
+  const challenge = data.challenge
+    ? {
+        direction: data.challenge.to === uid ? ('incoming' as const) : ('outgoing' as const),
+        name: data.challenge.to === uid ? data.challenge.fromName : data.challenge.toName,
+      }
+    : undefined;
+  const oppName =
+    challenge?.name ?? (myColor === 'w' ? data.playerNames.black : data.playerNames.white);
+  const oppUid =
+    [data.players.white, data.players.black].find((p) => p !== null && p !== uid) ??
+    (data.challenge ? (data.challenge.to === uid ? data.challenge.from : data.challenge.to) : null);
   return {
     id,
     myColor,
     opponentName: oppName,
+    ...(oppUid ? { opponentUid: oppUid } : {}),
+    ...(challenge ? { challenge } : {}),
     status: data.status,
     toMove: data.toMove,
     ...(data.result ? { result: data.result } : {}),

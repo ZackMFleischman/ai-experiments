@@ -117,4 +117,39 @@ test('two browsers play a full multiplayer game', async ({ browser }) => {
   await ada.goto('/lobby');
   await expect(ada.getByTestId('group-your-turn')).toBeVisible({ timeout: 15_000 });
   await expect(ada.getByTestId('group-finished')).toBeVisible();
+
+  // ── direct challenge: past opponents need no code (DESIGN §5.3) ───────────
+  await ada.getByRole('link', { name: 'New game' }).click();
+  // sam is a past opponent, so the opponent picker offers him
+  await ada.locator('[data-testid^="opponent-"]', { hasText: 'sam' }).click();
+  await ada.getByTestId('color-w').click();
+  await expect(ada.getByTestId('create-game')).toContainText('Challenge sam');
+  await ada.getByTestId('create-game').click();
+  // the challenger goes straight to the game: no invite code, just waiting
+  await expect(ada.getByTestId('waiting-for-opponent')).toBeVisible({ timeout: 15_000 });
+  await expect(ada.getByTestId('waiting-for-opponent')).toContainText('challenge is out to sam');
+  await expect(ada.getByTestId('invite-code')).toHaveCount(0);
+
+  // sam's lobby surfaces the challenge; accepting drops him into the game
+  await sam.goto('/lobby');
+  await expect(sam.getByTestId('group-challenges')).toBeVisible({ timeout: 15_000 });
+  await expect(sam.getByTestId('group-challenges')).toContainText('ada challenges you');
+  await sam.locator('[data-testid^="challenge-accept-"]').click();
+  await expect(sam.getByTestId('hand-tray')).toBeVisible({ timeout: 15_000 });
+  // ada's waiting screen flips live; she picked white and opens
+  await expect(ada.getByTestId('hand-tray')).toBeVisible({ timeout: 15_000 });
+  await place(ada, 'S', '0,0');
+  await expect(sam.locator('[data-cell="0,0"]')).toBeVisible({ timeout: 15_000 });
+
+  // ── declined challenge: the game evaporates on both sides ─────────────────
+  await sam.goto('/new');
+  await sam.locator('[data-testid^="opponent-"]', { hasText: 'ada' }).click();
+  await sam.getByTestId('create-game').click();
+  await expect(sam.getByTestId('waiting-for-opponent')).toBeVisible({ timeout: 15_000 });
+  await ada.goto('/lobby');
+  await expect(ada.getByTestId('group-challenges')).toBeVisible({ timeout: 15_000 });
+  await ada.locator('[data-testid^="challenge-decline-"]').click();
+  await expect(ada.getByTestId('group-challenges')).toHaveCount(0, { timeout: 15_000 });
+  // sam's waiting screen learns the doc is gone
+  await expect(sam.getByTestId('game-gone')).toBeVisible({ timeout: 15_000 });
 });

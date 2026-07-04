@@ -19,6 +19,20 @@ export const createGame = callable<
 export const joinGame = callable<{ code: string }, { gameId: string }>('joinGame');
 export const cancelGame = callable<{ gameId: string }, { ok: boolean }>('cancelGame');
 
+export const challengeUser = callable<
+  {
+    opponentUid: string;
+    options: GameOptions;
+    color: Color | 'random';
+    timeControlDays: 1 | 3 | 7 | null;
+  },
+  { gameId: string }
+>('challengeUser');
+
+export const respondChallenge = callable<{ gameId: string; accept: boolean }, { gameId: string }>(
+  'respondChallenge',
+);
+
 export const submitMove = callable<
   { gameId: string; expectedMoveCount: number; uhpMove: string },
   { moveCount: number }
