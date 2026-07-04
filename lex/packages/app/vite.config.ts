@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 const parlorRoot = fileURLToPath(new URL('../../../parlor', import.meta.url));
 const dictGenerated = fileURLToPath(new URL('../dict/generated', import.meta.url));
@@ -46,7 +47,33 @@ function dictAssets(): Plugin {
 // workspace and must transform (not prebundle) its linked TS source (§8.11).
 export default defineConfig({
   build: { sourcemap: true }, // published maps: debuggability > obscurity here
-  plugins: [react(), dictAssets()],
+  plugins: [
+    react(),
+    dictAssets(),
+    // Minimal installable PWA (T3.12) — generated SW precaching the shell +
+    // dictionaries with SPA fallback. The custom push-capable SW is T5.1.
+    VitePWA({
+      registerType: 'autoUpdate',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,dawg}'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
+      manifest: {
+        name: 'LEX',
+        short_name: 'LEX',
+        description: 'A crossword tile game for two.',
+        theme_color: '#0d7a5f',
+        background_color: '#efe9dc',
+        display: 'standalone',
+        start_url: '/',
+        icons: [
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+    }),
+  ],
   // fs.allow: the app itself, the lex workspace root (the dev gallery imports
   // engine fixtures/test helpers), and the parlor sibling workspace.
   server: { fs: { allow: ['.', fileURLToPath(new URL('../..', import.meta.url)), parlorRoot] } },
