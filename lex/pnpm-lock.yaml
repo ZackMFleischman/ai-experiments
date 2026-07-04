@@ -157,6 +157,9 @@ importers:
       '@firebase/rules-unit-testing':
         specifier: ^5.0.1
         version: 5.0.1(firebase@12.15.0)
+      '@lex/dict':
+        specifier: workspace:*
+        version: link:../dict
       '@lex/engine':
         specifier: workspace:*
         version: link:../engine

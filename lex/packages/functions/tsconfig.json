@@ -5,8 +5,11 @@
     "moduleResolution": "Node",
     "verbatimModuleSyntax": false,
     "outDir": "lib",
-    "rootDir": "src",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

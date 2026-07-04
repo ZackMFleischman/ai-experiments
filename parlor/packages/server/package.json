@@ -18,6 +18,9 @@
     "firebase-functions": "^6.2.0"
   },
   "devDependencies": {
+    "@types/node": "^22.20.0",
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.2.0",
     "typescript": "^5.6.3",
     "vitest": "^3.0.0"
   }
