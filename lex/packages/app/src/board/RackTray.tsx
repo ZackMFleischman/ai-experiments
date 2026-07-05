@@ -10,6 +10,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useRef, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { skinVars } from './skin';
+import { useSkinId } from './skinContext';
 import { Tile } from './Tile';
 
 const DRAG_OUT_PX = 8; // above the tray = the board's territory
@@ -58,6 +59,7 @@ export function RackTray({
   onDragOut,
 }: RackTrayProps) {
   const mode = useTheme().palette.mode;
+  const skinId = useSkinId();
   const trayRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<DragRef | null>(null);
   const [dragVisual, setDragVisual] = useState<{ index: number; dx: number } | null>(null);
@@ -123,7 +125,7 @@ export function RackTray({
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
       sx={{
-        ...skinVars(mode),
+        ...skinVars(mode, skinId),
         // Slots shrink to fit the viewport (phone: ~41px) and cap at 44px.
         '--lex-cell': `min(44px, calc((100vw - 100px) / ${rackSize}))`,
         display: 'flex',

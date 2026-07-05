@@ -8,6 +8,7 @@ import type { BoardLayout, Cell, CellKey, PlacedTile, Premium, TileFace, TileSet
 import { cellKey } from '@lex/engine';
 import { useTheme } from '@mui/material/styles';
 import { BOARD_PAD_PX, CELL_PX, skinVars } from './skin';
+import { useSkinId } from './skinContext';
 import { Tile } from './Tile';
 
 const PREMIUM_BG: Record<Premium, string> = {
@@ -68,6 +69,7 @@ export function BoardGrid({
   static: isStatic = false,
 }: BoardGridProps) {
   const mode = useTheme().palette.mode;
+  const skinId = useSkinId();
   const startKey = cellKey(layout.start);
 
   const lastPlayIndex = new Map<CellKey, number>();
@@ -167,7 +169,7 @@ export function BoardGrid({
       aria-label={`${layout.id} board`}
       data-board={layout.id}
       sx={{
-        ...skinVars(mode),
+        ...skinVars(mode, skinId),
         display: 'grid',
         gridTemplateColumns: `repeat(${layout.cols}, var(--lex-cell))`,
         bgcolor: 'var(--lex-board-bg)',

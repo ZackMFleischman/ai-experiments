@@ -23,6 +23,7 @@ import { BoardViewport } from './BoardViewport';
 import { RackTray } from './RackTray';
 import { useTheme } from '@mui/material/styles';
 import { skinVars } from './skin';
+import { useSkinId } from './skinContext';
 import { GameInfoDialog } from '../game/GameInfoDialog';
 import { Tile } from './Tile';
 
@@ -52,6 +53,7 @@ export function GameBoard({
 }) {
   const snap = useGameController(controller);
   const mode = useTheme().palette.mode;
+  const skinId = useSkinId();
   const viewportRef = useRef<BoardViewportHandle | null>(null);
   const [rackDrag, setRackDrag] = useState<RackDrag | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
@@ -300,7 +302,7 @@ export function GameBoard({
         <Box
           data-testid="drag-ghost"
           sx={{
-            ...skinVars(mode),
+            ...skinVars(mode, skinId),
             position: 'fixed',
             left: rackDrag.x - 24,
             top: rackDrag.y - 48, // lifted above the finger

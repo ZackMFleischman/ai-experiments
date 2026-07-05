@@ -12,7 +12,10 @@ import { GameActions } from '../game/GameActions';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
+import type { TileSkinId } from '../board/skin';
+import { SkinContext } from '../board/skinContext';
 import { Landing } from '../screens/Landing';
+import { Settings } from '../screens/Settings';
 import { LandingLayout } from '../screens/LandingLayout';
 import { JoinCard } from '../screens/Join';
 import { LobbyView, type LobbyGameSummary } from '../screens/lobbyView';
@@ -33,6 +36,11 @@ function EmptyBoard({ rulesetId }: { rulesetId: string }) {
     </Box>
   );
 }
+
+/** Pin a skin for a gallery entry (?static=1 determinism — no live context). */
+const skinned = (skin: TileSkinId, node: React.ReactNode) => (
+  <SkinContext.Provider value={{ skin, setSkin: () => {} }}>{node}</SkinContext.Provider>
+);
 
 const game = (make: Parameters<typeof WithController>[0]['make'], names?: readonly string[]) => (
   <WithController
@@ -177,6 +185,32 @@ export const GALLERY: GalleryEntry[] = [
   },
   { id: 'board-empty-classic', render: () => <EmptyBoard rulesetId="classic" /> },
   { id: 'board-empty-modern', render: () => <EmptyBoard rulesetId="modern" /> },
+  // Tile skins (T6.1): §4.1 requires the empty board per skin; the mid-game
+  // variants put real tiles/premiums/rack under each palette for review.
+  {
+    id: 'board-empty-walnut',
+    render: () => skinned('walnut', <EmptyBoard rulesetId="classic" />),
+  },
+  {
+    id: 'board-empty-high-contrast',
+    render: () => skinned('high-contrast', <EmptyBoard rulesetId="classic" />),
+  },
+  {
+    id: 'board-mid-walnut',
+    render: () => skinned('walnut', game(() => fixtureController(midGame))),
+  },
+  {
+    id: 'board-mid-high-contrast',
+    render: () => skinned('high-contrast', game(() => fixtureController(midGame))),
+  },
+  {
+    id: 'settings',
+    render: () => (
+      <Box data-gallery-ready>
+        <Settings />
+      </Box>
+    ),
+  },
   { id: 'board-early', render: () => game(() => fixtureController(earlyGame)) },
   { id: 'board-mid', render: () => game(() => fixtureController(midGame)) },
   {

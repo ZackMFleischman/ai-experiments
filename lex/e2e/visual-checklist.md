@@ -52,6 +52,16 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Enable-notifications banner appears only in full mode with permission
   undecided (unit-gated; not in the static gallery).
 
+## Tile skins & Settings (T6.1)
+
+- Settings: theme toggle and skin samples reflect the *rendered* theme (mode is
+  read from the MUI theme, never a parallel context); active skin card outlined;
+  each sample renders its own skin's vars live.
+- Walnut: premium squares + labels legible on wood in both themes; cream tiles
+  clearly separate from cell background.
+- High contrast: hard-outlined tiles on a black/white grid (inverted in dark);
+  dark tiles are black-on-yellow; DL/TL/DW/TW labels stay the non-color signal.
+
 ## Accepted deviations
 
 - 2026-07-04 — Phone rack slots render ~41px (guideline says ≥44): a 7-slot

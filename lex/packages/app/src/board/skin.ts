@@ -1,10 +1,18 @@
 // Tile/board skin — CSS variables from day one (DESIGN §3.4, §7.5): rules and
-// components never see colors directly, only `--lex-*` vars. v1 default is the
-// `classic` cream skin; walnut / high-contrast land with Settings in T6.1 by
-// adding entries here.
+// components never see colors directly, only `--lex-*` vars. Three v1 skins
+// (T6.1): `classic` cream, `walnut` wood, `high-contrast` for low vision —
+// each with light + dark variants; picked in Settings (board/skinContext).
 import type { ThemeMode } from '../theme';
 
-export type TileSkinId = 'classic';
+export type TileSkinId = 'classic' | 'walnut' | 'high-contrast';
+
+export const SKIN_IDS: readonly TileSkinId[] = ['classic', 'walnut', 'high-contrast'];
+
+export const SKIN_NAMES: Readonly<Record<TileSkinId, string>> = {
+  classic: 'Classic',
+  walnut: 'Walnut',
+  'high-contrast': 'High contrast',
+};
 
 /** Everything a skin may vary. Values are CSS color/length strings. */
 export interface SkinVars {
@@ -68,6 +76,80 @@ export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, 
       '--lex-tile-edge': '#b3a077',
       '--lex-tile-blank-ring': '#8e7a48',
       '--lex-tile-pending-edge': '#f0b234',
+    },
+  },
+  walnut: {
+    light: {
+      '--lex-cell': CELL,
+      '--lex-board-bg': '#5d4230',
+      '--lex-cell-bg': '#7a573d',
+      '--lex-cell-line': '#5d4230',
+      '--lex-cell-fg': '#ead9bd',
+      '--lex-cell-dl': '#9db8cc',
+      '--lex-cell-tl': '#5b8fb5',
+      '--lex-cell-dw': '#cc9068',
+      '--lex-cell-tw': '#b1442f',
+      '--lex-premium-fg': '#241811',
+      '--lex-tile-bg': '#f2e3c2',
+      '--lex-tile-fg': '#33261a',
+      '--lex-tile-edge': '#c8a878',
+      '--lex-tile-blank-ring': '#96733d',
+      '--lex-tile-pending-edge': '#ffb52e',
+    },
+    dark: {
+      '--lex-cell': CELL,
+      '--lex-board-bg': '#241811',
+      '--lex-cell-bg': '#3c2b1d',
+      '--lex-cell-line': '#241811',
+      '--lex-cell-fg': '#c8b294',
+      '--lex-cell-dl': '#3d5a72',
+      '--lex-cell-tl': '#2f6d99',
+      '--lex-cell-dw': '#7c4230',
+      '--lex-cell-tw': '#9c3421',
+      '--lex-premium-fg': '#f0e6d4',
+      '--lex-tile-bg': '#e5d3ab',
+      '--lex-tile-fg': '#33261a',
+      '--lex-tile-edge': '#ad9166',
+      '--lex-tile-blank-ring': '#83683a',
+      '--lex-tile-pending-edge': '#f0b234',
+    },
+  },
+  // Low-vision skin: max text contrast, saturated-but-labeled premiums, hard
+  // tile outlines (the DL/TL/DW/TW labels stay the non-color signal).
+  'high-contrast': {
+    light: {
+      '--lex-cell': CELL,
+      '--lex-board-bg': '#000000',
+      '--lex-cell-bg': '#ffffff',
+      '--lex-cell-line': '#000000',
+      '--lex-cell-fg': '#000000',
+      '--lex-cell-dl': '#a8d1ff',
+      '--lex-cell-tl': '#4d94ff',
+      '--lex-cell-dw': '#ffb380',
+      '--lex-cell-tw': '#ff7043',
+      '--lex-premium-fg': '#000000',
+      '--lex-tile-bg': '#ffffff',
+      '--lex-tile-fg': '#000000',
+      '--lex-tile-edge': '#000000',
+      '--lex-tile-blank-ring': '#000000',
+      '--lex-tile-pending-edge': '#e07b00',
+    },
+    dark: {
+      '--lex-cell': CELL,
+      '--lex-board-bg': '#ffffff',
+      '--lex-cell-bg': '#000000',
+      '--lex-cell-line': '#ffffff',
+      '--lex-cell-fg': '#ffffff',
+      '--lex-cell-dl': '#1c4f99',
+      '--lex-cell-tl': '#3377ff',
+      '--lex-cell-dw': '#993016',
+      '--lex-cell-tw': '#e63c1e',
+      '--lex-premium-fg': '#ffffff',
+      '--lex-tile-bg': '#ffe14d',
+      '--lex-tile-fg': '#000000',
+      '--lex-tile-edge': '#000000',
+      '--lex-tile-blank-ring': '#000000',
+      '--lex-tile-pending-edge': '#ff9500',
     },
   },
 };
