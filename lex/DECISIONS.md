@@ -122,3 +122,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   read as part of your staging) and hides while any tile is staged; (3) zoom-out
   floor = fit, bottoming out snaps to auto-fit (board could vanish off-screen);
   (4) board viewport is `user-select: none` (press-drag highlighted labels).
+
+- **2026-07-05 — Drag drops snap to cells, ghost under the finger (Zack).**
+  The ghost floated 40px above the finger and drops hit-tested at the ghost's
+  center — releases landed a cell off from what you'd expect. Now the ghost
+  rides under the finger and SNAPS into the free cell it would land in
+  (position + scale match the cell exactly); release commits the snapped cell,
+  so a tile always stays where the snap shows. No snap target (occupied cell /
+  off-board) sends the tile home — occupied drops previously kept a staged
+  tile put silently; home matches what the un-snapped ghost communicates.

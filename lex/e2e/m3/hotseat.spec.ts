@@ -47,17 +47,15 @@ async function tapPlace(page: Page, slot: number, cell: string) {
   await page.waitForTimeout(380); // stay clear of the double-tap window
 }
 
-/** The drag ghost's center rides this far above the finger (GameBoard's
- * GHOST_LIFT) — drops land at the GHOST, so aim the finger below the cell. */
-const GHOST_LIFT = 40;
-
+// Drops land at the cell under the finger — the ghost snaps into it — so the
+// finger aims straight at the cell center.
 async function dragPlace(page: Page, slot: number, cell: string) {
   const slotBox = (await page.locator(`[data-rack-slot="${slot}"]`).boundingBox())!;
   await page.mouse.move(slotBox.x + slotBox.width / 2, slotBox.y + slotBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(slotBox.x + slotBox.width / 2, slotBox.y - 60, { steps: 4 });
   const cellBox = (await page.locator(`[data-cell="${cell}"]`).boundingBox())!;
-  await page.mouse.move(cellBox.x + cellBox.width / 2, cellBox.y + cellBox.height / 2 + GHOST_LIFT, {
+  await page.mouse.move(cellBox.x + cellBox.width / 2, cellBox.y + cellBox.height / 2, {
     steps: 6,
   });
   await page.mouse.up();

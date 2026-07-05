@@ -76,6 +76,10 @@ export interface BoardInteraction {
 
 export interface BoardViewportHandle {
   toBoardPoint(clientX: number, clientY: number): BoardPoint | null;
+  /** Board-space point → client coords — the drag ghost snaps to cells with it. */
+  toClientPoint(x: number, y: number): BoardPoint | null;
+  /** On-screen px per board px right now, so the ghost can match cell size. */
+  clientScale(): number;
 }
 
 export interface BoardViewportProps {
@@ -158,21 +162,30 @@ export function BoardViewport({
   const dragPointer = useRef<number | null>(null);
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
 
-  const toBoard = (clientX: number, clientY: number): BoardPoint => {
-    const el = containerRef.current;
-    const rect = el?.getBoundingClientRect();
+  // Live-measured transform (not the render-time one): mid-gesture the rect
+  // and view can move under a held pointer.
+  const liveTransform = () => {
+    const rect = containerRef.current?.getBoundingClientRect();
     const cw = rect?.width || 600;
     const ch = rect?.height || 400;
     const t = viewTransform(cw, ch, boardWidth, boardHeight, effective);
-    return {
-      x: (clientX - (rect?.left ?? 0) - t.tx) / t.scale,
-      y: (clientY - (rect?.top ?? 0) - t.ty) / t.scale,
-    };
+    return { left: rect?.left ?? 0, top: rect?.top ?? 0, ...t };
+  };
+
+  const toBoard = (clientX: number, clientY: number): BoardPoint => {
+    const t = liveTransform();
+    return { x: (clientX - t.left - t.tx) / t.scale, y: (clientY - t.top - t.ty) / t.scale };
+  };
+  const toClient = (x: number, y: number): BoardPoint => {
+    const t = liveTransform();
+    return { x: t.left + t.tx + x * t.scale, y: t.top + t.ty + y * t.scale };
   };
 
   useImperativeHandle(handleRef, () => ({
     toBoardPoint: (clientX: number, clientY: number) =>
       containerRef.current ? toBoard(clientX, clientY) : null,
+    toClientPoint: (x: number, y: number) => (containerRef.current ? toClient(x, y) : null),
+    clientScale: () => liveTransform().scale,
   }));
 
   /** Route a zoom result to the controller: bottoming out at the floor snaps
