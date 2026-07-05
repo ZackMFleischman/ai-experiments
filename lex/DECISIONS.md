@@ -96,3 +96,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   app's srcDir — cross-workspace SW source is brittle; port map said parlor);
   badges/offline lobby largely landed with T4.7/T5.1, T5.4 closed the gates.
   ⚑ remaining for Zack: real push on a device + iOS home-screen check.
+
+- **2026-07-05 — T6.4: pinch-zoom re-enabled; skin contrast is now a test.**
+  Dropped `maximum-scale=1/user-scalable=no` (Lighthouse a11y): the board
+  already consumes its gestures via `touch-action: none`, so page zoom only
+  affects menu screens. Premium-label + tile-letter contrast (≥4.5:1, every
+  skin × mode) moved from eyeball checklist to a unit test; classic/walnut
+  inks went full black/white and walnut-light TW + high-contrast-dark TL/TW
+  shifted to pass. Scores: PWA 1.0, a11y 1.0, SEO 1.0, BP 0.96, perf 0.89
+  (throttled first load; TBT 0). DAWGs 480/227 KB vs NFR-6's 800 KB cap.

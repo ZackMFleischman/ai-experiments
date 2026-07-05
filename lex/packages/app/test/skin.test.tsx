@@ -36,6 +36,37 @@ describe('skin registry', () => {
     for (const skin of SKIN_IDS) expect(SKIN_NAMES[skin]).toBeTruthy();
   });
 
+  // NFR-7 (T6.4): label/letter legibility is enforced, not eyeballed. WCAG
+  // relative-luminance contrast — every skin, every mode, every premium.
+  const luminance = (hex: string): number => {
+    const [r, g, b] = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  };
+  const contrast = (a: string, b: string): number => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi! + 0.05) / (lo! + 0.05);
+  };
+
+  it('premium labels and tile letters meet WCAG 4.5:1 in every skin × mode', () => {
+    for (const skin of SKIN_IDS) {
+      for (const mode of MODES) {
+        const vars = skinVars(mode, skin);
+        for (const cell of ['--lex-cell-dl', '--lex-cell-tl', '--lex-cell-dw', '--lex-cell-tw'] as const) {
+          expect(
+            contrast(vars['--lex-premium-fg'], vars[cell]),
+            `${skin}/${mode} premium label on ${cell}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(
+          contrast(vars['--lex-tile-fg'], vars['--lex-tile-bg']),
+          `${skin}/${mode} tile letter`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
   it('keeps the geometry knob identical across skins — only colors vary', () => {
     for (const skin of SKIN_IDS) {
       for (const mode of MODES) {
