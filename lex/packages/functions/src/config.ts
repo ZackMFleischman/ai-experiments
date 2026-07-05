@@ -126,6 +126,11 @@ async function seatRackDoc(
   return { tiles, n: 0 };
 }
 
+/** The opponent-moved push copy: word + score in the body (DESIGN §8). */
+export function playedCopy(name: string, word: string, score: number): string {
+  return `${name} played ${word} for ${score} — your move.`;
+}
+
 export function buildPayload(trigger: SharedTrigger, args: TriggerArgs): PushPayload {
   const link = `/game/${args.gameId}`;
   const tag = `game-${args.gameId}`;

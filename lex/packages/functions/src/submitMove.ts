@@ -26,7 +26,7 @@ import {
   type TileFace,
 } from '@lex/engine';
 import { loadDictionarySync } from '@lex/dict/node';
-import { lexServerConfig, requireRuleset, type LexGameOptions } from './config';
+import { lexServerConfig, playedCopy, requireRuleset, type LexGameOptions } from './config';
 
 const notify = createNotify(lexServerConfig.notify);
 
@@ -235,7 +235,7 @@ export const submitMove = onCall(async (request) => {
     }
     if (move.type === 'play' && playRecord) {
       const main = (playRecord.words[0] as { word?: string } | undefined)?.word ?? '';
-      movedCopy = `${caller.name} played ${main} for ${playRecord.score} — your move.`;
+      movedCopy = playedCopy(caller.name, main, playRecord.score);
     }
 
     tx.set(gameRef.collection('moves').doc(String(expectedMoveCount)), {
