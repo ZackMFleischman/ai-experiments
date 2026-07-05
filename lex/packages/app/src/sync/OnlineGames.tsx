@@ -1,8 +1,9 @@
 // ported from hive/packages/app/src/sync/OnlineGames.tsx (adapted)
-// Online games list container (T4.7): lazy-loaded by the Lobby in full mode.
-// (NotificationsSetup joins this stack in T5.2.)
+// Online games list container (T4.7/T5.2): lazy-loaded by the Lobby in full
+// mode, with the push-permission banner (enable button / iOS coach mark).
 import { Alert, CircularProgress, Stack } from '@mui/material';
 import { useAuth } from '@parlor/web';
+import { NotificationsSetup } from '@parlor/web/NotificationsSetup';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LobbyView } from '../screens/lobbyView';
@@ -16,6 +17,7 @@ export default function OnlineGames() {
   if (!user) return null;
   return (
     <Stack spacing={2} sx={{ mt: 2 }}>
+      <NotificationsSetup coachMarkKey="lex.coachmark.dismissed" />
       <Loaded uid={user.uid} onOpen={(id) => void navigate(`/game/${id}`)} />
     </Stack>
   );
