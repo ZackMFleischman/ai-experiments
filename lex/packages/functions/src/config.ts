@@ -99,7 +99,11 @@ function initialGame(options: LexGameOptions): InitialGame {
         },
       },
     ],
-    rackDocs: [{ tiles: state.racks[0]!.join('') }, { tiles: state.racks[1]!.join('') }],
+    // `n` = the move count this rack is current for (client reconciliation).
+    rackDocs: [
+      { tiles: state.racks[0]!.join(''), n: 0 },
+      { tiles: state.racks[1]!.join(''), n: 0 },
+    ],
   };
 }
 
@@ -119,7 +123,7 @@ async function seatRackDoc(
   if (tiles.length !== rackSize) {
     throw new HttpsError('internal', 'corrupt bag order for this game');
   }
-  return { tiles };
+  return { tiles, n: 0 };
 }
 
 export function buildPayload(trigger: SharedTrigger, args: TriggerArgs): PushPayload {

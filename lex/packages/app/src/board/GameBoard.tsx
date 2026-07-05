@@ -220,6 +220,7 @@ export function GameBoard({
         points={points}
         bagCount={snap.bagCount}
         disabled={!snap.interactive}
+        drawing={snap.drawing}
         selectedIndex={snap.selection}
         exchangeSelection={snap.exchange}
         onTileTap={(i) => (snap.exchange ? controller.toggleExchange(i) : controller.selectRackSlot(i))}

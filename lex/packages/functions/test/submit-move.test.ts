@@ -55,9 +55,11 @@ const RIGGED: GameState = initialState(classic, BAG_ORDER, 2);
 async function rigGame(game: JoinedGame): Promise<void> {
   await adminSetDoc(`games/${game.gameId}/racks/${game.p0.uid}`, {
     tiles: RIGGED.racks[0]!.join(''),
+    n: 0,
   });
   await adminSetDoc(`games/${game.gameId}/racks/${game.p1.uid}`, {
     tiles: RIGGED.racks[1]!.join(''),
+    n: 0,
   });
   await adminSetDoc(`games/${game.gameId}/private/bag`, {
     order: BAG_ORDER.join(''),

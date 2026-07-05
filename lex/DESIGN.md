@@ -434,7 +434,9 @@ games/{gameId}/moves/{n}: { n, kind: 'play'|'exchange'|'pass'|'resign'|'timeout'
                                      words: [{word, score}], score, bingo },
                             exchanged?: number,                       // count ONLY — letters are private
                             by: uid, at }
-games/{gameId}/racks/{uid}: { tiles: string }                         // e.g. "AEINRT?" — owner-read only
+games/{gameId}/racks/{uid}: { tiles: string, n: number }              // e.g. "AEINRT?" — owner-read only;
+                                                                      // n = move count this rack is current for
+                                                                      // (client refill reconciliation)
 games/{gameId}/private/bag: { order: string, drawn: number,           // NO client read, ever
                               state: string,                          // serialized FULL GameState — submitMove's fast path,
                                                                       // regression-checked against order+log+events replay

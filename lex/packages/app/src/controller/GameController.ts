@@ -16,10 +16,19 @@ import type {
   TileFace,
   WordScore,
 } from '@lex/engine';
-import { RULESETS, applyMove, cellKey, checkPlay, initialState, result, scorePlay } from '@lex/engine';
+import {
+  RULESETS,
+  applyMove,
+  cellKey,
+  checkPlay,
+  deserializeState,
+  initialState,
+  result,
+  scorePlay,
+} from '@lex/engine';
 import { LogSession, type GameTransport } from '@parlor/core';
 import type { ViewState } from '../board/BoardViewport';
-import type { HotSeatOptions, LexEntry } from './entries';
+import type { HotSeatOptions, LexEntry, SyncRow } from './entries';
 
 export interface PendingTile {
   face: TileFace; // what left the rack ('A'… or '?')
@@ -70,7 +79,7 @@ export interface LastPlay {
 export interface SheetRow {
   n: number;
   by: Seat;
-  kind: LexEntry['kind'];
+  kind: 'play' | 'exchange' | 'pass' | 'resign' | 'timeout';
   word: string | null; // main word of a play
   words: readonly WordScore[];
   score: number;
@@ -94,6 +103,9 @@ export interface Snapshot {
   rack: ReadonlyArray<TileFace | null>;
   pending: ReadonlyMap<CellKey, PendingTile>;
   preview: Preview | null;
+  /** Multiplayer: refill tiles still in flight after an optimistic move —
+   * the rack shows this many "drawing…" placeholder slots (T4.6). */
+  drawing: number;
   /** Rack slot armed by the tap-tap flow (T3.5); null = none. */
   selection: number | null;
   /** Exchange multi-select mode (T3.6): selected rack slots; null = off. */
@@ -117,6 +129,10 @@ interface SessionState {
   timedOut?: Seat;
   lastPlay?: LastPlay;
   sheet: readonly SheetRow[];
+  /** Multiplayer (T4.6): the REAL own-rack faces (rack doc). The engine
+   * state's own rack may briefly run ahead with placeholder draws after an
+   * optimistic move — the difference is the "drawing…" count. */
+  myRack?: readonly TileFace[];
 }
 
 export interface ControllerDeps {
@@ -264,12 +280,29 @@ export class GameController {
         },
       ];
     };
+    // Multiplayer: my own optimistic move consumes real faces from the rack
+    // doc's snapshot; the engine's refill draws are placeholders until the
+    // rack listener lands (the Snapshot.drawing count).
+    const nextMyRack = (used: readonly TileFace[]): Pick<SessionState, 'myRack'> => {
+      if (!state.myRack || by !== this.perspective) {
+        return state.myRack ? { myRack: state.myRack } : {};
+      }
+      const rest = [...state.myRack];
+      for (const face of used) {
+        const i = rest.indexOf(face);
+        if (i >= 0) rest.splice(i, 1);
+      }
+      return { myRack: rest };
+    };
     switch (entry.kind) {
+      case 'sync':
+        return this.adoptSync(entry);
       case 'play': {
         const score = scorePlay(state.game.board, entry.placements, ruleset);
         const game = applyMove(state.game, { type: 'play', placements: entry.placements }, this.dict);
         return {
           ...state,
+          ...nextMyRack(entry.placements.map((p) => (p.isBlank ? '?' : p.letter))),
           game,
           lastPlay: {
             by,
@@ -297,6 +330,7 @@ export class GameController {
         if (!sameBag) throw new Error('exchange entry bagAfter is not a permutation of the bag');
         return {
           ...state,
+          ...nextMyRack(entry.tiles),
           game: { ...game, bag: entry.bagAfter },
           lastPlay: { by, kind: 'exchange', cells: [], words: [], total: 0, count: entry.tiles.length },
           sheet: row({ by, kind: 'exchange', word: null, words: [], score: 0, count: entry.tiles.length }),
@@ -324,6 +358,53 @@ export class GameController {
           sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0 }),
         };
     }
+  }
+
+  /** Adopt a server snapshot (multiplayer): the state is the server's public
+   * tier + the real own rack; sheet/lastPlay come from the recorded move log
+   * — remote verdicts are never recomputed client-side (DESIGN §3.3). */
+  private adoptSync(entry: Extract<LexEntry, { kind: 'sync' }>): SessionState {
+    const game = deserializeState(entry.state);
+    let totals = game.scores.map(() => 0);
+    const sheet: SheetRow[] = entry.rows.map((row) => {
+      totals = totals.map((t, seat) => (seat === row.by ? t + row.score : t));
+      return {
+        n: row.n,
+        by: row.by,
+        kind: row.kind,
+        word: row.word,
+        words: row.words.map((w) => ({ ...w, cells: [] })),
+        score: row.score,
+        ...(row.count !== undefined ? { count: row.count } : {}),
+        totals,
+      };
+    });
+    const lastMove = [...entry.rows]
+      .reverse()
+      .find((r) => r.kind === 'play' || r.kind === 'exchange' || r.kind === 'pass');
+    const lastPlay: LastPlay | undefined = lastMove
+      ? {
+          by: lastMove.by,
+          kind: lastMove.kind as 'play' | 'exchange' | 'pass',
+          cells: lastMove.cells,
+          words: lastMove.words.map((w) => ({ ...w, cells: [] })),
+          total: lastMove.score,
+          ...(lastMove.count !== undefined ? { count: lastMove.count } : {}),
+        }
+      : undefined;
+    const ended = entry.ended;
+    return {
+      game,
+      myRack: entry.myRack.split('') as TileFace[],
+      sheet,
+      ...(lastPlay ? { lastPlay } : {}),
+      ...(ended?.endedBy === 'resign' && ended.winner !== 'draw'
+        ? { resigned: ended.winner === 0 ? 1 : 0 }
+        : {}),
+      ...(ended?.endedBy === 'timeout' && ended.winner !== 'draw'
+        ? { timedOut: ended.winner === 0 ? 1 : 0 }
+        : {}),
+    };
   }
 
   private fallbackState: SessionState | null = null;
@@ -360,9 +441,22 @@ export class GameController {
     this.pending.clear();
     this.selection = null;
     this.exchangeSelection = null;
-    this.rackSlots = reconcileSlots(this.rackSlots, s.game.racks[seat] ?? [], ruleset.rackSize);
+    // Multiplayer: display the REAL rack-doc faces; in-flight refill draws
+    // show as "drawing…" placeholders (Snapshot.drawing), not fake tiles.
+    this.rackSlots = reconcileSlots(
+      this.rackSlots,
+      s.myRack ?? s.game.racks[seat] ?? [],
+      ruleset.rackSize,
+    );
     this.syncedGame = s.game;
     this.syncedSeat = seat;
+  }
+
+  private drawingCount(): number {
+    const s = this.sessionState();
+    if (!s.myRack || this.perspective === undefined) return 0;
+    const engineLen = s.game.racks[this.perspective]?.length ?? 0;
+    return Math.max(0, engineLen - s.myRack.length);
   }
 
   // ── store plumbing ─────────────────────────────────────────────────────────
@@ -404,6 +498,7 @@ export class GameController {
       rack: this.rackSlots,
       pending: new Map(this.pending),
       preview,
+      drawing: this.drawingCount(),
       selection: this.selection,
       exchange: this.exchangeSelection ? new Set(this.exchangeSelection) : null,
       interactive: this.interactive(),

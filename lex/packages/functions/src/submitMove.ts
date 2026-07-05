@@ -271,6 +271,7 @@ export const submitMove = onCall(async (request) => {
     });
     tx.set(gameRef.collection('racks').doc(caller.uid), {
       tiles: next.racks[mySeat]!.join(''),
+      n: expectedMoveCount + 1, // current as of this move (client reconciliation)
     });
     tx.update(bagRef, {
       state: serializeState(next),
