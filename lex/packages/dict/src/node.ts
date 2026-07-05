@@ -7,10 +7,14 @@ import { fileURLToPath } from 'node:url';
 import { decodeDawg, type DawgDictionary } from './dawg.js';
 import { verifyDictionary } from './registry.js';
 
-const DEFAULT_DIR = fileURLToPath(new URL('../generated', import.meta.url));
+// Lazy: import.meta.url is unavailable in the functions' CJS bundle, which
+// always passes an explicit dir — only node-side tests use the default.
+function defaultDir(): string {
+  return fileURLToPath(new URL('../generated', import.meta.url));
+}
 
-export function loadDictionarySync(id: string, dir: string = DEFAULT_DIR): DawgDictionary {
+export function loadDictionarySync(id: string, dir?: string): DawgDictionary {
   if (!/^[a-z0-9-]+$/i.test(id)) throw new Error(`bad dictionary id '${id}'`);
-  const bytes = readFileSync(`${dir}/${id}.dawg`);
+  const bytes = readFileSync(`${dir ?? defaultDir()}/${id}.dawg`);
   return verifyDictionary(decodeDawg(new Uint8Array(bytes)), id);
 }

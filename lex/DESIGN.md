@@ -436,6 +436,8 @@ games/{gameId}/moves/{n}: { n, kind: 'play'|'exchange'|'pass'|'resign'|'timeout'
                             by: uid, at }
 games/{gameId}/racks/{uid}: { tiles: string }                         // e.g. "AEINRT?" — owner-read only
 games/{gameId}/private/bag: { order: string, drawn: number,           // NO client read, ever
+                              state: string,                          // serialized FULL GameState — submitMove's fast path,
+                                                                      // regression-checked against order+log+events replay
                               events: [{n, returned, reshuffled}] }   // exchange re-shuffles (§3.3 replay)
 invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expiresAt }  // = hive
 ```

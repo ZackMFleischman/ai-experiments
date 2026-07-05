@@ -99,6 +99,35 @@ export async function adminListDocs(path: string): Promise<Array<Record<string, 
   return (body.documents ?? []).map((d) => decodeFields(d.fields ?? {}));
 }
 
+/** Admin-bypass full-document write (emulator only) — lets tests rig a
+ * deterministic bag/racks under a game created with real crypto shuffling. */
+export async function adminSetDoc(path: string, data: Record<string, unknown>): Promise<void> {
+  const res = await fetch(`${FIRESTORE}/${path}`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: encodeFields(data) }),
+  });
+  if (!res.ok) throw new Error(`adminSetDoc ${path} failed: ${await res.text()}`);
+}
+
+function encodeValue(v: unknown): Record<string, unknown> {
+  if (v === null) return { nullValue: null };
+  if (typeof v === 'string') return { stringValue: v };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') {
+    return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  }
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(encodeValue) } };
+  if (typeof v === 'object') {
+    return { mapValue: { fields: encodeFields(v as Record<string, unknown>) } };
+  }
+  throw new Error(`cannot encode ${typeof v}`);
+}
+
+function encodeFields(data: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(data).map(([k, v]) => [k, encodeValue(v)]));
+}
+
 // Minimal Firestore REST value decoder (enough for our schema).
 function decodeValue(v: Record<string, unknown>): unknown {
   if ('stringValue' in v) return v['stringValue'];

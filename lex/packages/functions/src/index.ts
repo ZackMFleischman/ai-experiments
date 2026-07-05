@@ -15,3 +15,5 @@ export const ping = onCall<{ echo?: string }>((request) => {
 
 export const { createGame, joinGame, cancelGame, challengeUser, respondChallenge, rematch, resign } =
   createGameCallables(lexServerConfig);
+
+export { submitMove } from './submitMove';

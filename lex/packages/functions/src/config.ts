@@ -6,7 +6,14 @@
 import { randomInt } from 'node:crypto';
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { DocumentData, DocumentReference, Transaction } from 'firebase-admin/firestore';
-import { RULESETS, initialState, serializePublic, type Ruleset, type TileFace } from '@lex/engine';
+import {
+  RULESETS,
+  initialState,
+  serializePublic,
+  serializeState,
+  type Ruleset,
+  type TileFace,
+} from '@lex/engine';
 import { DICTIONARIES } from '@lex/dict';
 import type {
   GameServerConfig,
@@ -82,7 +89,14 @@ function initialGame(options: LexGameOptions): InitialGame {
     subDocs: [
       {
         path: ['private', 'bag'],
-        data: { order: order.join(''), drawn: 2 * ruleset.rackSize, events: [] },
+        data: {
+          order: order.join(''),
+          drawn: 2 * ruleset.rackSize,
+          // Server-private full-state snapshot (§6.2) — submitMove's fast
+          // path; tests regression-check it against order+log+events replay.
+          state: serializeState(state),
+          events: [],
+        },
       },
     ],
     rackDocs: [{ tiles: state.racks[0]!.join('') }, { tiles: state.racks[1]!.join('') }],
