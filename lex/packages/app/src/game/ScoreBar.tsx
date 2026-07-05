@@ -22,7 +22,7 @@ export function ScoreBar({ names, scores, toMove, onOpenSheet, onInfo }: ScoreBa
       square
       elevation={1}
       data-testid="score-bar"
-      sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75 }}
+      sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1 }}
     >
       {scores.map((score, seat) => (
         <Box

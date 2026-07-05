@@ -36,6 +36,17 @@ interface RackDrag {
   y: number;
 }
 
+/** A staged tile in flight (T6 polish): the tile leaves its cell and rides
+ * above the finger as a ghost, in BOARD coordinates so it scales with zoom. */
+interface BoardDrag {
+  from: CellKey;
+  face: TileFace;
+  letter: string | null;
+  isBlank: boolean;
+  x: number;
+  y: number;
+}
+
 const DEFAULT_NAMES = ['Player 1', 'Player 2'];
 
 export function GameBoard({
@@ -57,6 +68,7 @@ export function GameBoard({
   const skinId = useSkinId();
   const viewportRef = useRef<BoardViewportHandle | null>(null);
   const [rackDrag, setRackDrag] = useState<RackDrag | null>(null);
+  const [boardDrag, setBoardDrag] = useState<BoardDrag | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -72,11 +84,24 @@ export function GameBoard({
       onPendingDown: (cell, pt) => {
         pendingDrag.current = { from: cell, start: pt, moved: false };
         setHover(cellKey(cell));
+        // Pick the tile up: it leaves the cell and follows the finger.
+        const staged = controller.getSnapshot().pending.get(cellKey(cell));
+        if (staged) {
+          setBoardDrag({
+            from: cellKey(cell),
+            face: staged.face,
+            letter: staged.letter,
+            isBlank: staged.isBlank,
+            x: pt.x,
+            y: pt.y,
+          });
+        }
       },
       onDragMove: (pt) => {
         const d = pendingDrag.current;
         if (!d) return;
         if (Math.hypot(pt.x - d.start.x, pt.y - d.start.y) > 6) d.moved = true;
+        setBoardDrag((g) => (g ? { ...g, x: pt.x, y: pt.y } : g));
         const cell = pointToCell(pt, layout);
         setHover(cell ? cellKey(cell) : null);
       },
@@ -84,6 +109,7 @@ export function GameBoard({
         const d = pendingDrag.current;
         pendingDrag.current = null;
         setHover(null);
+        setBoardDrag(null);
         if (!d) return;
         const cell = pointToCell(pt, layout);
         if (!d.moved || !cell) {
@@ -148,6 +174,20 @@ export function GameBoard({
   const lastPlay = snap.lastPlay?.kind === 'play' ? snap.lastPlay : undefined;
   const lastPlayEnd = lastPlay?.cells[lastPlay.cells.length - 1];
 
+  // While a staged tile is in flight its cell renders empty — the ghost IS the tile.
+  const visiblePending = useMemo(() => {
+    if (!boardDrag) return snap.pending;
+    const m = new Map(snap.pending);
+    m.delete(boardDrag.from);
+    return m;
+  }, [snap.pending, boardDrag]);
+
+  // While a rack tile is in flight its slot renders empty, same idea.
+  const visibleRack = useMemo(
+    () => (rackDrag ? snap.rack.map((f, i) => (i === rackDrag.index ? null : f)) : snap.rack),
+    [snap.rack, rackDrag],
+  );
+
   return (
     <Box data-testid="game-board" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <ScoreBar
@@ -179,7 +219,7 @@ export function GameBoard({
               layout={layout}
               points={points}
               tiles={snap.state.board}
-              pending={snap.pending}
+              pending={visiblePending}
               hover={hover}
               {...(lastPlay ? { lastPlayCells: lastPlay.cells } : {})}
             />
@@ -187,6 +227,28 @@ export function GameBoard({
               preview={snap.preview}
               anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
             />
+            {boardDrag && (
+              <Box
+                data-testid="board-drag-ghost"
+                sx={{
+                  ...skinVars(mode, skinId),
+                  position: 'absolute',
+                  left: boardDrag.x - 18,
+                  top: boardDrag.y - 54, // lifted above the finger
+                  pointerEvents: 'none',
+                  zIndex: 3,
+                  transform: 'scale(1.15)',
+                  filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
+                }}
+              >
+                <Tile
+                  letter={boardDrag.letter ?? ''}
+                  isBlank={boardDrag.isBlank}
+                  points={points[boardDrag.face] ?? 0}
+                  pending
+                />
+              </Box>
+            )}
             {lastPlay && lastPlayEnd && snap.pending.size === 0 && (
               <Box
                 data-testid="last-play-score"
@@ -233,7 +295,7 @@ export function GameBoard({
         />
       )}
       <RackTray
-        tiles={snap.rack}
+        tiles={visibleRack}
         rackSize={snap.ruleset.rackSize}
         points={points}
         bagCount={snap.bagCount}
@@ -310,7 +372,8 @@ export function GameBoard({
             top: rackDrag.y - 48, // lifted above the finger
             pointerEvents: 'none',
             zIndex: (t) => t.zIndex.tooltip,
-            opacity: 0.95,
+            transform: 'scale(1.15)',
+            filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
           }}
         >
           {rackDrag.face === '?' ? (
