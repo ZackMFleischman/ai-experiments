@@ -105,3 +105,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   inks went full black/white and walnut-light TW + high-contrast-dark TL/TW
   shifted to pass. Scores: PWA 1.0, a11y 1.0, SEO 1.0, BP 0.96, perf 0.89
   (throttled first load; TBT 0). DAWGs 480/227 KB vs NFR-6's 800 KB cap.
+
+- **2026-07-05 — SHIPPED M6 (T6.1–T6.7): v1 code-complete.** Gates: full
+  `pnpm validate` green (m0–m5 + unit + typecheck); Lighthouse PWA/a11y/SEO
+  1.0; 228-shot gallery review ×3 rounds. Skins classic/walnut/high-contrast
+  (persisted, contrast unit-enforced ≥4.5:1); rejected-move toast; lobby
+  empty state + stacked chips; U+2212 scores; one-row actions at 390px;
+  pinch-zoom re-enabled; card thumbnail exported. Stumble: Settings read
+  mode from context, not theme — the M3 lesson, caught by dark captures.
+  ⚑ Zack: prod deploy + DNS, first real game, PersonalWebsite card PR.

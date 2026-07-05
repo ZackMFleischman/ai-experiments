@@ -103,17 +103,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M5 — shipped, see DECISIONS.md
 
-### M6 — Polish & ship
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T6.1 | Tile/board theme pass + tile skins (classic/walnut/high-contrast) in Settings; wordmark; icon export **[visual]** | | gallery review |
-| T6.2 | Animation/empty-state/error-toast pass; landing + victory polish **[visual]** | | gallery review |
-| T6.3 | Dark + responsive audit: full `validate:visual` re-review, 3 viewports × 2 themes × skins | **[visual]** | checklist clean |
-| T6.4 | Lighthouse PWA + perf audit; DAWG load budget check | | Lighthouse pass |
-| T6.5 | ⚑ Production: `firebase deploy --project prod`, DNS `lex.zackmfleischman.com`, first real sign-in + real game | | live game |
-| T6.6 | Website card: `store.yaml` entry + thumbnail via the `externalUrl` variant (hive T6.6); if hive hasn't landed it, implement per hive DESIGN §7 file list ⚑ site deploy | **[visual]** | card renders |
-| T6.7 | Full `pnpm validate`; collapse shipped task tables per §7 | | all gates green |
+### M6 — shipped, see DECISIONS.md (⚑ production deploy/DNS + PersonalWebsite PR remain with the owner)
 
 ---
 
