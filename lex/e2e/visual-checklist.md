@@ -26,6 +26,26 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Text contrast ≥ 4.5:1 (spot-check theme tokens, all tile skins).
 - No layout shift between `?static=1` captures of the same entry (determinism).
 
+## Landing (T4.2)
+
+- Hero vignette: real board cells (premium colors + labels) with L-E-X tiles
+  and their point indexes legible at every viewport; float animation frozen
+  under `?static=1` / reduced motion.
+- Hot-seat build shows Play hot-seat + Your games; full mode shows Google
+  sign-in; the test sign-in form appears **only** against emulators.
+
+## Lobby / New game / Join / Waiting (T4.7)
+
+- Lobby groups labeled and ordered (challenges, your turn, waiting, finished);
+  cards carry thumbnail, scores + last play (2-line clamp — never truncated to
+  scores alone), your-turn/deadline/result chips distinguishable in both themes.
+- New game: both board cards show real premium-map previews; dictionaries show
+  name + word count + description; toggles legible at 390px.
+- Join card lists board, dictionary + word count, time control, and seat
+  (FR-10) before the accept button; themed hero above.
+- Waiting screen: invite link AND bare code visible with copy affordances;
+  challenge variant swaps copy + withdraw action; board never visible while open.
+
 ## Accepted deviations
 
 - 2026-07-04 — Phone rack slots render ~41px (guideline says ≥44): a 7-slot

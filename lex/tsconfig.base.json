@@ -18,6 +18,10 @@
     "paths": {
       "@parlor/core": ["../parlor/packages/core/src/index.ts"],
       "@parlor/web": ["../parlor/packages/web/src/index.ts"],
+      "@parlor/web/firebase": ["../parlor/packages/web/src/firebase.ts"],
+      "@parlor/web/gameApi": ["../parlor/packages/web/src/gameApi.ts"],
+      "@parlor/web/lobby": ["../parlor/packages/web/src/lobby.ts"],
+      "@parlor/web/AppSyncProviders": ["../parlor/packages/web/src/AppSyncProviders.tsx"],
       "@parlor/server": ["../parlor/packages/server/src/index.ts"],
       "@parlor/harness": ["../parlor/packages/harness/src/index.ts"]
     }

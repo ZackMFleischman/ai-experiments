@@ -77,6 +77,21 @@ export default defineConfig({
   // fs.allow: the app itself, the lex workspace root (the dev gallery imports
   // engine fixtures/test helpers), and the parlor sibling workspace.
   server: { fs: { allow: ['.', fileURLToPath(new URL('../..', import.meta.url)), parlorRoot] } },
+  // The parlor sibling workspace has its own node_modules (peer deps mirrored
+  // as devDeps for its standalone tests) — dedupe the stateful/singleton
+  // libraries so linked @parlor/* source shares lex's copies (§8.11).
+  resolve: {
+    dedupe: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@tanstack/react-query',
+      '@mui/material',
+      '@emotion/react',
+      '@emotion/styled',
+      'firebase',
+    ],
+  },
   optimizeDeps: {
     exclude: ['@parlor/core', '@parlor/web', '@parlor/server', '@parlor/harness'],
   },

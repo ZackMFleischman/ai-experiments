@@ -23,6 +23,7 @@ import { BoardViewport } from './BoardViewport';
 import { RackTray } from './RackTray';
 import { useTheme } from '@mui/material/styles';
 import { skinVars } from './skin';
+import { GameInfoDialog } from '../game/GameInfoDialog';
 import { Tile } from './Tile';
 
 interface RackDrag {
@@ -40,11 +41,14 @@ export function GameBoard({
   seatNames = DEFAULT_NAMES,
   onRematch,
   onBackToLobby,
+  timeControl,
 }: {
   controller: GameController;
   seatNames?: readonly string[];
   onRematch?: () => void;
   onBackToLobby?: () => void;
+  /** Multiplayer: the game's async clock, restated in the info menu (T4.7). */
+  timeControl?: { days: 1 | 3 | 7 } | null;
 }) {
   const snap = useGameController(controller);
   const mode = useTheme().palette.mode;
@@ -52,6 +56,7 @@ export function GameBoard({
   const [rackDrag, setRackDrag] = useState<RackDrag | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
 
   const layout = snap.ruleset.board;
@@ -147,6 +152,14 @@ export function GameBoard({
         scores={snap.scores}
         toMove={snap.toMove}
         onOpenSheet={() => setSheetOpen(true)}
+        onInfo={() => setInfoOpen(true)}
+      />
+      <GameInfoDialog
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        rulesetId={snap.options.rulesetId}
+        dictionaryId={snap.options.dictionaryId}
+        {...(timeControl !== undefined ? { timeControl } : {})}
       />
       <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardViewport
@@ -204,6 +217,7 @@ export function GameBoard({
           playable={snap.preview?.playable ?? false}
           hasPending={snap.pending.size > 0}
           interactive={snap.interactive}
+          canResign={!snap.end}
           canExchange={snap.canExchange}
           exchangeMinBag={snap.ruleset.exchangeMinBag}
           bagCount={snap.bagCount}
@@ -220,6 +234,7 @@ export function GameBoard({
         points={points}
         bagCount={snap.bagCount}
         disabled={!snap.interactive}
+        drawing={snap.drawing}
         selectedIndex={snap.selection}
         exchangeSelection={snap.exchange}
         onTileTap={(i) => (snap.exchange ? controller.toggleExchange(i) : controller.selectRackSlot(i))}

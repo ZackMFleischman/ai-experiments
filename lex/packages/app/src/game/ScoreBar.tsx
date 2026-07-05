@@ -1,5 +1,7 @@
 // Compact player bar (T3.9 / DESIGN §7.1): names + scores + side-to-move
-// marker, with the score-sheet button.
+// marker, with the score-sheet button and the game-info menu (T4.7 — the
+// chosen options stay visible mid-game).
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { Box, IconButton, Paper, Typography } from '@mui/material';
 import type { Seat } from '@lex/engine';
@@ -9,9 +11,11 @@ export interface ScoreBarProps {
   scores: readonly number[];
   toMove: Seat;
   onOpenSheet: () => void;
+  /** Opens the game-info dialog (board/dictionary/time control). */
+  onInfo?: () => void;
 }
 
-export function ScoreBar({ names, scores, toMove, onOpenSheet }: ScoreBarProps) {
+export function ScoreBar({ names, scores, toMove, onOpenSheet, onInfo }: ScoreBarProps) {
   return (
     <Paper
       square
@@ -43,6 +47,11 @@ export function ScoreBar({ names, scores, toMove, onOpenSheet }: ScoreBarProps) 
         </Box>
       ))}
       <Box sx={{ flex: 1 }} />
+      {onInfo && (
+        <IconButton aria-label="game info" size="small" onClick={onInfo} data-testid="game-info">
+          <InfoOutlinedIcon fontSize="small" />
+        </IconButton>
+      )}
       <IconButton aria-label="score sheet" size="small" onClick={onOpenSheet}>
         <ListAltIcon fontSize="small" />
       </IconButton>

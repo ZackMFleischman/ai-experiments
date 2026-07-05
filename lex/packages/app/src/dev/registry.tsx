@@ -11,7 +11,14 @@ import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
-import { fixtureController, WithController } from './fixtures';
+import { AuthContext, HOTSEAT_AUTH } from '@parlor/web';
+import { Landing } from '../screens/Landing';
+import { LandingLayout } from '../screens/LandingLayout';
+import { JoinCard } from '../screens/Join';
+import { LobbyView, type LobbyGameSummary } from '../screens/lobbyView';
+import { NewGameForm } from '../screens/newGameView';
+import { WaitingForOpponent } from '../screens/waitingView';
+import { fixtureController, fixturePublic, WithController } from './fixtures';
 
 const classic = RULESETS['classic']!;
 
@@ -45,7 +52,121 @@ const stageCats = (c: import('../controller/GameController').GameController) => 
 const earlyGame = { ...FULL_GAME, moves: FULL_GAME.moves.slice(0, 2) };
 const midGame = { ...FULL_GAME, moves: FULL_GAME.moves.slice(0, 6) };
 
+// Full-mode landing (T4.2): sign-in against emulators, injected via context —
+// no firebase in the gallery.
+const FULL_EMULATOR_AUTH = { ...HOTSEAT_AUTH, mode: 'full' as const, emulators: true };
+
+// Lobby fixtures (T4.7): every group populated; timestamps pinned (?static=1
+// determinism — `now` is fixed, so relative times never drift).
+const LOBBY_NOW = 1_750_000_000_000;
+const lobbyGame = (partial: Partial<LobbyGameSummary> & { id: string }): LobbyGameSummary => ({
+  mySeat: 0,
+  opponentName: 'Sam',
+  status: 'active',
+  toMove: 0,
+  updatedAtMs: LOBBY_NOW - 8 * 60_000,
+  public: fixturePublic(earlyGame),
+  rulesetId: 'classic',
+  scores: [24, 18],
+  ...partial,
+});
+const LOBBY_GAMES: LobbyGameSummary[] = [
+  lobbyGame({ id: 'c1', status: 'open', challenge: { direction: 'incoming', name: 'Ada' } }),
+  lobbyGame({
+    id: 'y1',
+    toMove: 0,
+    scores: [212, 198],
+    lastPlay: { by: 1, word: 'QUIZ', score: 68 },
+    public: fixturePublic(midGame),
+    deadlineAtMs: LOBBY_NOW + 26 * 3_600_000,
+  }),
+  lobbyGame({ id: 'w1', toMove: 1, opponentName: 'Noor', updatedAtMs: LOBBY_NOW - 3_600_000 }),
+  lobbyGame({ id: 'o1', status: 'open', opponentName: null, updatedAtMs: LOBBY_NOW - 60_000 }),
+  lobbyGame({
+    id: 'f1',
+    status: 'finished',
+    result: 'p0',
+    scores: [301, 288],
+    public: fixturePublic(FULL_GAME),
+  }),
+  lobbyGame({ id: 'f2', status: 'finished', result: 'draw', scores: [212, 212] }),
+];
+
 export const GALLERY: GalleryEntry[] = [
+  {
+    id: 'landing',
+    render: () => (
+      <Box data-gallery-ready>
+        <Landing />
+      </Box>
+    ),
+  },
+  {
+    id: 'landing-sign-in',
+    render: () => (
+      <AuthContext.Provider value={FULL_EMULATOR_AUTH}>
+        <Box data-gallery-ready>
+          <Landing />
+        </Box>
+      </AuthContext.Provider>
+    ),
+  },
+  {
+    id: 'lobby',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2, maxWidth: 560 }}>
+        <LobbyView games={LOBBY_GAMES} now={LOBBY_NOW} onOpen={() => {}} onRespondChallenge={() => {}} />
+      </Box>
+    ),
+  },
+  {
+    id: 'lobby-empty',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2 }}>
+        <LobbyView games={[]} now={LOBBY_NOW} onOpen={() => {}} />
+      </Box>
+    ),
+  },
+  {
+    id: 'new-game',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2 }}>
+        <NewGameForm
+          onCreate={() => {}}
+          friends={[
+            { uid: 'u1', name: 'Sam' },
+            { uid: 'u2', name: 'Noor' },
+          ]}
+        />
+      </Box>
+    ),
+  },
+  {
+    id: 'join',
+    render: () => (
+      <Box data-gallery-ready>
+        <LandingLayout>
+          <JoinCard
+            state={{
+              kind: 'ready',
+              hostName: 'Ada',
+              hostSeat: 'p0',
+              options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: { days: 3 } },
+            }}
+            onAccept={() => {}}
+          />
+        </LandingLayout>
+      </Box>
+    ),
+  },
+  {
+    id: 'waiting',
+    render: () => (
+      <Box data-gallery-ready>
+        <WaitingForOpponent code="LEX4EVER" onCancel={() => {}} />
+      </Box>
+    ),
+  },
   { id: 'board-empty-classic', render: () => <EmptyBoard rulesetId="classic" /> },
   { id: 'board-empty-modern', render: () => <EmptyBoard rulesetId="modern" /> },
   { id: 'board-early', render: () => game(() => fixtureController(earlyGame)) },

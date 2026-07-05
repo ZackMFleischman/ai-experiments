@@ -25,8 +25,10 @@ test('every stub route renders its screen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'New game' })).toBeVisible();
 
   await page.goto('/join/abc123');
-  await expect(page.getByRole('heading', { name: 'Join game' })).toBeVisible();
-  await expect(page.getByText('abc123')).toBeVisible();
+  // Static build: the summary card renders with the invalid-invite copy
+  // (invite lookup is full-mode only — T4.7).
+  await expect(page.getByTestId('join-card')).toBeVisible();
+  await expect(page.getByText(/no longer valid/i)).toBeVisible();
 
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();

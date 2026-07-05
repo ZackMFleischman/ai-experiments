@@ -22,6 +22,9 @@ export interface RackTrayProps {
   points: TileSet['points'];
   bagCount: number;
   disabled?: boolean;
+  /** Multiplayer refill in flight (T4.6): this many empty slots render as
+   * "drawing…" placeholders until the rack listener lands. */
+  drawing?: number;
   /** Slot highlighted for the tap-tap flow (T3.5). */
   selectedIndex?: number | null;
   /** Exchange multi-select mode (T3.6): selected slots raise, others dim. */
@@ -46,6 +49,7 @@ export function RackTray({
   points,
   bagCount,
   disabled = false,
+  drawing = 0,
   selectedIndex = null,
   exchangeSelection = null,
   onTileTap,
@@ -135,6 +139,9 @@ export function RackTray({
       <Box sx={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'center', minWidth: 0 }}>
         {Array.from({ length: rackSize }, (_, i) => {
           const face = tiles[i] ?? null;
+          // The first `drawing` empty slots carry the refill placeholder.
+          const emptyOrdinal = face === null ? tiles.slice(0, i).filter((t) => t === null).length : -1;
+          const isDrawing = face === null && emptyOrdinal >= 0 && emptyOrdinal < drawing;
           const dragging = dragVisual?.index === i;
           const exchangeSelected = exchangeSelection?.has(i) ?? false;
           return (
@@ -172,6 +179,28 @@ export function RackTray({
                 ) : (
                   <Tile letter={face} isBlank={false} points={points[face] ?? 0} />
                 ))}
+              {isDrawing && (
+                <Box
+                  data-testid="rack-drawing"
+                  aria-label="drawing a tile"
+                  sx={{
+                    width: '80%',
+                    height: '80%',
+                    borderRadius: '18%',
+                    border: '2px dashed',
+                    borderColor: 'text.disabled',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'text.disabled',
+                    fontSize: 'calc(var(--lex-cell) * 0.4)',
+                    '@keyframes lexDrawPulse': { '50%': { opacity: 0.35 } },
+                    animation: 'lexDrawPulse 1.2s ease-in-out infinite',
+                  }}
+                >
+                  …
+                </Box>
+              )}
             </Box>
           );
         })}

@@ -2,6 +2,7 @@
 // into `pnpm typecheck` and CI. Fails when:
 //   (a) firebase escapes its confinement: inside lex, firebase imports are
 //       legal only under packages/app/src/sync/ and packages/functions/
+//       (+ the emulator integration suite, which drives the real SDK)
 //       (@parlor/web|server are checked by parlor's own copy of this gate);
 //   (b) any lex source imports another game's package (@hive/*).
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -32,7 +33,11 @@ function imports(text) {
 }
 
 const FIREBASE_RE = /^(firebase|firebase-admin|firebase-functions)(\/|$)/;
-const FIREBASE_ALLOWED = [/^packages\/app\/src\/sync\//, /^packages\/functions\//];
+const FIREBASE_ALLOWED = [
+  /^packages\/app\/src\/sync\//,
+  /^packages\/app\/test-integration\//,
+  /^packages\/functions\//,
+];
 
 const errors = [];
 

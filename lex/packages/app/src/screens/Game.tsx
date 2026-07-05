@@ -1,7 +1,8 @@
-// Game screen: /game/local is the hot-seat game (T3.8); multiplayer ids
-// arrive with M4 (firestoreTransport, T4.6).
+// Game screen: /game/local is the hot-seat game (T3.8); any other id is the
+// lazy full-mode multiplayer container (T4.6/T4.7) — the static hot-seat
+// build drops that branch at build time (T3.12 bundle check).
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import type { GameController } from '../controller/GameController';
 import { HotSeatGame } from '../game/HotSeatGame';
@@ -44,15 +45,28 @@ function HotSeat() {
   );
 }
 
+// Full mode only: the firestore-backed game container.
+const MultiplayerGame =
+  import.meta.env.VITE_LEX_MODE === 'full' ? lazy(() => import('../sync/MultiplayerGame')) : null;
+
 export function Game() {
   const { id } = useParams<{ id: string }>();
   if (id === 'local') return <HotSeat />;
+  if (id && MultiplayerGame) {
+    return (
+      <Box data-testid="game-screen">
+        <Suspense fallback={null}>
+          <MultiplayerGame gameId={id} />
+        </Suspense>
+      </Box>
+    );
+  }
   return (
     <Box data-testid="game-screen" sx={{ p: 3 }}>
       <Typography variant="h4" component="h1">
         Game
       </Typography>
-      <Typography color="text.secondary">Online game {id} — multiplayer lands in M4.</Typography>
+      <Typography color="text.secondary">Online games need the multiplayer app.</Typography>
     </Box>
   );
 }

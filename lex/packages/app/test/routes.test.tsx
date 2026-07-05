@@ -20,7 +20,6 @@ describe('app shell routes', () => {
     ['/', 'LEX'],
     ['/lobby', 'Your games'],
     ['/new', 'New game'],
-    ['/join/abc123', 'Join game'],
     ['/settings', 'Settings'],
   ];
 
@@ -31,6 +30,13 @@ describe('app shell routes', () => {
       unmount();
     });
   }
+
+  it('renders /join/:code (themed layout + summary card)', () => {
+    const { unmount } = renderAt('/join/abc123');
+    expect(screen.getByRole('heading', { level: 1, name: /lex/i })).toBeTruthy();
+    expect(screen.getByTestId('join-card')).toBeTruthy();
+    unmount();
+  });
 
   it('renders /game/:id (stub game screen until M3)', () => {
     const { unmount } = renderAt('/game/local');

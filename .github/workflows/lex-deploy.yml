@@ -114,3 +114,92 @@ jobs:
       - name: notice when Cloudflare secrets are missing
         if: env.CF_API_TOKEN == '' || env.CF_ACCOUNT_ID == ''
         run: echo "::notice::Cloudflare secrets not set — built and verified the bundle but skipped deploy."
+
+  # Production Firebase deploy (M4 T4.9): the multiplayer app to Hosting, the
+  # callables to Functions, rules + indexes to Firestore — main merges only.
+  # Ported from hive-deploy.yml; auth via the service-account JSON secret
+  # (DECISIONS 2026-07-04 — lex-zmf setup complete, secret
+  # FIREBASE_SERVICE_ACCOUNT_LEX_ZMF).
+  firebase:
+    name: firebase deploy (hosting · functions · firestore)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LEX_ZMF }}
+    defaults:
+      run:
+        working-directory: lex
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: lex/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            lex/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      # link: deps don't install the linked package's own deps — parlor first (§8.11).
+      - name: install parlor (source-linked sibling workspace)
+        working-directory: parlor
+        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
+      - name: compile the dictionaries (DAWGs are generated, never committed)
+        run: pnpm --filter @lex/dict build
+      - name: build the multiplayer app + functions (bundle + dawgs beside it)
+        run: |
+          pnpm --filter @lex/app build:mp
+          pnpm --filter @lex/functions build
+      # Cloud Build npm-installs the packed functions dir including
+      # devDependencies — the link:/workspace dev-only deps (inlined into
+      # lib/ by esbuild) would fail it. The cloud needs runtime deps only.
+      - name: strip devDependencies from the packed functions package
+        run: cd packages/functions && npm pkg delete devDependencies
+      - name: firebase deploy
+        if: env.FIREBASE_SA != ''
+        run: |
+          printf '%s' "$FIREBASE_SA" > "$RUNNER_TEMP/firebase-sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          # First-run bootstrap: the CLI queries the Cloud Billing API when
+          # deploying v2 functions but never auto-enables it (it auto-enables
+          # the rest). Idempotent, so it just runs every time.
+          gcloud auth login --brief --quiet --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          gcloud services enable cloudbilling.googleapis.com --project lex-zmf
+          pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force
+          # Functions first created during a failed deploy never get their
+          # invoker IAM binding, and the CLI never retries it on updates — the
+          # callables then 403 at the Cloud Run layer ("internal" in the app).
+          # Repair idempotently on every deploy: callables (DESIGN §6.3) are
+          # publicly invokable. Requires roles/run.admin on the deploy SA
+          # (§8.5; the scheduler-only forfeitExpired binding arrives with M5).
+          repair_failed=0
+          for f in creategame joingame cancelgame challengeuser respondchallenge submitmove resign rematch ping; do
+            gcloud run services add-iam-policy-binding "$f" --project lex-zmf \
+              --region us-central1 --member allUsers --role roles/run.invoker --quiet \
+              || repair_failed=1
+          done
+          rm -f "$RUNNER_TEMP/firebase-sa.json"
+          if [ "$repair_failed" = "1" ]; then
+            echo "::error::invoker IAM repair failed — grant roles/run.admin to the lex-zmf deploy service account and re-run this workflow"
+            exit 1
+          fi
+      - name: smoke-check hosting
+        if: env.FIREBASE_SA != ''
+        run: |
+          url="https://lex-zmf.web.app"
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$url/") && [ "$code" = "200" ] && break
+            sleep 5
+          done
+          [ "$code" = "200" ] || { echo "::error::hosting not serving ($code)"; exit 1; }
+          grep -q 'id="root"' /tmp/index.html || { echo "::error::index.html missing app root"; exit 1; }
+          for path in lobby dict/2of12inf.dawg; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/$path")
+            [ "$code" = "200" ] || { echo "::error::$path returned $code"; exit 1; }
+          done
+          echo "hosting serving: index, SPA fallback, dictionary all 200"
+      - name: notice when the Firebase service-account secret is missing
+        if: env.FIREBASE_SA == ''
+        run: echo "::notice::FIREBASE_SERVICE_ACCOUNT_LEX_ZMF not set — built but skipped the Firebase deploy."
