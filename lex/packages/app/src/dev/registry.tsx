@@ -9,6 +9,7 @@ import { BoardViewport } from '../board/BoardViewport';
 import { GameBoard } from '../board/GameBoard';
 import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
+import { NoticeToast } from '../game/NoticeToast';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
@@ -341,6 +342,15 @@ export const GALLERY: GalleryEntry[] = [
           { kind: 'timeout', by: 0 },
         ]),
       ),
+  },
+  {
+    id: 'notice-toast',
+    render: () => (
+      <>
+        {game(() => fixtureController(midGame))}
+        <NoticeToast notice={{ id: 1, text: 'Move rejected — undone.' }} />
+      </>
+    ),
   },
   {
     id: 'confirm-pass',

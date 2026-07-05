@@ -52,6 +52,16 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Enable-notifications banner appears only in full mode with permission
   undecided (unit-gated; not in the static gallery).
 
+## Polish (T6.2)
+
+- Rejected-move toast (notice-toast entry): filled error alert, top-center,
+  legible over the board in both themes; dismiss target present.
+- Lobby empty state: tile motif + headline + invite copy centered; tiles render
+  in the active skin/theme.
+- Negative scores everywhere (score bar, result overlay) use the typographic
+  minus (−), never hyphen-minus.
+- Action row (Play/Recall/Exchange/Pass/Resign) fits one line at 390×844.
+
 ## Tile skins & Settings (T6.1)
 
 - Settings: theme toggle and skin samples reflect the *rendered* theme (mode is
@@ -66,8 +76,4 @@ are logged at the bottom with date + reason, and deleted when fixed.
 
 - 2026-07-04 — Phone rack slots render ~41px (guideline says ≥44): a 7-slot
   rack + shuffle/bag column at 390px can't give every slot 44px; slots cap at
-  44px when space allows. Revisit in T6.1 if the tray layout changes.
-- 2026-07-04 — Actions row wraps Resign onto a second line at 390×844.
-  Functional and readable; spacing polish belongs to T6.2.
-- 2026-07-04 — Negative-score draw headline shows a hyphen-minus ("Draw — -7
-  apiece", scoreless fixture only). Typographic minus with T6.2 copy pass.
+  44px when space allows. Tray layout unchanged through T6; accepted for v1.

@@ -3,6 +3,7 @@
 // Everything shown was computed by the engine/controller — display only.
 import { Box, Button, Dialog, DialogContent, Stack, Typography } from '@mui/material';
 import type { GameEnd, SheetRow } from '../controller/GameController';
+import { formatScore } from './score';
 
 export interface ResultOverlayProps {
   open: boolean;
@@ -24,7 +25,7 @@ function headline(end: GameEnd, names: readonly string[]): { title: string; reas
     case 'scoreless': {
       const reason = end.by === 'played-out' ? 'Played out!' : 'Scoreless limit reached';
       if (end.winner === 'draw') {
-        return { title: `Draw — ${end.finalScores[0]} apiece`, reason };
+        return { title: `Draw — ${formatScore(end.finalScores[0] ?? 0)} apiece`, reason };
       }
       return { title: wins(end.winner, true), reason };
     }
@@ -54,7 +55,21 @@ export function ResultOverlay({
   return (
     <Dialog open={open} fullWidth maxWidth="xs">
       <DialogContent data-testid="result-overlay" sx={{ textAlign: 'center', pt: 4 }}>
-        <Typography variant="h4" component="p" sx={{ fontWeight: 800 }}>
+        <Typography
+          variant="h4"
+          component="p"
+          sx={{
+            fontWeight: 800,
+            // Victory beat (T6.2): one gentle pop. CSS-only, so the gallery's
+            // ?static=1 freeze and reduced-motion both neutralize it.
+            '@keyframes lexHeadlinePop': {
+              from: { opacity: 0, transform: 'scale(0.85)' },
+              to: { opacity: 1, transform: 'none' },
+            },
+            animation: 'lexHeadlinePop 0.35s ease-out backwards',
+            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+          }}
+        >
           {title}
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -66,7 +81,7 @@ export function ResultOverlay({
             <Box key={seat} data-testid={`result-seat-${seat}`}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 2 }}>
                 <Typography sx={{ fontWeight: 600 }}>{names[seat] ?? `Player ${seat + 1}`}</Typography>
-                <Typography sx={{ fontWeight: 800 }}>{score}</Typography>
+                <Typography sx={{ fontWeight: 800 }}>{formatScore(score)}</Typography>
               </Box>
               {adjustments && adjustments[seat] !== 0 && (
                 <Typography variant="caption" color="text.secondary" data-testid="adjustment-line">

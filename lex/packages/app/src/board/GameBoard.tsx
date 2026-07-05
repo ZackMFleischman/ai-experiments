@@ -25,6 +25,7 @@ import { useTheme } from '@mui/material/styles';
 import { skinVars } from './skin';
 import { useSkinId } from './skinContext';
 import { GameInfoDialog } from '../game/GameInfoDialog';
+import { NoticeToast } from '../game/NoticeToast';
 import { Tile } from './Tile';
 
 interface RackDrag {
@@ -156,6 +157,7 @@ export function GameBoard({
         onOpenSheet={() => setSheetOpen(true)}
         onInfo={() => setInfoOpen(true)}
       />
+      <NoticeToast notice={snap.notice} />
       <GameInfoDialog
         open={infoOpen}
         onClose={() => setInfoOpen(false)}

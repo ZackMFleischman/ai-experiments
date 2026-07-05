@@ -5,6 +5,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { Box, IconButton, Paper, Typography } from '@mui/material';
 import type { Seat } from '@lex/engine';
+import { formatScore } from './score';
 
 export interface ScoreBarProps {
   names: readonly string[];
@@ -42,7 +43,7 @@ export function ScoreBar({ names, scores, toMove, onOpenSheet, onInfo }: ScoreBa
             {names[seat] ?? `Player ${seat + 1}`}
           </Typography>
           <Typography variant="h6" component="span" sx={{ fontWeight: 700, lineHeight: 1 }}>
-            {score}
+            {formatScore(score)}
           </Typography>
         </Box>
       ))}
