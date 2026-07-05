@@ -9,7 +9,8 @@
     "test:visual": "playwright test --config playwright.visual.config.ts visual/gallery.spec.ts",
     "test:ux": "playwright test --config playwright.visual.config.ts visual/ux.spec.ts",
     "test:m3": "playwright test --config playwright.m3.config.ts",
-    "test:mp": "playwright test --config playwright.mp.config.ts"
+    "test:mp": "playwright test --config playwright.mp.config.ts",
+    "test:offline": "playwright test --config playwright.offline.config.ts"
   },
   "devDependencies": {
     "@parlor/harness": "link:../../parlor/packages/harness",

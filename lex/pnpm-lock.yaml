@@ -77,6 +77,15 @@ importers:
       react-router-dom:
         specifier: ^6.28.1
         version: 6.30.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      workbox-core:
+        specifier: ^7.4.1
+        version: 7.4.1
+      workbox-precaching:
+        specifier: ^7.4.1
+        version: 7.4.1
+      workbox-routing:
+        specifier: ^7.4.1
+        version: 7.4.1
     devDependencies:
       '@testing-library/react':
         specifier: ^16.1.0

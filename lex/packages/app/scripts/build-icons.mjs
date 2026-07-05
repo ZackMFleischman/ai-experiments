@@ -43,3 +43,13 @@ for (const { file, size, maskable } of jobs) {
   await sharp(Buffer.from(iconSvg({ maskable }))).resize(size, size).png().toFile(join(out, file));
   console.log(`icons: ${file}`);
 }
+
+// Notification badge (T5.1/T5.3): monochrome white tile-L on transparent —
+// status-bar badges are alpha masks, color would render as a blob.
+const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect x="8" y="8" width="84" height="84" rx="18" fill="none" stroke="#fff" stroke-width="9"/>
+  <text x="50" y="72" font-family="Georgia, 'Times New Roman', serif" font-size="52"
+    font-weight="700" fill="#fff" text-anchor="middle">L</text>
+</svg>`;
+await sharp(Buffer.from(badgeSvg)).resize(72, 72).png().toFile(join(out, 'badge-72.png'));
+console.log('icons: badge-72.png');

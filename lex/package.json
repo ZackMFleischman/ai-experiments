@@ -15,7 +15,8 @@
     "validate:visual": "pnpm --filter lex-e2e test:visual",
     "validate:ux": "pnpm --filter lex-e2e test:ux",
     "validate:m3": "pnpm validate:visual && pnpm validate:ux && pnpm --filter lex-e2e test:m3",
-    "validate:m4": "pnpm --filter @lex/functions build && firebase emulators:exec --only auth,firestore,functions --project demo-lex --import packages/functions/emulator-seed \"pnpm --filter @lex/app test:integration && pnpm --filter lex-e2e test:mp\""
+    "validate:m4": "pnpm --filter @lex/functions build && firebase emulators:exec --only auth,firestore,functions --project demo-lex --import packages/functions/emulator-seed \"pnpm --filter @lex/app test:integration && pnpm --filter lex-e2e test:mp\"",
+    "validate:m5": "pnpm --filter @lex/functions build && firebase emulators:exec --only auth,firestore,functions --project demo-lex --import packages/functions/emulator-seed \"pnpm --filter lex-e2e test:offline\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
