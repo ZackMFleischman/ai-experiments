@@ -13,14 +13,15 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - **Pending vs committed tiles** unmistakable in both themes (lift + gold edge);
   pending tiles never look submitted.
 - Preview chips (word + score + ✓/✗) readable, and never occlude the pending word
-  or the rack; total badge anchored to the main word.
+  or the rack; no other score floater competes with them.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.
 - Pass-device interstitial fully hides both racks (no tile leakage in the frame).
 - Player bars, rack, preview chips, and board never overlap; safe-area respected
   at 390×844.
-- Last-play highlight visible but subordinate to pending-placement emphasis.
+- Last-play highlight (green edge) clearly a different signal than pending gold,
+  and gone entirely while any tile is staged.
 - A dragged tile is always visible: a fixed-position shadowed ghost rides
   above the finger everywhere (it survives leaving the viewport), the source
   slot/cell renders empty, and drops hit-test at the GHOST's center — the

@@ -1,6 +1,8 @@
-// Live-preview overlay (T3.7): word chips + total badge, positioned in board
-// space so they ride the viewport transform with the tiles they annotate.
-// Everything shown is a controller verdict — no scoring or legality here.
+// Live-preview overlay (T3.7): word chips positioned in board space so they
+// ride the viewport transform with the tiles they annotate. Each chip carries
+// its word's score — no separate total badge (it duplicated the main chip and
+// obscured the board). Everything shown is a controller verdict — no scoring
+// or legality here.
 import { Box } from '@mui/material';
 import type { CellKey } from '@lex/engine';
 import { parseCellKey } from '@lex/engine';
@@ -63,9 +65,6 @@ export function PreviewOverlay({ preview, anchor }: PreviewOverlayProps) {
     );
   }
 
-  const main = preview.words[0];
-  const mainEnd = main?.cells[main.cells.length - 1];
-
   return (
     <>
       {preview.words.map((w, i) => {
@@ -84,28 +83,10 @@ export function PreviewOverlay({ preview, anchor }: PreviewOverlayProps) {
             }}
           >
             {w.word} {w.score} {w.valid ? '✓' : '✗'}
+            {i === 0 && preview.bingo ? '★' : ''}
           </Box>
         );
       })}
-      {mainEnd && (
-        <Box
-          data-testid="preview-total"
-          sx={{
-            ...chip,
-            left: cellLeft(mainEnd.col + 1) + 4,
-            top: cellTop(mainEnd.row) + 4,
-            bgcolor: 'primary.main',
-            color: 'primary.contrastText',
-            fontSize: 15,
-            borderRadius: '50%',
-            minWidth: 28,
-            textAlign: 'center',
-          }}
-        >
-          {preview.total}
-          {preview.bingo ? '★' : ''}
-        </Box>
-      )}
     </>
   );
 }

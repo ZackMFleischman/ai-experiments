@@ -53,7 +53,8 @@ describe('view math', () => {
   it('zoomViewState clamps and keeps the point under the pointer fixed', () => {
     const base: ViewState = { cx: 100, cy: 100, zoom: 1 };
     expect(zoomViewState(base, 100, 0, 0).zoom).toBeLessThanOrEqual(8);
-    expect(zoomViewState(base, 1 / 100, 0, 0).zoom).toBeGreaterThanOrEqual(0.25);
+    // Zoom-out floor is fit: the board can never shrink past full-view.
+    expect(zoomViewState(base, 1 / 100, 0, 0).zoom).toBe(1);
     // Zooming ×2 at the view center leaves the center fixed.
     const zoomed = zoomViewState(base, 2, 100, 100);
     expect(zoomed.cx).toBeCloseTo(100);
@@ -141,6 +142,26 @@ describe('BoardViewport interaction', () => {
     expect(view.zoom).toBeGreaterThan(1);
   });
 
+  it('pinching out past fit snaps to auto-fit — the board can never leave the screen', () => {
+    const onViewChange = vi.fn();
+    const { container } = renderViewport({
+      view: { cx: 100, cy: 100, zoom: 2 }, // zoomed into a corner
+      onViewChange,
+    });
+    fireEvent.pointerDown(container, { pointerId: 1, clientX: 200, clientY: 200, isPrimary: true });
+    fireEvent.pointerDown(container, { pointerId: 2, clientX: 400, clientY: 200 });
+    // Fingers collapse to a tenth of the starting spread: zoom 2 → floor.
+    fireEvent.pointerMove(container, { pointerId: 2, clientX: 220, clientY: 200 });
+    expect(onViewChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('wheel zoom-out at fit refits instead of shrinking the board', () => {
+    const onViewChange = vi.fn();
+    const { container } = renderViewport({ onViewChange });
+    fireEvent.wheel(container, { deltaY: 240, clientX: 300, clientY: 200 });
+    expect(onViewChange).toHaveBeenLastCalledWith(null);
+  });
+
   it('double-tap zooms to placement scale at the tap; a second double-tap refits', () => {
     const onViewChange = vi.fn();
     const interaction = makeInteraction();
@@ -175,6 +196,11 @@ describe('BoardViewport interaction', () => {
     renderViewport({ view: { cx: 50, cy: 50, zoom: 2 }, onViewChange });
     fireEvent.click(screen.getByRole('button', { name: /recenter/i }));
     expect(onViewChange).toHaveBeenCalledWith(null);
+  });
+
+  it('board content is not text-selectable (press-drag must pan, not highlight)', () => {
+    const { container } = renderViewport({});
+    expect(getComputedStyle(container).userSelect).toBe('none');
   });
 
   it('toBoardPoint maps the container center to the view center', () => {

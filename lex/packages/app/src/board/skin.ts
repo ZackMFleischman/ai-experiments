@@ -31,6 +31,7 @@ export interface SkinVars {
   '--lex-tile-edge': string;
   '--lex-tile-blank-ring': string;
   '--lex-tile-pending-edge': string; // gold edge on staged tiles (DESIGN §7.2)
+  '--lex-tile-lastplay-edge': string; // green edge on the opponent's last play (T3.9)
 }
 
 /** Native cell edge in px — the single geometry constant hit-testing shares
@@ -59,6 +60,7 @@ export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, 
       '--lex-tile-edge': '#c9b98c',
       '--lex-tile-blank-ring': '#a58e51',
       '--lex-tile-pending-edge': '#d99b1f',
+      '--lex-tile-lastplay-edge': '#4f9d69',
     },
     dark: {
       '--lex-cell': CELL,
@@ -76,6 +78,7 @@ export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, 
       '--lex-tile-edge': '#b3a077',
       '--lex-tile-blank-ring': '#8e7a48',
       '--lex-tile-pending-edge': '#f0b234',
+      '--lex-tile-lastplay-edge': '#66b37e',
     },
   },
   walnut: {
@@ -95,6 +98,7 @@ export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, 
       '--lex-tile-edge': '#c8a878',
       '--lex-tile-blank-ring': '#96733d',
       '--lex-tile-pending-edge': '#ffb52e',
+      '--lex-tile-lastplay-edge': '#4f9d69',
     },
     dark: {
       '--lex-cell': CELL,
@@ -112,6 +116,7 @@ export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, 
       '--lex-tile-edge': '#ad9166',
       '--lex-tile-blank-ring': '#83683a',
       '--lex-tile-pending-edge': '#f0b234',
+      '--lex-tile-lastplay-edge': '#66b37e',
     },
   },
   // Low-vision skin: max text contrast, saturated-but-labeled premiums, hard
@@ -133,6 +138,7 @@ export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, 
       '--lex-tile-edge': '#000000',
       '--lex-tile-blank-ring': '#000000',
       '--lex-tile-pending-edge': '#e07b00',
+      '--lex-tile-lastplay-edge': '#00702e',
     },
     dark: {
       '--lex-cell': CELL,
@@ -150,6 +156,7 @@ export const TILE_SKINS: Readonly<Record<TileSkinId, Readonly<Record<ThemeMode, 
       '--lex-tile-edge': '#000000',
       '--lex-tile-blank-ring': '#000000',
       '--lex-tile-pending-edge': '#ff9500',
+      '--lex-tile-lastplay-edge': '#00e05c',
     },
   },
 };

@@ -112,7 +112,7 @@ export function BoardGrid({
                 style={{ animationDelay: `${playIndex * 0.12}s` }}
                 sx={{
                   borderRadius: '18%',
-                  outline: '2px solid var(--lex-tile-pending-edge)',
+                  outline: '2px solid var(--lex-tile-lastplay-edge)',
                   outlineOffset: '1px',
                   ...(!isStatic && {
                     '@keyframes lex-tile-in': {
