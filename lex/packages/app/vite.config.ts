@@ -50,11 +50,15 @@ export default defineConfig({
   plugins: [
     react(),
     dictAssets(),
-    // Minimal installable PWA (T3.12) — generated SW precaching the shell +
-    // dictionaries with SPA fallback. The custom push-capable SW is T5.1.
+    // Installable PWA with the custom push-capable SW (T5.1): src/sw.ts owns
+    // precache (dictionaries included) + SPA fallback + push display +
+    // push-sync postMessage.
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: {
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,dawg}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },

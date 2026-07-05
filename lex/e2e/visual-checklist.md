@@ -46,6 +46,12 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Waiting screen: invite link AND bare code visible with copy affordances;
   challenge variant swaps copy + withdraw action; board never visible while open.
 
+## Notifications (T5.2)
+
+- iOS coach mark: share-icon + copy legible both themes; dismiss target ≥ 44px.
+- Enable-notifications banner appears only in full mode with permission
+  undecided (unit-gated; not in the static gallery).
+
 ## Accepted deviations
 
 - 2026-07-04 — Phone rack slots render ~41px (guideline says ≥44): a 7-slot

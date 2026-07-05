@@ -9,6 +9,12 @@ export {
   type InitialGame,
 } from './games';
 export {
+  createForfeitHandlers,
+  type ForfeitConfig,
+  type ForfeitHandlers,
+  type SweepResult,
+} from './forfeit';
+export {
   INVITE_TTL_MS,
   deadlineFor,
   makeCode,

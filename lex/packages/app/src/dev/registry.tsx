@@ -11,7 +11,7 @@ import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
-import { AuthContext, HOTSEAT_AUTH } from '@parlor/web';
+import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
 import { Landing } from '../screens/Landing';
 import { LandingLayout } from '../screens/LandingLayout';
 import { JoinCard } from '../screens/Join';
@@ -109,6 +109,14 @@ export const GALLERY: GalleryEntry[] = [
           <Landing />
         </Box>
       </AuthContext.Provider>
+    ),
+  },
+  {
+    id: 'coach-mark',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2, maxWidth: 480 }}>
+        <InstallCoachMark onDismiss={() => {}} />
+      </Box>
     ),
   },
   {

@@ -4,7 +4,7 @@
 // (game-specific, T4.5) lives here. `ping` is the emulator-wiring smoke check.
 import { initializeApp } from 'firebase-admin/app';
 import { onCall } from 'firebase-functions/v2/https';
-import { createGameCallables } from '@parlor/server';
+import { createForfeitHandlers, createGameCallables } from '@parlor/server';
 import { lexServerConfig } from './config';
 
 initializeApp();
@@ -17,3 +17,7 @@ export const { createGame, joinGame, cancelGame, challengeUser, respondChallenge
   createGameCallables(lexServerConfig);
 
 export { submitMove } from './submitMove';
+
+export const { forfeitExpired } = createForfeitHandlers(lexServerConfig);
+/** Test seam: the sweep core, fired directly with a pinned now. */
+export { createForfeitHandlers, lexServerConfig };
