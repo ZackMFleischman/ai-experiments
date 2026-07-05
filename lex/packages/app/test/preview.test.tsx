@@ -1,5 +1,6 @@
 // T3.7 gate: live preview — per-word chips (word, points, ✓/✗ from the local
-// dict), total badge anchored to the main word, geometry-reason chip.
+// dict) and the geometry-reason chip. The chips carry the scores; there is no
+// separate total badge (it duplicated the chip and obscured the board).
 // (Play enablement rules are covered in controller.test.ts / actions.test.tsx.)
 import { act, render, screen } from '@testing-library/react';
 import { RULESETS } from '@lex/engine';
@@ -39,7 +40,7 @@ function stageCats(controller: GameController) {
 }
 
 describe('preview chips (T3.7)', () => {
-  it('a valid play shows a ✓ chip with word + points and the total badge', async () => {
+  it('a valid play shows a ✓ chip with word + points and no separate total badge', async () => {
     const { controller } = await setup();
     stageCats(controller);
     const chips = screen.getAllByTestId('preview-chip');
@@ -48,7 +49,7 @@ describe('preview chips (T3.7)', () => {
     expect(chips[0]?.textContent).toContain('CATS');
     expect(chips[0]?.textContent).toContain('12');
     expect(chips[0]?.textContent).toContain('✓');
-    expect(screen.getByTestId('preview-total').textContent).toContain('12');
+    expect(screen.queryByTestId('preview-total')).toBeFalsy();
   });
 
   it('an invalid word flags ✗ on its chip', async () => {
@@ -71,7 +72,7 @@ describe('preview chips (T3.7)', () => {
     expect(reason.textContent).toMatch(/gap/i);
   });
 
-  it('cross words each get a chip; the badge shows the grand total', async () => {
+  it('cross words each get a chip carrying its own score', async () => {
     const { controller } = await setup();
     stageCats(controller);
     act(() => controller.submitPlay());
@@ -83,8 +84,10 @@ describe('preview chips (T3.7)', () => {
     const chips = screen.getAllByTestId('preview-chip');
     expect(chips.map((c) => c.textContent).join(' ')).toMatch(/DO/);
     expect(chips).toHaveLength(3);
-    const total = controller.getSnapshot().preview!.total;
-    expect(screen.getByTestId('preview-total').textContent).toContain(String(total));
+    for (const w of controller.getSnapshot().preview!.words) {
+      expect(chips.map((c) => c.textContent).join(' ')).toContain(`${w.word} ${w.score}`);
+    }
+    expect(screen.queryByTestId('preview-total')).toBeFalsy();
   });
 
   it('no chips while a blank awaits its letter (the picker is up)', async () => {

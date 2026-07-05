@@ -526,8 +526,9 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
   3. Pending tiles are freely movable/returnable (drag back, tap to bounce back,
      **Recall** returns all). Dropping a blank opens the letter-picker sheet.
   4. As placements change, the **live preview** updates: each formed word gets a
-     chip (word + points, ✓/✗ from the local dictionary), plus a total-score badge
-     anchored to the main word. Play is enabled only when `checkPlay` passes and
+     chip (word + points, ✓/✗ from the local dictionary); the chips are the only
+     score display (no separate total badge — it duplicated the main chip and
+     obscured the board). Play is enabled only when `checkPlay` passes and
      all words are valid — pressing it submits optimistically (§6.3).
   5. **Exchange** flips the rack into multi-select (tiles dim/raise on tap) with a
      confirm bar ("Exchange 3 tiles — costs your turn"); disabled with a reason

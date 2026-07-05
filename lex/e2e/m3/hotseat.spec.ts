@@ -122,7 +122,7 @@ test('full hot-seat game to the victory sequence — drag variant', async ({ pag
   await dragPlace(page, 1, '7,8');
   await dragPlace(page, 2, '7,9');
   await dragPlace(page, 3, '7,10');
-  await expect(page.locator('[data-testid="preview-total"]')).toContainText('12');
+  await expect(page.locator('[data-testid="preview-chip"]')).toContainText('12');
   await playWord(page);
 
   await handoff(page, 'Player 2');
