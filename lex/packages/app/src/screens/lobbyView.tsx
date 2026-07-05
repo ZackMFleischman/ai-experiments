@@ -112,7 +112,7 @@ export function GameCard({
           <Thumbnail game={game} />
           <Stack sx={{ minWidth: 0, flex: 1 }} spacing={0.5}>
             <Typography fontWeight={600} noWrap>
-              {game.opponentName ?? 'Waiting for opponent…'}
+              {game.opponentName ?? 'Open invite'}
             </Typography>
             <Typography
               variant="body2"
@@ -131,16 +131,20 @@ export function GameCard({
                 : cardCaption(game, now)}
             </Typography>
           </Stack>
-          {yourTurn && game.deadlineAtMs !== undefined && (
-            <Chip
-              size="small"
-              variant="outlined"
-              label={timeLeft(game.deadlineAtMs, now)}
-              data-testid="deadline-chip"
-            />
-          )}
           {yourTurn && (
-            <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />
+            // Stacked, not side by side: two chips in a row starve the caption
+            // at 390px until the last play clamps away entirely (T6.3).
+            <Stack spacing={0.5} alignItems="center">
+              <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />
+              {game.deadlineAtMs !== undefined && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={timeLeft(game.deadlineAtMs, now)}
+                  data-testid="deadline-chip"
+                />
+              )}
+            </Stack>
           )}
           {game.status === 'open' && (
             <Chip
