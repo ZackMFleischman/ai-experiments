@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prebuild": "node scripts/build-icons.mjs",
-    "test:integration": "vitest run -c vitest.integration.config.ts"
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "dev:mp": "vite --mode multiplayer",
+    "build:mp": "vite build --mode multiplayer",
+    "prebuild:mp": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

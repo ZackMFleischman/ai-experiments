@@ -12,7 +12,6 @@
     "test": "pnpm build && firebase emulators:exec --only functions,firestore,auth --project demo-lex --import emulator-seed \"vitest run\""
   },
   "dependencies": {
-    "@parlor/server": "link:../../../parlor/packages/server",
     "firebase-admin": "^13.0.2",
     "firebase-functions": "^6.2.0"
   },
@@ -20,6 +19,7 @@
     "@firebase/rules-unit-testing": "^5.0.1",
     "@lex/dict": "workspace:*",
     "@lex/engine": "workspace:*",
+    "@parlor/server": "link:../../../parlor/packages/server",
     "@types/node": "^22.20.0",
     "esbuild": "^0.28.1",
     "firebase": "^12.15.0",

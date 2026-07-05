@@ -144,9 +144,6 @@ importers:
 
   packages/functions:
     dependencies:
-      '@parlor/server':
-        specifier: link:../../../parlor/packages/server
-        version: link:../../../parlor/packages/server
       firebase-admin:
         specifier: ^13.0.2
         version: 13.10.0
@@ -163,6 +160,9 @@ importers:
       '@lex/engine':
         specifier: workspace:*
         version: link:../engine
+      '@parlor/server':
+        specifier: link:../../../parlor/packages/server
+        version: link:../../../parlor/packages/server
       '@types/node':
         specifier: ^22.20.0
         version: 22.20.0
