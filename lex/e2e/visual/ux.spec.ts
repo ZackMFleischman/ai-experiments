@@ -83,14 +83,19 @@ async function center(page: Page, selector: string): Promise<{ x: number; y: num
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
-/** Drag a rack tile to a target board cell with raw pointer movements. */
+/** The drag ghost's center rides this far above the finger (GameBoard's
+ * GHOST_LIFT) — drops land at the GHOST, so aim the finger below the cell. */
+const GHOST_LIFT = 40;
+
+/** Drag a rack tile to a target board cell with raw pointer movements,
+ * aiming with the ghost the way a player does. */
 async function dragRackTile(page: Page, slot: number, cell: string) {
   const from = await center(page, `[data-rack-slot="${slot}"]`);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(from.x + 4, from.y - 60, { steps: 4 }); // leave the tray
   const to = await center(page, `[data-cell="${cell}"]`);
-  await page.mouse.move(to.x, to.y, { steps: 6 });
+  await page.mouse.move(to.x, to.y + GHOST_LIFT, { steps: 6 });
   return to;
 }
 

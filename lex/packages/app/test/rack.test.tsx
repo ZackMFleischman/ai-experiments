@@ -174,4 +174,22 @@ describe('RackTray', () => {
     fireEvent.pointerUp(tray, { pointerId: 6, clientX: 125, clientY: 631 });
     expect(slot(1).style.transform).toBe('');
   });
+
+  it('slides slots for an external drag-layer preview (ghost hovering the tray)', () => {
+    // The preview prop arrives mid-drag, after mount — as in the real app.
+    const props = {
+      tiles: ['A', 'E', 'I', '?', 'Q', null, null] as ReadonlyArray<string | null>,
+      rackSize: classic.rackSize,
+      points: classic.tiles.points,
+      bagCount: 86,
+    };
+    const { rerender } = render(<RackTray {...props} />);
+    const tray = screen.getByTestId('rack-tray');
+    mockRect(tray);
+    rerender(<RackTray {...props} externalDrag={{ from: 0, to: 2 }} />);
+    const slot = (i: number) => tray.querySelector(`[data-rack-slot="${i}"]`) as HTMLElement;
+    expect(slot(1).style.transform).toBe('translateX(-50px)');
+    expect(slot(2).style.transform).toBe('translateX(-50px)');
+    expect(slot(3).style.transform).toBe('');
+  });
 });

@@ -35,6 +35,9 @@ export interface RackTrayProps {
   onShuffle?: () => void;
   /** Pointer left the tray upward while dragging a tile: the drag layer takes over. */
   onDragOut?: (index: number, pointerId: number, clientX: number, clientY: number) => void;
+  /** A drag layer ghost is hovering the tray: preview the splice-move from
+   * slot `from` to slot `to` (same live slide as an internal reorder). */
+  externalDrag?: { from: number; to: number } | null;
 }
 
 interface DragRef {
@@ -57,6 +60,7 @@ export function RackTray({
   onReorder,
   onShuffle,
   onDragOut,
+  externalDrag = null,
 }: RackTrayProps) {
   const mode = useTheme().palette.mode;
   const skinId = useSkinId();
@@ -154,7 +158,11 @@ export function RackTray({
         overflow: 'hidden',
       }}
     >
-      <Box ref={rowRef} sx={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'center', minWidth: 0 }}>
+      <Box
+        ref={rowRef}
+        data-rack-row
+        sx={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'center', minWidth: 0 }}
+      >
         {Array.from({ length: rackSize }, (_, i) => {
           const face = tiles[i] ?? null;
           // The first `drawing` empty slots carry the refill placeholder.
@@ -162,18 +170,24 @@ export function RackTray({
           const isDrawing = face === null && emptyOrdinal >= 0 && emptyOrdinal < drawing;
           const dragging = dragVisual?.index === i;
           const exchangeSelected = exchangeSelection?.has(i) ?? false;
-          // Live reorder preview: while a tile is dragged, the slots between
-          // it and its drop target slide one slot over — same splice-move the
+          // Live reorder preview: while a tile is dragged — internally or by
+          // the drag layer's ghost hovering the tray — the slots between it
+          // and its drop target slide one slot over, the same splice-move the
           // controller applies on release, shown in real time.
+          const w = dragVisual || externalDrag ? slotWidth() : 0;
+          const preview = dragVisual
+            ? {
+                from: dragVisual.index,
+                to: Math.min(
+                  tiles.length - 1,
+                  Math.max(0, dragVisual.index + Math.round(dragVisual.dx / w)),
+                ),
+              }
+            : externalDrag;
           let slide: string | undefined;
-          if (dragVisual && !dragging) {
-            const w = slotWidth();
-            const to = Math.min(
-              tiles.length - 1,
-              Math.max(0, dragVisual.index + Math.round(dragVisual.dx / w)),
-            );
-            if (dragVisual.index < i && i <= to) slide = `translateX(${-w}px)`;
-            else if (to <= i && i < dragVisual.index) slide = `translateX(${w}px)`;
+          if (preview && !dragging) {
+            if (preview.from < i && i <= preview.to) slide = `translateX(${-w}px)`;
+            else if (preview.to <= i && i < preview.from) slide = `translateX(${w}px)`;
           }
           // Transforms ride inline styles (not sx): they change every
           // pointermove, and emotion would mint a class per frame.

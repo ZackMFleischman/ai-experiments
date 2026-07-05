@@ -44,6 +44,14 @@ function cellClient(row: number, col: number): { clientX: number; clientY: numbe
   return { clientX: 100 + bx * s, clientY: by * s };
 }
 
+/** Drops hit-test at the GHOST's center, which floats GHOST_LIFT px above
+ * the finger — so to land on a cell, the finger aims that far BELOW it. */
+const LIFT = 40;
+function fingerFor(row: number, col: number): { clientX: number; clientY: number } {
+  const c = cellClient(row, col);
+  return { clientX: c.clientX, clientY: c.clientY + LIFT };
+}
+
 describe('GameBoard — tap-tap fallback', () => {
   it('tap a rack tile, tap an empty cell: the tile is staged', async () => {
     const { controller, viewport, tray } = await setup();
@@ -93,14 +101,14 @@ describe('GameBoard — tap-tap fallback', () => {
 });
 
 describe('GameBoard — drag from the rack', () => {
-  it('drag a rack tile onto an empty cell stages it', async () => {
+  it('drag a rack tile onto an empty cell stages it (aiming with the ghost)', async () => {
     const { controller, tray } = await setup();
     const slot = tray.querySelector('[data-rack-slot="0"]') as Element;
     fireEvent.pointerDown(slot, { pointerId: 5, clientX: 25, clientY: 530, isPrimary: true });
     // Upward past the tray edge: the tray hands the pointer to the drag layer.
     fireEvent.pointerMove(tray, { pointerId: 5, clientX: 30, clientY: 480 });
     expect(screen.queryByTestId('drag-ghost')).toBeTruthy();
-    const at = cellClient(7, 7);
+    const at = fingerFor(7, 7);
     fireEvent.pointerMove(window, { pointerId: 5, ...at });
     fireEvent.pointerUp(window, { pointerId: 5, ...at });
     const snap = controller.getSnapshot();
@@ -115,7 +123,7 @@ describe('GameBoard — drag from the rack', () => {
     const slot = tray.querySelector('[data-rack-slot="0"]') as Element;
     fireEvent.pointerDown(slot, { pointerId: 6, clientX: 25, clientY: 530, isPrimary: true });
     fireEvent.pointerMove(tray, { pointerId: 6, clientX: 30, clientY: 480 });
-    const at = cellClient(7, 7);
+    const at = fingerFor(7, 7);
     fireEvent.pointerMove(window, { pointerId: 6, ...at });
     fireEvent.pointerUp(window, { pointerId: 6, ...at }); // occupied
     let snap = controller.getSnapshot();
@@ -138,18 +146,34 @@ describe('GameBoard — drag from the rack', () => {
     expect(screen.queryByTestId('drag-ghost')).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByTestId('drag-ghost')).toBeFalsy();
-    fireEvent.pointerUp(window, { pointerId: 8, ...cellClient(7, 7) });
+    fireEvent.pointerUp(window, { pointerId: 8, ...fingerFor(7, 7) });
     expect(controller.getSnapshot().pending.size).toBe(0);
+  });
+
+  it('a rack drag dropped back on the tray reorders — with the insertion previewed live', async () => {
+    const { controller, tray } = await setup();
+    const slot = tray.querySelector('[data-rack-slot="0"]') as Element;
+    fireEvent.pointerDown(slot, { pointerId: 14, clientX: 25, clientY: 530, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 14, clientX: 30, clientY: 480 }); // hand-off
+    // Back down over the tray at slot 2's x: the rack previews the splice.
+    fireEvent.pointerMove(window, { pointerId: 14, clientX: 125, clientY: 530 });
+    const slot1 = tray.querySelector('[data-rack-slot="1"]') as HTMLElement;
+    expect(slot1.style.transform).toBe('translateX(-50px)');
+    fireEvent.pointerUp(window, { pointerId: 14, clientX: 125, clientY: 530 });
+    const snap = controller.getSnapshot();
+    expect(snap.rack).toEqual(['A', 'T', 'C', 'S', 'E', 'R', 'N']);
+    expect(snap.pending.size).toBe(0);
+    expect(slot1.style.transform).toBe('');
   });
 });
 
 describe('GameBoard — dragging staged tiles', () => {
-  it('drag a pending tile to another empty cell moves it', async () => {
+  it('drag a pending tile to another empty cell moves it (aiming with the ghost)', async () => {
     const { controller, viewport } = await setup();
     act(() => controller.placeAt({ row: 7, col: 7 }, 0));
     const pendingEl = viewport.querySelector('[data-pending="true"]') as Element;
     const from = cellClient(7, 7);
-    const to = cellClient(7, 9);
+    const to = fingerFor(7, 9);
     fireEvent.pointerDown(pendingEl, { pointerId: 9, ...from, isPrimary: true });
     fireEvent.pointerMove(viewport, { pointerId: 9, ...to });
     fireEvent.pointerUp(viewport, { pointerId: 9, ...to });
@@ -169,6 +193,24 @@ describe('GameBoard — dragging staged tiles', () => {
     expect(snap.pending.size).toBe(0);
     expect(snap.rack[0]).toBe('C');
   });
+
+  it('drag a pending tile onto the tray inserts it at that slot — reorder mode, seamlessly', async () => {
+    const { controller, viewport, tray } = await setup();
+    act(() => controller.placeAt({ row: 7, col: 7 }, 0)); // C leaves slot 0
+    const pendingEl = viewport.querySelector('[data-pending="true"]') as Element;
+    fireEvent.pointerDown(pendingEl, { pointerId: 15, ...cellClient(7, 7), isPrimary: true });
+    // Down over the tray at slot 3's x: the ghost stays with the finger and
+    // the rack previews the insertion.
+    fireEvent.pointerMove(viewport, { pointerId: 15, clientX: 175, clientY: 530 });
+    expect(screen.getByTestId('drag-ghost')).toBeTruthy();
+    // The tile would land in slot 0's hole then splice to 3: A/T/S slide left.
+    const slot1 = tray.querySelector('[data-rack-slot="1"]') as HTMLElement;
+    expect(slot1.style.transform).toBe('translateX(-50px)');
+    fireEvent.pointerUp(viewport, { pointerId: 15, clientX: 175, clientY: 530 });
+    const snap = controller.getSnapshot();
+    expect(snap.pending.size).toBe(0);
+    expect(snap.rack).toEqual(['A', 'T', 'S', 'C', 'E', 'R', 'N']);
+  });
 });
 
 describe('GameBoard — drag ghosts (the tile stays visible under your finger)', () => {
@@ -177,12 +219,12 @@ describe('GameBoard — drag ghosts (the tile stays visible under your finger)',
     act(() => controller.placeAt({ row: 7, col: 7 }, 0));
     const pendingEl = viewport.querySelector('[data-pending="true"]') as Element;
     fireEvent.pointerDown(pendingEl, { pointerId: 11, ...cellClient(7, 7), isPrimary: true });
-    fireEvent.pointerMove(viewport, { pointerId: 11, ...cellClient(7, 9) });
+    fireEvent.pointerMove(viewport, { pointerId: 11, ...fingerFor(7, 9) });
     // The ghost carries the letter; the source cell is empty while dragging.
-    expect(screen.getByTestId('board-drag-ghost').textContent).toContain('C');
+    expect(screen.getByTestId('drag-ghost').textContent).toContain('C');
     expect(viewport.querySelector('[data-cell="7,7"] [data-tile]')).toBeNull();
-    fireEvent.pointerUp(viewport, { pointerId: 11, ...cellClient(7, 9) });
-    expect(screen.queryByTestId('board-drag-ghost')).toBeFalsy();
+    fireEvent.pointerUp(viewport, { pointerId: 11, ...fingerFor(7, 9) });
+    expect(screen.queryByTestId('drag-ghost')).toBeFalsy();
     expect(viewport.querySelector('[data-cell="7,9"] [data-tile]')).toBeTruthy();
     expect(controller.getSnapshot().pending.get('7,9')?.letter).toBe('C');
   });
@@ -193,9 +235,9 @@ describe('GameBoard — drag ghosts (the tile stays visible under your finger)',
     const pendingEl = viewport.querySelector('[data-pending="true"]') as Element;
     fireEvent.pointerDown(pendingEl, { pointerId: 12, ...cellClient(7, 7), isPrimary: true });
     fireEvent.pointerMove(viewport, { pointerId: 12, clientX: 50, clientY: 390 });
-    expect(screen.getByTestId('board-drag-ghost')).toBeTruthy();
+    expect(screen.getByTestId('drag-ghost')).toBeTruthy();
     fireEvent.pointerUp(viewport, { pointerId: 12, clientX: 50, clientY: 390 });
-    expect(screen.queryByTestId('board-drag-ghost')).toBeFalsy();
+    expect(screen.queryByTestId('drag-ghost')).toBeFalsy();
     expect(controller.getSnapshot().rack[0]).toBe('C'); // returned home
   });
 
