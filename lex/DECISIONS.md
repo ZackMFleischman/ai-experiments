@@ -78,3 +78,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   account (Editor + roles/run.admin) is stored as the GitHub Actions secret
   `FIREBASE_SERVICE_ACCOUNT_LEX_ZMF` — hive §5.6 setup complete; nothing
   manual blocks M4.
+
+- **2026-07-05 — SHIPPED M4 (T4.1–T4.10).** Gates: full `pnpm validate` green —
+  22 negative-case rules tests, 32 callable/submitMove emulator tests, 5 real-SDK
+  integration tests + the two-browser e2e (bingo, count-only exchange, reload
+  resume, resign, rematch, challenge/decline) under validate:m4; 186-shot visual
+  sweep. Deviations: the client ADOPTS server snapshots instead of replaying the
+  log (hidden info — 'sync' entries; §3.3); private/bag gains `state`, racks gain
+  `n` (§6.2 amended); resign allowed off-turn. Stumbles: reconcileSlots collapsed
+  duplicate faces; snapshot fetches racing a commit needed a monotonic gate.

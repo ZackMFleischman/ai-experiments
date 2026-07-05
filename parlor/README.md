@@ -10,12 +10,15 @@ Independent pnpm workspace. Packages (TS source, no build step):
 
 - **`@parlor/core`** — zero-dependency: the `GameTransport` seam, `LogSession`
   (optimistic submit/rollback over an append-only log), localStorage transport.
-- **`@parlor/web`** — React + Firebase client layer: app init, auth context,
-  push/notification setup, lobby queries, Firestore transport, base theme, SW
-  push handling. Peer deps: react, firebase, MUI (the game provides them).
-- **`@parlor/server`** — Cloud Functions building blocks: callable shells
-  (create/join/cancel/challenge/respond/rematch), the submit transaction shell,
-  notify + forfeit sweeps.
+- **`@parlor/web`** — React + Firebase client layer: configurable app init,
+  the auth seam (hot-seat/full context + route guard + provider stack), the
+  callable client factory, and the lobby listener hook (doc→summary mapping is
+  the game's). Peer deps: react, firebase, MUI (the game provides them).
+  Root entry is firebase-free; SDK surfaces sit behind subpath exports.
+- **`@parlor/server`** — Cloud Functions building blocks: the shared callables
+  (create/join/cancel/challenge/respond/rematch/resign) shaped by an injected
+  `GameServerConfig` (seats, options, initial state, racks), plus the notify
+  machinery. Game-specific moves (e.g. lex's submitMove) stay in the game.
 - **`@parlor/harness`** — the `/dev/gallery` runtime and `validate:visual` /
   `validate:ux` script cores.
 

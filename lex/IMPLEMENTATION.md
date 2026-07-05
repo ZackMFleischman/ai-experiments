@@ -99,20 +99,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M3 — shipped, see DECISIONS.md
 
-### M4 — Multiplayer backend (DESIGN §3.3, §6)
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T4.1 | Port `@parlor/web`: firebase init, authContext, RequireAuth, AppSyncProviders, gameApi, lobby queries **[port: hive app/src/sync/*]** | genericize field/payload types while copying; parlor's own tests run in its workspace | unit |
-| T4.2 | Themed landing/sign-in (tile-vignette hero) + emulator email/password test sign-in for dev/e2e (prod = Google only, §8) **[visual]** | | auth tests |
-| T4.3 | Schema + `firestore.rules` + indexes: public tier, `racks/{uid}` owner-read, `private/*` no-read **[port: hive rules as base]** | **negative rules tests**: opponent rack denied, bag denied, direct game writes denied | rules suite |
-| T4.4 | Callables: create/join/cancel/challenge/respond/rematch via `@parlor/server` **[port: hive functions/games.ts, notify.ts]**; `createGame` validates rulesetId/dictionaryId against the registries, shuffles + persists bag, deals racks | | emulator tests |
-| T4.5 | `submitMove`: reconstruct full state (public log + private doc), turn + concurrency guard, `applyMove` w/ dict, transactional writes (move, game+public+lastPlay, rack, bag), opponent push | tests: happy, illegal word, illegal geometry, wrong turn, stale count, exchange privacy (count only public), tile conservation across docs, exchange re-shuffle event recorded | emulator tests |
-| T4.6 | `firestoreTransport` + own-rack listener + optimistic/refill reconciliation ("drawing…" placeholder) **[port: hive firestoreTransport]** | integration tests vs emulator | integration |
-| T4.7 | Lobby (challenges/your-turn/waiting/finished; cards with scores + lastPlay), join flow (summary card lists board/dictionary/time control, FR-10), new-game flow (opponent chip / invite link, **board picker with mini premium-map preview, dictionary picker with word counts** — FR-6/7, turn order, time control), waiting screen with re-shareable invite; game menu restates options **[port: hive screens]** **[visual]** | | screen tests + gallery |
-| T4.8 | Two-browser Playwright e2e: create → invite → join → plays both ways → exchange → bingo → resign → rematch; reload-mid-game resume | single worker; force long polling in emulator mode (§8) | e2e green |
-| T4.9 | Multiplayer build mode + deploy workflow: default build stays firebase-free static hot-seat; `--mode multiplayer` ships to Firebase Hosting; esbuild-bundled functions; idempotent invoker-repair step **[port: hive-deploy.yml]** ⚑ console/project setup | | deploy job green vs `lex-zmf` once ⚑ done |
-| T4.10 | `validate:m4` | | `pnpm validate:m4` |
+### M4 — shipped, see DECISIONS.md
 
 ### M5 — PWA + notifications + async clocks (DESIGN §8, §6.4)
 
