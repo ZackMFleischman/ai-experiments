@@ -271,7 +271,10 @@ export function GameBoard({
     return () => window.removeEventListener('keydown', key);
   }, [controller]);
 
-  const lastPlay = snap.lastPlay?.kind === 'play' ? snap.lastPlay : undefined;
+  // The opponent-play highlight yields the stage to pending placements: the
+  // moment a tile is staged it disappears (recall brings it back).
+  const lastPlay =
+    snap.lastPlay?.kind === 'play' && snap.pending.size === 0 ? snap.lastPlay : undefined;
   const lastPlayEnd = lastPlay?.cells[lastPlay.cells.length - 1];
 
   // While a staged tile is in flight its cell renders empty — the ghost IS the tile.
@@ -339,7 +342,7 @@ export function GameBoard({
               preview={snap.preview}
               anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
             />
-            {lastPlay && lastPlayEnd && snap.pending.size === 0 && (
+            {lastPlay && lastPlayEnd && (
               <Box
                 data-testid="last-play-score"
                 sx={{

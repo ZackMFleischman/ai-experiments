@@ -534,7 +534,9 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      confirm bar ("Exchange 3 tiles — costs your turn"); disabled with a reason
      when the bag < 7. **Pass** confirms via dialog.
 - **Remote plays animate in** tile-by-tile along the word; the opponent's last play
-  stays highlighted (hive's last-move convention) and its score floats briefly.
+  stays highlighted (hive's last-move convention, green edge — distinct from the
+  pending gold) and its score floats alongside. Both step aside while you have
+  tiles staged so they never compete with the placement emphasis.
 - Drag is raw pointer events, no dnd library — hive decision §9.8's reasoning
   transfers wholesale (touch first, transform-aware hit-testing, controller-testable
   without synthetic events).

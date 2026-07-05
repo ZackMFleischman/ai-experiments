@@ -67,6 +67,18 @@ describe('skin registry', () => {
     }
   });
 
+  it('last-play edge reads as a different signal than the pending edge', () => {
+    for (const skin of SKIN_IDS) {
+      for (const mode of MODES) {
+        const vars = skinVars(mode, skin);
+        expect(
+          vars['--lex-tile-lastplay-edge'],
+          `${skin}/${mode} lastplay vs pending edge`,
+        ).not.toBe(vars['--lex-tile-pending-edge']);
+      }
+    }
+  });
+
   it('keeps the geometry knob identical across skins — only colors vary', () => {
     for (const skin of SKIN_IDS) {
       for (const mode of MODES) {

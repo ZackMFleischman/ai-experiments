@@ -96,6 +96,20 @@ describe('last-play highlight + animation hooks (T3.9)', () => {
     expect(document.querySelectorAll('[data-last-play]')).toHaveLength(0);
     expect(screen.queryByTestId('last-play-score')).toBeFalsy();
   });
+
+  it('staging a tile hides the highlight (and floater); recall brings it back', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    // Next player starts placing: the opponent-play highlight must get out
+    // of the way of the pending-placement emphasis.
+    act(() => controller.placeAt({ row: 8, col: 7 }, 0));
+    expect(document.querySelectorAll('[data-last-play]')).toHaveLength(0);
+    expect(screen.queryByTestId('last-play-score')).toBeFalsy();
+    act(() => controller.recallAll());
+    expect(document.querySelectorAll('[data-last-play]')).toHaveLength(4);
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
 });
 
 describe('score bar + sheet access', () => {
