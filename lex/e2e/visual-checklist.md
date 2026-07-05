@@ -23,15 +23,17 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Last-play highlight (green edge) clearly a different signal than pending gold,
   and gone entirely while any tile is staged.
 - A dragged tile is always visible: a fixed-position shadowed ghost rides
-  above the finger everywhere (it survives leaving the viewport), the source
-  slot/cell renders empty, and drops hit-test at the GHOST's center — the
-  hover highlight always matches where the tile will land.
+  under the finger (it survives leaving the viewport) and SNAPS into the free
+  cell it would land in — position and scale match the cell exactly; the
+  source slot/cell renders empty; release commits the snapped cell (nothing
+  snapped = the tile goes home) so a drop never lands anywhere the snap
+  didn't show.
 - Rack ergonomics (real-device round): tray padded past the iOS home
   indicator (safe-area, bag chip never clipped); a press anywhere on the tray
   grabs the nearest tile; neighbors slide over in real time during reorder.
   ANY drag hovering the tray — rack- or board-origin — flips to insertion
-  mode: ghost drops to the finger, slots preview the splice, release commits
-  it (staged tiles return to the exact slot you point at).
+  mode: the ghost un-snaps to ride the finger, slots preview the splice,
+  release commits it (staged tiles return to the exact slot you point at).
 - Result overlay hierarchy: outcome → reason → score story (with adjustment line
   items) → actions; readable over any board.
 - Text contrast ≥ 4.5:1 (spot-check theme tokens, all tile skins).
