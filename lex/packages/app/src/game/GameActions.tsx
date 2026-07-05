@@ -40,17 +40,20 @@ export function GameActions({
 }: GameActionsProps) {
   const [confirm, setConfirm] = useState<'pass' | 'resign' | null>(initialConfirm ?? null);
   const exchangeShort = interactive && !canExchange && bagCount < exchangeMinBag;
+  // Drop MUI's 64px button min-width so all five actions share one row at
+  // 390px (T6.2) — flexWrap stays as the safety net for narrower frames.
+  const compact = { minWidth: 0, px: 1 } as const;
 
   return (
-    <Box data-testid="game-actions" sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, flexWrap: 'wrap' }}>
-      <Button variant="contained" size="small" disabled={!playable} onClick={onPlay}>
+    <Box data-testid="game-actions" sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5, flexWrap: 'wrap' }}>
+      <Button variant="contained" size="small" disabled={!playable} onClick={onPlay} sx={compact}>
         Play
       </Button>
-      <Button size="small" disabled={!hasPending} onClick={onRecall}>
+      <Button size="small" disabled={!hasPending} onClick={onRecall} sx={compact}>
         Recall
       </Button>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Button size="small" disabled={!interactive || !canExchange} onClick={onExchange}>
+        <Button size="small" disabled={!interactive || !canExchange} onClick={onExchange} sx={compact}>
           Exchange
         </Button>
         {exchangeShort && (
@@ -59,7 +62,7 @@ export function GameActions({
           </Typography>
         )}
       </Box>
-      <Button size="small" disabled={!interactive} onClick={() => setConfirm('pass')}>
+      <Button size="small" disabled={!interactive} onClick={() => setConfirm('pass')} sx={compact}>
         Pass
       </Button>
       <Box sx={{ flex: 1 }} />
@@ -68,6 +71,7 @@ export function GameActions({
         color="error"
         disabled={!(canResign ?? interactive)}
         onClick={() => setConfirm('resign')}
+        sx={compact}
       >
         Resign
       </Button>

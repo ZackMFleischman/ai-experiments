@@ -44,6 +44,31 @@ for (const { file, size, maskable } of jobs) {
   console.log(`icons: ${file}`);
 }
 
+// Website card thumbnail (T6.6): the L-E-X tile wordmark on the board green,
+// 16:9, for zackmfleischman.com's apps grid (goes into PersonalWebsite's
+// assets/images/lex-card.png). Emitted to artifacts/ — generated, not committed.
+const cardTile = (x, letter, points) => `
+  <g transform="translate(${x},0)">
+    <rect x="0" y="0" width="100" height="100" rx="16"
+      fill="${TILE_BG}" stroke="${TILE_EDGE}" stroke-width="3"/>
+    <text x="44" y="70" font-family="Georgia, 'Times New Roman', serif" font-size="60"
+      font-weight="700" fill="${TILE_FG}" text-anchor="middle">${letter}</text>
+    <text x="84" y="90" font-family="Georgia, 'Times New Roman', serif" font-size="22"
+      font-weight="600" fill="${TILE_FG}" text-anchor="middle">${points}</text>
+  </g>`;
+const cardSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270">
+  <rect width="480" height="270" fill="${FIELD}"/>
+  <g transform="translate(75,80)">
+    ${cardTile(0, 'L', 1)}${cardTile(115, 'E', 1)}${cardTile(230, 'X', 8)}
+  </g>
+  <text x="240" y="235" font-family="Helvetica, Arial, sans-serif" font-size="20"
+    fill="#e6f2ee" text-anchor="middle" letter-spacing="1">A crossword tile game for two</text>
+</svg>`;
+const artifacts = join(root, '..', '..', 'artifacts');
+mkdirSync(artifacts, { recursive: true });
+await sharp(Buffer.from(cardSvg)).resize(1200, 675).png().toFile(join(artifacts, 'lex-card.png'));
+console.log('icons: ../artifacts/lex-card.png (website card — copy into PersonalWebsite)');
+
 // Notification badge (T5.1/T5.3): monochrome white tile-L on transparent —
 // status-bar badges are alpha masks, color would render as a blob.
 const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">

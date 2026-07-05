@@ -9,7 +9,18 @@ import { Landing } from './screens/Landing';
 import { Lobby } from './screens/Lobby';
 import { NewGame } from './screens/NewGame';
 import { Settings } from './screens/Settings';
+import { SkinProvider } from './board/skinContext';
 import { ColorModeContext, createAppTheme, type ThemeMode } from './theme';
+
+const THEME_STORAGE_KEY = 'lex.theme.v1';
+
+function storedMode(): ThemeMode {
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
+}
 
 // DEV-only: the validation gallery (T3.11) — lazy behind import.meta.env.DEV
 // so it never reaches a production bundle.
@@ -79,9 +90,21 @@ export function AppRoutes() {
 }
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('light');
+  const [mode, setMode] = useState<ThemeMode>(storedMode);
   const colorMode = useMemo(
-    () => ({ mode, toggle: () => setMode((m) => (m === 'light' ? 'dark' : 'light')) }),
+    () => ({
+      mode,
+      toggle: () =>
+        setMode((m) => {
+          const next = m === 'light' ? 'dark' : 'light';
+          try {
+            window.localStorage.setItem(THEME_STORAGE_KEY, next);
+          } catch {
+            // The choice just won't survive a refresh.
+          }
+          return next;
+        }),
+    }),
     [mode],
   );
   const theme = useMemo(() => createAppTheme(mode), [mode]);
@@ -89,7 +112,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {children}
+        <SkinProvider>{children}</SkinProvider>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );

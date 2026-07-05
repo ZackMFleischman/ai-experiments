@@ -4,6 +4,7 @@
 // QUIZ +68"). Firebase-free — the sync container (sync/OnlineGames) feeds
 // it; the gallery feeds it fixtures.
 import {
+  Box,
   Button,
   Card,
   CardActionArea,
@@ -12,10 +13,14 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import type { Seat } from '@lex/engine';
-import { parsePublic } from '@lex/engine';
+import { parsePublic, RULESETS } from '@lex/engine';
 import { useMemo } from 'react';
 import { MiniBoard } from '../board/MiniBoard';
+import { skinVars } from '../board/skin';
+import { useSkinId } from '../board/skinContext';
+import { Tile } from '../board/Tile';
 
 export interface LobbyGameSummary {
   id: string;
@@ -107,7 +112,7 @@ export function GameCard({
           <Thumbnail game={game} />
           <Stack sx={{ minWidth: 0, flex: 1 }} spacing={0.5}>
             <Typography fontWeight={600} noWrap>
-              {game.opponentName ?? 'Waiting for opponent…'}
+              {game.opponentName ?? 'Open invite'}
             </Typography>
             <Typography
               variant="body2"
@@ -126,16 +131,20 @@ export function GameCard({
                 : cardCaption(game, now)}
             </Typography>
           </Stack>
-          {yourTurn && game.deadlineAtMs !== undefined && (
-            <Chip
-              size="small"
-              variant="outlined"
-              label={timeLeft(game.deadlineAtMs, now)}
-              data-testid="deadline-chip"
-            />
-          )}
           {yourTurn && (
-            <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />
+            // Stacked, not side by side: two chips in a row starve the caption
+            // at 390px until the last play clamps away entirely (T6.3).
+            <Stack spacing={0.5} alignItems="center">
+              <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />
+              {game.deadlineAtMs !== undefined && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={timeLeft(game.deadlineAtMs, now)}
+                  data-testid="deadline-chip"
+                />
+              )}
+            </Stack>
           )}
           {game.status === 'open' && (
             <Chip
@@ -191,6 +200,29 @@ export function ChallengeCard({
   );
 }
 
+/** A real empty state (T6.2): tile motif + headline + what-to-do copy. The
+ * tile points come from the classic ruleset — decoration, but never made up. */
+function LobbyEmpty() {
+  const mode = useTheme().palette.mode;
+  const skin = useSkinId();
+  const points = RULESETS['classic']!.tiles.points;
+  return (
+    <Stack alignItems="center" spacing={1} sx={{ mt: 6, textAlign: 'center' }} data-testid="lobby-empty">
+      <Box aria-hidden sx={{ ...skinVars(mode, skin), '--lex-cell': '44px', display: 'flex', gap: 0.5, mb: 1 }}>
+        {(['P', 'L', 'A', 'Y'] as const).map((letter) => (
+          <Tile key={letter} letter={letter} isBlank={false} points={points[letter] ?? 0} />
+        ))}
+      </Box>
+      <Typography variant="h6" component="p">
+        No games yet
+      </Typography>
+      <Typography color="text.secondary" sx={{ maxWidth: 340 }}>
+        Start one and send your friend the invite link — or challenge them by name.
+      </Typography>
+    </Stack>
+  );
+}
+
 export function LobbyView({
   games,
   now,
@@ -213,13 +245,7 @@ export function LobbyView({
   );
   const finished = games.filter((g) => g.status === 'finished');
 
-  if (games.length === 0) {
-    return (
-      <Typography color="text.secondary" sx={{ mt: 3 }} data-testid="lobby-empty">
-        No games yet — start one and send your friend the invite link.
-      </Typography>
-    );
-  }
+  if (games.length === 0) return <LobbyEmpty />;
 
   const section = (title: string, list: LobbyGameSummary[], testid: string) =>
     list.length > 0 && (
