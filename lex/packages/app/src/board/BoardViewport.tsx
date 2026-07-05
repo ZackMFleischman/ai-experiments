@@ -24,7 +24,9 @@ export interface BoardPoint {
   y: number;
 }
 
-const MIN_ZOOM = 0.25;
+// Zoom-out floor is FIT (zoom 1): letting the board shrink below full-view
+// only ever loses it off-screen. Zoom-in is where the range lives.
+const MIN_ZOOM = 1;
 const MAX_ZOOM = 8;
 /** Double-tap target: absolute scale where cells are placement-sized. */
 const PLACEMENT_SCALE = 1.2;
@@ -173,6 +175,13 @@ export function BoardViewport({
       containerRef.current ? toBoard(clientX, clientY) : null,
   }));
 
+  /** Route a zoom result to the controller: bottoming out at the floor snaps
+   * to auto-fit (null), so zooming all the way out always recenters — a view
+   * panned off-center at fit could still hide the board. */
+  const changeZoomView = (next: ViewState) => {
+    onViewChange(next.zoom <= MIN_ZOOM ? null : next);
+  };
+
   const placementZoom = () => {
     const fit = fitScale(size.w, size.h, boardWidth, boardHeight);
     return Math.min(MAX_ZOOM, Math.max(1, PLACEMENT_SCALE / fit));
@@ -236,7 +245,7 @@ export function BoardViewport({
       if (pinch.current.dist > 0 && dist > 0) {
         const factor = dist / pinch.current.dist;
         const mid = toBoard((a.x + b.x) / 2, (a.y + b.y) / 2);
-        onViewChange(zoomViewState(pinch.current.view, factor, mid.x, mid.y));
+        changeZoomView(zoomViewState(pinch.current.view, factor, mid.x, mid.y));
       }
       return;
     }
@@ -285,7 +294,7 @@ export function BoardViewport({
   const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
     const factor = Math.exp(-e.deltaY * 0.0015);
     const at = toBoard(e.clientX, e.clientY);
-    onViewChange(zoomViewState(effective, factor, at.x, at.y));
+    changeZoomView(zoomViewState(effective, factor, at.x, at.y));
   };
 
   return (
