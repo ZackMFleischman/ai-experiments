@@ -217,6 +217,7 @@ export function GameBoard({
           playable={snap.preview?.playable ?? false}
           hasPending={snap.pending.size > 0}
           interactive={snap.interactive}
+          canResign={!snap.end}
           canExchange={snap.canExchange}
           exchangeMinBag={snap.ruleset.exchangeMinBag}
           bagCount={snap.bagCount}

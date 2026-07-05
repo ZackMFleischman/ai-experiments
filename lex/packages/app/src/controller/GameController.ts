@@ -151,26 +151,27 @@ function shuffled<T>(items: readonly T[], rng: () => number): T[] {
 }
 
 /** Rebuild rack slots from the engine rack, preserving the user's arrangement
- * where tiles survived (multiset reconcile; new draws fill free slots). */
+ * where tiles survived; unclaimed faces fill free slots IN RACK ORDER (a
+ * per-face count map would collapse duplicates together and scramble the
+ * dealt/drawn order — the T4.8 e2e caught exactly that). */
 function reconcileSlots(
   prev: ReadonlyArray<TileFace | null>,
   rack: readonly TileFace[],
   rackSize: number,
 ): Array<TileFace | null> {
-  const remaining = new Map<TileFace, number>();
-  for (const face of rack) remaining.set(face, (remaining.get(face) ?? 0) + 1);
+  const remaining = [...rack];
+  const take = (face: TileFace): boolean => {
+    const at = remaining.indexOf(face);
+    if (at < 0) return false;
+    remaining.splice(at, 1);
+    return true;
+  };
   const slots: Array<TileFace | null> = Array.from({ length: rackSize }, (_, i) => {
     const face = prev[i] ?? null;
-    if (face && (remaining.get(face) ?? 0) > 0) {
-      remaining.set(face, remaining.get(face)! - 1);
-      return face;
-    }
-    return null;
+    return face && take(face) ? face : null;
   });
-  const leftover: TileFace[] = [];
-  for (const [face, count] of remaining) for (let i = 0; i < count; i++) leftover.push(face);
-  for (let i = 0; i < slots.length && leftover.length > 0; i++) {
-    if (slots[i] === null) slots[i] = leftover.shift()!;
+  for (let i = 0; i < slots.length && remaining.length > 0; i++) {
+    if (slots[i] === null) slots[i] = remaining.shift()!;
   }
   return slots;
 }
@@ -441,10 +442,13 @@ export class GameController {
     this.pending.clear();
     this.selection = null;
     this.exchangeSelection = null;
+    // The pre-init fallback state has a phantom rack (canonical bag order) —
+    // preserving ITS slot arrangement would scramble the first real rack.
+    const prevWasPhantom = this.syncedGame !== null && this.syncedGame === this.fallbackState?.game;
     // Multiplayer: display the REAL rack-doc faces; in-flight refill draws
     // show as "drawing…" placeholders (Snapshot.drawing), not fake tiles.
     this.rackSlots = reconcileSlots(
-      this.rackSlots,
+      prevWasPhantom ? [] : this.rackSlots,
       s.myRack ?? s.game.racks[seat] ?? [],
       ruleset.rackSize,
     );

@@ -8,6 +8,9 @@ export interface GameActionsProps {
   playable: boolean;
   hasPending: boolean;
   interactive: boolean;
+  /** Resign is legal ANY time while the game runs (DESIGN §2.3) — even off
+   * turn in multiplayer. Defaults to `interactive` for fixture back-compat. */
+  canResign?: boolean;
   canExchange: boolean;
   exchangeMinBag: number;
   bagCount: number;
@@ -24,6 +27,7 @@ export function GameActions({
   playable,
   hasPending,
   interactive,
+  canResign,
   canExchange,
   exchangeMinBag,
   bagCount,
@@ -59,7 +63,12 @@ export function GameActions({
         Pass
       </Button>
       <Box sx={{ flex: 1 }} />
-      <Button size="small" color="error" disabled={!interactive} onClick={() => setConfirm('resign')}>
+      <Button
+        size="small"
+        color="error"
+        disabled={!(canResign ?? interactive)}
+        onClick={() => setConfirm('resign')}
+      >
         Resign
       </Button>
 
