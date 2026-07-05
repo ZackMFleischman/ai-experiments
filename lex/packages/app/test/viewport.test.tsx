@@ -198,6 +198,11 @@ describe('BoardViewport interaction', () => {
     expect(onViewChange).toHaveBeenCalledWith(null);
   });
 
+  it('board content is not text-selectable (press-drag must pan, not highlight)', () => {
+    const { container } = renderViewport({});
+    expect(getComputedStyle(container).userSelect).toBe('none');
+  });
+
   it('toBoardPoint maps the container center to the view center', () => {
     const handleRef = createRef<BoardViewportHandle>();
     renderViewport({ handleRef });

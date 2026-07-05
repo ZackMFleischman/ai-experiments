@@ -114,3 +114,11 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   pinch-zoom re-enabled; card thumbnail exported. Stumble: Settings read
   mode from context, not theme — the M3 lesson, caught by dark captures.
   ⚑ Zack: prod deploy + DNS, first real game, PersonalWebsite card PR.
+
+- **2026-07-05 — Board polish from first real-game feedback (Zack).** Four UX
+  fixes: (1) preview total badge removed — it duplicated the main word chip and
+  covered cells (bingo ★ moved onto the chip); (2) last-play highlight gets its
+  own skin var `--lex-tile-lastplay-edge` (green ≠ pending gold — opponent tiles
+  read as part of your staging) and hides while any tile is staged; (3) zoom-out
+  floor = fit, bottoming out snaps to auto-fit (board could vanish off-screen);
+  (4) board viewport is `user-select: none` (press-drag highlighted labels).

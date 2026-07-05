@@ -312,6 +312,10 @@ export function BoardViewport({
         height: '100%',
         overflow: 'hidden',
         touchAction: 'none',
+        // Press-drag pans and long-press means intent, never text selection —
+        // cell labels, chips, and scores must not highlight (iOS callout too).
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
       }}
     >
       <Box
