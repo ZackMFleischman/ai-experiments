@@ -172,8 +172,13 @@ test('two browsers play a full multiplayer game', async ({ browser }) => {
   await sam.goto('/lobby');
   await expect(sam.getByTestId('group-challenges')).toBeVisible({ timeout: 15_000 });
   await expect(sam.getByTestId('group-challenges')).toContainText('ada challenges you');
+  // Document-title badge (T5.4): the rematch game on sam's move + the
+  // incoming challenge = 2 actionable.
+  await expect(sam).toHaveTitle('(2) LEX', { timeout: 15_000 });
   await sam.locator('[data-testid^="challenge-accept-"]').click();
   await expect(sam.getByTestId('rack-tray')).toBeVisible({ timeout: 15_000 });
+  // Leaving the lobby clears the title badge.
+  await expect(sam).toHaveTitle('LEX', { timeout: 15_000 });
   // ada's waiting screen flips live; she picked first move
   await expect(ada.getByTestId('rack-tray')).toBeVisible({ timeout: 15_000 });
   await expect(ada.locator('[data-testid="score-seat-0"][data-to-move="true"]')).toBeVisible();
