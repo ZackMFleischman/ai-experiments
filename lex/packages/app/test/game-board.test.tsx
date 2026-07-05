@@ -171,6 +171,46 @@ describe('GameBoard — dragging staged tiles', () => {
   });
 });
 
+describe('GameBoard — drag ghosts (the tile stays visible under your finger)', () => {
+  it('a staged-tile drag lifts the tile out of its cell into a following ghost', async () => {
+    const { controller, viewport } = await setup();
+    act(() => controller.placeAt({ row: 7, col: 7 }, 0));
+    const pendingEl = viewport.querySelector('[data-pending="true"]') as Element;
+    fireEvent.pointerDown(pendingEl, { pointerId: 11, ...cellClient(7, 7), isPrimary: true });
+    fireEvent.pointerMove(viewport, { pointerId: 11, ...cellClient(7, 9) });
+    // The ghost carries the letter; the source cell is empty while dragging.
+    expect(screen.getByTestId('board-drag-ghost').textContent).toContain('C');
+    expect(viewport.querySelector('[data-cell="7,7"] [data-tile]')).toBeNull();
+    fireEvent.pointerUp(viewport, { pointerId: 11, ...cellClient(7, 9) });
+    expect(screen.queryByTestId('board-drag-ghost')).toBeFalsy();
+    expect(viewport.querySelector('[data-cell="7,9"] [data-tile]')).toBeTruthy();
+    expect(controller.getSnapshot().pending.get('7,9')?.letter).toBe('C');
+  });
+
+  it('an aborted staged-tile drag (drop off-board) clears the ghost too', async () => {
+    const { controller, viewport } = await setup();
+    act(() => controller.placeAt({ row: 7, col: 7 }, 0));
+    const pendingEl = viewport.querySelector('[data-pending="true"]') as Element;
+    fireEvent.pointerDown(pendingEl, { pointerId: 12, ...cellClient(7, 7), isPrimary: true });
+    fireEvent.pointerMove(viewport, { pointerId: 12, clientX: 50, clientY: 390 });
+    expect(screen.getByTestId('board-drag-ghost')).toBeTruthy();
+    fireEvent.pointerUp(viewport, { pointerId: 12, clientX: 50, clientY: 390 });
+    expect(screen.queryByTestId('board-drag-ghost')).toBeFalsy();
+    expect(controller.getSnapshot().rack[0]).toBe('C'); // returned home
+  });
+
+  it('a rack drag empties the source slot while the ghost is up, and restores it on cancel', async () => {
+    const { tray } = await setup();
+    const slot = tray.querySelector('[data-rack-slot="0"]') as Element;
+    fireEvent.pointerDown(slot, { pointerId: 13, clientX: 25, clientY: 530, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 13, clientX: 30, clientY: 480 });
+    expect(screen.getByTestId('drag-ghost').textContent).toContain('C');
+    expect(tray.querySelector('[data-rack-slot="0"] [data-tile]')).toBeNull();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(tray.querySelector('[data-rack-slot="0"] [data-tile]')).toBeTruthy();
+  });
+});
+
 describe('GameBoard — recall', () => {
   it('the recall button returns every staged tile', async () => {
     const { controller } = await setup();
