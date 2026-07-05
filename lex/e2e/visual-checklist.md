@@ -21,12 +21,16 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Player bars, rack, preview chips, and board never overlap; safe-area respected
   at 390×844.
 - Last-play highlight visible but subordinate to pending-placement emphasis.
-- A dragged tile is always visible: a lifted, shadowed ghost rides above the
-  finger for BOTH rack drags and staged-tile drags, and the source slot/cell
-  renders empty for the duration (the ghost is the tile, never a duplicate).
+- A dragged tile is always visible: a fixed-position shadowed ghost rides
+  above the finger everywhere (it survives leaving the viewport), the source
+  slot/cell renders empty, and drops hit-test at the GHOST's center — the
+  hover highlight always matches where the tile will land.
 - Rack ergonomics (real-device round): tray padded past the iOS home
   indicator (safe-area, bag chip never clipped); a press anywhere on the tray
   grabs the nearest tile; neighbors slide over in real time during reorder.
+  ANY drag hovering the tray — rack- or board-origin — flips to insertion
+  mode: ghost drops to the finger, slots preview the splice, release commits
+  it (staged tiles return to the exact slot you point at).
 - Result overlay hierarchy: outcome → reason → score story (with adjustment line
   items) → actions; readable over any board.
 - Text contrast ≥ 4.5:1 (spot-check theme tokens, all tile skins).

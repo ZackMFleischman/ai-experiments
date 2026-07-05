@@ -6,7 +6,7 @@
 import { Box } from '@mui/material';
 import type { Cell, CellKey, TileFace } from '@lex/engine';
 import { cellKey, parseCellKey } from '@lex/engine';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
 import { BlankPicker } from '../game/BlankPicker';
@@ -28,24 +28,29 @@ import { GameInfoDialog } from '../game/GameInfoDialog';
 import { NoticeToast } from '../game/NoticeToast';
 import { Tile } from './Tile';
 
-interface RackDrag {
-  index: number;
-  face: TileFace;
-  pointerId: number;
-  x: number;
-  y: number;
-}
-
-/** A staged tile in flight (T6 polish): the tile leaves its cell and rides
- * above the finger as a ghost, in BOARD coordinates so it scales with zoom. */
-interface BoardDrag {
-  from: CellKey;
+/** ONE drag layer for every tile in flight, rack- or board-origin: a fixed-
+ * position ghost rides above the finger (fixed = it survives leaving the
+ * viewport's overflow), the board is hit-tested at the GHOST's center — you
+ * aim with what you see, not with the finger hidden under it — and hovering
+ * the tray flips into rack-insertion mode with the live slide preview. */
+interface DragState {
+  source: 'rack' | 'board';
   face: TileFace;
   letter: string | null;
   isBlank: boolean;
-  x: number;
+  /** Rack origin: the slot the tile left. */
+  fromIndex: number | null;
+  /** Board origin: the staged cell the tile was picked up from. */
+  fromCell: CellKey | null;
+  /** Rack origin only: the pointer riding the window listeners. */
+  pointerId: number | null;
+  x: number; // client coords
   y: number;
 }
+
+/** The ghost's center rides this many px above the finger over the board. */
+const GHOST_LIFT = 40;
+const HALF_TILE = 18; // half the 36px ghost tile
 
 const DEFAULT_NAMES = ['Player 1', 'Player 2'];
 
@@ -67,84 +72,179 @@ export function GameBoard({
   const mode = useTheme().palette.mode;
   const skinId = useSkinId();
   const viewportRef = useRef<BoardViewportHandle | null>(null);
-  const [rackDrag, setRackDrag] = useState<RackDrag | null>(null);
-  const [boardDrag, setBoardDrag] = useState<BoardDrag | null>(null);
+  const [drag, setDragState] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
+  const trayWrapRef = useRef<HTMLDivElement | null>(null);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
   const { width, height } = boardPixelSize(layout);
 
-  // Staged-tile drags arrive through the viewport (board coords throughout).
+  const updateDrag = useCallback((d: DragState | null) => {
+    dragRef.current = d;
+    setDragState(d);
+  }, []);
+
+  // Tray geometry for the drag layer. jsdom rects are 0×0 — tests mock the
+  // tray element itself, so fall down the row → tray chain.
+  const trayRect = useCallback((): DOMRect | null => {
+    const el = trayWrapRef.current?.querySelector('[data-testid="rack-tray"]');
+    const r = el?.getBoundingClientRect();
+    return r && (r.width || r.height) ? r : null;
+  }, []);
+  const overRack = useCallback(
+    (clientY: number): boolean => {
+      const r = trayRect();
+      return r !== null && clientY >= r.top - 12;
+    },
+    [trayRect],
+  );
+  const rackIndexAt = useCallback(
+    (clientX: number): number => {
+      const row = trayWrapRef.current?.querySelector('[data-rack-row]')?.getBoundingClientRect();
+      const rect = row?.width ? row : trayRect();
+      const size = controller.getSnapshot().ruleset.rackSize;
+      if (!rect || !rect.width) return 0;
+      return Math.min(size - 1, Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * size)));
+    },
+    [controller, trayRect],
+  );
+  /** A returned board tile lands at a deterministic slot (its original slot
+   * if free, else the first empty) — mirror the controller for targeting. */
+  const landSlot = useCallback(
+    (fromCell: CellKey): number => {
+      const s = controller.getSnapshot();
+      const tile = s.pending.get(fromCell);
+      if (!tile) return -1;
+      return s.rack[tile.fromIndex] === null ? tile.fromIndex : s.rack.indexOf(null);
+    },
+    [controller],
+  );
+  /** Where a point drops on the board: the cell under the ghost's center. */
+  const ghostCell = useCallback(
+    (client: BoardPoint): Cell | null => {
+      const pt = viewportRef.current?.toBoardPoint(client.x, client.y - GHOST_LIFT);
+      return pt ? pointToCell(pt, layout) : null;
+    },
+    [layout],
+  );
+  const finishDrag = useCallback(
+    (client: BoardPoint): void => {
+      const state = dragRef.current;
+      updateDrag(null);
+      setHover(null);
+      if (!state) return;
+      if (overRack(client.y)) {
+        // Rack-insertion drop: reorder / targeted return (the live preview
+        // the tray showed is exactly what commits here).
+        const to = rackIndexAt(client.x);
+        if (state.source === 'rack') {
+          if (state.fromIndex !== null && to !== state.fromIndex) {
+            controller.reorderRack(state.fromIndex, to);
+          }
+          return;
+        }
+        if (state.fromCell) {
+          const land = landSlot(state.fromCell);
+          controller.returnPending(parseCellKey(state.fromCell));
+          if (land >= 0 && land !== to) controller.reorderRack(land, to);
+        }
+        return;
+      }
+      const cell = ghostCell(client);
+      if (state.source === 'rack') {
+        if (cell && state.fromIndex !== null) controller.placeAt(cell, state.fromIndex); // occupied/off = no-op
+        return;
+      }
+      if (!state.fromCell) return;
+      if (cell) controller.movePending(parseCellKey(state.fromCell), cell); // occupied target = stays put
+      else controller.returnPending(parseCellKey(state.fromCell)); // off-board = home
+    },
+    [controller, ghostCell, landSlot, overRack, rackIndexAt, updateDrag],
+  );
+
+  // Staged-tile drags arrive through the viewport; the drag layer works in
+  // client coordinates from here on.
   const interaction: BoardInteraction = useMemo(
     () => ({
-      onPendingDown: (cell, pt) => {
+      onPendingDown: (cell, pt, client) => {
         pendingDrag.current = { from: cell, start: pt, moved: false };
         setHover(cellKey(cell));
         // Pick the tile up: it leaves the cell and follows the finger.
         const staged = controller.getSnapshot().pending.get(cellKey(cell));
         if (staged) {
-          setBoardDrag({
-            from: cellKey(cell),
+          updateDrag({
+            source: 'board',
             face: staged.face,
             letter: staged.letter,
             isBlank: staged.isBlank,
-            x: pt.x,
-            y: pt.y,
+            fromIndex: null,
+            fromCell: cellKey(cell),
+            pointerId: null,
+            x: client.x,
+            y: client.y,
           });
         }
       },
-      onDragMove: (pt) => {
+      onDragMove: (pt, client) => {
         const d = pendingDrag.current;
         if (!d) return;
         if (Math.hypot(pt.x - d.start.x, pt.y - d.start.y) > 6) d.moved = true;
-        setBoardDrag((g) => (g ? { ...g, x: pt.x, y: pt.y } : g));
-        const cell = pointToCell(pt, layout);
-        setHover(cell ? cellKey(cell) : null);
+        const g = dragRef.current;
+        if (g) updateDrag({ ...g, x: client.x, y: client.y });
+        if (overRack(client.y)) setHover(null);
+        else {
+          const cell = ghostCell(client);
+          setHover(cell ? cellKey(cell) : null);
+        }
       },
-      onDragEnd: (pt) => {
+      onDragEnd: (pt, client) => {
         const d = pendingDrag.current;
         pendingDrag.current = null;
-        setHover(null);
-        setBoardDrag(null);
-        if (!d) return;
-        const cell = pointToCell(pt, layout);
-        if (!d.moved || !cell) {
-          // A tap bounces the tile home; a drop off-board returns it too.
+        if (!d) {
+          updateDrag(null);
+          setHover(null);
+          return;
+        }
+        if (!d.moved) {
+          // A tap bounces the tile home.
+          updateDrag(null);
+          setHover(null);
           controller.returnPending(d.from);
           return;
         }
-        controller.movePending(d.from, cell); // occupied target = stays put
+        finishDrag(client);
       },
       onCellTap: (cell) => controller.tapCell(cell),
       onBackgroundTap: () => controller.cancelSelection(),
     }),
-    [controller, layout],
+    [controller, finishDrag, ghostCell, overRack, updateDrag],
   );
 
   // Rack drags: the tray hands the pointer over; window listeners take it.
   useEffect(() => {
-    if (!rackDrag) return;
+    if (!drag || drag.source !== 'rack') return;
+    const pid = drag.pointerId;
     const move = (e: PointerEvent) => {
-      if (e.pointerId !== rackDrag.pointerId) return;
-      setRackDrag({ ...rackDrag, x: e.clientX, y: e.clientY });
-      const pt = viewportRef.current?.toBoardPoint(e.clientX, e.clientY);
-      const cell = pt ? pointToCell(pt, layout) : null;
-      setHover(cell ? cellKey(cell) : null);
+      if (e.pointerId !== pid) return;
+      const g = dragRef.current;
+      if (g) updateDrag({ ...g, x: e.clientX, y: e.clientY });
+      if (overRack(e.clientY)) setHover(null);
+      else {
+        const cell = ghostCell({ x: e.clientX, y: e.clientY });
+        setHover(cell ? cellKey(cell) : null);
+      }
     };
     const up = (e: PointerEvent) => {
-      if (e.pointerId !== rackDrag.pointerId) return;
-      const pt = viewportRef.current?.toBoardPoint(e.clientX, e.clientY);
-      const cell = pt ? pointToCell(pt, layout) : null;
-      if (cell) controller.placeAt(cell, rackDrag.index); // occupied/off = no-op
-      setRackDrag(null);
-      setHover(null);
+      if (e.pointerId !== pid) return;
+      finishDrag({ x: e.clientX, y: e.clientY });
     };
     const cancel = () => {
-      setRackDrag(null);
+      updateDrag(null);
       setHover(null);
     };
     const key = (e: KeyboardEvent) => {
@@ -160,7 +260,7 @@ export function GameBoard({
       window.removeEventListener('pointercancel', cancel);
       window.removeEventListener('keydown', key);
     };
-  }, [rackDrag, controller, layout]);
+  }, [drag, finishDrag, ghostCell, overRack, updateDrag]);
 
   // Esc always clears a tap-tap selection.
   useEffect(() => {
@@ -176,17 +276,29 @@ export function GameBoard({
 
   // While a staged tile is in flight its cell renders empty — the ghost IS the tile.
   const visiblePending = useMemo(() => {
-    if (!boardDrag) return snap.pending;
+    if (drag?.source !== 'board' || !drag.fromCell) return snap.pending;
     const m = new Map(snap.pending);
-    m.delete(boardDrag.from);
+    m.delete(drag.fromCell);
     return m;
-  }, [snap.pending, boardDrag]);
+  }, [snap.pending, drag]);
 
   // While a rack tile is in flight its slot renders empty, same idea.
   const visibleRack = useMemo(
-    () => (rackDrag ? snap.rack.map((f, i) => (i === rackDrag.index ? null : f)) : snap.rack),
-    [snap.rack, rackDrag],
+    () =>
+      drag?.source === 'rack' && drag.fromIndex !== null
+        ? snap.rack.map((f, i) => (i === drag.fromIndex ? null : f))
+        : snap.rack,
+    [snap.rack, drag],
   );
+
+  // Ghost hovering the tray → the rack shows the live insertion preview.
+  const rackHover = drag !== null && overRack(drag.y);
+  const rackPreview = (() => {
+    if (!drag || !rackHover) return null;
+    const from = drag.source === 'rack' ? drag.fromIndex : landSlot(drag.fromCell as CellKey);
+    if (from === null || from < 0) return null;
+    return { from, to: rackIndexAt(drag.x) };
+  })();
 
   return (
     <Box data-testid="game-board" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -227,28 +339,6 @@ export function GameBoard({
               preview={snap.preview}
               anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
             />
-            {boardDrag && (
-              <Box
-                data-testid="board-drag-ghost"
-                sx={{
-                  ...skinVars(mode, skinId),
-                  position: 'absolute',
-                  left: boardDrag.x - 18,
-                  top: boardDrag.y - 54, // lifted above the finger
-                  pointerEvents: 'none',
-                  zIndex: 3,
-                  transform: 'scale(1.15)',
-                  filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
-                }}
-              >
-                <Tile
-                  letter={boardDrag.letter ?? ''}
-                  isBlank={boardDrag.isBlank}
-                  points={points[boardDrag.face] ?? 0}
-                  pending
-                />
-              </Box>
-            )}
             {lastPlay && lastPlayEnd && snap.pending.size === 0 && (
               <Box
                 data-testid="last-play-score"
@@ -294,24 +384,39 @@ export function GameBoard({
           onResign={() => controller.resign()}
         />
       )}
-      <RackTray
-        tiles={visibleRack}
-        rackSize={snap.ruleset.rackSize}
-        points={points}
-        bagCount={snap.bagCount}
-        disabled={!snap.interactive}
-        drawing={snap.drawing}
-        selectedIndex={snap.selection}
-        exchangeSelection={snap.exchange}
-        onTileTap={(i) => (snap.exchange ? controller.toggleExchange(i) : controller.selectRackSlot(i))}
-        onReorder={(from, to) => controller.reorderRack(from, to)}
-        onShuffle={() => controller.shuffleRack()}
-        onDragOut={(index, pointerId, x, y) => {
-          if (snap.exchange) return; // no board drags while exchanging
-          const face = controller.getSnapshot().rack[index];
-          if (face) setRackDrag({ index, face, pointerId, x, y });
-        }}
-      />
+      <Box ref={trayWrapRef}>
+        <RackTray
+          tiles={visibleRack}
+          rackSize={snap.ruleset.rackSize}
+          points={points}
+          bagCount={snap.bagCount}
+          disabled={!snap.interactive}
+          drawing={snap.drawing}
+          selectedIndex={snap.selection}
+          exchangeSelection={snap.exchange}
+          externalDrag={rackPreview}
+          onTileTap={(i) => (snap.exchange ? controller.toggleExchange(i) : controller.selectRackSlot(i))}
+          onReorder={(from, to) => controller.reorderRack(from, to)}
+          onShuffle={() => controller.shuffleRack()}
+          onDragOut={(index, pointerId, x, y) => {
+            if (snap.exchange) return; // no board drags while exchanging
+            const face = controller.getSnapshot().rack[index];
+            if (face) {
+              updateDrag({
+                source: 'rack',
+                face,
+                letter: face === '?' ? null : face,
+                isBlank: face === '?',
+                fromIndex: index,
+                fromCell: null,
+                pointerId,
+                x,
+                y,
+              });
+            }
+          }}
+        />
+      </Box>
       <ScoreSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
@@ -362,25 +467,29 @@ export function GameBoard({
           if (cell) controller.setBlankLetter(parseCellKey(cell), letter);
         }}
       />
-      {rackDrag && (
+      {drag && (
         <Box
           data-testid="drag-ghost"
           sx={{
             ...skinVars(mode, skinId),
             position: 'fixed',
-            left: rackDrag.x - 24,
-            top: rackDrag.y - 48, // lifted above the finger
+            left: drag.x - HALF_TILE,
+            // Over the board the ghost floats above the finger (and drops
+            // land at ITS center); over the rack it rides at the finger,
+            // like a reorder.
+            top: rackHover ? drag.y - HALF_TILE : drag.y - HALF_TILE - GHOST_LIFT,
             pointerEvents: 'none',
             zIndex: (t) => t.zIndex.tooltip,
             transform: 'scale(1.15)',
             filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))',
           }}
         >
-          {rackDrag.face === '?' ? (
-            <Tile letter="" isBlank points={0} pending />
-          ) : (
-            <Tile letter={rackDrag.face} isBlank={false} points={points[rackDrag.face] ?? 0} pending />
-          )}
+          <Tile
+            letter={drag.letter ?? ''}
+            isBlank={drag.isBlank}
+            points={drag.isBlank ? 0 : points[drag.face] ?? 0}
+            pending
+          />
         </Box>
       )}
     </Box>

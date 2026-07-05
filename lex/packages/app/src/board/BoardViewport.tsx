@@ -60,10 +60,12 @@ export function viewTransform(
 }
 
 export interface BoardInteraction {
-  /** Pointer went down on a pending (staged) tile — the drag layer takes it. */
-  onPendingDown(cell: Cell, pt: BoardPoint): void;
-  onDragMove(pt: BoardPoint): void;
-  onDragEnd(pt: BoardPoint): void;
+  /** Pointer went down on a pending (staged) tile — the drag layer takes it.
+   * `client` is the raw pointer position: the drag layer's ghost lives in
+   * fixed client coordinates so it survives leaving the viewport. */
+  onPendingDown(cell: Cell, pt: BoardPoint, client: BoardPoint): void;
+  onDragMove(pt: BoardPoint, client: BoardPoint): void;
+  onDragEnd(pt: BoardPoint, client: BoardPoint): void;
   /** A press that never moved, on a cell: tap-tap placement / selection. */
   onCellTap(cell: Cell): void;
   /** A press that never moved, off the board: "tap elsewhere" cancels. */
@@ -196,6 +198,7 @@ export function BoardViewport({
       interaction.onPendingDown(
         parseCellKey(cellEl.getAttribute('data-cell') as string),
         toBoard(e.clientX, e.clientY),
+        { x: e.clientX, y: e.clientY },
       );
       return;
     }
@@ -221,7 +224,7 @@ export function BoardViewport({
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (dragPointer.current === e.pointerId && interaction) {
-      interaction.onDragMove(toBoard(e.clientX, e.clientY));
+      interaction.onDragMove(toBoard(e.clientX, e.clientY), { x: e.clientX, y: e.clientY });
       return;
     }
     if (pointers.current.has(e.pointerId)) {
@@ -258,7 +261,7 @@ export function BoardViewport({
   const endPointer = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (dragPointer.current === e.pointerId) {
       dragPointer.current = null;
-      interaction?.onDragEnd(toBoard(e.clientX, e.clientY));
+      interaction?.onDragEnd(toBoard(e.clientX, e.clientY), { x: e.clientX, y: e.clientY });
       return;
     }
     const p = pan.current;
