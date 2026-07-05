@@ -101,16 +101,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M4 — shipped, see DECISIONS.md
 
-### M5 — PWA + notifications + async clocks (DESIGN §8, §6.4)
-
-| # | Task | Notes | Gate |
-|---|---|---|---|
-| T5.1 | `vite-plugin-pwa` injectManifest SW: precache + SPA fallback + push display/deep-link + **push-sync postMessage** + visibilitychange resync **[port: hive sw.ts]** | | offline/installability e2e vs production build |
-| T5.2 | FCM tokens on `users/{uid}`, NotificationsSetup, iOS install coach mark **[port: hive]** **[visual]** | | unit + gallery |
-| T5.3 | Push triggers with exact payload tests: played (word + score in copy), joined, challenge x3, rematch, game over, deadline warning | data-only webpush (§8) | functions tests |
-| T5.4 | Icon/document badges; offline read-only lobby (persistent cache) **[port: hive]** | | e2e |
-| T5.5 | Deadlines: `deadlineAt` stamping, hourly `forfeitExpired` (+ warnings + stale-invite cull) **[port: hive forfeit.ts]** | pinned-now sweep tests | functions tests |
-| T5.6 | `validate:m5` ⚑ real push on a device, iOS home-screen check | | `pnpm validate:m5` |
+### M5 — shipped, see DECISIONS.md
 
 ### M6 — Polish & ship
 

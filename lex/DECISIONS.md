@@ -87,3 +87,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   log (hidden info — 'sync' entries; §3.3); private/bag gains `state`, racks gain
   `n` (§6.2 amended); resign allowed off-turn. Stumbles: reconcileSlots collapsed
   duplicate faces; snapshot fetches racing a commit needed a monotonic gate.
+
+- **2026-07-05 — SHIPPED M5 (T5.1–T5.6).** Gates: validate:m5 = offline/
+  installability e2e vs a production SW build; 18 new functions tests (exact
+  payloads incl. word+score copy, badge fan-out, token pruning, pinned-now
+  forfeit sweep); title-badge asserted in the two-browser e2e; full validate
+  green. Deviations: sw.ts stays in the app (injectManifest builds from the
+  app's srcDir — cross-workspace SW source is brittle; port map said parlor);
+  badges/offline lobby largely landed with T4.7/T5.1, T5.4 closed the gates.
+  ⚑ remaining for Zack: real push on a device + iOS home-screen check.
