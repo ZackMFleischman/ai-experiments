@@ -3,9 +3,12 @@
 // itself sits in the full-mode lobby (T5.2).
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
+  Avatar,
   Box,
+  Button,
   Card,
   CardActionArea,
+  Chip,
   IconButton,
   Stack,
   ToggleButton,
@@ -13,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useAuth } from '@parlor/web';
 import { Link as RouterLink } from 'react-router-dom';
 import { Tile } from '../board/Tile';
 import { SKIN_IDS, SKIN_NAMES, skinVars, type TileSkinId } from '../board/skin';
@@ -50,6 +54,8 @@ export function Settings() {
   const mode = useTheme().palette.mode;
   const { toggle } = useColorMode();
   const { skin, setSkin } = useSkin();
+  // Auth seam only — firebase-free (the static build sees mode 'hotseat').
+  const auth = useAuth();
   return (
     <Box sx={{ p: 3, maxWidth: 520 }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
@@ -106,6 +112,24 @@ export function Settings() {
             </Card>
           ))}
         </Stack>
+        {auth.mode === 'full' && auth.user && (
+          <Stack spacing={1}>
+            <Typography variant="overline" color="text.secondary">
+              Account
+            </Typography>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+              <Chip
+                avatar={<Avatar {...(auth.user.photoURL ? { src: auth.user.photoURL } : {})} />}
+                label={auth.user.displayName ?? auth.user.email ?? 'Player'}
+                sx={{ maxWidth: 240 }}
+                data-testid="account-user"
+              />
+              <Button size="small" onClick={() => void auth.signOut()} data-testid="sign-out">
+                Sign out
+              </Button>
+            </Stack>
+          </Stack>
+        )}
         <Stack spacing={0.5}>
           <Typography variant="overline" color="text.secondary">
             Notifications

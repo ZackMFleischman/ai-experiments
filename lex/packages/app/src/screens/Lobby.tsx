@@ -5,6 +5,8 @@
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { Avatar, Box, Button, Chip, Fab, IconButton, Stack, Typography } from '@mui/material';
+// Sign-out lives in Settings (real-device polish): title + chip + gear is all
+// a 390px header can carry without wrapping.
 import { useAuth } from '@parlor/web';
 import { lazy, Suspense } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -18,22 +20,18 @@ export function Lobby() {
   const auth = useAuth();
   return (
     <Box sx={{ p: 3, pb: 12 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="h5" component="h1">
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        <Typography variant="h5" component="h1" noWrap>
           Your games
         </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
           {auth.mode === 'full' && auth.user && (
-            <>
-              <Chip
-                avatar={<Avatar {...(auth.user.photoURL ? { src: auth.user.photoURL } : {})} />}
-                label={auth.user.displayName ?? auth.user.email ?? 'Player'}
-                data-testid="lobby-user"
-              />
-              <Button size="small" onClick={() => void auth.signOut()} data-testid="sign-out">
-                Sign out
-              </Button>
-            </>
+            <Chip
+              avatar={<Avatar {...(auth.user.photoURL ? { src: auth.user.photoURL } : {})} />}
+              label={auth.user.displayName ?? auth.user.email ?? 'Player'}
+              sx={{ maxWidth: 160 }}
+              data-testid="lobby-user"
+            />
           )}
           <IconButton
             component={RouterLink}
@@ -68,10 +66,12 @@ export function Lobby() {
         component={RouterLink}
         to="/new"
         color="primary"
+        variant="extended"
         aria-label="New game"
         sx={{ position: 'fixed', right: 24, bottom: 24 }}
       >
-        <AddIcon />
+        <AddIcon sx={{ mr: 1 }} />
+        New game
       </Fab>
     </Box>
   );

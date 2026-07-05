@@ -18,12 +18,24 @@ export default function OnlineGames() {
   return (
     <Stack spacing={2} sx={{ mt: 2 }}>
       <NotificationsSetup coachMarkKey="lex.coachmark.dismissed" />
-      <Loaded uid={user.uid} onOpen={(id) => void navigate(`/game/${id}`)} />
+      <Loaded
+        uid={user.uid}
+        onOpen={(id) => void navigate(`/game/${id}`)}
+        onNewGame={() => void navigate('/new')}
+      />
     </Stack>
   );
 }
 
-function Loaded({ uid, onOpen }: { uid: string; onOpen: (id: string) => void }) {
+function Loaded({
+  uid,
+  onOpen,
+  onNewGame,
+}: {
+  uid: string;
+  onOpen: (id: string) => void;
+  onNewGame: () => void;
+}) {
   const { games, loading } = useLexGames(uid);
   const [error, setError] = useState<string | null>(null);
   useTurnBadge(actionableCount(games));
@@ -48,7 +60,13 @@ function Loaded({ uid, onOpen }: { uid: string; onOpen: (id: string) => void }) 
   return (
     <>
       {error && <Alert severity="error">{error}</Alert>}
-      <LobbyView games={games} now={Date.now()} onOpen={onOpen} onRespondChallenge={respond} />
+      <LobbyView
+        games={games}
+        now={Date.now()}
+        onOpen={onOpen}
+        onRespondChallenge={respond}
+        onNewGame={onNewGame}
+      />
     </>
   );
 }

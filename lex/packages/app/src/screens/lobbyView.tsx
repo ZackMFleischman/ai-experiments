@@ -200,9 +200,10 @@ export function ChallengeCard({
   );
 }
 
-/** A real empty state (T6.2): tile motif + headline + what-to-do copy. The
+/** A real empty state (T6.2): tile motif + headline + what-to-do copy + the
+ * primary CTA (the corner FAB alone is too subtle for a first visit). The
  * tile points come from the classic ruleset — decoration, but never made up. */
-function LobbyEmpty() {
+function LobbyEmpty({ onNewGame }: { onNewGame?: (() => void) | undefined }) {
   const mode = useTheme().palette.mode;
   const skin = useSkinId();
   const points = RULESETS['classic']!.tiles.points;
@@ -219,6 +220,11 @@ function LobbyEmpty() {
       <Typography color="text.secondary" sx={{ maxWidth: 340 }}>
         Start one and send your friend the invite link — or challenge them by name.
       </Typography>
+      {onNewGame && (
+        <Button variant="contained" size="large" onClick={onNewGame} sx={{ mt: 1.5 }}>
+          Start a new game
+        </Button>
+      )}
     </Stack>
   );
 }
@@ -228,11 +234,14 @@ export function LobbyView({
   now,
   onOpen,
   onRespondChallenge,
+  onNewGame,
 }: {
   games: LobbyGameSummary[];
   now: number;
   onOpen: (id: string) => void;
   onRespondChallenge?: (id: string, accept: boolean) => void;
+  /** Empty-state CTA target — the container routes it to the new-game flow. */
+  onNewGame?: () => void;
 }) {
   const challenges = games.filter(
     (g) => g.status === 'open' && g.challenge?.direction === 'incoming',
@@ -245,7 +254,7 @@ export function LobbyView({
   );
   const finished = games.filter((g) => g.status === 'finished');
 
-  if (games.length === 0) return <LobbyEmpty />;
+  if (games.length === 0) return <LobbyEmpty onNewGame={onNewGame} />;
 
   const section = (title: string, list: LobbyGameSummary[], testid: string) =>
     list.length > 0 && (

@@ -39,6 +39,10 @@ are logged at the bottom with date + reason, and deleted when fixed.
 
 ## Lobby / New game / Join / Waiting (T4.7)
 
+- Header fits ONE line at 390px: title + truncating identity chip + gear
+  (sign-out lives in Settings → Account). New-game FAB is labeled, not a bare
+  +; the empty state carries the primary "Start a new game" CTA.
+
 - Lobby groups labeled and ordered (challenges, your turn, waiting, finished);
   cards carry thumbnail, scores + last play (2-line clamp — never truncated to
   scores alone), your-turn/deadline/result chips distinguishable in both themes.
