@@ -24,6 +24,9 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - A dragged tile is always visible: a lifted, shadowed ghost rides above the
   finger for BOTH rack drags and staged-tile drags, and the source slot/cell
   renders empty for the duration (the ghost is the tile, never a duplicate).
+- Rack ergonomics (real-device round): tray padded past the iOS home
+  indicator (safe-area, bag chip never clipped); a press anywhere on the tray
+  grabs the nearest tile; neighbors slide over in real time during reorder.
 - Result overlay hierarchy: outcome → reason → score story (with adjustment line
   items) → actions; readable over any board.
 - Text contrast ≥ 4.5:1 (spot-check theme tokens, all tile skins).
@@ -81,6 +84,5 @@ are logged at the bottom with date + reason, and deleted when fixed.
 
 ## Accepted deviations
 
-- 2026-07-04 — Phone rack slots render ~41px (guideline says ≥44): a 7-slot
-  rack + shuffle/bag column at 390px can't give every slot 44px; slots cap at
-  44px when space allows. Tray layout unchanged through T6; accepted for v1.
+(none — the ~41px rack-slot deviation closed when the tray shed its side
+column reserve: slots now hit ~45px at 390px and cap at 52px.)

@@ -61,13 +61,18 @@ export function RackTray({
   const mode = useTheme().palette.mode;
   const skinId = useSkinId();
   const trayRef = useRef<HTMLDivElement | null>(null);
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<DragRef | null>(null);
   const [dragVisual, setDragVisual] = useState<{ index: number; dx: number } | null>(null);
 
-  const slotWidth = (): number => {
-    const rect = trayRef.current?.getBoundingClientRect();
-    return (rect?.width || 52 * rackSize) / rackSize;
+  // Prefer the slots row for geometry (excludes the shuffle/bag column);
+  // jsdom reports 0×0 rects, so tests fall back to the tray itself.
+  const slotMetrics = (): { left: number; width: number } => {
+    const row = rowRef.current?.getBoundingClientRect();
+    const rect = row?.width ? row : trayRef.current?.getBoundingClientRect();
+    return { left: rect?.left ?? 0, width: (rect?.width || 52 * rackSize) / rackSize };
   };
+  const slotWidth = (): number => slotMetrics().width;
 
   const reset = () => {
     drag.current = null;
@@ -76,9 +81,17 @@ export function RackTray({
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (disabled || drag.current) return;
-    const slotEl = (e.target as Element).closest('[data-rack-slot]');
-    if (!slotEl) return;
-    const index = Number(slotEl.getAttribute('data-rack-slot'));
+    const target = e.target as Element;
+    // The shuffle button and bag chip keep their own behavior.
+    if (target.closest('button') || target.closest('[data-testid="bag-count"]')) return;
+    const slotEl = target.closest('[data-rack-slot]');
+    // Fat hit target (real-device polish): a press ANYWHERE else on the tray
+    // grabs the nearest slot — missing a 44px tile must never fall through
+    // to the board viewport, which would pan the board instead.
+    const { left, width } = slotMetrics();
+    const index = slotEl
+      ? Number(slotEl.getAttribute('data-rack-slot'))
+      : Math.min(rackSize - 1, Math.max(0, Math.floor((e.clientX - left) / width)));
     if (!tiles[index]) return;
     drag.current = { index, pointerId: e.pointerId, startX: e.clientX, moved: false };
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -126,19 +139,22 @@ export function RackTray({
       onPointerCancel={endPointer}
       sx={{
         ...skinVars(mode, skinId),
-        // Slots shrink to fit the viewport (phone: ~41px) and cap at 44px.
-        '--lex-cell': `min(44px, calc((100vw - 100px) / ${rackSize}))`,
+        // Slots fill the width (phone: ~45px ≥ the 44px target) and cap at
+        // 52px; 76px covers paddings + gaps + the shuffle/bag column.
+        '--lex-cell': `min(52px, calc((100vw - 76px) / ${rackSize}))`,
         display: 'flex',
         alignItems: 'center',
         gap: 0.5,
-        px: 0.75,
-        py: 0.75,
+        px: 0.5,
+        pt: 0.75,
+        // Clear the iOS home-indicator: it overlaid the tiles and bag chip.
+        pb: 'max(6px, env(safe-area-inset-bottom))',
         touchAction: 'none',
         userSelect: 'none',
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'center', minWidth: 0 }}>
+      <Box ref={rowRef} sx={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'center', minWidth: 0 }}>
         {Array.from({ length: rackSize }, (_, i) => {
           const face = tiles[i] ?? null;
           // The first `drawing` empty slots carry the refill placeholder.
@@ -146,12 +162,33 @@ export function RackTray({
           const isDrawing = face === null && emptyOrdinal >= 0 && emptyOrdinal < drawing;
           const dragging = dragVisual?.index === i;
           const exchangeSelected = exchangeSelection?.has(i) ?? false;
+          // Live reorder preview: while a tile is dragged, the slots between
+          // it and its drop target slide one slot over — same splice-move the
+          // controller applies on release, shown in real time.
+          let slide: string | undefined;
+          if (dragVisual && !dragging) {
+            const w = slotWidth();
+            const to = Math.min(
+              tiles.length - 1,
+              Math.max(0, dragVisual.index + Math.round(dragVisual.dx / w)),
+            );
+            if (dragVisual.index < i && i <= to) slide = `translateX(${-w}px)`;
+            else if (to <= i && i < dragVisual.index) slide = `translateX(${w}px)`;
+          }
+          // Transforms ride inline styles (not sx): they change every
+          // pointermove, and emotion would mint a class per frame.
+          const style: React.CSSProperties = dragging
+            ? { transform: `translateX(${dragVisual.dx}px)`, zIndex: 2, position: 'relative' }
+            : slide
+              ? { transform: slide, transition: 'transform 120ms ease' }
+              : {};
           return (
             <Box
               key={i}
               data-rack-slot={i}
               data-selected={selectedIndex === i ? 'true' : undefined}
               data-exchange-selected={exchangeSelected ? 'true' : undefined}
+              style={style}
               sx={{
                 width: 'var(--lex-cell)',
                 height: 'var(--lex-cell)',
@@ -167,11 +204,6 @@ export function RackTray({
                     : 'none',
                 ...(exchangeSelection && !exchangeSelected && { opacity: 0.55 }),
                 ...(exchangeSelected && { transform: 'translateY(-4px)' }),
-                ...(dragging && {
-                  transform: `translateX(${dragVisual.dx}px)`,
-                  zIndex: 2,
-                  position: 'relative',
-                }),
                 cursor: face && !disabled ? 'grab' : 'default',
               }}
             >
