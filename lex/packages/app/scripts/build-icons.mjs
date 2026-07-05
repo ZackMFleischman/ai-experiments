@@ -49,7 +49,6 @@ for (const { file, size, maskable } of jobs) {
 // corner mask, so the tile face fills the whole canvas edge to edge.
 const appleSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <rect width="100" height="100" fill="${TILE_BG}"/>
-  <rect x="0" y="93" width="100" height="7" fill="${TILE_EDGE}"/>
   <text x="46" y="72" font-family="Georgia, 'Times New Roman', serif" font-size="62"
     font-weight="700" fill="${TILE_FG}" text-anchor="middle">L</text>
   <text x="86" y="90" font-family="Georgia, 'Times New Roman', serif" font-size="20"
