@@ -2,7 +2,7 @@
 // through the engine's public API + the controller — replayed from the
 // pinned GCG fixtures. Deterministic: rigged bags, fixed rng, no clocks.
 import { Box, CircularProgress } from '@mui/material';
-import { RULESETS, applyMove, initialState, parseGcg } from '@lex/engine';
+import { RULESETS, applyMove, initialState, parseGcg, serializePublic } from '@lex/engine';
 import type { GameState, TileFace } from '@lex/engine';
 import { LocalTransport } from '@parlor/core';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -50,6 +50,17 @@ function storedLog(fixture: GameFixture): { options: HotSeatOptions; log: LexEnt
     options: { rulesetId: fixture.rulesetId, dictionaryId: 'stub', bagOrder, seats: fixture.seats },
     log,
   };
+}
+
+/** The public snapshot of a fixture's final position (lobby thumbnails, T4.7). */
+export function fixturePublic(fixture: GameFixture): string {
+  const ruleset = RULESETS[fixture.rulesetId];
+  if (!ruleset) throw new Error(`unknown ruleset '${fixture.rulesetId}'`);
+  const bagOrder = riggedBagOrder(ruleset, fixture.startingRacks, fixture.bagPrefix ?? []);
+  const dict = stubDict();
+  let state: GameState = initialState(ruleset, bagOrder, fixture.seats);
+  for (const line of fixture.moves) state = applyMove(state, parseGcg(line, state), dict);
+  return serializePublic(state);
 }
 
 /** Build a controller from a fixture replay, then run `setup` on it. */

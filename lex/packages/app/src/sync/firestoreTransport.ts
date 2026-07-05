@@ -42,6 +42,7 @@ interface GameDocData {
   challenge?: { from: string; fromName: string; to: string; toName: string };
   rematchGameId?: string;
   lastPlay?: { by: string; word: string; score: number };
+  timeControl?: { days: number } | null;
 }
 
 interface MoveDocData {
@@ -71,6 +72,7 @@ export interface GameInfo {
 export interface GameMeta {
   status: GameDocData['status'];
   playerNames: GameDocData['playerNames'];
+  timeControl: { days: 1 | 3 | 7 } | null;
   inviteCode?: string;
   challenge?: { from: string; fromName: string; to: string; toName: string };
   rematchGameId?: string;
@@ -145,6 +147,7 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
         cb({
           status: data.status,
           playerNames: data.playerNames,
+          timeControl: (data.timeControl as { days: 1 | 3 | 7 } | null | undefined) ?? null,
           ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
           ...(data.challenge ? { challenge: data.challenge } : {}),
           ...(data.rematchGameId ? { rematchGameId: data.rematchGameId } : {}),
