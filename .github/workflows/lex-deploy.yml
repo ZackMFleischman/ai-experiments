@@ -172,14 +172,19 @@ jobs:
           # invoker IAM binding, and the CLI never retries it on updates — the
           # callables then 403 at the Cloud Run layer ("internal" in the app).
           # Repair idempotently on every deploy: callables (DESIGN §6.3) are
-          # publicly invokable. Requires roles/run.admin on the deploy SA
-          # (§8.5; the scheduler-only forfeitExpired binding arrives with M5).
+          # publicly invokable; forfeitExpired stays private to the Cloud
+          # Scheduler OIDC identity (the default compute SA). Requires
+          # roles/run.admin on the deploy SA (§8.5).
           repair_failed=0
           for f in creategame joingame cancelgame challengeuser respondchallenge submitmove resign rematch ping; do
             gcloud run services add-iam-policy-binding "$f" --project lex-zmf \
               --region us-central1 --member allUsers --role roles/run.invoker --quiet \
               || repair_failed=1
           done
+          gcloud run services add-iam-policy-binding forfeitexpired --project lex-zmf \
+            --region us-central1 --role roles/run.invoker --quiet \
+            --member "serviceAccount:$(gcloud projects describe lex-zmf --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+            || repair_failed=1
           rm -f "$RUNNER_TEMP/firebase-sa.json"
           if [ "$repair_failed" = "1" ]; then
             echo "::error::invoker IAM repair failed — grant roles/run.admin to the lex-zmf deploy service account and re-run this workflow"
