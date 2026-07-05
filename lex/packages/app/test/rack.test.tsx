@@ -131,4 +131,47 @@ describe('RackTray', () => {
       container.querySelector('[data-rack-slot="1"]')?.getAttribute('data-selected'),
     ).toBe('true');
   });
+
+  it('a press anywhere on the tray grabs the nearest tile — no pixel-perfect aim needed', () => {
+    // Real-device polish: missing the 44px slot used to fall through to the
+    // board viewport, which panned the board instead. The whole tray is now
+    // the hit target; the slot is derived from the x position.
+    const onReorder = vi.fn();
+    const { tray } = renderTray({ onReorder });
+    // pointerDown on the TRAY itself (not a slot child), over slot 0's x-range.
+    fireEvent.pointerDown(tray, { pointerId: 3, clientX: 25, clientY: 630, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 3, clientX: 125, clientY: 632 });
+    fireEvent.pointerUp(tray, { pointerId: 3, clientX: 125, clientY: 632 });
+    expect(onReorder).toHaveBeenCalledWith(0, 2);
+  });
+
+  it('the shuffle button and bag chip never start a fat-target drag', () => {
+    const onReorder = vi.fn();
+    const onTileTap = vi.fn();
+    renderTray({ onReorder, onTileTap });
+    const shuffle = screen.getByRole('button', { name: /shuffle/i });
+    fireEvent.pointerDown(shuffle, { pointerId: 4, clientX: 330, clientY: 630, isPrimary: true });
+    fireEvent.pointerUp(shuffle, { pointerId: 4, clientX: 330, clientY: 630 });
+    const bag = screen.getByTestId('bag-count');
+    fireEvent.pointerDown(bag, { pointerId: 5, clientX: 335, clientY: 645, isPrimary: true });
+    fireEvent.pointerUp(bag, { pointerId: 5, clientX: 335, clientY: 645 });
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(onTileTap).not.toHaveBeenCalled();
+  });
+
+  it('neighbors shift out of the way in real time while a tile is dragged', () => {
+    const { tray } = renderTray();
+    const tile = tray.querySelector('[data-rack-slot="0"]') as HTMLElement;
+    fireEvent.pointerDown(tile, { pointerId: 6, clientX: 25, clientY: 630, isPrimary: true });
+    // Mocked tray is 350px wide → slotWidth 50. Dragged +100px = two slots.
+    fireEvent.pointerMove(tray, { pointerId: 6, clientX: 125, clientY: 631 });
+    const slot = (i: number) => tray.querySelector(`[data-rack-slot="${i}"]`) as HTMLElement;
+    expect(slot(0).style.transform).toBe('translateX(100px)');
+    expect(slot(1).style.transform).toBe('translateX(-50px)');
+    expect(slot(2).style.transform).toBe('translateX(-50px)');
+    expect(slot(3).style.transform).toBe('');
+    // Release: previews clear.
+    fireEvent.pointerUp(tray, { pointerId: 6, clientX: 125, clientY: 631 });
+    expect(slot(1).style.transform).toBe('');
+  });
 });

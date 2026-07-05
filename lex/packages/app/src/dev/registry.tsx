@@ -140,7 +140,7 @@ export const GALLERY: GalleryEntry[] = [
     id: 'lobby-empty',
     render: () => (
       <Box data-gallery-ready sx={{ p: 2 }}>
-        <LobbyView games={[]} now={LOBBY_NOW} onOpen={() => {}} />
+        <LobbyView games={[]} now={LOBBY_NOW} onOpen={() => {}} onNewGame={() => {}} />
       </Box>
     ),
   },
