@@ -1,13 +1,11 @@
-// ported from hive/packages/app/src/screens/LandingLayout.tsx (adapted)
-// Themed landing layout (T4.2, DESIGN §7.1): a board vignette — the center of
-// the classic board, rendered by the real board renderer — spelling the LEX
-// wordmark from real tile components, with the screen's action (sign-in /
-// Play / join card) as children. Shared by Landing and Join so an invited
-// friend sees the same identity.
-import { Box, Stack, Typography } from '@mui/material';
-import { keyframes } from '@mui/material/styles';
+// Lex landing hero (T4.2, DESIGN §7.1): the themed shell lives in
+// @parlor/web/lobby-ui — this file supplies lex's one game-specific slot, the
+// board vignette (a 5×5 window onto the classic board with the LEX wordmark
+// spelled from real tile components — data, not a mock-up). Shared by Landing
+// and Join so an invited friend sees the same identity. Firebase-free.
 import type { BoardLayout, CellKey, PlacedTile, Premium } from '@lex/engine';
 import { cellKey, RULESETS } from '@lex/engine';
+import { LandingLayout as ParlorLandingLayout } from '@parlor/web/lobby-ui';
 import type { ReactNode } from 'react';
 import { BoardGrid } from '../board/BoardGrid';
 
@@ -43,45 +41,16 @@ export const HERO_TILES: ReadonlyMap<CellKey, PlacedTile> = new Map<CellKey, Pla
   [cellKey({ row: 2, col: 3 }), { letter: 'X', isBlank: false }],
 ]);
 
-const float = keyframes`
-  from { transform: translateY(-6px); }
-  to   { transform: translateY(6px); }
-`;
+/** The lex landing vignette — shared by the LandingLayout shell and the
+ * Landing screen so the hero is identical on both. */
+export function LandingHero() {
+  return <BoardGrid layout={HERO_LAYOUT} points={classic.tiles.points} tiles={HERO_TILES} static />;
+}
 
 export function LandingLayout({ children }: { children: ReactNode }) {
   return (
-    <Box
-      sx={{
-        minHeight: '100dvh',
-        display: 'grid',
-        placeItems: 'center',
-        p: 3,
-        overflow: 'hidden',
-      }}
-    >
-      <Stack spacing={3} alignItems="center" sx={{ width: '100%', maxWidth: 460 }}>
-        <Box
-          data-testid="landing-hero"
-          aria-hidden
-          sx={{
-            animation: `${float} 6s ease-in-out infinite alternate`,
-            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-        >
-          <BoardGrid layout={HERO_LAYOUT} points={classic.tiles.points} tiles={HERO_TILES} static />
-        </Box>
-        <Stack spacing={1} alignItems="center">
-          <Typography variant="h2" component="h1" fontWeight={700} letterSpacing="0.2em">
-            LEX
-          </Typography>
-          <Typography color="text.secondary" align="center">
-            A crossword tile game for two.
-          </Typography>
-        </Stack>
-        {children}
-      </Stack>
-    </Box>
+    <ParlorLandingLayout hero={<LandingHero />} name="LEX" tagline="A crossword tile game for two.">
+      {children}
+    </ParlorLandingLayout>
   );
 }

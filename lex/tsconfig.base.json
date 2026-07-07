@@ -33,6 +33,9 @@
       "@parlor/web/lobby": [
         "../parlor/packages/web/src/lobby.ts"
       ],
+      "@parlor/web/lobby-ui": [
+        "../parlor/packages/web/src/lobby-ui/index.ts"
+      ],
       "@parlor/web/AppSyncProviders": [
         "../parlor/packages/web/src/AppSyncProviders.tsx"
       ],

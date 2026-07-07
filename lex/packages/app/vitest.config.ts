@@ -14,6 +14,7 @@ export default defineConfig({
       'react-router-dom',
       '@tanstack/react-query',
       '@mui/material',
+      '@mui/icons-material',
       '@emotion/react',
       '@emotion/styled',
       'firebase',
