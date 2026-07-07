@@ -1,7 +1,24 @@
-// The action row (T3.6/T3.7): Play / Recall / Exchange / Pass / Resign.
-// Pure props — enablement comes from the controller's verdicts upstream
-// (the UI never computes rules). Pass and Resign confirm via dialog.
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+// The action row (T3.6/T3.7): Play is the primary CTA (contained, grows to
+// fill); Recall pairs with it; Exchange / Pass are low-emphasis turn choices;
+// Resign — rare and game-ending — lives in the ⋯ overflow so it never occupies
+// the natural CTA slot. Pure props — enablement comes from the controller's
+// verdicts upstream (the UI never computes rules). Pass and Resign confirm via
+// dialog; Resign stays reachable off-turn (canResign) per DESIGN §2.3.
+import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  ListItemIcon,
+  Menu,
+  MenuItem,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 
 export interface GameActionsProps {
@@ -39,17 +56,27 @@ export function GameActions({
   initialConfirm,
 }: GameActionsProps) {
   const [confirm, setConfirm] = useState<'pass' | 'resign' | null>(initialConfirm ?? null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const exchangeShort = interactive && !canExchange && bagCount < exchangeMinBag;
-  // Drop MUI's 64px button min-width so all five actions share one row at
-  // 390px (T6.2) — flexWrap stays as the safety net for narrower frames.
+  const resignable = canResign ?? interactive;
+  // Drop MUI's 64px button min-width so the secondary actions stay tight; Play
+  // keeps a real footprint and grows to fill (T6.2). flexWrap is the safety net.
   const compact = { minWidth: 0, px: 1 } as const;
 
   return (
     <Box data-testid="game-actions" sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5, flexWrap: 'wrap' }}>
-      <Button variant="contained" size="small" disabled={!playable} onClick={onPlay} sx={compact}>
+      {/* Primary CTA: grows to dominate the row so Play is unmistakably the
+          action of the turn. */}
+      <Button
+        variant="contained"
+        size="small"
+        disabled={!playable}
+        onClick={onPlay}
+        sx={{ flexGrow: 1, minWidth: 64, px: 1.5, fontWeight: 700 }}
+      >
         Play
       </Button>
-      <Button size="small" disabled={!hasPending} onClick={onRecall} sx={compact}>
+      <Button variant="outlined" size="small" disabled={!hasPending} onClick={onRecall} sx={compact}>
         Recall
       </Button>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -65,16 +92,37 @@ export function GameActions({
       <Button size="small" disabled={!interactive} onClick={() => setConfirm('pass')} sx={compact}>
         Pass
       </Button>
-      <Box sx={{ flex: 1 }} />
-      <Button
+      <IconButton
         size="small"
-        color="error"
-        disabled={!(canResign ?? interactive)}
-        onClick={() => setConfirm('resign')}
-        sx={compact}
+        aria-label="more actions"
+        data-testid="more-actions"
+        disabled={!resignable}
+        onClick={(e) => setMenuAnchor(e.currentTarget)}
       >
-        Resign
-      </Button>
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+
+      <Menu
+        anchorEl={menuAnchor}
+        open={menuAnchor !== null}
+        onClose={() => setMenuAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <MenuItem
+          data-testid="resign-action"
+          onClick={() => {
+            setMenuAnchor(null);
+            setConfirm('resign');
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <FlagOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          Resign
+        </MenuItem>
+      </Menu>
 
       <Dialog open={confirm !== null} onClose={() => setConfirm(null)}>
         <DialogTitle>{confirm === 'pass' ? 'Pass your turn?' : 'Resign the game?'}</DialogTitle>

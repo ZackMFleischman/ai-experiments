@@ -125,9 +125,12 @@ describe('GameActions (pure) — pass/resign confirms, exchange availability', (
     expect(props.onPass).toHaveBeenCalledOnce();
   });
 
-  it('Resign asks for confirmation too', () => {
+  it('Resign lives in the overflow menu and asks for confirmation', () => {
     const props = renderActions();
-    fireEvent.click(screen.getByRole('button', { name: /resign/i }));
+    // Resign is not in the primary row — it's behind the ⋯ menu.
+    expect(screen.queryByRole('button', { name: /resign/i })).toBeNull();
+    fireEvent.click(screen.getByTestId('more-actions'));
+    fireEvent.click(screen.getByTestId('resign-action'));
     expect(props.onResign).not.toHaveBeenCalled();
     const dialog = screen.getByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: /resign/i }));
