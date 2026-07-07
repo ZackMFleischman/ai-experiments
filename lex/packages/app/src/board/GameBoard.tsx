@@ -59,6 +59,7 @@ export function GameBoard({
   onRematch,
   onBackToLobby,
   timeControl,
+  deadlineAtMs,
 }: {
   controller: GameController;
   seatNames?: readonly string[];
@@ -66,6 +67,9 @@ export function GameBoard({
   onBackToLobby?: () => void;
   /** Multiplayer: the game's async clock, restated in the info menu (T4.7). */
   timeControl?: { days: 1 | 3 | 7 } | null;
+  /** Multiplayer: the side-to-move's move deadline (ms) — drives the live
+   * clock in the player bar. */
+  deadlineAtMs?: number;
 }) {
   const snap = useGameController(controller);
   const mode = useTheme().palette.mode;
@@ -318,6 +322,7 @@ export function GameBoard({
         toMove={snap.toMove}
         onOpenSheet={() => setSheetOpen(true)}
         onInfo={() => setInfoOpen(true)}
+        {...(deadlineAtMs !== undefined && !snap.end ? { deadlineAtMs } : {})}
       />
       <NoticeToast notice={snap.notice} />
       <GameInfoDialog

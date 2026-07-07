@@ -486,7 +486,9 @@ with pinned bag orders.
 
 Same map as hive §6.1 — Landing (themed hero: a board vignette spelling the
 wordmark from real tile components), Lobby (challenges / your-turn / waiting /
-finished groups; cards show scores + last play: "Sam played QUIZ +68"), New game
+finished groups; cards show scores + last play: "Sam played QUIZ +68", plus a
+move-clock chip on both your-turn and waiting cards — the side-to-move's
+deadline, so the opponent's clock is visible too), New game
 (opponent chip or invite link; **board picker** — classic/modern with a mini
 premium-map preview; **dictionary picker** — labeled with name + word count;
 turn order; time control; FR-6..9), Join (the game-summary card lists board,
@@ -494,7 +496,11 @@ dictionary, time control, and your seat — the invitee sees the rules before
 accepting, FR-10), Settings (notifications, theme, tile skin), and Game (the
 game menu restates the chosen options mid-game).
 
-Game-screen deltas: player bars carry **scores** and a bag-count chip; the hand tray
+Game-screen deltas: player bars carry **scores** (players shown by first name —
+falling back to first + last initial, then full name, only as far as needed to
+tell them apart — so long names never wrap the bar) and a bag-count chip, and
+the side-to-move seat carries the **live move-clock** when the game has a time
+control; the hand tray
 is the **rack** (7 slots, drag-reorder, shuffle button); a **score sheet** drawer
 replaces the move list (per-turn word + score + running totals); actions are
 **Play / Recall / Exchange / Pass / Resign**; while `status:'open'` the same

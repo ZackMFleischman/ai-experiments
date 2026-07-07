@@ -131,3 +131,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   so a tile always stays where the snap shows. No snap target (occupied cell /
   off-board) sends the tile home — occupied drops previously kept a staged
   tile put silently; home matches what the un-snapped ghost communicates.
+
+- **2026-07-07 — Score-bar polish + move-clock visibility (Zack).** From a real
+  game: (1) player-bar names show first names, falling back to first + last
+  initial then full name only as far as needed to disambiguate — long names were
+  wrapping the bar and top-justifying the score; (2) the side-to-move seat gets a
+  live move-clock (compact "2d"/"18h"/"soon" + clock icon, fits even colliding
+  "Mike B."/"Mike C." at 390px); (3) the lobby deadline chip now rides waiting
+  cards too, so the opponent's clock is visible. Shared `game/clock.ts` feeds both;
+  `deadlineAt` (already in schema) surfaced through `GameMeta` to the game screen.

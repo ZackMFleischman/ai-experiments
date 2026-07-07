@@ -43,6 +43,7 @@ interface GameDocData {
   rematchGameId?: string;
   lastPlay?: { by: string; word: string; score: number };
   timeControl?: { days: number } | null;
+  deadlineAt?: { toMillis(): number } | null;
 }
 
 interface MoveDocData {
@@ -73,6 +74,8 @@ export interface GameMeta {
   status: GameDocData['status'];
   playerNames: GameDocData['playerNames'];
   timeControl: { days: 1 | 3 | 7 } | null;
+  /** The side-to-move's move deadline (ms), when the game has a time control. */
+  deadlineAtMs?: number;
   inviteCode?: string;
   challenge?: { from: string; fromName: string; to: string; toName: string };
   rematchGameId?: string;
@@ -148,6 +151,7 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
           status: data.status,
           playerNames: data.playerNames,
           timeControl: (data.timeControl as { days: 1 | 3 | 7 } | null | undefined) ?? null,
+          ...(data.deadlineAt ? { deadlineAtMs: data.deadlineAt.toMillis() } : {}),
           ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
           ...(data.challenge ? { challenge: data.challenge } : {}),
           ...(data.rematchGameId ? { rematchGameId: data.rematchGameId } : {}),

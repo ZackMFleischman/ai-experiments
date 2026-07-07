@@ -104,6 +104,19 @@ describe('game cards', () => {
     fireEvent.click(screen.getByTestId('game-card-g1'));
     expect(onOpen).toHaveBeenCalledWith('g1');
   });
+
+  it("shows the opponent's clock on waiting cards too (current player's deadline)", () => {
+    render(
+      <LobbyView
+        games={[game({ id: 'w1', toMove: 1, deadlineAtMs: NOW + 5 * 3_600_000 })]}
+        now={NOW}
+        onOpen={() => {}}
+      />,
+    );
+    // Not my turn: no your-turn chip, but the deadline chip still runs.
+    expect(screen.queryByTestId('your-turn-chip')).toBeNull();
+    expect(screen.getByTestId('deadline-chip').textContent).toBe('5h left');
+  });
 });
 
 describe('challenge cards', () => {
@@ -155,6 +168,9 @@ describe('badge + helpers', () => {
   it('formats deadlines and relative times', () => {
     expect(timeLeft(NOW + 20 * 60_000, NOW)).toBe('expiring');
     expect(timeLeft(NOW + 5 * 24 * 3_600_000, NOW)).toBe('5d left');
+    // Compact form drops "left" (paired with a clock icon) and says "soon".
+    expect(timeLeft(NOW + 5 * 24 * 3_600_000, NOW, true)).toBe('5d');
+    expect(timeLeft(NOW + 20 * 60_000, NOW, true)).toBe('soon');
     expect(relativeTime(NOW - 30_000, NOW)).toBe('just now');
     expect(relativeTime(NOW - 3 * 24 * 3_600_000, NOW)).toBe('3d ago');
   });
