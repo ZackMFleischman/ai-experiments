@@ -36,7 +36,7 @@ export function SettingsGear() {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Stack sx={{ p: 2, minWidth: 240 }} spacing={1.5}>
-          <Typography variant="subtitle2" component="h2">
+          <Typography variant="h6" component="h2">
             Settings
           </Typography>
           <div>

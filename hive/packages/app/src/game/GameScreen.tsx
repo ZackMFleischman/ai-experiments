@@ -120,7 +120,7 @@ export function GameScreen({
       {/* Confirm-move bar: only present when the setting is on. Confirm is
           disabled until a move is staged; Cancel discards the staged preview. */}
       {snap.confirmMove && !snap.end && (
-        <Box sx={{ display: 'flex', gap: 1, px: 1, pt: 0.5 }}>
+        <Box sx={{ display: 'flex', gap: 1, px: 1, py: 0.5 }}>
           <Button
             variant="outlined"
             size="small"
