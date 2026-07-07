@@ -3,6 +3,7 @@ import { lazy, Suspense, useMemo, useState } from 'react';
 import { Route, Routes, useParams } from 'react-router-dom';
 import { PieceArtProvider } from './board/pieceArt';
 import { SpriteSheet } from './board/sprites';
+import { GameSettingsProvider } from './game/gameSettings';
 import { Game } from './screens/Game';
 import { Join } from './screens/Join';
 import { Landing } from './screens/Landing';
@@ -96,7 +97,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <PieceArtProvider>{children}</PieceArtProvider>
+        <PieceArtProvider>
+          <GameSettingsProvider>{children}</GameSettingsProvider>
+        </PieceArtProvider>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );

@@ -158,3 +158,21 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   white's first move — state-derived, no per-user seen tracking. Client and
   server share the rule (actionableCount / countActionable). Code invites stay
   unbadgeable for recipients: they're anonymous until joined.
+
+- **2026-07-07 — Pillbug toss gate/stun corrected (user bug report).** The toss
+  was rejected whenever both freedom-to-move gate cells were occupied at any
+  height, so an embedded pillbug (flanks at ground level) could never throw. A
+  toss is a beetle-style climb up over the pillbug and down: only a gate ABOVE
+  ground level (both cells stacked to height ≥ 2) blocks it. Both steps now reuse
+  the height-aware `canSlide` predicate. Also enforced the full recency rule — a
+  pillbug tossed by the opponent's pillbug last turn is stunned and may not toss
+  this turn (previously it still could). DESIGN §2.2 + edge-case fixtures updated.
+
+- **2026-07-07 — In-game settings gear + Confirm-move (user request).** Moved
+  Bear mode off the lobby /settings screen onto a gear in the game chrome, joined
+  by a new "Confirm move" toggle (persisted via a small GameSettings context).
+  When on, a move applies to a local preview only; the controller holds the
+  pre-move state and submits solely on Confirm (Cancel/tap-out discards, turning
+  the setting off flushes a pending move). The Confirm button is hidden when off,
+  disabled until a move is staged. Staging suppresses all other board affordances
+  so only Confirm/Cancel act. Engine untouched — pure client UX.

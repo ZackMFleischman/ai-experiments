@@ -2,7 +2,7 @@
 // move list, menu, end-of-game beat and result overlay.
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import { Box, IconButton, Paper, Typography, Snackbar } from '@mui/material';
+import { Box, Button, IconButton, Paper, Typography, Snackbar } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { cellCenter } from '../board/hexGeometry';
@@ -12,11 +12,13 @@ import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
 import type { BugKind } from '@hive/engine';
 import { GameMenu } from './GameMenu';
+import { useGameSettings } from './gameSettings';
 import { MoveList } from './MoveList';
 import { PieceGuideButton } from './PieceGuide';
 import { PieceInfoCard } from './PieceInfoCard';
 import { PlayerBar } from './PlayerBar';
 import { ResultBanner, ResultOverlay } from './ResultOverlay';
+import { SettingsGear } from './SettingsGear';
 
 export function GameScreen({
   controller,
@@ -32,10 +34,16 @@ export function GameScreen({
   playerNames?: { white: string | null; black: string | null };
 }) {
   const snap = useGameController(controller);
+  const { confirmMove } = useGameSettings();
   const [movesOpen, setMovesOpen] = useState(false);
   const [dismissedNotice, setDismissedNotice] = useState(0);
   const [pieceInfo, setPieceInfo] = useState<BugKind | null>(null);
   const beatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep the controller's staging behaviour in sync with the setting.
+  useEffect(() => {
+    controller.setConfirmMove(confirmMove);
+  }, [controller, confirmMove]);
 
   // Debug surface for validators (the loom `window.__loom` convention).
   useEffect(() => {
@@ -72,6 +80,7 @@ export function GameScreen({
         <IconButton aria-label="move list" size="small" onClick={() => setMovesOpen(true)}>
           <ListAltIcon fontSize="small" />
         </IconButton>
+        <SettingsGear />
         <GameMenu controller={controller} snap={snap} />
       </Box>
       <ResultBanner controller={controller} snap={snap} />
@@ -108,6 +117,31 @@ export function GameScreen({
         )}
       </Box>
       <PlayerBar snap={snap} color={snap.myColor === 'b' ? 'b' : 'w'} names={playerNames} />
+      {/* Confirm-move bar: only present when the setting is on. Confirm is
+          disabled until a move is staged; Cancel discards the staged preview. */}
+      {snap.confirmMove && !snap.end && (
+        <Box sx={{ display: 'flex', gap: 1, px: 1, pt: 0.5 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={!snap.staged}
+            onClick={() => controller.discardStaged()}
+            data-testid="cancel-move"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            fullWidth
+            disabled={!snap.staged}
+            onClick={() => controller.confirmStaged()}
+            data-testid="confirm-move"
+          >
+            Confirm move
+          </Button>
+        </Box>
+      )}
       <Box sx={{ px: 1, pb: 'max(4px, env(safe-area-inset-bottom))' }}>
         <HandTray controller={controller} />
       </Box>
