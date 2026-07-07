@@ -61,6 +61,11 @@ export interface Snapshot {
   pendingDrawOffer?: Color;
   /** End-of-game beat (T3.9): board moment before the overlay. */
   beat?: { center: Hex; pulseCells: ReadonlySet<CellKey> };
+  /** "Confirm move" setting is on: moves stage as a preview and are only sent
+   * once the player taps Confirm (the button is hidden entirely when off). */
+  confirmMove: boolean;
+  /** A move is staged (previewed) awaiting confirmation. */
+  staged: boolean;
   overlayOpen: boolean;
   /** Transient error surfaced as a toast (T6.2); new id per occurrence. */
   notice?: { id: number; text: string };
@@ -95,6 +100,13 @@ export class GameController {
   private overlayDismissed = false;
   private noticeSeq = 0;
   private notice: { id: number; text: string } | undefined;
+
+  // "Confirm move" staging (opt-in setting): a move applied only to a local
+  // preview until the player confirms it. `preStage` is the position to restore
+  // on cancel or to submit from on confirm.
+  private confirmMove = false;
+  private stagedMove: Move | undefined;
+  private preStage: { state: GameState; lastMove?: { from?: Hex; to: Hex } } | undefined;
 
   private remoteUnsub: (() => void) | undefined;
 
@@ -134,6 +146,8 @@ export class GameController {
     const stored = await this.transport.load();
     if (!stored) return;
     let s = initialState(stored.options);
+    this.stagedMove = undefined;
+    this.preStage = undefined;
     this.pendingDrawOffer = undefined;
     this.resigned = undefined;
     this.timedOut = undefined;
@@ -204,7 +218,9 @@ export class GameController {
   private buildSnapshot(): Snapshot {
     const res = result(this.state);
     const end = this.computeEnd(res);
-    const moves = end || !this.interactive() ? [] : legalMoves(this.state);
+    // While a move is staged the board shows a preview and offers no further
+    // affordances — only Confirm/Cancel act.
+    const moves = end || !this.interactive() || this.stagedMove ? [] : legalMoves(this.state);
 
     const movable = new Set<CellKey>();
     for (const m of moves) {
@@ -262,6 +278,8 @@ export class GameController {
       ...(this.perspective ? { myColor: this.perspective } : {}),
       ...(this.pendingDrawOffer ? { pendingDrawOffer: this.pendingDrawOffer } : {}),
       ...(end && !this.beatDone && end.by === 'surround' ? { beat: this.buildBeat() } : {}),
+      confirmMove: this.confirmMove,
+      staged: !!this.stagedMove,
       overlayOpen: !!end && (this.beatDone || end.by !== 'surround') && !this.overlayDismissed,
       ...(this.notice ? { notice: this.notice } : {}),
     };
@@ -307,7 +325,7 @@ export class GameController {
 
   /** Tap or pick up a board piece. Enemy pieces are selectable when tossable. */
   selectCell(cell: Hex): void {
-    if (this.getSnapshot().end) return;
+    if (this.getSnapshot().end || this.stagedMove) return;
     const key = hexKey(cell);
     const snapshot = this.getSnapshot();
     if (snapshot.targets.has(key) || snapshot.climbTargets.has(key)) {
@@ -327,6 +345,7 @@ export class GameController {
 
   /** Tap or pick up a bug from the hand tray. */
   selectHandBug(kind: BugKind): void {
+    if (this.stagedMove) return;
     const snapshot = this.getSnapshot();
     if (snapshot.end || !snapshot.placeableBugs.has(kind)) return;
     const moves = legalMoves(this.state);
@@ -339,7 +358,7 @@ export class GameController {
 
   /** Pointer moved during a drag — coords already in board space. */
   dragTo(x: number, y: number): void {
-    if (!this.selection) return;
+    if (!this.selection || this.stagedMove) return;
     const cell = pixelToHex(x, y, HEX_SIZE);
     const key = hexKey(cell);
     const snapshot = this.getSnapshot();
@@ -350,7 +369,7 @@ export class GameController {
 
   /** Drop at board-space coords: commit on a target, spring back otherwise. */
   drop(x: number, y: number): void {
-    if (!this.selection) return;
+    if (!this.selection || this.stagedMove) return;
     const cell = pixelToHex(x, y, HEX_SIZE);
     const key = hexKey(cell);
     const snapshot = this.getSnapshot();
@@ -361,8 +380,12 @@ export class GameController {
     }
   }
 
-  /** Esc, tap-outside, or failed drop. */
+  /** Esc, tap-outside, or failed drop. Discards a staged move if one is pending. */
   cancel(): void {
+    if (this.stagedMove) {
+      this.discardStaged();
+      return;
+    }
     this.selection = undefined;
     this.drag = undefined;
     this.emit();
@@ -378,13 +401,64 @@ export class GameController {
       this.cancel();
       return;
     }
+    if (this.confirmMove) this.stageMove(move);
+    else this.submitMove(move);
+  }
+
+  // ── "Confirm move" staging ─────────────────────────────────────────────────
+
+  /** Toggle the confirm-move setting. Turning it off mid-stage sends the pending
+   * move (off means moves commit immediately). */
+  setConfirmMove(on: boolean): void {
+    if (this.confirmMove === on) return;
+    this.confirmMove = on;
+    if (!on && this.stagedMove) {
+      this.confirmStaged();
+      return;
+    }
+    this.emit();
+  }
+
+  /** Apply a move to the local preview only, awaiting Confirm. */
+  private stageMove(move: Move): void {
+    this.preStage = { state: this.state, ...(this.lastMove ? { lastMove: this.lastMove } : {}) };
+    this.stagedMove = move;
+    this.state = applyMove(this.state, move); // preview; not yet sent
+    this.lastMove = moveCells(move);
+    this.selection = undefined;
+    this.drag = undefined;
+    this.emit();
+  }
+
+  /** Commit the staged move: restore the real position, then submit it for real
+   * (optimistic apply + transport, with rollback on rejection). */
+  confirmStaged(): void {
+    const move = this.stagedMove;
+    const pre = this.preStage;
+    if (!move || !pre) return;
+    this.state = pre.state;
+    this.lastMove = pre.lastMove;
+    this.stagedMove = undefined;
+    this.preStage = undefined;
     this.submitMove(move);
+  }
+
+  /** Throw away the staged move and return to the pre-move position. */
+  discardStaged(): void {
+    if (!this.stagedMove || !this.preStage) return;
+    this.state = this.preStage.state;
+    this.lastMove = this.preStage.lastMove;
+    this.stagedMove = undefined;
+    this.preStage = undefined;
+    this.selection = undefined;
+    this.drag = undefined;
+    this.emit();
   }
 
   // ── moves & meta actions ───────────────────────────────────────────────────
 
   pass(): void {
-    if (!this.interactive()) return;
+    if (!this.interactive() || this.stagedMove) return;
     const move = legalMoves(this.state).find((m) => m.type === 'pass');
     if (move) this.submitMove(move);
   }
@@ -447,6 +521,8 @@ export class GameController {
     this.log = [];
     this.selection = undefined;
     this.drag = undefined;
+    this.stagedMove = undefined;
+    this.preStage = undefined;
     this.view = null;
     this.pendingDrawOffer = undefined;
     this.resigned = undefined;

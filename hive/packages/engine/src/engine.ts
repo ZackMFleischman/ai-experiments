@@ -77,6 +77,9 @@ function computeLegalMoves(state: GameState): Move[] {
         stack.length === 1 && // a mosquito on top of the hive is beetle-only
         neighbors(pCell).some((n) => topTile(state.board, n)?.kind === 'P');
       if (top.kind !== 'P' && !copiesPillbug) continue;
+      // A tosser stunned by the opponent's pillbug last turn may not use its
+      // ability this turn (T2.2 recency rule — cannot move OR toss).
+      if (stunned && tileEquals(stunned, top)) continue;
       for (const m of pillbugTosses(state, pCell, top)) {
         const k = `${tileKey(m.tile)}|${cellKey(m.from)}|${cellKey(m.to)}`;
         if (selfKeys.has(k)) continue;

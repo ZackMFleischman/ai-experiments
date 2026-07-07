@@ -44,10 +44,11 @@ test('piece guide opens from the game screen and names every piece', async ({ pa
   await expect(dialog).not.toBeVisible();
 });
 
-test('bear mode reskins the pieces and survives a reload', async ({ page }) => {
-  await page.goto('/settings');
-  await page.getByRole('checkbox', { name: /bear mode/i }).check();
+test('bear mode reskins the pieces from the in-game gear and survives a reload', async ({ page }) => {
   await page.goto('/game/local');
+  await page.getByRole('button', { name: /^settings$/i }).click();
+  await page.getByRole('checkbox', { name: /bear mode/i }).check();
+  await page.keyboard.press('Escape'); // close the popover
   await expect(page.locator('use[href="#bear-ant"]').first()).toBeVisible();
   await expect(page.locator('use[href="#bug-ant"]')).toHaveCount(0);
   // the guide teaches the mapping
@@ -58,10 +59,29 @@ test('bear mode reskins the pieces and survives a reload', async ({ page }) => {
   await page.reload();
   await expect(page.locator('use[href="#bear-ant"]').first()).toBeVisible();
   // and off again
-  await page.goto('/settings');
+  await page.getByRole('button', { name: /^settings$/i }).click();
   await page.getByRole('checkbox', { name: /bear mode/i }).uncheck();
-  await page.goto('/game/local');
+  await page.keyboard.press('Escape');
   await expect(page.locator('use[href="#bug-ant"]').first()).toBeVisible();
+});
+
+test('confirm-move toggle shows a Confirm button that is off by default', async ({ page }) => {
+  await page.goto('/game/local');
+  // Off by default: the confirm button is absent from the chrome entirely.
+  await expect(page.getByTestId('confirm-move')).toHaveCount(0);
+  // Turn it on via the in-game gear.
+  await page.getByRole('button', { name: /^settings$/i }).click();
+  await page.getByRole('checkbox', { name: /confirm move/i }).check();
+  await page.keyboard.press('Escape');
+  // Button now present but disabled until a move is staged.
+  const confirm = page.getByTestId('confirm-move');
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toBeDisabled();
+  // Turning it back off removes the button again.
+  await page.getByRole('button', { name: /^settings$/i }).click();
+  await page.getByRole('checkbox', { name: /confirm move/i }).uncheck();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('confirm-move')).toHaveCount(0);
 });
 
 // Regression: the landing hero draws tiles via <use href="#bug-*">, so the

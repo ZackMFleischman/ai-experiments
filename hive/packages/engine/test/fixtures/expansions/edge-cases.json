@@ -107,7 +107,50 @@
       ]
     },
     {
-      "name": "toss blocked by a full height-1 gate",
+      "name": "toss blocked by a beetle gate (both up-step gate cells stacked to height 2)",
+      "cells": [
+        [
+          -1,
+          0,
+          "wQ1"
+        ],
+        [
+          0,
+          0,
+          "wP1"
+        ],
+        [
+          1,
+          0,
+          "bA1"
+        ],
+        [
+          1,
+          -1,
+          "wS1",
+          "wB1"
+        ],
+        [
+          0,
+          1,
+          "wS2",
+          "bB1"
+        ],
+        [
+          -1,
+          -1,
+          "bQ1"
+        ]
+      ],
+      "toMove": "w",
+      "legal": [],
+      "illegal": [
+        "bA1 \\wP",
+        "bA1 wP\\"
+      ]
+    },
+    {
+      "name": "toss allowed over a ground-level gate (height-1 tiles do not block)",
       "cells": [
         [
           -1,
@@ -141,44 +184,8 @@
         ]
       ],
       "toMove": "w",
-      "legal": [],
-      "illegal": [
-        "bA1 \\wP",
-        "bA1 wP\\"
-      ]
-    },
-    {
-      "name": "toss allowed once the gate opens",
-      "cells": [
-        [
-          -1,
-          0,
-          "wQ1"
-        ],
-        [
-          0,
-          0,
-          "wP1"
-        ],
-        [
-          1,
-          0,
-          "bA1"
-        ],
-        [
-          1,
-          -1,
-          "wS1"
-        ],
-        [
-          -1,
-          -1,
-          "bQ1"
-        ]
-      ],
-      "toMove": "w",
       "legal": [
-        "bA1 wP\\"
+        "bA1 \\wP"
       ],
       "illegal": []
     },
