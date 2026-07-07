@@ -4,6 +4,7 @@
 // (progressive fallback) so long full names don't wrap the bar, and the
 // side-to-move seat carries a live move-clock when the game has a time control.
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { Box, Chip, IconButton, Paper, Typography } from '@mui/material';
@@ -17,6 +18,9 @@ export interface ScoreBarProps {
   scores: readonly number[];
   toMove: Seat;
   onOpenSheet: () => void;
+  /** Leaves the game for the lobby / landing. Omitted where there is nowhere
+   * to go back to (e.g. the standalone gallery). */
+  onBack?: () => void;
   /** Opens the game-info dialog (board/dictionary/time control). */
   onInfo?: () => void;
   /** Move deadline for the side to move (ms). Omitted for hot-seat and for
@@ -44,6 +48,7 @@ export function ScoreBar({
   scores,
   toMove,
   onOpenSheet,
+  onBack,
   onInfo,
   deadlineAtMs,
 }: ScoreBarProps) {
@@ -55,6 +60,17 @@ export function ScoreBar({
       data-testid="score-bar"
       sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 1 }}
     >
+      {onBack && (
+        <IconButton
+          aria-label="leave game"
+          size="small"
+          onClick={onBack}
+          data-testid="leave-game"
+          edge="start"
+        >
+          <ArrowBackIcon fontSize="small" />
+        </IconButton>
+      )}
       {scores.map((score, seat) => (
         <Box
           key={seat}

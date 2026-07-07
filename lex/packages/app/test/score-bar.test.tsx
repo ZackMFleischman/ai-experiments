@@ -1,6 +1,6 @@
 // Score bar (DESIGN §7.1): short display names + the live move-clock that
 // rides the side-to-move seat only when a deadline is supplied.
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ScoreBar } from '../src/game/ScoreBar';
 
@@ -53,5 +53,21 @@ describe('ScoreBar move clock', () => {
       <ScoreBar names={['Mike', 'Zachary']} scores={[78, 36]} toMove={0} onOpenSheet={noop} />,
     );
     expect(screen.queryByTestId('turn-clock')).toBeNull();
+  });
+});
+
+describe('ScoreBar leave button', () => {
+  it('fires onBack when the leave button is tapped', () => {
+    const onBack = vi.fn();
+    render(
+      <ScoreBar names={['Mike', 'Zachary']} scores={[0, 0]} toMove={0} onOpenSheet={noop} onBack={onBack} />,
+    );
+    fireEvent.click(screen.getByTestId('leave-game'));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the leave button when no onBack is supplied', () => {
+    render(<ScoreBar names={['Mike', 'Zachary']} scores={[0, 0]} toMove={0} onOpenSheet={noop} />);
+    expect(screen.queryByTestId('leave-game')).toBeNull();
   });
 });

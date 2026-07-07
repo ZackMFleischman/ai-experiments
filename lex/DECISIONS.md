@@ -140,3 +140,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   "Mike B."/"Mike C." at 390px); (3) the lobby deadline chip now rides waiting
   cards too, so the opponent's clock is visible. Shared `game/clock.ts` feeds both;
   `deadlineAt` (already in schema) surfaced through `GameMeta` to the game screen.
+
+- **2026-07-07 — In-game back button + branded boot loading screen (Zack).**
+  (1) The score-bar now leads with a back arrow that leaves the live board for
+  the lobby (multiplayer) / landing (hot-seat) — reuses the `onBackToLobby`
+  already threaded from both game containers for the end-of-game overlay, so no
+  new plumbing. (2) Landing shows the LEX hero + spinner while full-mode auth
+  resolves instead of flashing the sign-in buttons at an already-signed-in
+  player, then redirects to their games; guarded deep-links already covered by
+  RequireAuth's own loading state.

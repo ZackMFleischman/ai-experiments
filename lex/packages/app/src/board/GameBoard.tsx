@@ -322,6 +322,7 @@ export function GameBoard({
         toMove={snap.toMove}
         onOpenSheet={() => setSheetOpen(true)}
         onInfo={() => setInfoOpen(true)}
+        {...(onBackToLobby ? { onBack: onBackToLobby } : {})}
         {...(deadlineAtMs !== undefined && !snap.end ? { deadlineAtMs } : {})}
       />
       <NoticeToast notice={snap.notice} />
