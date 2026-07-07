@@ -128,7 +128,9 @@ test('two browsers play a full multiplayer game', async ({ browser }) => {
   await rackSettled(ada);
 
   // ── resign → overlay on both sides ────────────────────────────────────────
-  await sam.getByRole('button', { name: /^resign$/i }).click();
+  // Resign lives in the action-row overflow (⋯) menu, then confirms via dialog.
+  await sam.getByTestId('more-actions').click();
+  await sam.getByTestId('resign-action').click();
   await sam.getByRole('dialog').getByRole('button', { name: /^resign$/i }).click();
   await expect(sam.getByTestId('result-overlay')).toBeVisible({ timeout: 15_000 });
   await expect(sam.getByTestId('result-overlay')).toContainText(/sam resigned/i);

@@ -149,3 +149,15 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   resolves instead of flashing the sign-in buttons at an already-signed-in
   player, then redirects to their games; guarded deep-links already covered by
   RequireAuth's own loading state.
+
+- **2026-07-07 — Action-row hierarchy: Play is the CTA, Resign moves to ⋯
+  (Zack).** From a real game: every action button was the same compact size and
+  a `flex:1` spacer pushed Resign to the far-right edge — the natural primary-CTA
+  slot on mobile — giving a rare, game-ending action false prominence while Play,
+  the every-turn action, had none. Redesigned `GameActions` by frequency ×
+  consequence: Play is a full-width contained CTA that grows to dominate the row;
+  Recall is its outlined undo-pair; Exchange/Pass stay low-emphasis; Resign moves
+  into an overflow (⋯) menu (error-colored, still behind its confirm dialog, still
+  enabled off-turn via `canResign` per §2.3). Matches Words With Friends / Scrabble
+  GO. Action set unchanged (DESIGN §7.2 still Play/Recall/Exchange/Pass/Resign);
+  only placement changed. Tests/e2e that clicked Resign now open the menu first.

@@ -83,7 +83,9 @@ are logged at the bottom with date + reason, and deleted when fixed.
   in the active skin/theme.
 - Negative scores everywhere (score bar, result overlay) use the typographic
   minus (−), never hyphen-minus.
-- Action row (Play/Recall/Exchange/Pass/Resign) fits one line at 390×844.
+- Action row fits one line at 390×844: Play is the dominant full-width CTA;
+  Recall/Exchange/Pass sit low-emphasis beside it; Resign is only in the ⋯
+  overflow menu (never in the row's CTA slot).
 
 ## Tile skins & Settings (T6.1)
 

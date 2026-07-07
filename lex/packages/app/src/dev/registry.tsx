@@ -365,6 +365,49 @@ export const GALLERY: GalleryEntry[] = [
     ),
   },
   {
+    id: 'actions-idle',
+    render: () => (
+      <Box sx={{ p: 2 }} data-gallery-ready>
+        {/* Nothing staged: Play is the dimmed-but-dominant CTA; Recall is
+            disabled; Exchange/Pass sit low-emphasis; Resign hides in ⋯. */}
+        <GameActions
+          playable={false}
+          hasPending={false}
+          interactive
+          canExchange
+          exchangeMinBag={7}
+          bagCount={86}
+          onPlay={() => {}}
+          onRecall={() => {}}
+          onExchange={() => {}}
+          onPass={() => {}}
+          onResign={() => {}}
+        />
+      </Box>
+    ),
+  },
+  {
+    id: 'actions-playable',
+    render: () => (
+      <Box sx={{ p: 2 }} data-gallery-ready>
+        {/* A valid move staged: Play lights up as the full-width primary CTA. */}
+        <GameActions
+          playable
+          hasPending
+          interactive
+          canExchange
+          exchangeMinBag={7}
+          bagCount={86}
+          onPlay={() => {}}
+          onRecall={() => {}}
+          onExchange={() => {}}
+          onPass={() => {}}
+          onResign={() => {}}
+        />
+      </Box>
+    ),
+  },
+  {
     id: 'confirm-pass',
     render: () => (
       <Box sx={{ p: 2 }} data-gallery-ready>
