@@ -20,6 +20,10 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Pass-device interstitial fully hides both racks (no tile leakage in the frame).
 - Player bars, rack, preview chips, and board never overlap; safe-area respected
   at 390×844.
+- Player bar: names show as first names (long full names shortened, never
+  wrapping to a second line so the big score number sits centered, not
+  top-justified); the side-to-move seat carries a clock-icon move-clock when
+  the game has a time control, on that seat only.
 - Last-play highlight (green edge) clearly a different signal than pending gold,
   and gone entirely while any tile is staged.
 - A dragged tile is always visible: a fixed-position shadowed ghost rides
@@ -56,6 +60,8 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Lobby groups labeled and ordered (challenges, your turn, waiting, finished);
   cards carry thumbnail, scores + last play (2-line clamp — never truncated to
   scores alone), your-turn/deadline/result chips distinguishable in both themes.
+  The deadline (clock-icon) chip rides BOTH your-turn and waiting cards — the
+  current player's move deadline — and never starves the caption at 390px.
 - New game: both board cards show real premium-map previews; dictionaries show
   name + word count + description; toggles legible at 390px.
 - Join card lists board, dictionary + word count, time control, and seat

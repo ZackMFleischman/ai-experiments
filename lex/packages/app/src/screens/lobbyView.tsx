@@ -3,6 +3,7 @@
 // finished groups; cards carry the scores and the last play ("Sam played
 // QUIZ +68"). Firebase-free — the sync container (sync/OnlineGames) feeds
 // it; the gallery feeds it fixtures.
+import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
 import {
   Box,
   Button,
@@ -21,6 +22,7 @@ import { MiniBoard } from '../board/MiniBoard';
 import { skinVars } from '../board/skin';
 import { useSkinId } from '../board/skinContext';
 import { Tile } from '../board/Tile';
+import { timeLeft } from '../game/clock';
 
 export interface LobbyGameSummary {
   id: string;
@@ -48,12 +50,7 @@ export interface LobbyGameSummary {
   freshFromOpponent?: boolean;
 }
 
-export function timeLeft(deadlineMs: number, nowMs: number): string {
-  const h = Math.max(0, Math.round((deadlineMs - nowMs) / 3_600_000));
-  if (h < 1) return 'expiring';
-  if (h < 48) return `${h}h left`;
-  return `${Math.round(h / 24)}d left`;
-}
+export { timeLeft } from '../game/clock';
 
 export function relativeTime(thenMs: number, nowMs: number): string {
   const s = Math.max(0, Math.round((nowMs - thenMs) / 1000));
@@ -131,15 +128,22 @@ export function GameCard({
                 : cardCaption(game, now)}
             </Typography>
           </Stack>
-          {yourTurn && (
+          {game.status === 'active' && (
             // Stacked, not side by side: two chips in a row starve the caption
-            // at 390px until the last play clamps away entirely (T6.3).
+            // at 390px until the last play clamps away entirely (T6.3). The
+            // clock rides both your-turn and waiting cards — it's the CURRENT
+            // player's deadline either way, so you can see the opponent's clock
+            // running down too, not just your own.
             <Stack spacing={0.5} alignItems="center">
-              <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />
+              {yourTurn && (
+                <Chip size="small" color="primary" label="Your turn" data-testid="your-turn-chip" />
+              )}
               {game.deadlineAtMs !== undefined && (
                 <Chip
                   size="small"
                   variant="outlined"
+                  color={yourTurn ? 'primary' : 'default'}
+                  icon={<AccessTimeRoundedIcon />}
                   label={timeLeft(game.deadlineAtMs, now)}
                   data-testid="deadline-chip"
                 />

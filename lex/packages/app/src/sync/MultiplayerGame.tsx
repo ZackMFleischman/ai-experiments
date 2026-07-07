@@ -206,6 +206,7 @@ export default function MultiplayerGame({ gameId }: { gameId: string }) {
         onRematch={rematch}
         onBackToLobby={() => void navigate('/lobby')}
         timeControl={meta.timeControl}
+        {...(meta.deadlineAtMs !== undefined ? { deadlineAtMs: meta.deadlineAtMs } : {})}
       />
     </Box>
   );

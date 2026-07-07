@@ -89,7 +89,14 @@ const LOBBY_GAMES: LobbyGameSummary[] = [
     public: fixturePublic(midGame),
     deadlineAtMs: LOBBY_NOW + 26 * 3_600_000,
   }),
-  lobbyGame({ id: 'w1', toMove: 1, opponentName: 'Noor', updatedAtMs: LOBBY_NOW - 3_600_000 }),
+  lobbyGame({
+    id: 'w1',
+    toMove: 1,
+    opponentName: 'Noor',
+    updatedAtMs: LOBBY_NOW - 3_600_000,
+    // Waiting card: the opponent's clock is visible too (current player's deadline).
+    deadlineAtMs: LOBBY_NOW + 9 * 3_600_000,
+  }),
   lobbyGame({ id: 'o1', status: 'open', opponentName: null, updatedAtMs: LOBBY_NOW - 60_000 }),
   lobbyGame({
     id: 'f1',
@@ -214,6 +221,11 @@ export const GALLERY: GalleryEntry[] = [
   },
   { id: 'board-early', render: () => game(() => fixtureController(earlyGame)) },
   { id: 'board-mid', render: () => game(() => fixtureController(midGame)) },
+  // Long full names must shorten to first names (no bar-wrapping, DESIGN §7.1).
+  {
+    id: 'board-long-names',
+    render: () => game(() => fixtureController(midGame), ['Mike Borrebach', 'Zachary Fleischman']),
+  },
   {
     id: 'board-late',
     render: () =>
