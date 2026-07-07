@@ -73,10 +73,14 @@ All one-hive movement/placement rules, per the official rulebook:
 - **Ladybug:** exactly two steps on top of the hive, then one step down.
 - **Pillbug:** moves like a Queen, **or** (instead of moving) tosses an adjacent piece —
   friend or enemy — up over itself and down into an adjacent empty cell. Constraints:
-  tossed piece and destination obey the sliding/gate rules at height 1; may not toss a
-  stacked piece or the piece the opponent just moved; **a piece moved or tossed by a
-  pillbug last turn is stunned** (cannot move or be tossed this turn). These "recency"
-  rules are why the engine tracks `lastMoved` state (§4.2).
+  each toss step obeys freedom-to-move as a beetle-style climb, so only a gate **above
+  ground level** (both gate cells stacked to height ≥ 2, the `canSlide` predicate)
+  blocks it — a single ground-level tile never does; may not toss a stacked piece, a
+  piece whose departure splits the hive, or the piece the opponent just moved; **a piece
+  tossed by a pillbug last turn is stunned** — it may neither move, be tossed, nor use
+  its own toss ability on the owner's next turn (so a pillbug tossed by the opponent's
+  pillbug cannot toss). These "recency" rules are why the engine tracks `lastMoved`
+  state (§4.2).
 
 ### 2.3 Meta rules
 

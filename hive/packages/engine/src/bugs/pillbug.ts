@@ -1,21 +1,20 @@
 // Pillbug (T2.2): self-moves are queen-shaped (registry maps P to the queen
 // generator); this module generates the tosses. Constraints per DESIGN §2.2:
-// height-1 targets only (never stacked), never the last-moved piece, one-hive
-// respected, and both toss steps obey the height-1 gate rule — the tossed piece
-// travels at height one, so a step is blocked when BOTH its gate cells are
-// occupied at all (stricter than the beetle's strictly-taller rule).
+// unstacked targets only (never a covered/covering tile), never the last-moved
+// piece, one-hive respected, and both toss steps obey the freedom-to-move rule.
+// The tossed piece climbs up onto the pillbug and back down, so each step is a
+// beetle-style climb: it is blocked only by a gate ABOVE ground level — both
+// gate cells stacked to height ≥ 2 (`canSlide`). A single ground-level tile in a
+// gate cell never blocks the toss (the piece rides over it on top of the
+// pillbug). This is the shared freedom-to-move predicate, same as beetle climbs.
 import { hexEquals, neighbors } from '../hex';
 import type { GameState, Hex, Move, TileId } from '../index';
-import { canDepart, commonNeighbors } from '../rules';
-import { type Board, isOccupied, removeTop, stackAt, tileEquals } from '../state';
+import { canDepart, canSlide } from '../rules';
+import { isOccupied, removeTop, stackAt, tileEquals } from '../state';
 
-function gateOpenAtHeightOne(board: Board, from: Hex, to: Hex): boolean {
-  const [g1, g2] = commonNeighbors(from, to);
-  return !(isOccupied(board, g1) && isOccupied(board, g2));
-}
-
-/** Tosses available to the pillbug (or pillbug-copying mosquito) `by` sitting
- * at `pCell`. Its own stun does not matter — a stunned pillbug may still toss. */
+/** Tosses available to the pillbug (or pillbug-copying mosquito) `by` sitting at
+ * `pCell`. The tosser's own stun is handled by the caller (a stunned pillbug may
+ * not use its ability); this generator assumes `by` is free to act. */
 export function pillbugTosses(
   state: GameState,
   pCell: Hex,
@@ -33,10 +32,10 @@ export function pillbugTosses(
     if (state.lastMoved && tileEquals(state.lastMoved.tile, tile)) continue; // just moved / stunned
     if (!canDepart(board, t)) continue; // one-hive
     const lifted = removeTop(board, t);
-    if (!gateOpenAtHeightOne(lifted, t, pCell)) continue; // up over the pillbug
+    if (!canSlide(lifted, t, pCell)) continue; // up over the pillbug
     for (const d of empties) {
       if (hexEquals(d, t)) continue;
-      if (!gateOpenAtHeightOne(lifted, pCell, d)) continue; // down the other side
+      if (!canSlide(lifted, pCell, d)) continue; // down the other side
       moves.push({ type: 'toss', by, tile, from: t, to: d });
     }
   }
