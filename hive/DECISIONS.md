@@ -294,3 +294,16 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   (maps color→seat). Forfeit sweep stays hive's. Client draw stubs stay game-side
   as thin typed callables. DESIGN §5.3 updated; meta/callables emulator tests are
   the equivalence gate.
+
+- **2026-07-08 — FirestoreTransport shell shared via @parlor/web/transport
+  (parlor hardening Phase 3).** The genuinely-shared, behavior-identical transport
+  plumbing moved to `@parlor/web/transport`: `seatIndexOf` (seat resolution),
+  `watchGameMeta` (the game-doc meta listener, incl. the subtle **permission-denied
+  delete-detection** — a deleted game doc reaches a live listener as an error, not
+  exists:false), and the log-replay reads `fetchOrderedMoves` + `watchAddedMoves`.
+  hive is perfect-information, so its sync strategy IS log replay — its transport
+  now delegates open/watchMeta/load/onRemoteEntry to those helpers and keeps only
+  the doc→entry map, its engine snapshot-regression check, and submit routing.
+  hive's controller-local `GameTransport` type is unchanged (its migration onto
+  `@parlor/core`'s is separate), so no monolithic transport factory. Behavior
+  preserved (identical logic moved); mp e2e is the gate.

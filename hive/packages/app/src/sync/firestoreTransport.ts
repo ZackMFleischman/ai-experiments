@@ -2,15 +2,14 @@
 // Reads flow from Firestore snapshots; writes flow through the §5.3 callables
 // (clients cannot write games/* — firestore.rules). The move-log ↔ snapshot
 // regression check runs on load per DESIGN §5.2.
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-} from 'firebase/firestore';
+//
+// The shared transport plumbing — seat resolution, the game-doc meta listener
+// (incl. the permission-denied delete-detection), and the log-replay reads —
+// comes from @parlor/web/transport (parlor hardening Phase 3). hive is a
+// perfect-information game, so its sync strategy IS log replay: `load` reads the
+// ordered log, `onRemoteEntry` emits each appended move; the doc→entry map and
+// the engine replay are hive's.
+import { doc, getDoc } from 'firebase/firestore';
 import {
   applyMove,
   deserializeState,
@@ -22,6 +21,12 @@ import {
 } from '@hive/engine';
 import type { GameTransport, LogEntry, StoredGame } from '../controller/transport';
 import { getDb } from '@parlor/web/firebase';
+import {
+  fetchOrderedMoves,
+  seatIndexOf,
+  watchAddedMoves,
+  watchGameMeta,
+} from '@parlor/web/transport';
 import * as api from './gameApi';
 
 interface GameDocData {
@@ -63,7 +68,6 @@ export interface GameMeta {
 
 export class FirestoreTransport implements GameTransport {
   private players: GameDocData['players'] = { white: null, black: null };
-  private unsub: (() => void) | undefined;
 
   constructor(
     private readonly gameId: string,
@@ -76,12 +80,11 @@ export class FirestoreTransport implements GameTransport {
     if (!snap.exists()) throw new Error('game not found');
     const data = snap.data() as GameDocData;
     this.players = data.players;
-    const myColor: Color | null =
-      data.players.white === this.uid ? 'w' : data.players.black === this.uid ? 'b' : null;
-    if (!myColor) throw new Error('you are not a player in this game');
+    const seat = seatIndexOf(data.players, this.uid, ['white', 'black']);
+    if (seat === null) throw new Error('you are not a player in this game');
     return {
       options: data.options,
-      myColor,
+      myColor: seat === 0 ? 'w' : 'b',
       status: data.status,
       playerNames: data.playerNames,
       ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
@@ -90,31 +93,20 @@ export class FirestoreTransport implements GameTransport {
 
   /** Subscribe to the game-doc slice the chrome needs live (GameMeta).
    * `null` = the doc was deleted out from under us (declined/withdrawn
-   * challenge, cancelled invite). */
+   * challenge, cancelled invite) — see @parlor/web/transport watchGameMeta. */
   watchMeta(cb: (meta: GameMeta | null) => void): () => void {
-    let seen = false;
-    return onSnapshot(
-      doc(getDb(), 'games', this.gameId),
-      (snap) => {
-        if (!snap.exists()) {
-          if (seen) cb(null);
-          return;
-        }
-        seen = true;
-        const data = snap.data() as GameDocData;
-        cb({
-          status: data.status,
-          playerNames: data.playerNames,
-          ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
-          ...(data.challenge ? { challenge: data.challenge } : {}),
-        });
+    return watchGameMeta(
+      this.gameId,
+      (data): GameMeta => {
+        const d = data as GameDocData;
+        return {
+          status: d.status,
+          playerNames: d.playerNames,
+          ...(d.inviteCode ? { inviteCode: d.inviteCode } : {}),
+          ...(d.challenge ? { challenge: d.challenge } : {}),
+        };
       },
-      (err) => {
-        // The read rule needs resource.data (playerIds), which a deleted doc
-        // no longer has — so deletion reaches a live listener as
-        // permission-denied, not as an exists:false snapshot.
-        if (seen && (err as { code?: string }).code === 'permission-denied') cb(null);
-      },
+      cb,
     );
   }
 
@@ -127,15 +119,12 @@ export class FirestoreTransport implements GameTransport {
   }
 
   async load(): Promise<StoredGame | null> {
-    const db = getDb();
-    const gameSnap = await getDoc(doc(db, 'games', this.gameId));
+    const gameSnap = await getDoc(doc(getDb(), 'games', this.gameId));
     if (!gameSnap.exists()) return null;
     const game = gameSnap.data() as GameDocData;
     this.players = game.players;
-    const moves = await getDocs(
-      query(collection(db, 'games', this.gameId, 'moves'), orderBy('n')),
-    );
-    const log = moves.docs.map((d) => this.toEntry(d.data() as MoveDocData));
+    const moves = await fetchOrderedMoves(this.gameId);
+    const log = moves.map((d) => this.toEntry(d as MoveDocData));
 
     // Regression check (DESIGN §5.2): the denormalized snapshot must equal the
     // replayed log. The log is the source of truth either way.
@@ -173,18 +162,10 @@ export class FirestoreTransport implements GameTransport {
   }
 
   onRemoteEntry(cb: (entry: LogEntry, index: number) => void): () => void {
-    const moves = query(collection(getDb(), 'games', this.gameId, 'moves'), orderBy('n'));
-    this.unsub = onSnapshot(moves, (snap) => {
-      for (const change of snap.docChanges()) {
-        if (change.type !== 'added') continue;
-        const data = change.doc.data() as MoveDocData;
-        cb(this.toEntry(data), data.n);
-      }
+    return watchAddedMoves(this.gameId, (data) => {
+      const move = data as MoveDocData;
+      cb(this.toEntry(move), move.n);
     });
-    return () => {
-      this.unsub?.();
-      this.unsub = undefined;
-    };
   }
 
   async reset(): Promise<void> {

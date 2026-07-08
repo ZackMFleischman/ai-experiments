@@ -19,6 +19,7 @@
       "@parlor/server": ["../parlor/packages/server/src/index.ts"],
       "@parlor/web": ["../parlor/packages/web/src/index.ts"],
       "@parlor/web/firebase": ["../parlor/packages/web/src/firebase.ts"],
+      "@parlor/web/transport": ["../parlor/packages/web/src/transport.ts"],
       "@parlor/web/gameApi": ["../parlor/packages/web/src/gameApi.ts"],
       "@parlor/web/lobby": ["../parlor/packages/web/src/lobby.ts"],
       "@parlor/web/lobby-ui": ["../parlor/packages/web/src/lobby-ui/index.ts"],

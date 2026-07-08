@@ -13,7 +13,9 @@ Independent pnpm workspace. Packages (TS source, no build step):
 - **`@parlor/web`** — React + Firebase client layer: configurable app init,
   the auth seam (hot-seat/full context + route guard + provider stack), the
   callable client factory, the lobby listener hook (doc→summary mapping is the
-  game's), and (`./lobby-ui`) the shared lobby/landing presentation — grouped
+  game's), the (`./transport`) FirestoreTransport shell — seat resolution, the
+  game-doc meta listener with delete-detection, and the log-replay reads (the
+  sync strategy stays the game's), and (`./lobby-ui`) the shared lobby/landing presentation — grouped
   game list, turn badge, invite/waiting/join screens, landing shell — with the
   game injecting its thumbnail, card caption, empty motif, hero, and option
   chips. Peer deps: react, firebase, MUI (the game provides them). Root entry

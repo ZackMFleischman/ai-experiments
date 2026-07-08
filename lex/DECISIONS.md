@@ -244,3 +244,14 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   inclusion, so no draw endpoints ship. Wire contract (`move` field), doc shapes,
   and privacy invariant (exchange log carries a count only) unchanged. DESIGN §4/§6.3
   updated; submit-move + callables emulator tests are the equivalence gate.
+
+- **2026-07-08 — FirestoreTransport shell shared via @parlor/web/transport
+  (parlor hardening Phase 3).** lex adopts the shared shell — `seatIndexOf`,
+  `watchGameMeta` (incl. the **permission-denied delete-detection**), and
+  `fetchOrderedMoves` — dropping its local `seatOf` and inlined meta listener. It
+  KEEPS its hidden-information **coherent-adoption** sync strategy game-side
+  (`fetchSync` re-reads game doc + own rack + log per signal behind the rack-`n` /
+  log-length coherence gates and the monotonic emit gate; serialized single-queue
+  refetch) — the plan explicitly allows leaving this game-provided, and lifting
+  race-sensitive live-sync into a generic module carries risk out of proportion to
+  the dedup (the mp e2e is its only gate). Behavior preserved; DESIGN §4 updated.
