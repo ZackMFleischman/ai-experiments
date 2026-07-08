@@ -6,7 +6,7 @@
   },
   "firestore": {
     "rules": "firestore.rules",
-    "indexes": "../parlor/firestore.indexes.json"
+    "indexes": "firestore.indexes.json"
   },
   "functions": [
     {

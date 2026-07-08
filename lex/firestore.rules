@@ -3,8 +3,9 @@ rules_version = '2';
 // ported from hive/firestore.rules (adapted)
 // Base tiers track the canonical parlor reference (../parlor/firestore.rules,
 // PARLOR-PLATFORM-HARDENING.md Phase 1); lex keeps its own file only because it
-// is a hidden-information game and adds the racks/private override below. Keep
-// the base tiers in sync with the reference when it changes.
+// is a hidden-information game and adds the racks/private override below.
+// `scripts/check-rules-parity.mjs` (in `pnpm typecheck`) fails if the base tiers
+// drift from the reference — added tiers are allowed, weakened base ones are not.
 // DESIGN §6.2/§6.3: every game mutation goes through a callable — clients get
 // NO write access to games/* or invites/*. Three read tiers per game (§3.3):
 // the public game doc + move log (both players), racks/{uid} (owner only),

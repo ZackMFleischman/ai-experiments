@@ -268,13 +268,14 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   unit incl. 68 emulator callable tests over the new contract, hot-seat + mp e2e,
   visual/ux, offline) green.
 
-- **2026-07-08 — Firestore rules + indexes consumed from the canonical parlor
-  reference (parlor hardening Phase 1).** hive is a perfect-information game, so
-  its `firestore.rules` and `firestore.indexes.json` were byte-identical (rule
-  logic) to the new `parlor/firestore.rules` + `parlor/firestore.indexes.json`
-  canonical reference. Deleted both local copies; `firebase.json` now points
-  `firestore.rules`/`indexes` at `../parlor/...`, and the rules-unit-test reads
-  the parlor file. Effective rules unchanged (identical statements, comments
-  aside), so the security posture and the negative-path rules tests are
-  unaffected. Stops copy-pasting the security model; a hidden-info game layers a
-  documented racks/private override instead.
+- **2026-07-08 — Firestore rules + indexes track the canonical parlor reference,
+  enforced by a parity lint (parlor hardening Phase 1).** hive's `firestore.rules`
+  + `firestore.indexes.json` match the new `parlor/firestore.rules` +
+  `parlor/firestore.indexes.json` canonical reference (hive is perfect-info, so it
+  uses the base tiers verbatim). Firebase rejects a cross-project `../parlor/...`
+  rules path in `firebase.json` ("outside of project directory" — caught by CI),
+  so each game keeps its own copy rather than sharing the file. New
+  `scripts/check-rules-parity.mjs` (wired into `pnpm typecheck`) fails if hive's
+  rules drift from or weaken the base, or its indexes differ. Rules content and
+  the negative-path rules tests are unchanged. Stops copy-paste drift; a
+  hidden-info game may add a documented racks/private override.

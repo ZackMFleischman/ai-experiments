@@ -215,16 +215,19 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `buildPreview` now reads the acting seat's rack (off-turn `game.toMove` is the
   opponent), and the engine state is never touched by staging.
 
-- **2026-07-08 — Firestore rules + indexes now track a canonical parlor
-  reference (hardening Phase 1).** `parlor/firestore.rules` +
-  `parlor/firestore.indexes.json` are the single source of truth for the
-  security model (declarative files, not TS — parlor's boundary/doc lints ignore
-  non-`.md`, non-source files, so they live at the parlor root). The indexes are
-  byte-identical across games, so lex's `firebase.json` points `indexes` straight
-  at the parlor file and the local copy is deleted. lex keeps its own
-  `firestore.rules` **only** because it is a hidden-information game: the base
-  three tiers (users/games/moves/invites/deny-all) mirror the reference verbatim,
-  and lex adds the `racks/{uid}` (owner-read) + `private/*` (server-secret)
-  override, which the reference documents as a copy-in snippet. The negative-path
-  rules-unit-tests remain the equivalence gate — unchanged, so still green.
-  DESIGN §4 Share table updated.
+- **2026-07-08 — Firestore rules + indexes track a canonical parlor reference,
+  enforced by a parity lint (hardening Phase 1).** `parlor/firestore.rules` +
+  `parlor/firestore.indexes.json` are the canonical source of truth for the
+  security model (declarative files, not TS — they live at the parlor root;
+  parlor's boundary/doc lints ignore non-`.md`, non-source files). **Firebase
+  requires the rules/indexes files to live inside each game's own project dir** —
+  a `../parlor/...` path in `firebase.json` is rejected by `emulators:exec`/deploy
+  ("outside of project directory"), which CI caught — so the physical file can't
+  be shared. Each game keeps its own copy; `scripts/check-rules-parity.mjs`
+  (wired into `pnpm typecheck`) fails if a game's rules drift from or weaken the
+  base (base tiers must appear verbatim as a subsequence) or its indexes differ.
+  lex is a hidden-information game: it keeps the base three tiers
+  (users/games/moves/invites/deny-all) verbatim and ADDS `racks/{uid}`
+  (owner-read) + `private/*` (server-secret), which the reference documents as a
+  copy-in snippet — parity allows added tiers, forbids dropped/weakened ones. The
+  negative-path rules-unit-tests remain the behavioral gate. DESIGN §4 updated.

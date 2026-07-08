@@ -29,9 +29,7 @@ beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-hive',
     firestore: {
-      // Canonical parlor security model (PARLOR-PLATFORM-HARDENING.md Phase 1);
-      // hive is a perfect-information game and consumes the base tiers verbatim.
-      rules: readFileSync(resolve(__dirname, '../../../../parlor/firestore.rules'), 'utf8'),
+      rules: readFileSync(resolve(__dirname, '../../../firestore.rules'), 'utf8'),
       host: '127.0.0.1',
       port: 8080,
     },
