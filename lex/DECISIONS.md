@@ -176,3 +176,18 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   subpath export + tsconfig path; added `@mui/icons-material` to the vite/vitest
   `resolve.dedupe` so linked parlor icon components don't pull a second React
   (§8.11). hive migration onto this seam is Phase 3.
+
+- **2026-07-08 — Top-level ErrorBoundary; stale-chunk auto-reload (fix: lex
+  white screen).** The app had no error boundary, so anything thrown while
+  rendering blanked the page to white. The game route is uniquely exposed: it is
+  the only route behind lazy chunks (`SyncProviders` + `MultiplayerGame`). After
+  a redeploy rotates the chunk hashes the running JS still references (and
+  `cleanupOutdatedCaches` purges the old ones), the dynamic import throws through
+  the unguarded `<Suspense>` — surfacing as "click into a game after the opponent
+  moved → white screen, sometimes" (opening from a push navigates straight to
+  `/game/:id`). Fix: `src/ErrorBoundary.tsx` wraps the whole tree in `main.tsx`.
+  A dynamic-import failure is transient, so it hard-reloads once (a `sessionStorage`
+  timestamp + 10s window stops a deterministic failure from looping); any other
+  error falls back to a self-contained reload card (plain DOM, no MUI/providers —
+  those may be what threw). Twin exists in hive (same missing boundary) — flagged
+  for a follow-up port.
