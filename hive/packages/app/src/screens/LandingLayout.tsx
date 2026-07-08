@@ -1,11 +1,13 @@
-// Themed landing layout (T4.2, DESIGN §6.1): full-bleed hero cluster rendered
-// by the real board renderer from a fixed decorative state, HIVE wordmark and
-// tagline, with the screen's action (sign-in / Play / join card) as children.
+// Hive landing hero (T4.2, DESIGN §6.1): the themed shell lives in
+// @parlor/web/lobby-ui — this file supplies hive's one game-specific slot, the
+// board vignette (the real board renderer over a fixed decorative state that
+// places all eight bug kinds and climbs a beetle — data, verified by test).
 // Shared by Landing and Join so an invited friend sees the same identity.
-import { Box, Stack, Typography } from '@mui/material';
-import { keyframes } from '@mui/material/styles';
+// Firebase-free.
+import { Box } from '@mui/material';
 import type { GameState } from '@hive/engine';
 import { applyMove, initialState, parseUhp } from '@hive/engine';
+import { LandingLayout as ParlorLandingLayout } from '@parlor/web/lobby-ui';
 import type { ReactNode } from 'react';
 import { BoardView } from '../board/BoardView';
 
@@ -35,45 +37,23 @@ function replayHero(): GameState {
 /** Fixed decorative state (module-level: built once, deterministic). */
 export const HERO_STATE: GameState = replayHero();
 
-const float = keyframes`
-  from { transform: translateY(-6px); }
-  to   { transform: translateY(6px); }
-`;
+const TAGLINE = "Two players. One hive. Don't get surrounded.";
+
+/** The hive landing vignette — shared by the LandingLayout shell and the
+ * Landing screen so the hero is identical on both. The float/pointer/aria
+ * chrome comes from parlor's shell; hive supplies only the sized board. */
+export function LandingHero() {
+  return (
+    <Box sx={{ width: 'min(72vw, 340px)' }}>
+      <BoardView board={HERO_STATE.board} />
+    </Box>
+  );
+}
 
 export function LandingLayout({ children }: { children: ReactNode }) {
   return (
-    <Box
-      sx={{
-        minHeight: '100dvh',
-        display: 'grid',
-        placeItems: 'center',
-        p: 3,
-        overflow: 'hidden',
-      }}
-    >
-      <Stack spacing={3} alignItems="center" sx={{ width: '100%', maxWidth: 460 }}>
-        <Box
-          data-testid="landing-hero"
-          aria-hidden
-          sx={{
-            width: 'min(72vw, 340px)',
-            animation: `${float} 6s ease-in-out infinite alternate`,
-            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
-            pointerEvents: 'none',
-          }}
-        >
-          <BoardView board={HERO_STATE.board} />
-        </Box>
-        <Stack spacing={1} alignItems="center">
-          <Typography variant="h2" component="h1" fontWeight={700} letterSpacing="0.2em">
-            HIVE
-          </Typography>
-          <Typography color="text.secondary" align="center">
-            Two players. One hive. Don&apos;t get surrounded.
-          </Typography>
-        </Stack>
-        {children}
-      </Stack>
-    </Box>
+    <ParlorLandingLayout hero={<LandingHero />} name="HIVE" tagline={TAGLINE}>
+      {children}
+    </ParlorLandingLayout>
   );
 }

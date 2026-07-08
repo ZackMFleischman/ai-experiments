@@ -52,7 +52,9 @@ test('two browsers play a full multiplayer game', async ({ browser }) => {
   await signInAs(sam, 'sam@example.com');
   await sam.goto(`/join/${code}`);
   await expect(sam.getByTestId('join-card')).toContainText('ada invited you');
-  await expect(sam.getByTestId('join-card')).toContainText("You'll play black");
+  // Host ada took white (seat 0), so the joiner goes second (the shared join
+  // card frames the seat by move order rather than color).
+  await expect(sam.getByTestId('join-card')).toContainText("You'll go second");
   await sam.getByTestId('join-accept').click();
   await expect(sam.getByTestId('hand-tray')).toBeVisible();
   // ada's waiting screen flips to the live board without a reload
