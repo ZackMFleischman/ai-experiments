@@ -9,6 +9,7 @@ import type { TileFace, TileSet } from '@lex/engine';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useRef, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
+import { rackSlotGeometry } from './rackGeometry';
 import { skinVars } from './skin';
 import { useSkinId } from './skinContext';
 import { Tile } from './Tile';
@@ -69,11 +70,13 @@ export function RackTray({
   const drag = useRef<DragRef | null>(null);
   const [dragVisual, setDragVisual] = useState<{ index: number; dx: number } | null>(null);
 
-  // Prefer the slots row for geometry (excludes the shuffle/bag column);
+  // Real slot geometry (see rackGeometry): a slot's measured cell width, not
+  // the stretched-row-width / rackSize, which overshoots on a wide window.
   // jsdom reports 0×0 rects, so tests fall back to the tray itself.
   const slotMetrics = (): { left: number; width: number } => {
-    const row = rowRef.current?.getBoundingClientRect();
-    const rect = row?.width ? row : trayRef.current?.getBoundingClientRect();
+    const g = rackSlotGeometry(rowRef.current, rackSize);
+    if (g) return { left: g.left, width: g.pitch };
+    const rect = trayRef.current?.getBoundingClientRect();
     return { left: rect?.left ?? 0, width: (rect?.width || 52 * rackSize) / rackSize };
   };
   const slotWidth = (): number => slotMetrics().width;
