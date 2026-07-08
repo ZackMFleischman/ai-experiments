@@ -174,7 +174,8 @@ hive/
   external engine) plugs into the controller as an alternate "opponent transport"
   with zero engine/UI changes.
 - **UI swap:** everything under `app/` can be replaced; `engine/` has no imports from it.
-- **Backend swap:** only `app/src/sync/` and `functions/` know Firebase exists.
+- **Backend swap:** only `app/src/sync/` (through the `@parlor/web` platform
+  layer) and `functions/` know Firebase exists.
 
 ---
 

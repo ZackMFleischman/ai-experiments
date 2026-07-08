@@ -11,7 +11,7 @@ import {
   friendsFrom,
   type NewGameChoices,
 } from '../screens/newGameView';
-import { useAuth } from './authContext';
+import { useAuth } from '@parlor/web';
 import * as api from './gameApi';
 import { useMyGames } from './lobby';
 

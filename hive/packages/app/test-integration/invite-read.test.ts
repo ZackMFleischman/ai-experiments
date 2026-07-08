@@ -3,8 +3,10 @@
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
-import { getAppAuth, getDb } from '../src/sync/firebase';
+import { configureFirebase, getAppAuth, getDb } from '@parlor/web/firebase';
 import * as api from '../src/sync/gameApi';
+
+configureFirebase({ emulatorProjectId: 'demo-hive', emulators: true });
 
 const OPTIONS = { mosquito: true, ladybug: true, pillbug: true, tournamentOpening: true };
 

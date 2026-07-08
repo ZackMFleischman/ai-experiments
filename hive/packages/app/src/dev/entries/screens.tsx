@@ -8,11 +8,11 @@ import { PieceGuideDialog } from '../../game/PieceGuide';
 import { Landing } from '../../screens/Landing';
 import { JoinCard } from '../../screens/Join';
 import { LandingLayout } from '../../screens/LandingLayout';
-import { InstallCoachMark } from '../../screens/InstallCoachMark';
+import { InstallCoachMark } from '@parlor/web';
 import { LobbyView, type LobbyGameSummary } from '../../screens/lobbyView';
 import { InviteLinkView, NewGameForm } from '../../screens/newGameView';
 import { ChallengeReceived, WaitingForOpponent } from '../../screens/waitingView';
-import { AuthContext, HOTSEAT_AUTH, type AuthValue } from '../../sync/authContext';
+import { AuthContext, HOTSEAT_AUTH, type AuthValue } from '@parlor/web';
 import { ALL_ON, EARLY_GAME, MID_GAME, replayUhp } from '../fixtures';
 
 const noop = async () => {};

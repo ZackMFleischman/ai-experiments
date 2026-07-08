@@ -10,7 +10,7 @@ import { Landing } from './screens/Landing';
 import { Lobby } from './screens/Lobby';
 import { NewGame } from './screens/NewGame';
 import { Settings } from './screens/Settings';
-import { RequireAuth } from './sync/RequireAuth';
+import { RequireAuth } from '@parlor/web';
 import { ColorModeContext, createAppTheme, type ThemeMode } from './theme';
 
 // Dev-only: the fixture gallery is stripped from production builds.

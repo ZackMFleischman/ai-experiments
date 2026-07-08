@@ -20,6 +20,7 @@
     "@hive/engine": "workspace:*",
     "@mui/icons-material": "^5.16.14",
     "@mui/material": "^5.16.14",
+    "@parlor/web": "link:../../../parlor/packages/web",
     "@tanstack/react-query": "^5.101.2",
     "firebase": "^12.15.0",
     "react": "^18.3.1",

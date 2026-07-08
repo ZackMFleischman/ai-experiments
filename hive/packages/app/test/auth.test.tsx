@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { AppProviders, AppRoutes } from '../src/App';
-import { AuthContext, HOTSEAT_AUTH, type AuthValue } from '../src/sync/authContext';
+import { AuthContext, HOTSEAT_AUTH, type AuthValue } from '@parlor/web';
 
 const noop = async () => {};
 

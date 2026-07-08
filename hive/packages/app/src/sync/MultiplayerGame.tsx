@@ -12,7 +12,7 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { GameController } from '../controller/GameController';
 import { GameScreen } from '../game/GameScreen';
 import { ChallengeReceived, WaitingForOpponent } from '../screens/waitingView';
-import { useAuth } from './authContext';
+import { useAuth } from '@parlor/web';
 import { FirestoreTransport, type GameMeta } from './firestoreTransport';
 import * as api from './gameApi';
 

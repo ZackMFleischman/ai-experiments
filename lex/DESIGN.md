@@ -315,8 +315,8 @@ named for what it is, a parlor-games platform: the game-agnostic layer for
 turn-based, two-player, invite-a-friend PWA games on Firebase. It is its own pnpm
 workspace at the repo root with four packages (`@parlor/core`, `@parlor/web`,
 `@parlor/server`, `@parlor/harness`), its own tests and CI, and **no game
-imports** — lex is its only consumer to start; hive's migration onto it stays a
-deliberate later project (hive is live and CI-gated; nothing forces it).
+imports** — lex was its first consumer; hive now consumes the `@parlor/web`
+platform layer too (lobby UI + backend migrations still to come).
 Consumption mechanics — pnpm workspaces don't span repo roots, so lex consumes
 parlor as **source-linked sibling packages** (`link:` dependencies + TS path
 mapping; exact wiring in IMPLEMENTATION §1). Peer dependencies (react, firebase,
