@@ -17,28 +17,28 @@ test('dashboard renders every cam tile', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Katmai Bearcams' })).toBeVisible();
   await expect(page.getByText('Brooks Falls', { exact: true })).toBeVisible();
-  // 6 cams in the catalog.
-  await expect(page.locator('.tile')).toHaveCount(6);
+  // 5 cams in the catalog.
+  await expect(page.locator('.tile')).toHaveCount(5);
 });
 
 test('every cam autoplays on load (no tap, no facades)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.tile__facade')).toHaveCount(0);
-  // All six cams ship with a live id, so all mount an iframe on load.
-  await expect(page.locator('.player__iframe')).toHaveCount(6);
+  // All five cams ship with a live id, so all mount an iframe on load.
+  await expect(page.locator('.player__iframe')).toHaveCount(5);
 });
 
 test('hiding a stream removes its tile; re-enabling restores it', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.tile')).toHaveCount(6);
+  await expect(page.locator('.tile')).toHaveCount(5);
 
   await page.getByRole('button', { name: 'Hide Brooks Falls', exact: true }).click();
-  await expect(page.locator('.tile')).toHaveCount(5);
+  await expect(page.locator('.tile')).toHaveCount(4);
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('checkbox', { name: 'Brooks Falls', exact: true }).check();
   await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.locator('.tile')).toHaveCount(6);
+  await expect(page.locator('.tile')).toHaveCount(5);
 });
 
 test('a tile can be resized bigger and smaller', async ({ page }) => {
