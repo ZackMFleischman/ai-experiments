@@ -176,3 +176,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   the setting off flushes a pending move). The Confirm button is hidden when off,
   disabled until a move is staged. Staging suppresses all other board affordances
   so only Confirm/Cancel act. Engine untouched — pure client UX.
+
+- **2026-07-08 — Tile glyph art pass: solid silhouettes (user request).** The
+  original T6.1 glyphs were open `stroke` marks whose appendages (legs, antennae,
+  wings) were separate segments placed by eye — they read as disconnected/janky.
+  Rebuilt all 16 (8 bug + 8 bear) as solid `currentColor` silhouettes: body =
+  overlapping filled lobes, appendages rooted inside the fill (joins always
+  covered), internal detail (bee stripes, beetle split, ladybug/panda patches,
+  muzzles) via evenodd knockouts that reveal the tile so tinting still comes free.
+  One file (`hive-sprites.svg`); GLYPH_METRICS re-measured; DESIGN §6.4 reworded.
