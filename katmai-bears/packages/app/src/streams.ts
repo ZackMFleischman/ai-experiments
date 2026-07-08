@@ -63,14 +63,6 @@ export const STREAMS: StreamMeta[] = [
     explorePage: 'https://explore.org/livecams/brown-bears/brooks-river-lower-river-bear-cam',
     defaultYoutubeId: 'cTsjMtjRLCo',
   },
-  {
-    id: 'river-watch',
-    title: 'River Watch',
-    blurb: 'A wide watch over the Brooks River corridor between the falls and the lake.',
-    tags: ['river', 'scenic'],
-    explorePage: 'https://explore.org/livecams/brown-bears',
-    defaultYoutubeId: 'YrmMc7mojrE',
-  },
 ];
 
 export function getStream(id: string): StreamMeta | undefined {
