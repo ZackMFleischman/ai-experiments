@@ -250,7 +250,7 @@ users/{uid}:            { displayName, photoURL, fcmTokens: string[], settings }
 games/{gameId}:         { players: {white: uid, black: uid|null},
                           playerNames: {white, black},       // denormalized (users/* is private)
                           playerIds: uid[],                  // array field for lobby indexability
-                          options,
+                          options,                            // expansions + timeControl (the create payload)
                           status: 'open'|'active'|'finished',
                           inviteCode?: string,                // present while open (re-share from the game screen)
                           challenge?: {from, fromName, to, toName}, // direct challenge while open (no invite;
@@ -270,7 +270,7 @@ games/{gameId}/moves/{n}: { n, kind: 'move'|'pass'|'resign'|'draw-offer'|'draw-a
                                |'draw-decline'|'timeout',
                             uhp?: string,                     // present iff kind is move/pass
                             by: uid, at: Timestamp }
-invites/{code}:          { gameId, createdBy, hostName, hostColor, options,
+invites/{code}:          { gameId, createdBy, hostName, hostSeat: 'white'|'black', options,
                            expiresAt }                       // join screen renders from this alone
 ```
 
@@ -293,17 +293,26 @@ functions are stateless. The only client-writable doc is your own `users/{uid}`
 (profile + FCM tokens), enforced by security rules; game docs are readable only by
 their two players, invites by anyone holding the code.
 
+The generic callables (marked ⬡) are `@parlor/server` shells shaped by hive's
+`GameServerConfig` (seat keys `white`/`black`, option validation, fresh state).
+The create/challenge payloads match parlor's shape — the color choice rides
+`seat`, the time control rides inside `options`, and the invite records
+`hostSeat`. What stays hive's: `submitMove` (runs the engine) and the draw
+offers (a hive concept). Push copy + the color-based turn test are injected into
+`@parlor/server`'s shared notify/forfeit machinery; the forfeit *sweep* itself
+stays hive's (it reads the engine `toMove`, not a seat key).
+
 | Callable | Does |
 |---|---|
-| `createGame(options, color)` | creates the game (`status:'open'`) + invite code; returns both |
-| `joinGame(code)` | transactionally claims the open seat, activates the game, expires the invite |
-| `cancelGame(gameId)` | creator withdraws an *open* game: deletes the game + its invite |
-| `challengeUser(opponentUid, options, color)` | creates an open game addressed to a past opponent (no code); pushes the challenge |
-| `respondChallenge(gameId, accept)` | challenged player only: accept seats them + activates; decline deletes the game |
+| `createGame(options, seat)` ⬡ | creates the game (`status:'open'`) + invite code; returns both |
+| `joinGame(code)` ⬡ | transactionally claims the open seat, activates the game, expires the invite |
+| `cancelGame(gameId)` ⬡ | creator withdraws an *open* game: deletes the game + its invite |
+| `challengeUser(opponentUid, options, seat)` ⬡ | creates an open game addressed to a past opponent (no code); pushes the challenge |
+| `respondChallenge(gameId, accept)` ⬡ | challenged player only: accept seats them + activates; decline deletes the game |
 | `submitMove(gameId, expectedMoveCount, uhpMove)` | the move protocol below |
-| `resign(gameId)` | ends the game; records the `resign` meta event |
+| `resign(gameId)` ⬡ | ends the game; records the `resign` meta event |
 | `offerDraw(gameId)` / `respondDraw(gameId, accept)` | sets/clears `pendingDrawOffer`; ends game on accept |
-| `rematch(gameId)` | creates the colors-swapped return game linked via `rematchOf`; pushes the offer |
+| `rematch(gameId)` ⬡ | creates the colors-swapped return game linked via `rematchOf`; pushes the offer |
 | `forfeitExpired` *(scheduled, hourly)* | forfeits past-deadline games, sends expiry-warning pushes, culls dead invites |
 
 **The move protocol:**

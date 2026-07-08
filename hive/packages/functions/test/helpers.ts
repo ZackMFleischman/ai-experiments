@@ -40,7 +40,11 @@ export async function createJoinedGame(options: {
 }): Promise<JoinedGame> {
   const white = await signUp('Ada');
   const black = await signUp('Sam');
-  const created = await call('createGame', { options, color: 'w' }, white);
+  const created = await call(
+    'createGame',
+    { options: { ...options, timeControl: null }, seat: 'w' },
+    white,
+  );
   if (created.status !== 200) throw new Error(`createGame failed: ${created.errorMessage}`);
   const { gameId, code } = created.result as { gameId: string; code: string };
   const joined = await call('joinGame', { code }, black);

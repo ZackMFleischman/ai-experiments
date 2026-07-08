@@ -1,9 +1,21 @@
-// Push notifications (T5.3, DESIGN §7): data-only webpush messages — the app's
-// service worker owns rendering and tap-to-deep-link. Sends are best-effort
-// (never fail a callable) and prune tokens the push service has forgotten.
-import type { Firestore } from 'firebase-admin/firestore';
-import { FieldValue } from 'firebase-admin/firestore';
+// Push notifications (T5.3, DESIGN §7): hive's game-specific push COPY
+// (buildPayload) and the my-turn predicate (isMyTurn), now wired to
+// @parlor/server's shared delivery machinery — the token fan-out, stale-token
+// pruning, and actionable-count badge all live there (createNotify / sendPush /
+// countActionable). This module keeps only what is genuinely hive's: the
+// per-trigger copy and the color-based turn test. Data-only webpush; the app's
+// service worker owns rendering and tap-to-deep-link.
+import type { DocumentData, Firestore } from 'firebase-admin/firestore';
+import {
+  sendPush as parlorSendPush,
+  type NotifyConfig,
+  type PushTransport,
+} from '@parlor/server';
 
+export type { PushTransport };
+
+// hive fires one trigger beyond the parlor shared set: 'draw-offered' (hive has
+// draw offers; other parlor games don't).
 export type Trigger =
   | 'opponent-moved'
   | 'game-joined'
@@ -101,82 +113,31 @@ export function buildPayload(trigger: Trigger, args: TriggerArgs): PushPayload {
   }
 }
 
-/** The slice of admin messaging we use — injectable for tests. */
-export interface PushTransport {
-  sendEachForMulticast(message: {
-    tokens: string[];
-    data: Record<string, string>;
-    webpush?: { headers?: Record<string, string> };
-  }): Promise<{ responses: Array<{ success: boolean; error?: { code?: string } }> }>;
+/** Is it this uid's move in this game doc? hive names seats by color, so the
+ * turn test maps the white/black player onto the engine's 'w'/'b' toMove. */
+export function isMyTurn(game: DocumentData, uid: string): boolean {
+  const players = game['players'] as { white: string | null; black: string | null };
+  return game['toMove'] === (players.white === uid ? 'w' : 'b');
 }
 
-/** How many games await the recipient: active games on their move, incoming
- * challenges, and just-started games the opponent activated (accepted invite
- * or challenge, rematch offer) even when white — them — moves first. Same
- * filter as the client's actionableCount, so the home-screen icon badge
- * (Badging API, set by the SW) matches the lobby. */
-export async function countActionable(db: Firestore, uid: string): Promise<number> {
-  const mine = db.collection('games').where('playerIds', 'array-contains', uid);
-  const [active, open] = await Promise.all([
-    mine.where('status', '==', 'active').get(),
-    mine.where('status', '==', 'open').get(),
-  ]);
-  const actionable = active.docs.filter((d) => {
-    const g = d.data() as {
-      players: { white: string | null };
-      toMove: string;
-      moveCount?: number;
-      activatedBy?: string;
-    };
-    const myTurn = g.toMove === (g.players.white === uid ? 'w' : 'b');
-    const fresh = g.moveCount === 0 && g.activatedBy !== undefined && g.activatedBy !== uid;
-    return myTurn || fresh;
-  });
-  const challenges = open.docs.filter(
-    (d) => (d.data() as { challenge?: { to: string } }).challenge?.to === uid,
-  );
-  return actionable.length + challenges.length;
-}
+/** hive's NotifyConfig — the copy + turn predicate parlor's delivery layer
+ * needs (fed to createGameCallables, sendPush, and the fire-and-forget notify). */
+export const notifyConfig: NotifyConfig = { buildPayload, isMyTurn };
 
-const DEAD_TOKEN_CODES = new Set([
-  'messaging/registration-token-not-registered',
-  'messaging/invalid-registration-token',
-  'messaging/invalid-argument',
-]);
-
-export async function sendPush(
+/** Fan-out + stale-token pruning + actionable-count badge — all parlor's, shaped
+ * by hive's config. The 4-arg shape matches the callers (forfeit sweep, tests). */
+export function sendPush(
   db: Firestore,
   transport: PushTransport,
   uid: string,
   payload: PushPayload,
 ): Promise<void> {
-  const user = await db.doc(`users/${uid}`).get();
-  const tokens = (user.data()?.['fcmTokens'] as string[] | undefined) ?? [];
-  if (tokens.length === 0) return;
-
-  const badge = await countActionable(db, uid);
-  const res = await transport.sendEachForMulticast({
-    tokens,
-    data: {
-      title: payload.title,
-      body: payload.body,
-      link: payload.link,
-      tag: payload.tag,
-      badge: String(badge),
-    },
-    webpush: { headers: { Urgency: 'high' } },
-  });
-
-  const dead = tokens.filter((_, i) => {
-    const r = res.responses[i];
-    return r && !r.success && DEAD_TOKEN_CODES.has(r.error?.code ?? '');
-  });
-  if (dead.length > 0) {
-    await db.doc(`users/${uid}`).update({ fcmTokens: FieldValue.arrayRemove(...dead) });
-  }
+  return parlorSendPush(db, notifyConfig, transport, uid, payload);
 }
 
-/** Fire-and-forget wrapper for callables: a push must never fail the move. */
+/** Fire-and-forget wrapper for callables: a push must never fail the move. Typed
+ * to hive's Trigger (incl. 'draw-offered'); parlor's createNotify is limited to
+ * the shared triggers, so this thin variant reuses parlor's sendPush directly. */
 export async function notify(
   db: Firestore,
   uid: string | null | undefined,
@@ -186,7 +147,7 @@ export async function notify(
   if (!uid) return;
   try {
     const { getMessaging } = await import('firebase-admin/messaging');
-    await sendPush(db, getMessaging(), uid, buildPayload(trigger, args));
+    await parlorSendPush(db, notifyConfig, getMessaging(), uid, buildPayload(trigger, args));
   } catch {
     // best-effort: emulator runs have no FCM; production errors surface in logs
   }

@@ -28,7 +28,7 @@ describe('deadline stamping', () => {
     const sam = await signUp('Sam');
     const created = await call(
       'createGame',
-      { options: OPTIONS, color: 'w', timeControlDays: 3 },
+      { options: { ...OPTIONS, timeControl: { days: 3 } }, seat: 'w' },
       ada,
     );
     expect(created.status).toBe(200);
@@ -50,7 +50,7 @@ describe('deadline stamping', () => {
 
   it('rejects a bogus time control', async () => {
     const ada = await signUp('Ada');
-    const res = await call('createGame', { options: OPTIONS, color: 'w', timeControlDays: 2 }, ada);
+    const res = await call('createGame', { options: { ...OPTIONS, timeControl: { days: 2 } }, seat: 'w' }, ada);
     expect(res.errorStatus).toBe('INVALID_ARGUMENT');
   });
 });
@@ -60,7 +60,7 @@ async function timedGame(): Promise<{ gameId: string; whiteUid: string; blackUid
   const sam = await signUp('Sam');
   const created = await call(
     'createGame',
-    { options: OPTIONS, color: 'w', timeControlDays: 1 },
+    { options: { ...OPTIONS, timeControl: { days: 1 } }, seat: 'w' },
     ada,
   );
   const { gameId, code } = created.result as { gameId: string; code: string };
@@ -110,11 +110,11 @@ describe('runForfeitSweep', () => {
 
   it('culls expired invites and keeps live ones', async () => {
     const ada = await signUp('Ada');
-    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const created = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
     const { code } = created.result as { code: string };
     const db = getFirestore();
     await db.doc(`invites/${code}`).update({ expiresAt: Timestamp.fromMillis(Date.now() - DAY_MS) });
-    const live = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const live = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
     const liveCode = (live.result as { code: string }).code;
 
     const res = await runForfeitSweep(db, Date.now(), new CaptureTransport());
