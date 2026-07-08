@@ -385,12 +385,14 @@ not performance:
   engine stays zero-dep; the dictionary is injected.
 - `@lex/dict` owns the **dictionary registry**: `DICTIONARIES` metadata
   (id, display name, description, word count — what the New Game picker renders,
-  FR-7) plus `loadDictionary(id)`. v1 ships two public-domain lists:
+  FR-7) plus `loadDictionary(id)`. v1 ships three lists: two public-domain —
   **`enable1`** ("Tournament-style", ENABLE, ~173k words) and **`2of12inf`**
   ("Everyday words", the 12dicts common-vocabulary inflected list, ~82k words —
-  friendlier for casual play). Exact counts pinned at vendor time. NWL/SOWPODS
-  are copyrighted — swap-in is the owner's call, and is just a new registry
-  entry + word file (§2.2).
+  friendlier for casual play) — plus **`nwl2023`** ("North American (NWL2023)",
+  the NASPA Word List 2023, ~197k words; copyrighted, vendored at the owner's
+  direction, see `packages/dict/words/README.md`). Exact counts pinned at vendor
+  time. Other copyrighted lists (SOWPODS/CSW) are the owner's call — each is just
+  a new registry entry + word file (§2.2).
 - A build script compiles each word list into a **compact binary DAWG** (target
   ≤ 800 KB each, generated at build — not committed). The app lazily loads the
   dictionary **of the game being viewed** (cached by the service worker); the

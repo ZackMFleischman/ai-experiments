@@ -14,6 +14,7 @@ mkdirSync(outDir, { recursive: true });
 for (const [file, id] of [
   ['enable1.txt', 'enable1'],
   ['2of12inf.txt', '2of12inf'],
+  ['nwl2023.txt', 'nwl2023'],
 ] as const) {
   const list = normalizeWordList(words(file));
   const hash = createHash('sha256').update(list.join('\n')).digest('hex');

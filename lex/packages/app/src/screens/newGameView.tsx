@@ -37,7 +37,7 @@ export interface NewGameChoices {
 }
 
 const DEFAULT_BOARD = 'classic';
-const DEFAULT_DICTIONARY = '2of12inf'; // everyday words — the friendlier default
+const DEFAULT_DICTIONARY = 'nwl2023'; // the official North American tournament list
 const DEFAULT_DAYS: TimeControlDays = 3;
 
 export function NewGameForm({

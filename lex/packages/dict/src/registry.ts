@@ -19,16 +19,26 @@ const ENTRIES: readonly RegistryEntry[] = Object.freeze([
   Object.freeze({
     id: 'enable1',
     name: 'Tournament-style',
-    description: 'ENABLE — the large tournament-flavored list. Strict but comprehensive.',
+    description:
+      'A large, freely-shareable list with near-tournament breadth. Pick it when you want wide word coverage but prefer an open, public-domain list over the official NWL.',
     wordCount: 172_823,
     sourceHash: 'c5a47930aa2750cad83706279bf96b952bbe467652b85cf64f94d621a0d41e47',
   }),
   Object.freeze({
     id: '2of12inf',
     name: 'Everyday words',
-    description: 'The 12dicts common-vocabulary list with inflections. Friendlier for casual play.',
+    description:
+      'Common vocabulary with inflections, and little else. Pick it for casual games where obscure, tournament-only words would feel unfair.',
     wordCount: 81_883,
     sourceHash: '71194db1340c21c0c886ec38ee72211873530aea3575a709ed8f2c320b235a31',
+  }),
+  Object.freeze({
+    id: 'nwl2023',
+    name: 'North American (NWL2023)',
+    description:
+      'The official NASPA Word List 2023 — the North American tournament standard. Pick it for authentic play: every tournament-legal word counts, including the obscure twos and threes that decide close games.',
+    wordCount: 196_601,
+    sourceHash: 'f86d87ebf9274ab40b8866ffc22ecfe404ea25c216a1787c4d5647e006a209b1',
   }),
 ]);
 
