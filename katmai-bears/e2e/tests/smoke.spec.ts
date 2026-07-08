@@ -21,16 +21,13 @@ test('dashboard renders every cam tile', async ({ page }) => {
   await expect(page.locator('.tile')).toHaveCount(7);
 });
 
-test('a tile facade mounts a live player on tap', async ({ page }) => {
+test('every cam with an id autoplays on load (no tap needed)', async ({ page }) => {
   await page.goto('/');
-  // Brooks Falls ships with a default id, so its facade mounts a YouTube iframe.
-  await page
-    .locator('.tile')
-    .filter({ hasText: 'Brooks Falls' })
-    .first()
-    .getByRole('button', { name: /Play/ })
-    .click();
-  await expect(page.locator('.player__iframe').first()).toBeVisible();
+  // Video-wall default: players mount immediately, no facades.
+  await expect(page.locator('.tile__facade')).toHaveCount(0);
+  // The two seeded cams mount live iframes; the rest degrade to explore.org fallbacks.
+  await expect(page.locator('.player__iframe')).toHaveCount(2);
+  await expect(page.locator('.player--fallback').first()).toBeVisible();
 });
 
 test('deep link opens fullscreen and next cycles cams', async ({ page }) => {

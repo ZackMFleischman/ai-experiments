@@ -9,10 +9,13 @@ interface Props {
   stream: StreamMeta;
 }
 
-// A dashboard tile. Starts as a facade (poster + play button) and only mounts a live
-// YouTube player when tapped — so a grid of 7 cams doesn't spin up 7 players at once.
+// A dashboard tile. By default (autoplayAll) it mounts a live player immediately — the
+// whole point of the dashboard is a wall of feeds playing at once. When autoplay is off
+// it falls back to a tap-to-play facade for constrained devices/data.
 export function StreamTile({ stream }: Props) {
-  const [live, setLive] = useState(false);
+  const autoplayAll = useSettings((s) => s.autoplayAll);
+  const [tapped, setTapped] = useState(false);
+  const showPlayer = autoplayAll || tapped;
   // Subscribe to overrides so the resolved id updates when the user edits Settings.
   const overrides = useSettings((s) => s.streamOverrides);
   const youtubeId = overrides[stream.id] ?? effectiveYoutubeId(stream.id, stream.defaultYoutubeId);
@@ -26,11 +29,14 @@ export function StreamTile({ stream }: Props) {
 
   return (
     <div className={`tile${isApalooza ? ' tile--apalooza' : isAlerting ? ' tile--alert' : ''}`}>
-      <div className="tile__media">
-        {live ? (
+      <div
+        className="tile__media"
+        style={poster ? { backgroundImage: `url(${poster})` } : undefined}
+      >
+        {showPlayer ? (
           <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active />
         ) : (
-          <button className="tile__facade" onClick={() => setLive(true)} aria-label={`Play ${stream.title}`}>
+          <button className="tile__facade" onClick={() => setTapped(true)} aria-label={`Play ${stream.title}`}>
             {poster ? (
               <img className="tile__poster" src={poster} alt="" loading="lazy" />
             ) : (

@@ -13,6 +13,8 @@ export interface Settings {
   sourceKind: SourceKind;
   /** wss URL for the future backend detector (the seam). Empty until one exists. */
   backendUrl: string;
+  /** Video-wall default: every tile plays live at once. Off = tap-to-play facades. */
+  autoplayAll: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -21,6 +23,7 @@ const DEFAULTS: Settings = {
   notificationsEnabled: false,
   sourceKind: 'simulator',
   backendUrl: '',
+  autoplayAll: true,
 };
 
 function load(): Settings {
@@ -42,10 +45,10 @@ function load(): Settings {
 
 function persist(s: Settings): void {
   if (typeof localStorage === 'undefined') return;
-  const { thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl } = s;
+  const { thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl, autoplayAll } = s;
   localStorage.setItem(
     LS_KEY,
-    JSON.stringify({ thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl }),
+    JSON.stringify({ thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl, autoplayAll }),
   );
 }
 
@@ -55,6 +58,7 @@ interface SettingsStore extends Settings {
   clearOverride: (streamId: string) => void;
   setNotificationsEnabled: (v: boolean) => void;
   setSource: (kind: SourceKind, backendUrl?: string) => void;
+  setAutoplayAll: (v: boolean) => void;
 }
 
 export const useSettings = create<SettingsStore>((set, get) => ({
@@ -81,6 +85,10 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   },
   setSource: (kind, backendUrl) => {
     set(backendUrl === undefined ? { sourceKind: kind } : { sourceKind: kind, backendUrl });
+    persist(get());
+  },
+  setAutoplayAll: (v) => {
+    set({ autoplayAll: v });
     persist(get());
   },
 }));

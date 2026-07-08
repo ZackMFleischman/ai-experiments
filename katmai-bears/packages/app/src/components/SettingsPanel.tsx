@@ -68,6 +68,8 @@ export function SettingsPanel() {
   const sourceKind = useSettings((s) => s.sourceKind);
   const backendUrl = useSettings((s) => s.backendUrl);
   const setSource = useSettings((s) => s.setSource);
+  const autoplayAll = useSettings((s) => s.autoplayAll);
+  const setAutoplayAll = useSettings((s) => s.setAutoplayAll);
 
   return (
     <aside className="drawer">
@@ -77,6 +79,15 @@ export function SettingsPanel() {
           ✕
         </button>
       </div>
+
+      <section className="drawer__section">
+        <h3>Playback</h3>
+        <label className="field field--row">
+          <input type="checkbox" checked={autoplayAll} onChange={(e) => setAutoplayAll(e.target.checked)} />
+          <span>Autoplay all streams at once (the video wall)</span>
+        </label>
+        <p className="muted small">Turn off to save data/CPU — tiles then wait for a tap to go live.</p>
+      </section>
 
       <section className="drawer__section">
         <h3>Alert thresholds</h3>
