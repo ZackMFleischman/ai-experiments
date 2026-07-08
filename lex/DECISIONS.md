@@ -161,3 +161,18 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   enabled off-turn via `canResign` per §2.3). Matches Words With Friends / Scrabble
   GO. Action set unchanged (DESIGN §7.2 still Play/Recall/Exchange/Pass/Resign);
   only placement changed. Tests/e2e that clicked Resign now open the menu first.
+
+- **2026-07-07 — Lobby/landing UI shared into `@parlor/web/lobby-ui` (Zack).**
+  Phase 1 of putting both hive and lex on parlor. The lobby presentation was
+  originally copy-adapted per game (DESIGN §4); it's now a shared, game-agnostic
+  seam: the grouped game list (`makeLobby` with injected thumbnail / caption /
+  empty-state slots), the turn badge (`makeTurnBadge`), invite/waiting/challenge
+  screens, the landing shell (hero slot), and the join card (details slot). Each
+  lex `screens/*` file is now a thin wrapper binding lex's slots; its lobby
+  summary EXTENDS a generic seat-index `LobbySummary`. Kept game-side: the
+  new-game `NewGameForm` — hive's color+expansions vs lex's board+dictionary make
+  it all-slots, so sharing it would be net-negative; only its generic pieces
+  (`friendsFrom`, `InviteLinkView`, `Friend`) moved. Wiring: new `./lobby-ui`
+  subpath export + tsconfig path; added `@mui/icons-material` to the vite/vitest
+  `resolve.dedupe` so linked parlor icon components don't pull a second React
+  (§8.11). hive migration onto this seam is Phase 3.

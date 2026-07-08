@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { RULESETS } from '@lex/engine';
 import { DICTIONARIES } from '@lex/dict';
+import { friendsFrom, InviteLinkView, type Friend } from '@parlor/web/lobby-ui';
 import { useState } from 'react';
 import { MiniBoard } from '../board/MiniBoard';
 import {
@@ -24,13 +25,9 @@ import {
   type SeatChoice,
   type TimeControlDays,
 } from '../gameOptions';
-import { InviteShare } from './waitingView';
 
-/** A past opponent, challengeable without a code (DESIGN §6.3). */
-export interface Friend {
-  uid: string;
-  name: string;
-}
+// The invite-link view and the friends helper are shared platform pieces.
+export { friendsFrom, InviteLinkView, type Friend };
 
 export interface NewGameChoices {
   options: LexGameOptions;
@@ -224,37 +221,3 @@ export function NewGameForm({
   );
 }
 
-/** Distinct past opponents, most recent first — the challenge targets. */
-export function friendsFrom(
-  games: ReadonlyArray<{ opponentUid?: string; opponentName: string | null; updatedAtMs: number }>,
-): Friend[] {
-  const seen = new Map<string, Friend>();
-  for (const g of [...games].sort((a, b) => b.updatedAtMs - a.updatedAtMs)) {
-    if (!g.opponentUid || !g.opponentName || seen.has(g.opponentUid)) continue;
-    seen.set(g.opponentUid, { uid: g.opponentUid, name: g.opponentName });
-  }
-  return [...seen.values()];
-}
-
-export function InviteLinkView({
-  code,
-  gameId,
-  onOpenGame,
-}: {
-  code: string;
-  gameId: string;
-  onOpenGame: (gameId: string) => void;
-}) {
-  return (
-    <Stack spacing={2} sx={{ maxWidth: 480 }} data-testid="invite-link-view">
-      <Typography>
-        Send your friend this invite — the game starts when they accept. The link and code stay
-        available on the game screen while you wait.
-      </Typography>
-      <InviteShare code={code} />
-      <Button variant="contained" onClick={() => onOpenGame(gameId)} data-testid="open-created-game">
-        Open the game
-      </Button>
-    </Stack>
-  );
-}

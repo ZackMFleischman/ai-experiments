@@ -11,6 +11,7 @@
     "./firebase": "./src/firebase.ts",
     "./gameApi": "./src/gameApi.ts",
     "./lobby": "./src/lobby.ts",
+    "./lobby-ui": "./src/lobby-ui/index.ts",
     "./AppSyncProviders": "./src/AppSyncProviders.tsx",
     "./push": "./src/push.ts",
     "./NotificationsSetup": "./src/NotificationsSetup.tsx"

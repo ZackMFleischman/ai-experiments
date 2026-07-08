@@ -1,17 +1,10 @@
-// ported from hive/packages/app/src/screens/Join.tsx (adapted)
-// Join screen (T4.7, DESIGN §7.1, FR-10): same themed layout as the landing
-// with a game-summary card — the invitee sees the BOARD, DICTIONARY, TIME
-// CONTROL, and their seat before accepting — and one accept button.
-import {
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material';
+// Lex join screen (T4.7, DESIGN §7.1, FR-10): the invite card + join-by-code
+// live in @parlor/web/lobby-ui — this file supplies lex's option chips (BOARD,
+// DICTIONARY, TIME CONTROL) as the card's `details` slot so the invitee sees
+// them before accepting. Firebase-free.
+import { Chip } from '@mui/material';
 import { DICTIONARIES } from '@lex/dict';
+import { JoinCard as ParlorJoinCard } from '@parlor/web/lobby-ui';
 import { lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 import { boardName, timeControlLabel, type LexGameOptions } from '../gameOptions';
@@ -28,42 +21,23 @@ function dictionaryLabel(id: string): string {
 }
 
 export function JoinCard({ state, onAccept }: { state: JoinState; onAccept: () => void }) {
+  if (state.kind !== 'ready') return <ParlorJoinCard state={state} onAccept={onAccept} />;
   return (
-    <Card sx={{ width: '100%' }} data-testid="join-card">
-      <CardContent>
-        {state.kind === 'loading' && (
-          <Stack alignItems="center" sx={{ py: 2 }}>
-            <CircularProgress size={28} />
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Checking your invite…
-            </Typography>
-          </Stack>
-        )}
-        {state.kind === 'invalid' && (
-          <Typography align="center" sx={{ py: 2 }}>
-            This invite is no longer valid — it may have expired or already been accepted.
-          </Typography>
-        )}
-        {state.kind === 'ready' && (
-          <Stack spacing={2} alignItems="center">
-            <Typography variant="h6" component="h2">
-              {state.hostName} invited you to a game
-            </Typography>
-            <Typography color="text.secondary">
-              You&apos;ll go {state.hostSeat === 'p0' ? 'second' : 'first'}
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="center">
-              <Chip label={`${boardName(state.options.rulesetId)} board`} size="small" />
-              <Chip label={dictionaryLabel(state.options.dictionaryId)} size="small" />
-              <Chip label={timeControlLabel(state.options.timeControl)} size="small" />
-            </Stack>
-            <Button variant="contained" size="large" onClick={onAccept} data-testid="join-accept">
-              Accept invite
-            </Button>
-          </Stack>
-        )}
-      </CardContent>
-    </Card>
+    <ParlorJoinCard
+      state={{
+        kind: 'ready',
+        hostName: state.hostName,
+        hostSeat: state.hostSeat,
+        details: (
+          <>
+            <Chip label={`${boardName(state.options.rulesetId)} board`} size="small" />
+            <Chip label={dictionaryLabel(state.options.dictionaryId)} size="small" />
+            <Chip label={timeControlLabel(state.options.timeControl)} size="small" />
+          </>
+        ),
+      }}
+      onAccept={onAccept}
+    />
   );
 }
 
