@@ -4,12 +4,15 @@ interface Props {
   explorePage: string;
   /** When false, the iframe is not mounted (facade). Fullscreen always passes true. */
   active: boolean;
+  /** Hide the YouTube player controls — used on the wall so our overlay owns the chrome
+      and nothing overlaps the native buttons. Fullscreen leaves them on for scrubbing. */
+  minimalChrome?: boolean;
 }
 
 // A plain YouTube embed (NOT the IFrame API) — lighter for a grid of tiles, and the
 // facade means only the tapped/focused tiles ever mount a player. Muted + playsinline
 // keeps autoplay within browser policy and stops iOS from hijacking to fullscreen.
-export function StreamPlayer({ youtubeId, title, explorePage, active }: Props) {
+export function StreamPlayer({ youtubeId, title, explorePage, active, minimalChrome = false }: Props) {
   if (!youtubeId) {
     return (
       <div className="player player--fallback">
@@ -25,7 +28,12 @@ export function StreamPlayer({ youtubeId, title, explorePage, active }: Props) {
   }
   if (!active) return null;
 
-  const src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1`;
+  const params = new URLSearchParams({ autoplay: '1', mute: '1', playsinline: '1', rel: '0', modestbranding: '1' });
+  if (minimalChrome) {
+    params.set('controls', '0');
+    params.set('disablekb', '1');
+  }
+  const src = `https://www.youtube.com/embed/${youtubeId}?${params.toString()}`;
   return (
     <iframe
       className="player__iframe"

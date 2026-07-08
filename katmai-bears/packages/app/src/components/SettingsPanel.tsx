@@ -82,6 +82,7 @@ export function SettingsPanel() {
   const setSource = useSettings((s) => s.setSource);
   const autoplayAll = useSettings((s) => s.autoplayAll);
   const setAutoplayAll = useSettings((s) => s.setAutoplayAll);
+  const resetLayout = useSettings((s) => s.resetLayout);
 
   return (
     <aside className="drawer">
@@ -145,8 +146,17 @@ export function SettingsPanel() {
       ) : null}
 
       <section className="drawer__section">
-        <h3>Streams on the dashboard</h3>
-        <p className="muted small">Toggle a cam off to remove its tile — the grid reflows to fill the space.</p>
+        <div className="drawer__section-head">
+          <h3>Streams on the dashboard</h3>
+          <button className="btn btn--sm btn--ghost" onClick={resetLayout}>
+            Reset wall
+          </button>
+        </div>
+        <p className="muted small">
+          Toggle a cam off to remove its tile — the wall reflows to fill the space. On the wall itself: drag the ⠿ grip
+          to reorder, use ＋ / − to resize a feed, and ⛶ for fullscreen. “Reset wall” restores the default order, sizes,
+          and shows every cam.
+        </p>
         {STREAMS.map((s) => (
           <StreamVisibilityRow key={s.id} streamId={s.id} title={s.title} />
         ))}

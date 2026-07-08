@@ -2,6 +2,19 @@
 
 Append-only. Newest first. Keep entries ≤8 lines.
 
+## 2026-07-08 — Wall maximizes video area (gallery-fit), not just "fills the page"
+First pass filled the viewport with a CSS `1fr` grid, but that made cells taller than 16:9
+so the YouTube videos letterboxed — huge black bands, little actual video. Reworked to a
+gallery-fit engine (`useWallLayout`): every tile is exactly 16:9 (video fills it), and we
+search column counts, densely pack the s×s blocks to get row counts, and size the base unit
+so the packed grid just fits W×H — the column count giving the largest tile wins (max video
+pixels; provably optimal for equal tiles). Narrow screens (<700px) drop to a scrolling
+1–2-col stack instead of shrinking to nothing. Per-tile size = SQUARE spans (sm/md/lg =
+1/2/3) so enlarged tiles stay 16:9. Reorder is now pointer-based (setPointerCapture on the
+⠿ grip + rect hit-test) — robust across iframes, which swallow HTML5 drag events. Wall chrome
+is hover-revealed and the iframe uses `controls=0`, so app buttons never overlap YouTube's.
+Order + sizes persist (localStorage); "Reset wall" clears them.
+
 ## 2026-07-08 — Single-threaded ffmpeg.wasm, no COOP/COEP
 The Daily Reel stitches clips client-side. The multithreaded ffmpeg core needs
 SharedArrayBuffer → cross-origin isolation → which breaks third-party YouTube iframes, and

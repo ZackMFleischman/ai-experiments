@@ -53,7 +53,12 @@ a {
 }
 
 .app {
-  min-height: 100%;
+  /* Fill the viewport so the video wall can occupy every pixel below the header
+     (security-camera-wall layout) rather than sitting in a short, scrolling page. */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -139,6 +144,13 @@ a {
 .iconbtn:active {
   transform: scale(0.94);
 }
+.iconbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.iconbtn:disabled:hover {
+  background: var(--panel-2);
+}
 .iconbtn--on {
   border-color: var(--gold);
 }
@@ -153,16 +165,29 @@ a {
   font-size: 1.3rem;
 }
 
-/* ---------- Dashboard grid ---------- */
+/* ---------- Dashboard wall ---------- */
 .dashboard {
-  padding: 16px;
+  /* Take the rest of the viewport under the header. In 'fit' mode the wall is sized to
+     the viewport so nothing scrolls; in 'stack' mode (narrow screens) it scrolls. */
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
 }
-.grid {
+.wall {
   display: grid;
-  /* auto-fit (not auto-fill) so when streams are hidden the remaining tiles
-     stretch to fill the row — maximizing real estate. */
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
+  /* grid-template-columns and grid-auto-rows come from the computed layout (inline style),
+     sized so every 16:9 tile is as large as possible while the whole wall fills the view. */
+  gap: 8px;
+  grid-auto-flow: dense;
+  justify-content: center;
+  align-content: center;
+  height: 100%;
+}
+.wall[data-mode='stack'] {
+  height: auto;
+  min-height: 100%;
+  align-content: start;
 }
 
 .empty {
@@ -181,7 +206,43 @@ a {
   background: #000;
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  aspect-ratio: 16 / 9;
+  transition: outline-color 0.15s, opacity 0.15s;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  min-width: 0;
+  min-height: 0;
+}
+/* Wall controls are a touch smaller so they fit comfortably on modest tiles. */
+.tile .iconbtn--sm {
+  width: 30px;
+  height: 30px;
+  font-size: 0.85rem;
+}
+
+/* Drag & drop reordering (pointer-based; see Dashboard). */
+.tile--dragging {
+  opacity: 0.35;
+}
+.tile--over {
+  outline-color: var(--gold);
+}
+.wall--dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+/* Keep the iframe from eating pointer moves mid-drag, and keep grips visible. */
+.wall--dragging .tile__media {
+  pointer-events: none;
+}
+.wall--dragging .tile__overlay {
+  opacity: 1;
+}
+.tile__grip {
+  cursor: grab;
+  touch-action: none;
+}
+.tile__grip:active {
+  cursor: grabbing;
 }
 .tile--alert {
   border-color: var(--gold);
@@ -262,19 +323,34 @@ a {
 .tile__overlay {
   position: absolute;
   inset: 0;
+  z-index: 2;
   pointer-events: none;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 10px;
-  background: linear-gradient(180deg, #0008 0%, #0000 30%, #0000 60%, #0009 100%);
+  padding: 8px;
+  background: linear-gradient(180deg, #000a 0%, #0000 28%, #0000 62%, #000b 100%);
+  /* Idle = pure video (max visible area). Chrome fades in on hover/focus, sitting above the
+     iframe so it never clashes with the YouTube player's own controls. */
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.tile:hover .tile__overlay,
+.tile:focus-within .tile__overlay {
+  opacity: 1;
+}
+/* Touch devices have no hover — keep the chrome visible there. */
+@media (hover: none) {
+  .tile__overlay {
+    opacity: 1;
+  }
 }
 .tile__topline,
 .tile__bottomline {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 .tile__bottomline {
   pointer-events: auto;
@@ -282,16 +358,29 @@ a {
 .tile__topright {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  pointer-events: auto;
+}
+.tile__topline {
   pointer-events: auto;
 }
 .tile__topright .iconbtn {
   background: #000000aa;
 }
+.tile__grip {
+  background: #000000aa;
+  flex: none;
+}
 .tile__title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
   font-weight: 600;
   text-shadow: 0 1px 4px #000;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .badge {
@@ -650,9 +739,6 @@ a {
 @media (max-width: 560px) {
   .header__title {
     font-size: 0.95rem;
-  }
-  .grid {
-    grid-template-columns: 1fr;
   }
   .clips {
     grid-template-columns: 1fr;
