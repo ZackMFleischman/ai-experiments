@@ -242,7 +242,15 @@ load-bearing — lift them from hive's `DECISIONS.md` verbatim.
 
 ---
 
-## Phase 5 — parlor's own docs *(low risk)*
+## Phase 5 — parlor's own docs *(low risk)* — ✅ SHIPPED 2026-07-08
+
+> Shipped: `parlor/README.md` now states the archetype it encodes (two seats,
+> server-authoritative callables, append-only log replay / coherent adoption,
+> async deadlines, push), keeps the current four-package surfaces, and adds a
+> **"Building a new game?"** section naming the injection points and pointing at
+> the repo-root `GAME-SETUP.md` (setup) + this plan (roadmap). Stayed within
+> parlor's closed, line-budgeted doc set (49/55 lines) — no new file, no
+> DECISIONS entry needed.
 
 Today you learn parlor by reading `lex/DESIGN.md §4`. Give parlor a real README:
 the archetype it encodes, the four packages' surfaces, the injection points, and a

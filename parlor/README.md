@@ -1,10 +1,15 @@
 # PARLOR
 
 The shared, game-agnostic platform layer for this repo's parlor games —
-turn-based, two-player, invite-a-friend PWAs on Firebase. Ported from `hive/`'s
-proven platform code (every file carries a `// ported from hive/<path>` header);
-**`lex/`** is the first consumer; hive now consumes the `@parlor/web` platform
-layer and its shared lobby UI too (only its backend migration remains).
+turn-based, two-player, invite-a-friend PWAs on Firebase. The archetype it
+encodes: two seats, an invite/challenge/rematch lifecycle, **server-authoritative**
+play (every mutation is a Cloud Functions callable; clients never write game
+docs — `firestore.rules`), an append-only move log the client replays (or, for
+hidden-information games, coherently adopts), async per-move deadlines, and
+web-push nudges. Ported from `hive/`'s proven platform code (every file carries a
+`// ported from hive/<path>` header); **`lex/`** is the first consumer; hive now
+consumes the `@parlor/web` platform layer and its shared lobby UI too (only its
+backend migration remains).
 
 Independent pnpm workspace. Packages (TS source, no build step):
 
@@ -27,6 +32,14 @@ Independent pnpm workspace. Packages (TS source, no build step):
   capability, plus the notify machinery.
 - **`@parlor/harness`** — the `/dev/gallery` runtime and `validate:visual` /
   `validate:ux` script cores.
+
+**Building a new game?** A game plugs in at a handful of injection points — a
+`GameServerConfig` (seats, options, initial state, racks) + `SubmitMoveConfig`
+(its engine `advance`) + `NotifyConfig` on the server; its doc→summary / doc→meta
+mappings, typed callables, transport sync strategy, and lobby render slots on the
+client — then follows the repo-root **`GAME-SETUP.md`** checklist (workspace
+skeleton, Firebase wiring, CI + deploy, the parlor primitives to reuse).
+`PARLOR-PLATFORM-HARDENING.md` (repo root) tracks the platform's own roadmap.
 
 Consumed by sibling workspaces via `link:` dependencies + TS path mapping —
 wiring documented in `lex/IMPLEMENTATION.md` §1 (run `pnpm install` here first).
