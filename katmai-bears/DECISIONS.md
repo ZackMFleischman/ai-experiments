@@ -2,6 +2,15 @@
 
 Append-only. Newest first. Keep entries ≤8 lines.
 
+## 2026-07-08 — Catalog is driven by the explore.org YouTube playlist (build-time refresh)
+Seasonal id churn was manual (edit `streams.ts`). Now `pnpm refresh:streams` scrapes the
+playlist's `ytInitialData` (no API key) and writes `streams.generated.ts` — the live source
+of truth, in playlist order. Chose **build-time** over runtime: in-browser reads of a
+playlist need a public API key (quota/abuse) or hit the same cross-origin wall as the pixels,
+and we don't want the deploy to depend on YouTube. `streams.ts` merges: playlist entries are
+authoritative, enriched by a small CURATED table (blurb/tags/explore link) via title-keyword
+match; unmatched cams surface with derived metadata; empty generated file ⇒ old seed behavior.
+
 ## 2026-07-08 — Wall maximizes video area (gallery-fit), not just "fills the page"
 First pass filled the viewport with a CSS `1fr` grid, but that made cells taller than 16:9
 so the YouTube videos letterboxed — huge black bands, little actual video. Reworked to a
