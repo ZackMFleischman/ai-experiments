@@ -443,7 +443,9 @@ transitions, and easy testability (DOM assertions in e2e) for free.
      counts per bug and disables bugs with no legal placement (queen pulses when
      "must place queen" is active).
 - **Stacks** render with an offset-and-shadow so height is readable at a glance; tapping
-  a stack fans it out to inspect what's buried.
+  a stack you can't lift fans it out to inspect what's buried, while a stack whose top you
+  *can* move is picked up by a tap and peeked with a long-press. Acting on the board
+  (select, move, tap-away) collapses the fan; it is pure inspection and never a move.
 - **Last move** stays highlighted (from/to). Remote moves animate in.
 - Drag implemented with raw **pointer events** on the SVG layer (not a dnd library —
   HTML5 DnD is wrong for touch, and dnd-kit fights SVG coordinate spaces; the math is

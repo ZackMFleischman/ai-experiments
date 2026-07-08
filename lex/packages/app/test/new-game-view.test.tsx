@@ -21,10 +21,10 @@ function create(overrides?: { friends?: Array<{ uid: string; name: string }> }):
 }
 
 describe('NewGameForm', () => {
-  it('defaults: classic board, everyday dictionary, random first, 3 days', () => {
+  it('defaults: classic board, NWL2023 dictionary, random first, 3 days', () => {
     const { submit } = create();
     expect(submit()).toEqual({
-      options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: { days: 3 } },
+      options: { rulesetId: 'classic', dictionaryId: 'nwl2023', timeControl: { days: 3 } },
       seat: 'random',
       opponent: null,
     });

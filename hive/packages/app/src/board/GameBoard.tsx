@@ -27,12 +27,14 @@ export function GameBoard({
   const { symbolFor } = usePieceArt();
   const handle = useRef<BoardViewportHandle | null>(null);
   const press = useRef<{ cell: Hex; x: number; y: number; dragging: boolean; wasTarget: boolean } | null>(null);
-  const infoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // One hold timer, two payloads: reveal a lone piece's info card, or fan out a
+  // stack you can't tap-to-fan because tapping it picks it up instead.
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearInfo = (hide: boolean) => {
-    if (infoTimer.current) clearTimeout(infoTimer.current);
-    infoTimer.current = null;
-    if (hide) onPieceInfo?.(null);
+  const clearHold = (hideInfo: boolean) => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+    if (hideInfo) onPieceInfo?.(null);
   };
 
   useEffect(() => {
@@ -70,38 +72,57 @@ export function GameBoard({
       const key = hexKey(cell);
       const isTarget = snap.targets.has(key) || snap.climbTargets.has(key);
       press.current = { cell, x: pt.x, y: pt.y, dragging: false, wasTarget: isTarget };
-      // Hold a piece still to learn what it is — but ONLY pieces you can't
-      // pick up (opponent's, pinned, off-turn). A draggable piece must never
-      // grow a card that covers the drop targets.
       const stack = snap.state.board.get(key);
       const top = stack?.[stack.length - 1];
-      clearInfo(true);
-      if (top && onPieceInfo && !snap.movableCells.has(key) && !isTarget) {
-        infoTimer.current = setTimeout(() => onPieceInfo(top.kind), LONG_PRESS_MS);
+      const isStack = (stack?.length ?? 0) >= 2;
+      const isMovable = snap.movableCells.has(key);
+      clearHold(true);
+
+      // Tap an already-fanned stack to collapse it — takes priority so an
+      // inspected stack never gets picked up by accident.
+      if (snap.fannedStack === key) {
+        controller.togglePeek(cell);
+        return;
       }
-      // Immediate lift for movable pieces; targets commit on release.
-      if (!isTarget) controller.selectCell(cell);
+      // Targets commit on release; nothing to lift on the way down.
+      if (isTarget) return;
+      if (isMovable) {
+        controller.selectCell(cell); // immediate lift
+        // A movable stack still buries pieces; a tap picks it up, so hold to peek.
+        if (isStack) holdTimer.current = setTimeout(() => controller.togglePeek(cell), LONG_PRESS_MS);
+        return;
+      }
+      // Not yours to move: a stack fans out to inspect what's buried (DESIGN
+      // §6.2), a lone piece reveals its info card on hold.
+      if (isStack) {
+        controller.togglePeek(cell);
+        return;
+      }
+      if (top && onPieceInfo) {
+        holdTimer.current = setTimeout(() => onPieceInfo(top.kind), LONG_PRESS_MS);
+      }
+      controller.selectCell(cell); // tap elsewhere cancels a selection
     },
     onDragMove: (pt: { x: number; y: number }) => {
       const p = press.current;
       if (!p || p.wasTarget) return;
       if (!p.dragging && Math.hypot(pt.x - p.x, pt.y - p.y) > DRAG_THRESHOLD) {
         p.dragging = true;
-        clearInfo(true); // a real drag replaces the info card
+        clearHold(true); // a real drag replaces the info card and cancels a pending peek
       }
       if (p.dragging) controller.dragTo(pt.x, pt.y);
     },
     onDragEnd: (pt: { x: number; y: number }) => {
       const p = press.current;
       press.current = null;
-      clearInfo(true);
+      clearHold(true);
       if (!p) return;
       if (p.dragging) controller.drop(pt.x, pt.y);
       else if (p.wasTarget) controller.selectCell(p.cell); // tap-tap commit
-      // plain tap on a piece: selection already happened on pointer-down
+      // plain tap on a piece: selection (or peek) already happened on pointer-down
     },
     onBackgroundTap: () => {
-      clearInfo(true);
+      clearHold(true);
       controller.cancel();
     },
   };
