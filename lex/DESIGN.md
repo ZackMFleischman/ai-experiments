@@ -288,6 +288,7 @@ by construction):**
 | `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
 | `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `@parlor/harness` (+ thin `scripts/` wrappers in lex) | near-verbatim |
 | `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `@parlor/web` | theme tokens re-skinned per game |
+| `firestore.rules` (base tiers) + `firestore.indexes.json` | `parlor/firestore.rules` + `parlor/firestore.indexes.json` (canonical declarative reference, not TS) | Firebase requires these files inside each game's own project dir (a `../parlor/...` path is rejected), so each game keeps a copy; `scripts/check-rules-parity.mjs` (in `pnpm typecheck`) fails if the copy drifts from/weakens the base or its indexes differ. Perfect-info games track the base verbatim; lex adds the **racks/private** override (owner-read rack, server-secret bag), which the reference documents — parity allows added tiers, forbids weakened base ones. Negative-path rules tests stay the behavioral gate. |
 
 `@parlor/*` **must not import any game package** (`@lex/*`, `@hive/*` —
 machine-checked, IMPLEMENTATION §3) — that's what keeps it honestly generic.
@@ -300,7 +301,8 @@ turn/time controls — too game-shaped to share, so it stays here), `Settings`,
 Game chrome — plus `game/*`
 (PlayerBar, GameMenu, MoveList → score sheet, ResultOverlay), `board/BoardViewport`
 (pan/zoom/pinch math — keep; SVG specifics → CSS transform), `firestore.rules`
-(+ rack/bag tiers), `firebase.json` + emulator seed, CI workflows + deploy job
+(only the rack/bag override; base tiers are the shared parlor reference above),
+`firebase.json` + emulator seed, CI workflows + deploy job
 (incl. the invoker-repair step), the e2e `test-harness` module, `e2e/visual-checklist.md`
 skeleton, and the doc set itself (CLAUDE/DESIGN/IMPLEMENTATION/DECISIONS structure).
 

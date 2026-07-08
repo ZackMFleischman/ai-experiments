@@ -1,5 +1,9 @@
 rules_version = '2';
 
+// Tracks the canonical parlor reference (../parlor/firestore.rules,
+// PARLOR-PLATFORM-HARDENING.md Phase 1) — enforced by `scripts/check-rules-parity.mjs`
+// in `pnpm typecheck`. hive is a perfect-information game, so it uses the base
+// tiers verbatim (no rack/private override).
 // DESIGN §5.2/§5.3: every game mutation goes through a callable — clients get
 // NO write access to games/* or invites/*. Game docs (and their move logs) are
 // readable only by their two players; invites by anyone signed in holding the

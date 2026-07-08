@@ -267,3 +267,15 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   parlor source. Verified: full `pnpm validate` (typecheck, engine/app/functions
   unit incl. 68 emulator callable tests over the new contract, hot-seat + mp e2e,
   visual/ux, offline) green.
+
+- **2026-07-08 — Firestore rules + indexes track the canonical parlor reference,
+  enforced by a parity lint (parlor hardening Phase 1).** hive's `firestore.rules`
+  + `firestore.indexes.json` match the new `parlor/firestore.rules` +
+  `parlor/firestore.indexes.json` canonical reference (hive is perfect-info, so it
+  uses the base tiers verbatim). Firebase rejects a cross-project `../parlor/...`
+  rules path in `firebase.json` ("outside of project directory" — caught by CI),
+  so each game keeps its own copy rather than sharing the file. New
+  `scripts/check-rules-parity.mjs` (wired into `pnpm typecheck`) fails if hive's
+  rules drift from or weaken the base, or its indexes differ. Rules content and
+  the negative-path rules tests are unchanged. Stops copy-paste drift; a
+  hidden-info game may add a documented racks/private override.

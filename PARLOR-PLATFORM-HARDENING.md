@@ -23,7 +23,19 @@ hive. Scope is **2-player** (N-player is a separate breaking epic, parked).
 
 ---
 
-## Phase 1 — Rules + indexes template *(low risk, high leverage, no code)*
+## Phase 1 — Rules + indexes template *(low risk, high leverage, no code)* — ✅ SHIPPED 2026-07-08
+
+> Shipped: `parlor/firestore.rules` + `parlor/firestore.indexes.json` are the
+> canonical reference (rack/bag override documented inline). Firebase rejects a
+> cross-project `../parlor/...` rules path in `firebase.json` ("outside of project
+> directory"), so each game keeps its own in-project copy and a new
+> `scripts/check-rules-parity.mjs` (wired into `pnpm typecheck`) enforces that the
+> copy neither drifts from nor weakens the shared base — added tiers (lex's
+> rack/bag) allowed, weakened base tiers rejected. The games' unchanged
+> negative-path rules tests stay the behavioral gate; `lex/DESIGN.md §4` + both
+> `DECISIONS.md` updated. (First attempt re-pointed `firebase.json` across the
+> workspace — CI caught firebase's in-project-only constraint; pivoted to the
+> plan's "diff against the template" branch.)
 
 **Goal:** stop copy-pasting the security model. hive's and lex's `firestore.rules`
 + composite indexes are near-identical (three-tier: own `users/{uid}`, `games` by
