@@ -115,6 +115,64 @@ describe('robust submission', () => {
     expect(s.notice?.text).toMatch(/rejected/i);
   });
 
+  it('keeps a move whose write landed but whose ack was lost (no false rollback)', async () => {
+    // The write commits server-side, but the response is lost; the retry then
+    // sees a stale move count (a "definite" rejection). Reconciling against the
+    // server must KEEP the move — not undo one that actually succeeded.
+    class LostAckTransport implements GameTransport {
+      log: LogEntry[] = [];
+      private calls = 0;
+      async load(): Promise<StoredGame> {
+        return { options: ALL_ON, log: [...this.log] };
+      }
+      async submit(entry: LogEntry): Promise<void> {
+        this.calls++;
+        if (this.calls === 1) {
+          this.log.push(entry); // landed...
+          throw fbError('unavailable'); // ...but the ack never came back
+        }
+        throw fbError('failed-precondition'); // retry: server already advanced
+      }
+      onRemoteEntry(): () => void {
+        return () => {};
+      }
+      async reset(): Promise<void> {
+        this.log = [];
+      }
+    }
+    const t = new LostAckTransport();
+    const c = makeController(t);
+    await c.init();
+
+    playOpening(c);
+    await settle();
+    const s = c.getSnapshot();
+    expect(t.log).toHaveLength(1); // it really did land
+    expect(s.state.board.size).toBe(1); // and it is kept
+    expect(s.syncStatus).toBeUndefined();
+    expect(s.notice?.text ?? '').not.toMatch(/rejected|undone/i); // not a false rejection
+  });
+
+  it('resync() flushes a stuck move instead of discarding it', async () => {
+    const t = new FlakyTransport(ALL_ON);
+    t.errors = [fbError('unavailable'), fbError('unavailable'), fbError('unavailable'), fbError('unavailable')];
+    const c = makeController(t);
+    await c.init();
+    playOpening(c);
+    await settle();
+    expect(c.getSnapshot().syncStatus).toBe('error');
+    expect(c.getSnapshot().state.board.size).toBe(1); // still on-screen
+
+    // A visibility/push-driven resync (dead-stream safety net) must SEND the
+    // pending move, never rebuild-from-source over the top of it.
+    await c.resync();
+    await settle();
+    const s = c.getSnapshot();
+    expect(s.syncStatus).toBeUndefined();
+    expect(t.log).toHaveLength(1); // delivered, not dropped
+    expect(s.state.board.size).toBe(1);
+  });
+
   it('retryPending() is a no-op when nothing is stuck', async () => {
     const t = new FlakyTransport(ALL_ON);
     const c = makeController(t);

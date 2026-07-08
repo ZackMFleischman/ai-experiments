@@ -202,9 +202,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   never sent. Fixed by computing end-of-game from committed state only (a stage
   is a preview; confirm submits, then the win shows). (2) `submitMove` sent once
   and silently rolled back on any error. Now the controller classifies
-  transient (network/`unavailable`/`internal`…) vs definite rejections, retries
-  transient failures with backoff, keeps the optimistic move on-screen, and
-  exposes a `syncStatus` ('saving'/'error') + `retryPending()`; GameScreen and
-  the (modal) ResultOverlay show a "Saving…/Not saved — Retry" affordance, and
-  it auto-retries on `online`. Definite rejections still roll back/resync.
-  Engine and callables untouched — pure client transport/UX.
+  transient (network/`unavailable`/`internal`/offline…) vs definite rejections,
+  retries transient failures with backoff, keeps the optimistic move on-screen,
+  and exposes a `syncStatus` ('saving'/'error') + `retryPending()`; GameScreen
+  and the (modal) ResultOverlay show a "Saving…/Not saved — Retry" affordance,
+  auto-retried on `online`/visibility regain. A definite rejection *reconciles
+  against the server* (reload) rather than a blind rollback, so a move whose
+  write landed but whose ack was lost is kept (no false "rejected"); `resync()`
+  flushes a still-pending move instead of discarding it. Engine + callables
+  untouched — pure client transport/UX.

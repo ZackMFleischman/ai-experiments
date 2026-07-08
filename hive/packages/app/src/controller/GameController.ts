@@ -92,6 +92,9 @@ const TRANSIENT_CODES = new Set([
 ]);
 
 function isTransient(err: unknown): boolean {
+  // If the device itself is offline, the failure is by definition transient —
+  // whatever shape the error took.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
   const code = (err as { code?: unknown }).code;
   if (typeof code === 'string' && TRANSIENT_CODES.has(code.replace(/^functions\//, ''))) {
     return true;
@@ -106,6 +109,15 @@ function isTransient(err: unknown): boolean {
 // Backoff before each retry of a rejected-as-transient submit; once exhausted
 // the move stays on-screen and the UI offers an explicit Retry.
 const DEFAULT_RETRY_DELAYS = [500, 1500, 4000, 10_000];
+
+/** An optimistic entry awaiting server acknowledgement. */
+interface PendingSubmit {
+  entry: LogEntry;
+  /** Move index the server must be at for this entry to be accepted. */
+  expectedIndex: number;
+  /** Toast shown iff reconciliation confirms the entry did not persist. */
+  rejectText: string;
+}
 
 function moveCells(move: Move): { from?: Hex; to: Hex } | undefined {
   if (move.type === 'pass') return undefined;
@@ -147,7 +159,7 @@ export class GameController {
   // Robust submission: the optimistic move stays applied while we persist it
   // with retry/backoff. `pending` is the in-flight submit (undefined once
   // saved or rolled back); `syncStatus` drives the "Saving…/Not saved" UI.
-  private pending: { entry: LogEntry; expectedIndex: number; onReject: () => void } | undefined;
+  private pending: PendingSubmit | undefined;
   private syncStatus: 'idle' | 'saving' | 'error' = 'idle';
   private retryAttempt = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -182,8 +194,15 @@ export class GameController {
 
   /** Rebuild from the transport's source of truth. Safety net for silently
    * dead realtime streams (mobile Safari): called on visibility regain and
-   * when a push for this game reaches an open client. */
+   * when a push for this game reaches an open client. If a move is still
+   * in flight (e.g. the connection dropped on the final move), flush THAT
+   * first — a source-of-truth rebuild here would silently discard the
+   * unsaved move instead of delivering it. */
   async resync(): Promise<void> {
+    if (this.pending) {
+      this.retryPending();
+      return;
+    }
     await this.reload();
   }
 
@@ -521,9 +540,9 @@ export class GameController {
   private submitMove(move: Move): void {
     const uhp = toUhp(move, this.state);
     const entry: LogEntry = { kind: move.type === 'pass' ? 'pass' : 'move', uhp };
-    const previous = { state: this.state, log: this.log, lastMove: this.lastMove };
-    // Optimistic apply (instant UX); persisted with retry, reconciled only on a
-    // real (non-transient) rejection.
+    const expectedIndex = this.log.length;
+    // Optimistic apply (instant UX); persisted with retry, reconciled against
+    // the server on a definite rejection or a lost acknowledgement.
     this.state = applyMove(this.state, move);
     this.log = [...this.log, entry];
     this.lastMove = moveCells(move);
@@ -531,32 +550,24 @@ export class GameController {
     this.drag = undefined;
     this.view = null; // auto-fit after the hive grows/moves
     this.pendingDrawOffer = undefined; // any move clears a pending offer
-    this.dispatch(entry, previous.log.length, () => {
-      this.state = previous.state;
-      this.log = previous.log;
-      this.lastMove = previous.lastMove;
-      this.notice = { id: ++this.noticeSeq, text: 'Move rejected by the server — undone.' };
-    });
+    this.dispatch(entry, expectedIndex, 'Move rejected by the server — undone.');
   }
 
   private submitMeta(entry: LogEntry): void {
+    const expectedIndex = this.log.length;
     this.log = [...this.log, entry];
-    // A refused meta action means we were out of sync — rebuild from source.
-    this.dispatch(entry, this.log.length - 1, () => {
-      this.notice = { id: ++this.noticeSeq, text: 'Action failed — resynced with the server.' };
-      void this.reload();
-    });
+    this.dispatch(entry, expectedIndex, 'Action failed — resynced with the server.');
   }
 
   // ── robust submission ──────────────────────────────────────────────────────
   // The optimistic apply already happened; persist the entry, retrying dropped
   // connections with backoff so a game-ending move reliably reaches the backend.
-  // A real rejection runs `onReject` (undo a move / resync a meta action); an
+  // A definite rejection reconciles against the server (source of truth); an
   // exhausted-retry failure keeps the move on-screen and offers a manual Retry.
 
-  private dispatch(entry: LogEntry, expectedIndex: number, onReject: () => void): void {
+  private dispatch(entry: LogEntry, expectedIndex: number, rejectText: string): void {
     this.clearRetry();
-    this.pending = { entry, expectedIndex, onReject };
+    this.pending = { entry, expectedIndex, rejectText };
     this.retryAttempt = 0;
     this.syncStatus = 'saving';
     this.emit();
@@ -581,28 +592,51 @@ export class GameController {
           }, wait);
         } else {
           // Keep the optimistic move visible and hand the player an explicit
-          // Retry rather than silently dropping it.
-          this.syncStatus = 'error';
-          this.notice = {
-            id: ++this.noticeSeq,
-            text: "Can't reach the server — your move isn't saved. Tap Retry.",
-          };
-          this.emit();
+          // Retry rather than silently dropping it (an `online`/visibility
+          // regain also re-fires this automatically).
+          this.stall();
         }
         return;
       }
-      // A definite rejection (illegal / not your turn / stale): undo or resync.
-      this.pending = undefined;
-      this.retryAttempt = 0;
-      this.syncStatus = 'idle';
-      pending.onReject();
-      this.emit();
+      // A definite rejection (illegal / not your turn / stale move count) — or a
+      // lost acknowledgement. Reconcile against the server, never a blind guess.
+      void this.reconcile(pending);
       return;
     }
     if (this.pending !== pending) return;
     this.pending = undefined;
     this.retryAttempt = 0;
     this.syncStatus = 'idle';
+    this.emit();
+  }
+
+  /** Rebuild from the authoritative log after a rejection or lost ack. A move
+   * whose write actually landed (ack lost on a flaky link) survives; a genuine
+   * rejection is undone. The failure text shows only when our entry truly did
+   * not persist, so a lost-ack success never masquerades as a rejection. If the
+   * server is unreachable for the rebuild too, keep the move and offer Retry. */
+  private async reconcile(pending: PendingSubmit): Promise<void> {
+    const before = this.log.length;
+    try {
+      await this.reload(); // success replays the authoritative log + clears pending
+    } catch {
+      if (this.pending === pending) this.stall();
+      return;
+    }
+    if (this.log.length < before) {
+      this.notice = { id: ++this.noticeSeq, text: pending.rejectText };
+      this.emit();
+    }
+  }
+
+  /** Park a submit we couldn't complete: keep the optimistic move on-screen and
+   * surface an actionable, non-transient error (Retry / auto-retry on reconnect). */
+  private stall(): void {
+    this.syncStatus = 'error';
+    this.notice = {
+      id: ++this.noticeSeq,
+      text: "Can't reach the server — your move isn't saved. Tap Retry.",
+    };
     this.emit();
   }
 
