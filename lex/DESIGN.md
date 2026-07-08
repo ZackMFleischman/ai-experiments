@@ -189,7 +189,7 @@ lex/
 │   │       ├── controller/     # GameController: engine ↔ UI ↔ transport
 │   │       ├── sync/           # thin game-specific bindings over @parlor/web
 │   │       └── dev/            # /dev/gallery entries
-│   └── functions/              # @lex/functions — callables = @parlor/server + submitMove
+│   └── functions/              # @lex/functions — all callables are @parlor/server shells (submitMove = createSubmitMove + lex's engine advance)
 └── e2e/                        # Playwright: two-browser full-game tests
 
 ../parlor/                      # SIBLING WORKSPACE at the repo root (§4): the
@@ -284,7 +284,7 @@ by construction):**
 | `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `@parlor/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
 | `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config |
 | the lobby/landing **presentation**: `screens/lobbyView` (grouped list + cards), `turnBadge`, `waitingView` (invite/waiting/challenge), `Landing`+`LandingLayout` shell, `Join` card + `JoinByCode`, `newGameView`'s `friendsFrom`/`InviteLinkView` | `@parlor/web` (`./lobby-ui`) | game injects the slots — board thumbnail, card caption, empty-state motif, landing hero, join-detail chips; the lobby summary EXTENDS a generic `LobbySummary` (seat-index meta). Each `screens/*` file is now a thin wrapper binding lex's slots. |
-| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove` is game-specific; its transaction shell (load → turn check → concurrency guard → write + push) is the shared part |
+| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out |
 | `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
 | `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `@parlor/harness` (+ thin `scripts/` wrappers in lex) | near-verbatim |
 | `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `@parlor/web` | theme tokens re-skinned per game |

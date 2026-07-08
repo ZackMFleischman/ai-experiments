@@ -231,3 +231,16 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   (owner-read) + `private/*` (server-secret), which the reference documents as a
   copy-in snippet — parity allows added tiers, forbids dropped/weakened ones. The
   negative-path rules-unit-tests remain the behavioral gate. DESIGN §4 updated.
+
+- **2026-07-08 — submitMove is now the @parlor/server createSubmitMove shell
+  (parlor hardening Phase 2).** The transaction shell (auth / envelope /
+  preconditions / concurrency guard / moveCount+deadline bookkeeping /
+  `pendingDrawOffer` clear / opponent push) moved to `@parlor/server`; lex injects
+  only its engine `advance` (score → applyMove → exchange re-shuffle → public
+  snapshot + rack doc + private bag doc as sub-writes) via `lexSubmitConfig` in
+  submitMove.ts. The shell's unconditional `pendingDrawOffer` delete is a harmless
+  no-op for lex (no draws). lex does **not** call `createDrawCallables` (its draws
+  arise from tied scores in the engine, not an offer) — capabilities are opt-in by
+  inclusion, so no draw endpoints ship. Wire contract (`move` field), doc shapes,
+  and privacy invariant (exchange log carries a count only) unchanged. DESIGN §4/§6.3
+  updated; submit-move + callables emulator tests are the equivalence gate.

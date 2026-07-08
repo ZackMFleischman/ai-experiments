@@ -20,8 +20,9 @@ Independent pnpm workspace. Packages (TS source, no build step):
   is firebase-free; SDK surfaces sit behind subpath exports.
 - **`@parlor/server`** — Cloud Functions building blocks: the shared callables
   (create/join/cancel/challenge/respond/rematch/resign) shaped by an injected
-  `GameServerConfig` (seats, options, initial state, racks), plus the notify
-  machinery. Game-specific moves (e.g. lex's submitMove) stay in the game.
+  `GameServerConfig` (seats, options, initial state, racks), the `createSubmitMove`
+  shell (the game injects only its engine `advance`), the opt-in `createDrawCallables`
+  capability, plus the notify machinery.
 - **`@parlor/harness`** — the `/dev/gallery` runtime and `validate:visual` /
   `validate:ux` script cores.
 
