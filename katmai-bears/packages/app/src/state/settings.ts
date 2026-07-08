@@ -5,9 +5,11 @@ const LS_KEY = 'katmai.settings.v1';
 
 export type SourceKind = 'simulator' | 'websocket';
 
-/** How many grid cells a wall tile spans: sm = 1×1, md = 2×2, lg = 3×2. */
+/** Wall tile size. Each spans a SQUARE block of base cells so it stays 16:9 (no letterbox). */
 export type TileSize = 'sm' | 'md' | 'lg';
 export const TILE_SIZES: TileSize[] = ['sm', 'md', 'lg'];
+/** Side length (in base cells) of each size's square block. */
+export const TILE_SPAN: Record<TileSize, number> = { sm: 1, md: 2, lg: 3 };
 
 export interface Settings {
   thresholds: Thresholds;

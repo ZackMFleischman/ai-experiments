@@ -44,25 +44,42 @@ test('hiding a stream removes its tile; re-enabling restores it', async ({ page 
 test('a tile can be resized bigger and smaller', async ({ page }) => {
   await page.goto('/');
   const tile = page.locator('.tile').first();
-  await expect(tile).toHaveClass(/tile--sm/);
+  // Size is applied as a square grid span in the tile's inline style.
+  await expect(tile).toHaveAttribute('style', /span 1/);
 
-  // Two clicks of "bigger" walk sm → md → lg, where the control disables at the max.
+  // Two clicks of "bigger" walk sm(1) → md(2) → lg(3), where the control disables at the max.
   await page.getByRole('button', { name: 'Make Brooks Falls bigger' }).click();
-  await expect(tile).toHaveClass(/tile--md/);
+  await expect(tile).toHaveAttribute('style', /span 2/);
   await page.getByRole('button', { name: 'Make Brooks Falls bigger' }).click();
-  await expect(tile).toHaveClass(/tile--lg/);
+  await expect(tile).toHaveAttribute('style', /span 3/);
   await expect(page.getByRole('button', { name: 'Make Brooks Falls bigger' })).toBeDisabled();
 
   // "smaller" walks back down.
   await page.getByRole('button', { name: 'Make Brooks Falls smaller' }).click();
-  await expect(tile).toHaveClass(/tile--md/);
+  await expect(tile).toHaveAttribute('style', /span 2/);
 });
 
-test('each tile exposes a drag handle for reordering', async ({ page }) => {
+test('dragging a tile by its grip reorders the wall', async ({ page }) => {
   await page.goto('/');
-  const grips = page.getByRole('button', { name: /^Reorder / });
-  await expect(grips).toHaveCount(6);
-  await expect(grips.first()).toHaveAttribute('draggable', 'true');
+  const titlesBefore = await page.locator('.tile__title').allTextContents();
+  expect(titlesBefore[0]).toBe('Brooks Falls');
+
+  // Reveal the chrome (hover on desktop; always-on for touch), then drag the first tile's
+  // grip onto the adjacent tile via raw pointer events.
+  await page.locator('.tile').first().hover();
+  const from = await page.locator('.tile').first().locator('.tile__grip').boundingBox();
+  const target = await page.locator('.tile').nth(1).boundingBox();
+  if (!from || !target) throw new Error('missing bounding boxes');
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await page.locator('.tile__title').allTextContents())[0])
+    .not.toBe('Brooks Falls');
+  expect(await page.locator('.tile__title').allTextContents()).toContain('Brooks Falls');
 });
 
 test('deep link opens fullscreen and next cycles cams', async ({ page }) => {

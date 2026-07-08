@@ -8,22 +8,21 @@ import { StreamPlayer } from './StreamPlayer';
 
 interface Props {
   stream: StreamMeta;
-  /** True while any tile on the wall is being dragged (arms the drop layer). */
-  dragging: boolean;
-  /** This tile is the one currently being dragged. */
+  /** Side length (in base cells) this tile spans on the wall. */
+  span: number;
+  registerRef: (id: string, el: HTMLElement | null) => void;
   isDragged: boolean;
-  /** A drag is hovering over this tile (drop target highlight). */
   isOver: boolean;
-  onDragStart: () => void;
-  onDragOver: () => void;
-  onDrop: () => void;
-  onDragEnd: () => void;
+  onGripDown: () => void;
+  onGripMove: (x: number, y: number) => void;
+  onGripUp: () => void;
 }
 
-// A dashboard tile. By default (autoplayAll) it mounts a live player immediately — the
-// whole point of the dashboard is a wall of feeds playing at once. When autoplay is off
-// it falls back to a tap-to-play facade for constrained devices/data.
-export function StreamTile({ stream, dragging, isDragged, isOver, onDragStart, onDragOver, onDrop, onDragEnd }: Props) {
+// A wall tile. The tile itself is exactly 16:9 (sized by the wall layout) so the live video
+// fills it edge-to-edge with no letterboxing. All chrome (badges, resize, hide, drag, and
+// fullscreen) lives in hover-reveal overlays that sit above the iframe, so an idle wall is
+// pure video and the controls never fight the YouTube player's own chrome.
+export function StreamTile({ stream, span, registerRef, isDragged, isOver, onGripDown, onGripMove, onGripUp }: Props) {
   const autoplayAll = useSettings((s) => s.autoplayAll);
   const [tapped, setTapped] = useState(false);
   const showPlayer = autoplayAll || tapped;
@@ -42,11 +41,11 @@ export function StreamTile({ stream, dragging, isDragged, isOver, onDragStart, o
   const isAlerting = status?.alerting ?? false;
 
   const sizeIdx = TILE_SIZES.indexOf(size);
-  const bigger = () => {
+  const bigger = (): void => {
     const next = TILE_SIZES[sizeIdx + 1];
     if (next) setTileSize(stream.id, next);
   };
-  const smaller = () => {
+  const smaller = (): void => {
     const next = TILE_SIZES[sizeIdx - 1];
     if (next) setTileSize(stream.id, next);
   };
@@ -55,13 +54,17 @@ export function StreamTile({ stream, dragging, isDragged, isOver, onDragStart, o
   const dragClass = `${isDragged ? ' tile--dragging' : ''}${isOver ? ' tile--over' : ''}`;
 
   return (
-    <div className={`tile tile--${size}${stateClass}${dragClass}`}>
+    <div
+      ref={(el) => registerRef(stream.id, el)}
+      className={`tile${stateClass}${dragClass}`}
+      style={{ gridColumn: `span ${span}`, gridRow: `span ${span}` }}
+    >
       <div
         className="tile__media"
         style={poster ? { backgroundImage: `url(${poster})` } : undefined}
       >
         {showPlayer ? (
-          <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active />
+          <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active minimalChrome />
         ) : (
           <button className="tile__facade" onClick={() => setTapped(true)} aria-label={`Play ${stream.title}`}>
             {poster ? (
@@ -112,48 +115,37 @@ export function StreamTile({ stream, dragging, isDragged, isOver, onDragStart, o
           </div>
         </div>
         <div className="tile__bottomline">
-          <span
+          <button
             className="iconbtn iconbtn--sm tile__grip"
-            role="button"
-            tabIndex={0}
-            draggable
             title="Drag to reorder"
             aria-label={`Reorder ${stream.title}`}
-            onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = 'move';
-              e.dataTransfer.setData('text/plain', stream.id);
-              onDragStart();
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              onGripDown();
             }}
-            onDragEnd={onDragEnd}
+            onPointerMove={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) onGripMove(e.clientX, e.clientY);
+            }}
+            onPointerUp={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+              onGripUp();
+            }}
+            onPointerCancel={onGripUp}
           >
             ⠿
-          </span>
+          </button>
           <span className="tile__title">{stream.title}</span>
-          <button className="iconbtn iconbtn--sm" title="Fullscreen" aria-label={`Fullscreen ${stream.title}`} onClick={() => openFullscreen(stream.id)}>
+          <button
+            className="iconbtn iconbtn--sm"
+            title="Fullscreen"
+            aria-label={`Fullscreen ${stream.title}`}
+            onClick={() => openFullscreen(stream.id)}
+          >
             ⛶
           </button>
         </div>
       </div>
-
-      {/* While a drag is in flight, an overlay above the iframe catches dragover/drop —
-          iframes otherwise swallow drag events and no tile would register as a target. */}
-      {dragging ? (
-        <div
-          className="tile__drop"
-          onDragEnter={(e) => {
-            e.preventDefault();
-            onDragOver();
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            onDrop();
-          }}
-        />
-      ) : null}
     </div>
   );
 }
