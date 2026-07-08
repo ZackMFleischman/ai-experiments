@@ -1,0 +1,8 @@
+packages:
+  - 'packages/*'
+  - 'e2e'
+
+# pnpm 10 requires explicit opt-in for dependency build scripts.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp

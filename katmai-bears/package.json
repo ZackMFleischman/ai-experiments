@@ -1,0 +1,21 @@
+{
+  "name": "katmai-bears-root",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "description": "Bearcam Dashboard — a PWA for the Katmai / Brooks Falls live bear cams.",
+  "scripts": {
+    "dev": "pnpm --filter @katmai/app dev",
+    "build": "pnpm --filter @katmai/app build",
+    "preview": "pnpm --filter @katmai/app preview",
+    "typecheck": "pnpm -r --sequential typecheck",
+    "test": "pnpm -r --filter '!e2e' test",
+    "e2e": "pnpm --filter e2e test",
+    "validate": "pnpm validate:m0",
+    "validate:m0": "pnpm typecheck && pnpm test && pnpm --filter e2e test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,50 @@
+name: katmai-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'katmai-bears/**'
+      - '.github/workflows/katmai-ci.yml'
+  pull_request:
+    paths:
+      - 'katmai-bears/**'
+      - '.github/workflows/katmai-ci.yml'
+
+defaults:
+  run:
+    working-directory: katmai-bears
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: katmai-bears/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: katmai-bears/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: katmai-bears/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: katmai-bears/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter e2e exec playwright install --with-deps chromium
+      - run: pnpm e2e
