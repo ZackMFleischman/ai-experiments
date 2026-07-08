@@ -9,10 +9,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Notable allowances (see DESIGN.md "Technical constraints"):
 //   • frame-src youtube        — the cams are YouTube live embeds.
 //   • img-src i.ytimg.com      — facade poster thumbnails.
-//   • script-src wasm-unsafe-eval + blob:, worker-src blob:, connect-src blob:
-//                              — ffmpeg.wasm (single-threaded) loads its core in a
-//                                blob worker to stitch the Daily Reel. No COOP/COEP:
-//                                cross-origin isolation would break the YouTube frames.
+//   • script-src wasm-unsafe-eval + blob:, worker-src blob:, connect-src blob: + jsdelivr
+//                              — ffmpeg.wasm (single-threaded) loads its core in a blob
+//                                worker to stitch the Daily Reel, fetching the core from
+//                                jsDelivr (it's >25 MiB so it can't be self-hosted on
+//                                Cloudflare Pages). No COOP/COEP: cross-origin isolation
+//                                would break the YouTube frames.
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval' blob:",
@@ -20,7 +22,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://i.ytimg.com https://*.ytimg.com",
   "media-src 'self' blob:",
-  "connect-src 'self' blob: https://*.ytimg.com",
+  "connect-src 'self' blob: https://*.ytimg.com https://cdn.jsdelivr.net",
   'frame-src https://www.youtube.com https://www.youtube-nocookie.com',
   "manifest-src 'self'",
   "base-uri 'self'",

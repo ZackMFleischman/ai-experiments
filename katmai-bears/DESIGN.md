@@ -47,9 +47,10 @@ runtime seam, not a package boundary:
 - **No cross-origin isolation (no COOP/COEP).** The Daily Reel stitches clips with
   `ffmpeg.wasm`. The *multithreaded* core needs `SharedArrayBuffer`, which needs COOP+COEP,
   which **breaks third-party YouTube iframes** (and `COEP: credentialless` is unsupported on
-  Safari). So we use the **single-threaded** `@ffmpeg/core`, self-hosted under
-  `public/ffmpeg/` (copied by `scripts/copy-ffmpeg.mjs`), loaded on demand. The ~32 MB wasm
-  is deliberately excluded from the SW precache.
+  Safari). So we use the **single-threaded** `@ffmpeg/core`, fetched on demand from jsDelivr
+  (`connect-src` allows `cdn.jsdelivr.net`). It's ~30 MB — over Cloudflare Pages' 25 MiB/file
+  limit — so it can't be self-hosted in the deploy; lazy-loading keeps it out of the base
+  bundle regardless.
 - **Codec-aware recording.** `MediaRecorder` on Safari produces **mp4/H.264 only** (never
   webm), so the recorder negotiates `video/webm;vp9 → vp8 → video/mp4` at runtime, and the
   reel normalizes everything to **mp4/H.264** so it plays everywhere.
@@ -60,6 +61,21 @@ runtime seam, not a package boundary:
   tiles back to poster facades (`i.ytimg.com/vi/<id>/hqdefault.jpg`, tap to play) for
   constrained data/CPU. The heavier IFrame API is avoided. Streams can be individually
   hidden (persisted); the grid uses `auto-fit` so remaining tiles stretch to fill the row.
+
+## Feature flags & deploy
+
+`src/features.ts` exposes `FEATURES.detection`, which gates the entire simulated-detection
+experience — the counter, per-tile count chips, alerts, Bearapalooza, clips/reel, and
+notifications. Because that data is *simulated* (real CV needs a backend), it is **off in
+production** so the deployed site is a clean video wall, and **on in dev**. Resolution:
+`?detection=1`/`?detection=0` URL override → `VITE_DETECTION=1` build flag → default
+(`import.meta.env.DEV`). When off, `App` never starts a `DetectionSource` and the detection
+UI isn't rendered.
+
+Deploy is Cloudflare Pages (`.github/workflows/katmai-deploy.yml`, project
+`katmai-bears`), reusing the repo's shared `CLOUDFLARE_*` secrets — production on merge to
+main, a preview URL per PR. The build is a static `dist/`; Pages serves it at the project
+root, so no base-path juggling.
 
 ## Notifications & background
 
