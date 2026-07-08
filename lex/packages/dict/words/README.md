@@ -16,5 +16,16 @@
   sha256 `5fdcda90fd5193b4a98503e9d8eecbac3b1cc725f7f47aee082e06fa793c90e5`.
 - `agid.txt` — AGID license/notice file from the same 12dicts package,
   governing `2of12inf.txt`.
+- `nwl2023.txt` — the **NASPA Word List 2023** (NWL2023), the North American
+  tournament word list. Vendored 2026-07-08 from `github.com/scrabblewords/
+  scrabblewords` (`words/North-American/NWL2023.txt`). The source file carries a
+  definition per line; the vendored list is its first column, one word per line,
+  LF, source order preserved — reproduce with `cut -d' ' -f1 NWL2023.txt`.
+  196,601 words, uppercase A–Z, length 2–15.
+  sha256 `120cbfa8d596baa2c17328ceed75dec91e4c6863e356004b2306b4f5190c830c`.
+  **Not public domain:** NWL2023 is copyrighted (© 2023 NASPA, derived from the
+  Merriam-Webster Official Tournament and Club Word List). Included at the repo
+  owner's direction (DESIGN §5.4); redistribution terms are NASPA's, not this
+  project's.
 
 These files are data, never hand-edited; tests pin the hashes and counts.

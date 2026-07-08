@@ -316,7 +316,7 @@ turn-based, two-player, invite-a-friend PWA games on Firebase. It is its own pnp
 workspace at the repo root with four packages (`@parlor/core`, `@parlor/web`,
 `@parlor/server`, `@parlor/harness`), its own tests and CI, and **no game
 imports** — lex was its first consumer; hive now consumes the `@parlor/web`
-platform layer too (lobby UI + backend migrations still to come).
+platform layer and shares its lobby UI too (only the backend migration remains).
 Consumption mechanics — pnpm workspaces don't span repo roots, so lex consumes
 parlor as **source-linked sibling packages** (`link:` dependencies + TS path
 mapping; exact wiring in IMPLEMENTATION §1). Peer dependencies (react, firebase,
@@ -385,12 +385,14 @@ not performance:
   engine stays zero-dep; the dictionary is injected.
 - `@lex/dict` owns the **dictionary registry**: `DICTIONARIES` metadata
   (id, display name, description, word count — what the New Game picker renders,
-  FR-7) plus `loadDictionary(id)`. v1 ships two public-domain lists:
+  FR-7) plus `loadDictionary(id)`. v1 ships three lists: two public-domain —
   **`enable1`** ("Tournament-style", ENABLE, ~173k words) and **`2of12inf`**
   ("Everyday words", the 12dicts common-vocabulary inflected list, ~82k words —
-  friendlier for casual play). Exact counts pinned at vendor time. NWL/SOWPODS
-  are copyrighted — swap-in is the owner's call, and is just a new registry
-  entry + word file (§2.2).
+  friendlier for casual play) — plus **`nwl2023`** ("North American (NWL2023)",
+  the NASPA Word List 2023, ~197k words; copyrighted, vendored at the owner's
+  direction, see `packages/dict/words/README.md`). Exact counts pinned at vendor
+  time. Other copyrighted lists (SOWPODS/CSW) are the owner's call — each is just
+  a new registry entry + word file (§2.2).
 - A build script compiles each word list into a **compact binary DAWG** (target
   ≤ 800 KB each, generated at build — not committed). The app lazily loads the
   dictionary **of the game being viewed** (cached by the service worker); the

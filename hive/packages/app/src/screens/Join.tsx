@@ -1,16 +1,10 @@
-// Join screen (T4.2, DESIGN §6.1): same themed layout as the landing with a
-// game-summary card and one accept button. Invite lookup + seat claim wire up
-// with the invite flow (T4.7); until then the live route shows the pending card.
-import {
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material';
+// Hive join screen (T4.2/T4.7, DESIGN §6.1): the invite card + join-by-code
+// live in @parlor/web/lobby-ui — this file supplies hive's expansion chips as
+// the card's `details` slot so the invitee sees the rules before accepting,
+// and maps the host's color to a seat index for the shared card. Firebase-free.
+import { Chip } from '@mui/material';
 import type { Color, GameOptions } from '@hive/engine';
+import { JoinCard as ParlorJoinCard } from '@parlor/web/lobby-ui';
 import { lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 import { LandingLayout } from './LandingLayout';
@@ -28,42 +22,23 @@ const OPTION_LABELS: ReadonlyArray<[keyof GameOptions, string]> = [
 ];
 
 export function JoinCard({ state, onAccept }: { state: JoinState; onAccept: () => void }) {
+  if (state.kind !== 'ready') return <ParlorJoinCard state={state} onAccept={onAccept} />;
   return (
-    <Card sx={{ width: '100%' }} data-testid="join-card">
-      <CardContent>
-        {state.kind === 'loading' && (
-          <Stack alignItems="center" sx={{ py: 2 }}>
-            <CircularProgress size={28} />
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Checking your invite…
-            </Typography>
-          </Stack>
-        )}
-        {state.kind === 'invalid' && (
-          <Typography align="center" sx={{ py: 2 }}>
-            This invite is no longer valid — it may have expired or already been accepted.
-          </Typography>
-        )}
-        {state.kind === 'ready' && (
-          <Stack spacing={2} alignItems="center">
-            <Typography variant="h6" component="h2">
-              {state.hostName} invited you to a game
-            </Typography>
-            <Typography color="text.secondary">
-              You&apos;ll play {state.hostColor === 'w' ? 'black' : 'white'}
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
-              {OPTION_LABELS.filter(([key]) => state.options[key]).map(([key, label]) => (
-                <Chip key={key} label={label} size="small" />
-              ))}
-            </Stack>
-            <Button variant="contained" size="large" onClick={onAccept} data-testid="join-accept">
-              Accept invite
-            </Button>
-          </Stack>
-        )}
-      </CardContent>
-    </Card>
+    <ParlorJoinCard
+      state={{
+        kind: 'ready',
+        hostName: state.hostName,
+        hostSeat: state.hostColor === 'w' ? 'p0' : 'p1',
+        details: (
+          <>
+            {OPTION_LABELS.filter(([key]) => state.options[key]).map(([key, label]) => (
+              <Chip key={key} label={label} size="small" />
+            ))}
+          </>
+        ),
+      }}
+      onAccept={onAccept}
+    />
   );
 }
 

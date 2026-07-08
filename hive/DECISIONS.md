@@ -194,6 +194,45 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   Verified: typecheck, 150 unit tests, static+mp builds, firebase-free static
   bundle, and validate:m4 (integration + multiplayer e2e) all green.
 
+- **2026-07-08 — hive's lobby/landing SCREENS consume `@parlor/web/lobby-ui`
+  (user request).** Phase 3: hive now shares the lobby UI with lex, not just the
+  platform. `screens/{lobbyView,turnBadge,waitingView,LandingLayout,Landing,Join,
+  JoinByCode,newGameView}` became thin wrappers binding hive's slots around the
+  shared components (exported symbol names unchanged for the tests + gallery).
+  Crux: parlor's generic `LobbySummary` is SEAT-INDEX based, so hive's
+  `LobbyGameSummary` now EXTENDS it and `sync/lobby.ts toSummary` maps white→seat 0
+  / black→seat 1 (and result white→p0/black→p1); the thumbnail, caption, and badge
+  read the seat shape. hive slots: hex `BoardView` thumbnail, "You play white ·"
+  caption, empty motif, HERO_STATE landing hero + "HIVE" + tagline, expansion
+  chips as the join card's `details`. `NewGameForm` stays game-side (color +
+  expansion controls don't fit a shared form); only `friendsFrom`/`InviteLinkView`/
+  `Friend` come from parlor. Copy shifts from the shared components: hot-seat
+  landing gains "Play hot-seat"/"Your games", the join card frames the seat by
+  move order ("You'll go second") not color, open-invite cards read "Open invite";
+  two e2e assertions updated to match. Added `@parlor/web/lobby-ui` to tsconfig
+  paths (dedupe/CI already in place from Phase 2). Backend + deploy untouched
+  (Phase 4). Verified: typecheck, 150 unit tests, static+mp builds, firebase-free
+  bundle, validate:m4 (integration + mp e2e), hot-seat e2e, visual+ux, offline —
+  all green.
+
+- **2026-07-08 — Robust move sync + no game-over on a staged move (user bug).**
+  A game-ending move made with Confirm-move on showed "queen surrounded" but
+  never reached the backend (or the opponent's phone). Two causes: (1)
+  `buildSnapshot` derived `end` from the *staged preview*, so staging the
+  winning move fired the beat/overlay and hid the Confirm bar — the move was
+  never sent. Fixed by computing end-of-game from committed state only (a stage
+  is a preview; confirm submits, then the win shows). (2) `submitMove` sent once
+  and silently rolled back on any error. Now the controller classifies
+  transient (network/`unavailable`/`internal`/offline…) vs definite rejections,
+  retries transient failures with backoff, keeps the optimistic move on-screen,
+  and exposes a `syncStatus` ('saving'/'error') + `retryPending()`; GameScreen
+  and the (modal) ResultOverlay show a "Saving…/Not saved — Retry" affordance,
+  auto-retried on `online`/visibility regain. A definite rejection *reconciles
+  against the server* (reload) rather than a blind rollback, so a move whose
+  write landed but whose ack was lost is kept (no false "rejected"); `resync()`
+  flushes a still-pending move instead of discarding it. Engine + callables
+  untouched — pure client transport/UX.
+
 - **2026-07-08 — stack peek wired up (user request).** DESIGN §6.2 always promised
   "tapping a stack fans it out" and the renderer already supported `fannedStack`, but
   nothing drove it. Added `GameController.togglePeek` (read-only `peekCell` → `snapshot.

@@ -2,9 +2,13 @@
 // preview until the player confirms it; the board offers no other affordances
 // while a move is staged, and turning the setting off flushes a pending move.
 import { beforeEach, describe, expect, it } from 'vitest';
+import { parseUhp, type GameOptions, type Move } from '@hive/engine';
 import { GameController } from '../src/controller/GameController';
 import { LocalTransport } from '../src/controller/transport';
 import { ALL_ON } from './replay';
+import { SURROUND_WIN } from './end-of-game.test';
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
 function makeController(): GameController {
   return new GameController(new LocalTransport(ALL_ON), ALL_ON);
@@ -102,5 +106,63 @@ describe('confirm-move staging', () => {
     c.discardStaged();
     expect(c.getSnapshot().log).toHaveLength(0);
     expect(c.getSnapshot().state.board.size).toBe(0);
+  });
+});
+
+// The reported bug: with confirm-move on, staging the *winning* move must not
+// declare the game over. The end state (beat + overlay) previously fired off
+// the unconfirmed preview, hiding the Confirm bar so the move never got sent —
+// the winner saw "queen surrounded" but nothing reached the backend.
+describe('confirm-move on a game-ending move', () => {
+  const TOURNAMENT: GameOptions = {
+    mosquito: false,
+    ladybug: false,
+    pillbug: false,
+    tournamentOpening: true,
+  };
+
+  async function atMatchPoint(): Promise<GameController> {
+    const transport = new LocalTransport(TOURNAMENT);
+    await transport.reset(TOURNAMENT);
+    for (let i = 0; i < SURROUND_WIN.length - 1; i++) {
+      await transport.submit({ kind: 'move', uhp: SURROUND_WIN[i] as string }, i);
+    }
+    const c = new GameController(transport, TOURNAMENT);
+    await c.init();
+    c.setConfirmMove(true);
+    return c;
+  }
+
+  /** Drive the controller to stage the final, game-winning move. */
+  function stageWinningMove(c: GameController): void {
+    const move = parseUhp(SURROUND_WIN[SURROUND_WIN.length - 1] as string, c.getSnapshot().state);
+    const m = move as Extract<Move, { from: unknown; to: unknown }>;
+    c.selectCell(m.from);
+    c.selectCell(m.to);
+  }
+
+  it('staging the winning move shows a preview, not the game-over state', async () => {
+    const c = await atMatchPoint();
+    const before = c.getSnapshot().log.length;
+    stageWinningMove(c);
+    const s = c.getSnapshot();
+    expect(s.staged).toBe(true);
+    expect(s.end).toBeUndefined(); // NOT over yet — must be confirmed first
+    expect(s.beat).toBeUndefined();
+    expect(s.overlayOpen).toBe(false);
+    expect(s.log).toHaveLength(before); // nothing sent to the backend yet
+  });
+
+  it('confirming the winning move submits it, then declares the win', async () => {
+    const c = await atMatchPoint();
+    const before = c.getSnapshot().log.length;
+    stageWinningMove(c);
+    c.confirmStaged();
+    await tick();
+    const s = c.getSnapshot();
+    expect(s.staged).toBe(false);
+    expect(s.log).toHaveLength(before + 1); // persisted
+    expect(s.syncStatus).toBeUndefined(); // saved
+    expect(s.end).toEqual({ by: 'surround', winner: 'w' });
   });
 });
