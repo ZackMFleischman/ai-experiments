@@ -3,6 +3,8 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Share hive's singleton copies with the linked @parlor/web source.
+  resolve: { dedupe: ['firebase', '@tanstack/react-query'] },
   test: {
     include: ['test-integration/**/*.test.ts'],
     environment: 'node',

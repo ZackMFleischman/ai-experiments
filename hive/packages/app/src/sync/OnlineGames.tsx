@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LobbyView } from '../screens/lobbyView';
 import { actionableCount, useTurnBadge } from '../screens/turnBadge';
-import { useAuth } from './authContext';
+import { useAuth } from '@parlor/web';
 import * as api from './gameApi';
 import { useMyGames } from './lobby';
-import { NotificationsSetup } from './NotificationsSetup';
+import { NotificationsSetup } from '@parlor/web/NotificationsSetup';
 
 export default function OnlineGames() {
   const { user } = useAuth();
@@ -15,7 +15,7 @@ export default function OnlineGames() {
   if (!user) return null;
   return (
     <Stack spacing={2} sx={{ mt: 2 }}>
-      <NotificationsSetup />
+      <NotificationsSetup coachMarkKey="hive.coachmark.dismissed" />
       <Loaded uid={user.uid} onOpen={(id) => void navigate(`/game/${id}`)} />
     </Stack>
   );

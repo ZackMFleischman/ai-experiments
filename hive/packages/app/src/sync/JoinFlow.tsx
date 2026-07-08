@@ -7,7 +7,7 @@ import type { Color, GameOptions } from '@hive/engine';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JoinCard, type JoinState } from '../screens/Join';
-import { getDb } from './firebase';
+import { getDb } from '@parlor/web/firebase';
 import * as api from './gameApi';
 
 interface InviteDoc {

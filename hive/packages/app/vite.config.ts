@@ -1,6 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+const parlorRoot = fileURLToPath(new URL('../../../parlor', import.meta.url));
 
 // PWA setup (T3.12 + T5.1): manifest, generated icons, precached app shell
 // with SPA navigation fallback — the lobby renders cached games read-only
@@ -34,4 +37,25 @@ export default defineConfig({
       },
     }),
   ],
+  // The lazy full-mode chunks consume the source-linked parlor sibling
+  // workspace (@parlor/web) — let Vite read outside the app root.
+  server: { fs: { allow: ['.', fileURLToPath(new URL('../..', import.meta.url)), parlorRoot] } },
+  // parlor has its own node_modules (peer deps mirrored as devDeps for its
+  // standalone tests) — dedupe the stateful/singleton libraries so linked
+  // @parlor/* source shares hive's copies (incl. @mui/icons-material, or the
+  // icon components pull a second React).
+  resolve: {
+    dedupe: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@tanstack/react-query',
+      '@mui/material',
+      '@mui/icons-material',
+      '@emotion/react',
+      '@emotion/styled',
+      'firebase',
+    ],
+  },
+  optimizeDeps: { exclude: ['@parlor/web'] },
 });

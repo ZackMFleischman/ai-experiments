@@ -2,7 +2,7 @@ import { Button, Stack, TextField } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import { useState, type FormEvent } from 'react';
 import { Navigate, Link as RouterLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../sync/authContext';
+import { useAuth } from '@parlor/web';
 import { LandingLayout } from './LandingLayout';
 
 /** Landing (T4.1/T4.2): themed hero layout; hot-seat builds keep the Play

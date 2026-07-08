@@ -7,10 +7,10 @@ name: HIVE deploy
 
 on:
   pull_request:
-    paths: ['hive/**', '.github/workflows/hive-deploy.yml']
+    paths: ['hive/**', 'parlor/**', '.github/workflows/hive-deploy.yml']
   push:
     branches: [main]
-    paths: ['hive/**', '.github/workflows/hive-deploy.yml']
+    paths: ['hive/**', 'parlor/**', '.github/workflows/hive-deploy.yml']
   workflow_dispatch: # manual redeploy (e.g. retry a flaky IAM/first-create step)
 
 concurrency:
@@ -40,7 +40,12 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: hive/pnpm-lock.yaml
+          cache-dependency-path: |
+            hive/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
       - run: pnpm install --frozen-lockfile
       - name: build the static PWA (icons generated from the sprite sheet)
         run: pnpm --filter @hive/app build
@@ -121,7 +126,12 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: hive/pnpm-lock.yaml
+          cache-dependency-path: |
+            hive/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
       - run: pnpm install --frozen-lockfile
       - name: build the multiplayer app + functions
         run: |

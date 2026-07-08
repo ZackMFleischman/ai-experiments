@@ -3,7 +3,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import { Avatar, Box, Button, Chip, Fab, IconButton, Stack, Typography } from '@mui/material';
 import { lazy, Suspense } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { useAuth } from '../sync/authContext';
+import { useAuth } from '@parlor/web';
 import { JoinByCodeButton } from './JoinByCode';
 
 // Full mode only: the firestore-backed games list (kept out of the static bundle).

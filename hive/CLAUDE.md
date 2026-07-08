@@ -17,7 +17,12 @@ when working in this directory.
 
 - The UI never computes rules — it renders `legalMoves()` output only.
 - `@hive/engine` stays zero-dependency, pure TS, deterministic (no Date.now/random).
-- Firebase imports only under `app/src/sync/` and `packages/functions/`.
+- The platform sync layer (auth, firebase singleton, lobby hook, callable
+  factory, push) comes from `@parlor/web` (repo-root sibling workspace, source-
+  linked; its own CLAUDE.md governs it). It never imports game packages; the
+  game keeps only its doc→summary mapping, typed callables, and transport.
+- Firebase imports only under `app/src/sync/` (which consume `@parlor/web`) and
+  `packages/functions/`.
 - Never weaken a test to pass a gate; never commit `artifacts/`.
 - Tasks marked ⚑ in IMPLEMENTATION.md need Zack (Firebase console, DNS, real
   devices) — do the code side, then list what's needed in the PR.

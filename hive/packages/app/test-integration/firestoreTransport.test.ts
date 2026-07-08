@@ -4,9 +4,11 @@
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { GameController } from '../src/controller/GameController';
-import { getAppAuth } from '../src/sync/firebase';
+import { configureFirebase, getAppAuth } from '@parlor/web/firebase';
 import * as api from '../src/sync/gameApi';
 import { FirestoreTransport } from '../src/sync/firestoreTransport';
+
+configureFirebase({ emulatorProjectId: 'demo-hive', emulators: true });
 
 const AUTH = 'http://127.0.0.1:9099';
 const FUNCTIONS = 'http://127.0.0.1:5001/demo-hive/us-central1';

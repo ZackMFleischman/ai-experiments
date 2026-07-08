@@ -2,7 +2,7 @@
 // install can't push — coach-mark it once; supported browsers get the enable
 // button only while permission is undecided; denied falls back to in-app badges.
 import { describe, expect, it } from 'vitest';
-import { pushSetupState, type PushEnv } from '../src/sync/pushState';
+import { pushSetupState, type PushEnv } from '@parlor/web';
 
 function env(over: Partial<PushEnv>): PushEnv {
   return {

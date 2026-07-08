@@ -21,7 +21,7 @@ import {
   type GameOptions,
 } from '@hive/engine';
 import type { GameTransport, LogEntry, StoredGame } from '../controller/transport';
-import { getDb } from './firebase';
+import { getDb } from '@parlor/web/firebase';
 import * as api from './gameApi';
 
 interface GameDocData {

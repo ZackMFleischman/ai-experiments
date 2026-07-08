@@ -1,15 +1,8 @@
-// Typed client wrappers for the DESIGN §5.3 callables (T4.6).
-import { httpsCallable } from 'firebase/functions';
+// Typed client wrappers for the DESIGN §5.3 callables (T4.6). The `callable`
+// factory is @parlor/web's (shared across parlor games); hive's payloads
+// (color + timeControlDays, uhpMove, offerDraw/respondDraw) stay here.
+import { callable } from '@parlor/web/gameApi';
 import type { Color, GameOptions } from '@hive/engine';
-import { getFns } from './firebase';
-
-function callable<Req, Res>(name: string): (data: Req) => Promise<Res> {
-  return async (data) => {
-    const fn = httpsCallable<Req, Res>(getFns(), name);
-    const res = await fn(data);
-    return res.data;
-  };
-}
 
 export const createGame = callable<
   { options: GameOptions; color: Color | 'random'; timeControlDays: 1 | 3 | 7 | null },

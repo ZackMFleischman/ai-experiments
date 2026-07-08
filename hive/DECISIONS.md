@@ -176,3 +176,20 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   the setting off flushes a pending move). The Confirm button is hidden when off,
   disabled until a move is staged. Staging suppresses all other board affordances
   so only Confirm/Cancel act. Engine untouched — pure client UX.
+
+- **2026-07-07 — hive adopts the `@parlor/web` platform layer (user request).**
+  Phase 2 of putting both hive and lex on parlor (lex shipped first). hive now
+  consumes parlor's sync layer instead of its own copies: deleted the duplicated
+  twins (`firebase`, `authContext`, `RequireAuth`, `pushState`, `push`,
+  `NotificationsSetup`, `screens/InstallCoachMark`) and repointed importers to
+  `@parlor/web`. Kept game-side, now built on parlor: `gameApi` (hive's typed
+  callables over parlor's `callable` factory — hive's `{color,timeControlDays}`
+  payloads don't fit the generic `createGameApi`, so it uses the factory
+  directly), `lobby` (hive's white/black `toSummary` over parlor's
+  `useMyGames<T>`), `firestoreTransport`, and the containers. `AppSyncProviders`
+  is a shim: `configureFirebase({emulatorProjectId:'demo-hive'})` + re-export
+  parlor's default. Wiring mirrors lex: `@parlor/web` link dep + tsconfig paths +
+  vite/vitest `resolve.dedupe` (incl. `@mui/icons-material`) + fs.allow. Screens
+  still hive's (Phase 3 shares the lobby UI); backend untouched (Phase 4).
+  Verified: typecheck, 150 unit tests, static+mp builds, firebase-free static
+  bundle, and validate:m4 (integration + multiplayer e2e) all green.
