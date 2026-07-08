@@ -471,8 +471,8 @@ as a moment, not a modal that teleports in.
 - **One asset source of truth:** `app/src/assets/hive-sprites.svg` — an SVG sprite
   sheet with a `<symbol>` per asset, rendered everywhere via `<use href="#bug-queen">`:
   - the **8 bug glyphs** (Queen, Ant, Spider, Grasshopper, Beetle, Mosquito, Ladybug,
-    Pillbug) — flat, geometric, single-path marks on a fixed 100×100 grid with a
-    consistent stroke weight, readable at 40px;
+    Pillbug) — solid single-color silhouettes on a fixed 100×100 grid (appendages
+    rooted inside the body fill, detail via knockouts), readable at 40px;
   - the **8 bear glyphs** (bear mode, a Settings reskin): one bear species per
     piece in the same mark system, resolved per-render by `board/pieceArt.tsx` —
     rules and engine never see the art choice;

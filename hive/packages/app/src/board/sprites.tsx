@@ -40,22 +40,22 @@ export const ALL_SYMBOLS = [
  * shows glyphs side by side (guide, info card) normalizes with FittedGlyph;
  * board tiles keep the reviewed T6.1 rendering. */
 export const GLYPH_METRICS: Readonly<Record<string, { extent: number; cx: number; cy: number }>> = {
-  'bug-queen': { extent: 84, cx: 50, cy: 48 },
-  'bug-ant': { extent: 83, cx: 50, cy: 49.5 },
-  'bug-spider': { extent: 80, cx: 50, cy: 48 },
-  'bug-grasshopper': { extent: 86, cx: 53, cy: 45 },
-  'bug-beetle': { extent: 82, cx: 50, cy: 47 },
-  'bug-mosquito': { extent: 78, cx: 50, cy: 45 },
-  'bug-ladybug': { extent: 76, cx: 50, cy: 46 },
-  'bug-pillbug': { extent: 63, cx: 50, cy: 51.5 },
+  'bug-queen': { extent: 85, cx: 50, cy: 48.5 },
+  'bug-ant': { extent: 81, cx: 50, cy: 50.6 },
+  'bug-spider': { extent: 76, cx: 50, cy: 53 },
+  'bug-grasshopper': { extent: 73, cx: 54, cy: 47.5 },
+  'bug-beetle': { extent: 82, cx: 50, cy: 49 },
+  'bug-mosquito': { extent: 80, cx: 50, cy: 49 },
+  'bug-ladybug': { extent: 77, cx: 50, cy: 47.5 },
+  'bug-pillbug': { extent: 61, cx: 50, cy: 51.5 },
   'bear-queen': { extent: 91, cx: 50, cy: 48.5 },
-  'bear-ant': { extent: 72, cx: 50, cy: 58 },
-  'bear-spider': { extent: 70, cx: 50, cy: 59 },
-  'bear-grasshopper': { extent: 76, cx: 50, cy: 56 },
-  'bear-beetle': { extent: 68, cx: 50, cy: 50 },
-  'bear-mosquito': { extent: 76, cx: 50, cy: 56 },
-  'bear-ladybug': { extent: 72, cx: 50, cy: 58 },
-  'bear-pillbug': { extent: 74, cx: 50, cy: 58 },
+  'bear-ant': { extent: 74.5, cx: 50, cy: 56.8 },
+  'bear-spider': { extent: 68, cx: 50, cy: 60 },
+  'bear-grasshopper': { extent: 68.5, cx: 50, cy: 59.8 },
+  'bear-beetle': { extent: 72, cx: 50, cy: 53.5 },
+  'bear-mosquito': { extent: 74, cx: 50, cy: 57 },
+  'bear-ladybug': { extent: 70, cx: 50, cy: 57 },
+  'bear-pillbug': { extent: 72, cx: 50, cy: 58 },
 };
 
 /** A sprite glyph normalized to a `size`-wide box centered on the origin —
