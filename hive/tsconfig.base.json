@@ -16,6 +16,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "paths": {
+      "@parlor/server": ["../parlor/packages/server/src/index.ts"],
       "@parlor/web": ["../parlor/packages/web/src/index.ts"],
       "@parlor/web/firebase": ["../parlor/packages/web/src/firebase.ts"],
       "@parlor/web/gameApi": ["../parlor/packages/web/src/gameApi.ts"],

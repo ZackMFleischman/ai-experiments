@@ -27,7 +27,7 @@ async function createJoined(): Promise<{
 }> {
   const ada = await signUp('Ada');
   const sam = await signUp('Sam');
-  const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+  const created = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
   expect(created.status).toBe(200);
   const { gameId, code } = created.result as { gameId: string; code: string };
   const joined = await call('joinGame', { code }, sam);
@@ -38,7 +38,7 @@ async function createJoined(): Promise<{
 describe('createGame', () => {
   it('creates an open game + invite and returns both ids', async () => {
     const ada = await signUp('Ada');
-    const res = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const res = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
     expect(res.status).toBe(200);
     const { gameId, code } = res.result as { gameId: string; code: string };
     expect(gameId).toBeTruthy();
@@ -56,17 +56,17 @@ describe('createGame', () => {
     const invite = await adminGetDoc(`invites/${code}`);
     expect(invite?.['gameId']).toBe(gameId);
     expect(invite?.['hostName']).toBe('Ada');
-    expect(invite?.['hostColor']).toBe('w');
+    expect(invite?.['hostSeat']).toBe('white'); // @parlor/server writes the seat key
   });
 
   it('requires auth', async () => {
-    const res = await call('createGame', { options: OPTIONS, color: 'w' });
+    const res = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' });
     expect(res.errorStatus).toBe('UNAUTHENTICATED');
   });
 
   it('rejects malformed options', async () => {
     const ada = await signUp('Ada');
-    const res = await call('createGame', { options: { mosquito: 'yes' }, color: 'w' }, ada);
+    const res = await call('createGame', { options: { mosquito: 'yes' }, seat: 'w' }, ada);
     expect(res.errorStatus).toBe('INVALID_ARGUMENT');
   });
 });
@@ -75,7 +75,7 @@ describe('joinGame', () => {
   it('claims the open seat, activates the game, expires the invite', async () => {
     const ada = await signUp('Ada');
     const sam = await signUp('Sam');
-    const created = await call('createGame', { options: OPTIONS, color: 'b' }, ada);
+    const created = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'b' }, ada);
     const { gameId, code } = created.result as { gameId: string; code: string };
 
     const joined = await call('joinGame', { code }, sam);
@@ -98,7 +98,7 @@ describe('joinGame', () => {
 
   it('rejects joining your own game', async () => {
     const ada = await signUp('Ada');
-    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const created = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
     const { code } = created.result as { code: string };
     const res = await call('joinGame', { code }, ada);
     expect(res.errorStatus).toBe('FAILED_PRECONDITION');
@@ -113,7 +113,7 @@ describe('joinGame', () => {
 describe('cancelGame', () => {
   it('creator withdraws an open game: game + invite deleted', async () => {
     const ada = await signUp('Ada');
-    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const created = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
     const { gameId, code } = created.result as { gameId: string; code: string };
     const res = await call('cancelGame', { gameId }, ada);
     expect(res.status).toBe(200);
@@ -123,7 +123,7 @@ describe('cancelGame', () => {
 
   it('rejects non-players and active games', async () => {
     const ada = await signUp('Ada');
-    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const created = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
     const { gameId, code } = created.result as { gameId: string; code: string };
     const stranger = await call('cancelGame', { gameId }, await signUp('Eve'));
     expect(stranger.errorStatus).toBe('PERMISSION_DENIED');
@@ -136,7 +136,7 @@ describe('cancelGame', () => {
 });
 
 describe('challengeUser / respondChallenge', () => {
-  const CHALLENGE = { options: OPTIONS, color: 'w', timeControlDays: 3 };
+  const CHALLENGE = { options: { ...OPTIONS, timeControl: { days: 3 } }, seat: 'w' };
 
   it('challenges a past opponent; accept seats them and activates the game', async () => {
     const { white: ada, black: sam } = await createJoined();
@@ -199,7 +199,7 @@ describe('challengeUser / respondChallenge', () => {
 
   it('rejects responding to a non-challenge open game', async () => {
     const ada = await signUp('Ada');
-    const created = await call('createGame', { options: OPTIONS, color: 'w' }, ada);
+    const created = await call('createGame', { options: { ...OPTIONS, timeControl: null }, seat: 'w' }, ada);
     const { gameId } = created.result as { gameId: string };
     const res = await call('respondChallenge', { gameId, accept: true }, await signUp('Sam'));
     expect(res.errorStatus).toBe('FAILED_PRECONDITION');

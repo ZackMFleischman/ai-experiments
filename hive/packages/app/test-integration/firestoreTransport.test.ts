@@ -89,7 +89,7 @@ beforeAll(async () => {
 
 describe('FirestoreTransport integration', () => {
   it('plays both directions live: optimistic local moves, remote via listener', async () => {
-    const { gameId, code } = await api.createGame({ options: OPTIONS, color: 'w' });
+    const { gameId, code } = await api.createGame({ options: { ...OPTIONS, timeControl: null }, seat: 'w' });
     const black = await restSignUp('Sam');
     await restCall('joinGame', { code }, black);
 
@@ -138,7 +138,7 @@ describe('FirestoreTransport integration', () => {
     const stranger = await restSignUp('Eve');
     const created = (await restCall(
       'createGame',
-      { options: OPTIONS, color: 'w' },
+      { options: { ...OPTIONS, timeControl: null }, seat: 'w' },
       stranger,
     )) as { gameId: string };
     const transport = new FirestoreTransport(created.gameId, myUid);

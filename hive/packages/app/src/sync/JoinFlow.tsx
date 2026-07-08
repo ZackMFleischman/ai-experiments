@@ -13,7 +13,9 @@ import * as api from './gameApi';
 interface InviteDoc {
   gameId: string;
   hostName: string;
-  hostColor: Color;
+  // @parlor/server writes the host's SEAT ('white'/'black'); the Join card is
+  // color-based, so derive the color from it.
+  hostSeat: 'white' | 'black';
   options: GameOptions;
   expiresAt: { toMillis(): number };
 }
@@ -40,7 +42,7 @@ export default function JoinFlow({ code }: { code: string }) {
         setState({
           kind: 'ready',
           hostName: inv.hostName,
-          hostColor: inv.hostColor,
+          hostColor: inv.hostSeat === 'white' ? 'w' : 'b',
           options: inv.options,
         });
       })

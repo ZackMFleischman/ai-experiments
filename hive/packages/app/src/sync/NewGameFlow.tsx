@@ -42,12 +42,18 @@ function Flow({ uid }: { uid: string }) {
   const create = (choices: NewGameChoices) => {
     setBusy(true);
     setError(null);
-    const { opponent, ...rest } = choices;
+    const { opponent, options, color, timeControlDays } = choices;
+    // Reshape the form's choice into parlor's create payload: the color rides
+    // `seat`, the time control rides inside `options`.
+    const payload = {
+      options: { ...options, timeControl: timeControlDays ? { days: timeControlDays } : null },
+      seat: color,
+    };
     (opponent
       ? api
-          .challengeUser({ opponentUid: opponent.uid, ...rest })
+          .challengeUser({ opponentUid: opponent.uid, ...payload })
           .then(({ gameId }) => void navigate(`/game/${gameId}`))
-      : api.createGame(rest).then(setCreated)
+      : api.createGame(payload).then(setCreated)
     )
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'failed to create the game');

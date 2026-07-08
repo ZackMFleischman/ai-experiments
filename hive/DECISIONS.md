@@ -232,3 +232,29 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   write landed but whose ack was lost is kept (no false "rejected"); `resync()`
   flushes a still-pending move instead of discarding it. Engine + callables
   untouched — pure client transport/UX.
+
+- **2026-07-08 — hive's Cloud Functions consume `@parlor/server` (Phase 4, user
+  request).** `createGame`/`joinGame`/`cancelGame`/`challengeUser`/
+  `respondChallenge`/`rematch`/`resign` are now `@parlor/server` shells shaped by
+  a hive `GameServerConfig` (seatKeys `white`/`black`; `initialGame().fields`
+  carries the engine `toMove:'w'`/`turn`/`state`, so parlor never sees the color
+  turn namespace). `notify.ts` shrank to hive's push COPY + turn predicate over
+  parlor's shared delivery (fan-out, token pruning, actionable-count badge).
+  Consuming parlor's create/challenge changed the **client contract** to parlor's
+  shape: the color choice rides `seat`, the time control rides inside `options`
+  (new `HiveGameOptions` twin), and the invite records `hostSeat` not `hostColor`
+  (mapped at the sync boundary — `NewGameFlow`/`JoinFlow`/`gameApi` only; the
+  new-game form + Join card are unchanged). Landed together per §5.2's frozen-
+  surface rule; the user cleared the sole in-progress game so no data migration.
+  **Kept game-side:** `submitMove` (engine), `offerDraw`/`respondDraw` (draws are
+  a hive concept), and the forfeit **sweep** (reads the color `toMove`, not a
+  seat key — so parlor's generic sweep can't drive it; the shared notify/forfeit
+  *machinery* is still parlor's, only the sweep loop is hive's).
+  `toMove`/`players`/`result` doc schema untouched; `firestore.rules` unchanged
+  (access model, not structure). Wiring: `@parlor/server` link dep + tsconfig
+  path; functions vitest dedupes `firebase-admin`/`@google-cloud/firestore`
+  (parlor's linked source carries its own copy — a `FieldValue` sentinel from it
+  wasn't recognized by the test `db`); dropped `rootDir` so tsc can typecheck
+  parlor source. Verified: full `pnpm validate` (typecheck, engine/app/functions
+  unit incl. 68 emulator callable tests over the new contract, hot-seat + mp e2e,
+  visual/ux, offline) green.

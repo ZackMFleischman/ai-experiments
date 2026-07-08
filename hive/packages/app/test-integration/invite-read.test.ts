@@ -17,7 +17,7 @@ describe('invite read via client SDK', () => {
       `holder-${Date.now()}@example.com`,
       'pw123456',
     );
-    const { code } = await api.createGame({ options: OPTIONS, color: 'w' });
+    const { code } = await api.createGame({ options: { ...OPTIONS, timeControl: null }, seat: 'w' });
     const snap = await getDoc(doc(getDb(), 'invites', code));
     expect(snap.exists()).toBe(true);
     const data = snap.data() as { hostName: string; expiresAt: { toMillis(): number } };
