@@ -15,6 +15,8 @@ export interface Settings {
   backendUrl: string;
   /** Video-wall default: every tile plays live at once. Off = tap-to-play facades. */
   autoplayAll: boolean;
+  /** streamId → true when hidden from the dashboard. Absent/false = visible. */
+  hiddenStreams: Record<string, true>;
 }
 
 const DEFAULTS: Settings = {
@@ -24,6 +26,7 @@ const DEFAULTS: Settings = {
   sourceKind: 'simulator',
   backendUrl: '',
   autoplayAll: true,
+  hiddenStreams: {},
 };
 
 function load(): Settings {
@@ -37,6 +40,7 @@ function load(): Settings {
       ...parsed,
       thresholds: { ...DEFAULT_THRESHOLDS, ...(parsed.thresholds ?? {}) },
       streamOverrides: { ...(parsed.streamOverrides ?? {}) },
+      hiddenStreams: { ...(parsed.hiddenStreams ?? {}) },
     };
   } catch {
     return DEFAULTS;
@@ -45,10 +49,10 @@ function load(): Settings {
 
 function persist(s: Settings): void {
   if (typeof localStorage === 'undefined') return;
-  const { thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl, autoplayAll } = s;
+  const { thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl, autoplayAll, hiddenStreams } = s;
   localStorage.setItem(
     LS_KEY,
-    JSON.stringify({ thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl, autoplayAll }),
+    JSON.stringify({ thresholds, streamOverrides, notificationsEnabled, sourceKind, backendUrl, autoplayAll, hiddenStreams }),
   );
 }
 
@@ -59,6 +63,7 @@ interface SettingsStore extends Settings {
   setNotificationsEnabled: (v: boolean) => void;
   setSource: (kind: SourceKind, backendUrl?: string) => void;
   setAutoplayAll: (v: boolean) => void;
+  setStreamHidden: (streamId: string, hidden: boolean) => void;
 }
 
 export const useSettings = create<SettingsStore>((set, get) => ({
@@ -89,6 +94,15 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   },
   setAutoplayAll: (v) => {
     set({ autoplayAll: v });
+    persist(get());
+  },
+  setStreamHidden: (streamId, hidden) => {
+    set((s) => {
+      const next = { ...s.hiddenStreams };
+      if (hidden) next[streamId] = true;
+      else delete next[streamId];
+      return { hiddenStreams: next };
+    });
     persist(get());
   },
 }));

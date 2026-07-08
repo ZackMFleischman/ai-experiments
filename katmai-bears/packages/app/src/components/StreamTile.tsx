@@ -21,6 +21,7 @@ export function StreamTile({ stream }: Props) {
   const youtubeId = overrides[stream.id] ?? effectiveYoutubeId(stream.id, stream.defaultYoutubeId);
   const status = useDetection((s) => s.state.byStream[stream.id]);
   const openFullscreen = useUi((s) => s.openFullscreen);
+  const setStreamHidden = useSettings((s) => s.setStreamHidden);
 
   const count = status?.bearCount ?? 0;
   const poster = posterUrl(youtubeId);
@@ -50,13 +51,23 @@ export function StreamTile({ stream }: Props) {
       <div className="tile__overlay">
         <div className="tile__topline">
           <span className="badge badge--live">● LIVE</span>
-          <span className={`badge badge--count${count > 0 ? ' badge--count-on' : ''}`} title="Bears on screen">
-            🐻 {count}
-          </span>
+          <div className="tile__topright">
+            <span className={`badge badge--count${count > 0 ? ' badge--count-on' : ''}`} title="Bears on screen">
+              🐻 {count}
+            </span>
+            <button
+              className="iconbtn iconbtn--sm"
+              title="Hide this stream"
+              aria-label={`Hide ${stream.title}`}
+              onClick={() => setStreamHidden(stream.id, true)}
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="tile__bottomline">
           <span className="tile__title">{stream.title}</span>
-          <button className="iconbtn" title="Fullscreen" onClick={() => openFullscreen(stream.id)}>
+          <button className="iconbtn" title="Fullscreen" aria-label={`Fullscreen ${stream.title}`} onClick={() => openFullscreen(stream.id)}>
             ⛶
           </button>
         </div>

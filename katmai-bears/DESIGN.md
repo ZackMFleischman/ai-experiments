@@ -55,9 +55,11 @@ runtime seam, not a package boundary:
   reel normalizes everything to **mp4/H.264** so it plays everywhere.
 - **Clip source.** Cross-origin YouTube pixels are unreadable, so clips are recorded from a
   hidden `<canvas>` (`captureStream` → `MediaRecorder`) drawing a labeled recap card.
-- **Facade tiles.** A grid of 7 live YouTube players is heavy, so tiles are poster facades
-  (`i.ytimg.com/vi/<id>/hqdefault.jpg`) that mount a plain `youtube.com/embed/…` iframe only
-  on tap. The heavier IFrame API is avoided.
+- **Video wall.** By default every tile mounts a plain `youtube.com/embed/…?mute=1` iframe
+  on load — a dashboard is meant to show all feeds at once. A `autoplayAll` setting can flip
+  tiles back to poster facades (`i.ytimg.com/vi/<id>/hqdefault.jpg`, tap to play) for
+  constrained data/CPU. The heavier IFrame API is avoided. Streams can be individually
+  hidden (persisted); the grid uses `auto-fit` so remaining tiles stretch to fill the row.
 
 ## Notifications & background
 

@@ -159,8 +159,19 @@ a {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  /* auto-fit (not auto-fill) so when streams are hidden the remaining tiles
+     stretch to fill the row — maximizing real estate. */
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 80px 16px;
+  color: var(--muted);
 }
 
 .tile {
@@ -267,6 +278,15 @@ a {
 }
 .tile__bottomline {
   pointer-events: auto;
+}
+.tile__topright {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+.tile__topright .iconbtn {
+  background: #000000aa;
 }
 .tile__title {
   font-weight: 600;

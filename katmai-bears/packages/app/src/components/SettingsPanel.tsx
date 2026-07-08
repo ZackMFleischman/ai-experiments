@@ -59,6 +59,17 @@ function StreamIdRow({ streamId, title, seed }: { streamId: string; title: strin
   );
 }
 
+function StreamVisibilityRow({ streamId, title }: { streamId: string; title: string }) {
+  const hidden = useSettings((s) => s.hiddenStreams[streamId] ?? false);
+  const setStreamHidden = useSettings((s) => s.setStreamHidden);
+  return (
+    <label className="field field--row">
+      <input type="checkbox" checked={!hidden} onChange={(e) => setStreamHidden(streamId, !e.target.checked)} />
+      <span>{title}</span>
+    </label>
+  );
+}
+
 export function SettingsPanel() {
   const setPanel = useUi((s) => s.setPanel);
   const thresholds = useSettings((s) => s.thresholds);
@@ -126,6 +137,14 @@ export function SettingsPanel() {
           Delivered while the app is open or installed. True 24/7 background push needs the backend detector (see
           README).
         </p>
+      </section>
+
+      <section className="drawer__section">
+        <h3>Streams on the dashboard</h3>
+        <p className="muted small">Toggle a cam off to remove its tile — the grid reflows to fill the space.</p>
+        {STREAMS.map((s) => (
+          <StreamVisibilityRow key={s.id} streamId={s.id} title={s.title} />
+        ))}
       </section>
 
       <section className="drawer__section">

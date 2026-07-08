@@ -30,7 +30,8 @@ So the app is built in two halves that don't fight each other:
 
 | Feature | State |
 | --- | --- |
-| Dashboard of all Katmai cams (facade tiles → tap to play) | ✅ real |
+| Video wall — every Katmai cam plays live at once | ✅ real |
+| Per-stream show/hide; grid reflows to fill the space | ✅ real |
 | One-tap fullscreen, swipe / arrow-key / prev-next cycling | ✅ real |
 | Deep links (`/?stream=<id>&full=1`) | ✅ real |
 | Installable PWA (offline app shell, service worker) | ✅ real |

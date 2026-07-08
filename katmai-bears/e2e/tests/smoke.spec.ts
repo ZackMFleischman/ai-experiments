@@ -17,17 +17,28 @@ test('dashboard renders every cam tile', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Katmai Bearcams' })).toBeVisible();
   await expect(page.getByText('Brooks Falls', { exact: true })).toBeVisible();
-  // 7 cams in the catalog.
-  await expect(page.locator('.tile')).toHaveCount(7);
+  // 6 cams in the catalog.
+  await expect(page.locator('.tile')).toHaveCount(6);
 });
 
-test('every cam with an id autoplays on load (no tap needed)', async ({ page }) => {
+test('every cam autoplays on load (no tap, no facades)', async ({ page }) => {
   await page.goto('/');
-  // Video-wall default: players mount immediately, no facades.
   await expect(page.locator('.tile__facade')).toHaveCount(0);
-  // The two seeded cams mount live iframes; the rest degrade to explore.org fallbacks.
-  await expect(page.locator('.player__iframe')).toHaveCount(2);
-  await expect(page.locator('.player--fallback').first()).toBeVisible();
+  // All six cams ship with a live id, so all mount an iframe on load.
+  await expect(page.locator('.player__iframe')).toHaveCount(6);
+});
+
+test('hiding a stream removes its tile; re-enabling restores it', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.tile')).toHaveCount(6);
+
+  await page.getByRole('button', { name: 'Hide Brooks Falls', exact: true }).click();
+  await expect(page.locator('.tile')).toHaveCount(5);
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('checkbox', { name: 'Brooks Falls', exact: true }).check();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.locator('.tile')).toHaveCount(6);
 });
 
 test('deep link opens fullscreen and next cycles cams', async ({ page }) => {
@@ -46,7 +57,7 @@ test('a fish-catch is recorded to the clip gallery', async ({ page }) => {
   // Drive a deterministic catch via the debug surface.
   await page.evaluate(() => {
     window.__katmai?.ingest({
-      streamId: 'underwater',
+      streamId: 'underwater-salmon',
       ts: Date.now(),
       bearCount: 3,
       boxes: [{ x: 0.2, y: 0.3, w: 0.12, h: 0.16, label: 'bear', score: 0.9 }],
