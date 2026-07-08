@@ -12,8 +12,19 @@
 // toMove, not a seat key).
 import { randomInt } from 'node:crypto';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { initialState, serializeState, type GameOptions } from '@hive/engine';
-import type { GameServerConfig, InitialGame } from '@parlor/server';
+import {
+  IllegalMoveError,
+  applyMove,
+  deserializeState,
+  initialState,
+  parseUhp,
+  result,
+  serializeState,
+  toUhp,
+  type Color,
+  type GameOptions,
+} from '@hive/engine';
+import type { GameServerConfig, InitialGame, SubmitMoveConfig } from '@parlor/server';
 import { notifyConfig } from './notify';
 
 /** Per-game options (DESIGN §5.2), pinned at creation. The four expansion
@@ -79,4 +90,73 @@ export const hiveServerConfig: GameServerConfig<HiveGameOptions> = {
   timeControlDays: (options) => options.timeControl?.days ?? null,
   initialGame,
   notify: notifyConfig,
+};
+
+// submitMove config for @parlor/server's createSubmitMove shell (Phase 2a). The
+// shell owns auth / envelope / preconditions / moveCount + deadline bookkeeping
+// / pendingDrawOffer clear / push; hive's `advance` is the only game-specific
+// core — it runs the @hive/engine verdict pipeline over the full serialized
+// state on the doc. hive's wire field stays `uhpMove` (TMove = the raw UHP
+// string; the state-dependent parse happens inside the transaction, in advance).
+export const hiveSubmitConfig: SubmitMoveConfig<HiveGameOptions, string> = {
+  ...hiveServerConfig,
+  parseMove(data: unknown): string {
+    const uhpMove = (data as { uhpMove?: unknown })?.uhpMove;
+    if (typeof uhpMove !== 'string') {
+      throw new HttpsError('invalid-argument', 'expected {gameId, expectedMoveCount, uhpMove}');
+    }
+    return uhpMove;
+  },
+  advance({ doc, move: uhpMove, mySeat, caller, gameId }) {
+    const d = doc as { players: { white: string | null; black: string | null }; state: string };
+    const state = deserializeState(d.state);
+    let next;
+    let canonical: string;
+    let kind: 'move' | 'pass';
+    try {
+      const move = parseUhp(uhpMove, state);
+      canonical = toUhp(move, state);
+      kind = move.type === 'pass' ? 'pass' : 'move';
+      next = applyMove(state, move);
+    } catch (err) {
+      if (err instanceof IllegalMoveError || err instanceof Error) {
+        throw new HttpsError('invalid-argument', `illegal move: ${(err as Error).message}`);
+      }
+      throw err;
+    }
+
+    const recipientUid = mySeat === 0 ? d.players.black : d.players.white;
+    const outcome = result(next);
+    const terminal =
+      outcome.status === 'won'
+        ? { result: outcome.winner === 'w' ? 'white' : 'black', endedBy: 'surround' }
+        : outcome.status === 'draw'
+          ? { result: 'draw', endedBy: outcome.by }
+          : null;
+    let recipientOutcome: string | null = null;
+    if (terminal) {
+      const recipientColor = mySeat === 0 ? 'black' : 'white';
+      recipientOutcome =
+        terminal.result === 'draw'
+          ? 'Draw'
+          : terminal.result === recipientColor
+            ? 'You won!'
+            : 'You lost';
+    }
+
+    return {
+      moveDoc: { kind, uhp: canonical },
+      gameFields: { state: serializeState(next), toMove: next.toMove as Color, turn: next.turn },
+      terminal,
+      push: {
+        recipientUid,
+        trigger: recipientOutcome ? 'game-over' : 'opponent-moved',
+        args: {
+          gameId,
+          opponentName: caller.name,
+          ...(recipientOutcome ? { outcome: recipientOutcome } : {}),
+        },
+      },
+    };
+  },
 };

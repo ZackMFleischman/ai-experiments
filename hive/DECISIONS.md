@@ -279,3 +279,18 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   rules drift from or weaken the base, or its indexes differ. Rules content and
   the negative-path rules tests are unchanged. Stops copy-paste drift; a
   hidden-info game may add a documented racks/private override.
+
+- **2026-07-08 — submitMove + draw offers moved to @parlor/server shells (parlor
+  hardening Phase 2).** `submitMove` is now the `createSubmitMove` shell (auth /
+  {gameId,expectedMoveCount} envelope / preconditions / concurrency guard /
+  moveCount+deadline bookkeeping / unconditional `pendingDrawOffer` clear / push
+  all shared); hive injects only `advance` (the @hive/engine verdict pipeline
+  over the serialized state) via `hiveSubmitConfig` in config.ts. `offerDraw` /
+  `respondDraw` are now `createDrawCallables(hiveServerConfig, …)` — parlor's
+  first opt-in **capability** (seat-keyed `pendingDrawOffer`, own `draw-offer`/
+  `draw-accept`/`draw-decline` meta log); hive overrides only the offer push copy
+  (parlor's default is identical). `games.ts` deleted. Wire contracts unchanged
+  (`uhpMove` field kept via `parseMove`). Turn check uses `notifyConfig.isMyTurn`
+  (maps color→seat). Forfeit sweep stays hive's. Client draw stubs stay game-side
+  as thin typed callables. DESIGN §5.3 updated; meta/callables emulator tests are
+  the equivalence gate.

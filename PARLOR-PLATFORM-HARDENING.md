@@ -53,7 +53,19 @@ rules-unit-tests are the gate (security-sensitive — don't rush).
 
 ---
 
-## Phase 2 — Move shell + the capability pattern *(server, medium)*
+## Phase 2 — Move shell + the capability pattern *(server, medium)* — ✅ SHIPPED (server) 2026-07-08
+
+> Shipped: `createSubmitMove` (the missing move shell — auth/envelope/preconditions/
+> concurrency guard/moveCount+deadline bookkeeping/unconditional `pendingDrawOffer`
+> clear/push shared; the game injects only `advance`) and `createDrawCallables` (the
+> first opt-in capability — seat-keyed `pendingDrawOffer`, `draw-offer/accept/decline`
+> meta log, default+overridable push copy). hive migrated both (submitMove + draws,
+> `games.ts` deleted); lex migrated submitMove and opts out of draws. Wire contracts
+> unchanged; the games' emulator meta/callables/submit-move suites are the equivalence
+> gate. **Deviation:** the draw capability's client half stays game-side as thin typed
+> callables — a parlor `createDrawApi` factory would be near-dead code for a single
+> consumer (lex has no draws), against the plan's own no-dead-code principle; the plan
+> hedged this ("parlor *may* offer" the client hook). DESIGN §5.3/§4/§6.3 updated.
 
 Two things ship together because they share the `pendingDrawOffer` seam.
 

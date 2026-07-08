@@ -9,6 +9,20 @@ export {
   type InitialGame,
 } from './games';
 export {
+  createSubmitMove,
+  type SubmitMoveConfig,
+  type AdvanceContext,
+  type AdvanceResult,
+  type SubWrite,
+} from './submitMove';
+export {
+  createDrawCallables,
+  defaultDrawPayload,
+  type DrawCallables,
+  type DrawOptions,
+  type DrawTrigger,
+} from './draws';
+export {
   createForfeitHandlers,
   type ForfeitConfig,
   type ForfeitHandlers,

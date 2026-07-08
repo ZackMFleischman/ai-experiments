@@ -293,14 +293,19 @@ functions are stateless. The only client-writable doc is your own `users/{uid}`
 (profile + FCM tokens), enforced by security rules; game docs are readable only by
 their two players, invites by anyone holding the code.
 
-The generic callables (marked ⬡) are `@parlor/server` shells shaped by hive's
+All the callables marked ⬡ are `@parlor/server` shells shaped by hive's
 `GameServerConfig` (seat keys `white`/`black`, option validation, fresh state).
 The create/challenge payloads match parlor's shape — the color choice rides
 `seat`, the time control rides inside `options`, and the invite records
-`hostSeat`. What stays hive's: `submitMove` (runs the engine) and the draw
-offers (a hive concept). Push copy + the color-based turn test are injected into
-`@parlor/server`'s shared notify/forfeit machinery; the forfeit *sweep* itself
-stays hive's (it reads the engine `toMove`, not a seat key).
+`hostSeat`. Two shells take a heavier game injection: `submitMove` is
+`createSubmitMove` (the shared shell owns auth / envelope / preconditions /
+concurrency guard / moveCount + deadline bookkeeping / `pendingDrawOffer` clear /
+push; hive injects `advance`, which runs the engine over the serialized state),
+and the draw offers are `createDrawCallables` — an opt-in capability keyed on
+seat that hive includes and lex does not (hive overrides only the offer push
+copy). Push copy + the color-based turn test are injected into `@parlor/server`'s
+shared notify/forfeit machinery; the forfeit *sweep* itself stays hive's (it
+reads the engine `toMove`, not a seat key).
 
 | Callable | Does |
 |---|---|
@@ -309,9 +314,9 @@ stays hive's (it reads the engine `toMove`, not a seat key).
 | `cancelGame(gameId)` ⬡ | creator withdraws an *open* game: deletes the game + its invite |
 | `challengeUser(opponentUid, options, seat)` ⬡ | creates an open game addressed to a past opponent (no code); pushes the challenge |
 | `respondChallenge(gameId, accept)` ⬡ | challenged player only: accept seats them + activates; decline deletes the game |
-| `submitMove(gameId, expectedMoveCount, uhpMove)` | the move protocol below |
+| `submitMove(gameId, expectedMoveCount, uhpMove)` ⬡ | the move protocol below (`createSubmitMove` shell + hive's engine `advance`) |
 | `resign(gameId)` ⬡ | ends the game; records the `resign` meta event |
-| `offerDraw(gameId)` / `respondDraw(gameId, accept)` | sets/clears `pendingDrawOffer`; ends game on accept |
+| `offerDraw(gameId)` / `respondDraw(gameId, accept)` ⬡ | `createDrawCallables` (opt-in): sets/clears `pendingDrawOffer`; ends game on accept |
 | `rematch(gameId)` ⬡ | creates the colors-swapped return game linked via `rematchOf`; pushes the offer |
 | `forfeitExpired` *(scheduled, hourly)* | forfeits past-deadline games, sends expiry-warning pushes, culls dead invites |
 
