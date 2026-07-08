@@ -529,7 +529,12 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
   matches hive's.
 - **Interaction — drag with tap-tap fallback**, one controller state machine, both
   frontends (hive §6.2 model):
-  1. *Idle, your turn:* rack tiles are draggable/selectable; board cells inert.
+  1. *Idle:* rack tiles are draggable/selectable and can be staged onto the board
+     — **on or off turn**, so you can lay out a planned play while the opponent
+     moves. Only *committing* (Play/Exchange/Pass) is turn-gated. When the
+     opponent's move lands, the whole staged plan is recalled to the rack (a new
+     game state clears `pending`), so a tile on a cell they just filled never
+     lingers.
   2. *Drag a rack tile* over the board: the hovered cell highlights; empty cells
      only. Drop ⇒ the tile becomes a **pending placement** — visually lifted, gold
      edge, distinct from committed tiles in both themes. Drop off-board ⇒ returns

@@ -66,7 +66,7 @@ test('two browsers play a full multiplayer game', async ({ browser }) => {
   await expect(sam.getByTestId('join-card')).toContainText('ada invited you');
   await expect(sam.getByTestId('join-card')).toContainText("You'll go second");
   await expect(sam.getByTestId('join-card')).toContainText('Classic board');
-  await expect(sam.getByTestId('join-card')).toContainText('Everyday words');
+  await expect(sam.getByTestId('join-card')).toContainText('North American (NWL2023)');
   await sam.getByTestId('join-accept').click();
   await expect(sam.getByTestId('rack-tray')).toBeVisible({ timeout: 15_000 });
   // ada's waiting screen flips to the live board without a reload

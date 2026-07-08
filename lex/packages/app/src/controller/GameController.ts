@@ -427,10 +427,18 @@ export class GameController {
     return this.perspective ?? this.sessionState().game.toMove;
   }
 
-  private interactive(): boolean {
+  /** Game over — no staging, no moves for anyone. */
+  private ended(): boolean {
     const s = this.sessionState();
-    if (this.computeEnd(s, result(s.game))) return false;
-    return this.perspective === undefined || s.game.toMove === this.perspective;
+    return this.computeEnd(s, result(s.game)) !== undefined;
+  }
+
+  /** May the local player COMMIT a move right now (their turn, game not over)?
+   * Distinct from staging, which is allowed off-turn for planning (see
+   * placeAt/selectRackSlot). */
+  private interactive(): boolean {
+    if (this.ended()) return false;
+    return this.perspective === undefined || this.sessionState().game.toMove === this.perspective;
   }
 
   /** Lazily resync rack slots + pending after the engine state moved. */
@@ -439,6 +447,9 @@ export class GameController {
     const seat = this.actingSeat();
     if (this.syncedGame === s.game && this.syncedSeat === seat) return;
     const ruleset = this.rulesetFor(this.currentOptions());
+    // A new game state recalls the whole plan: any tiles staged off-turn (or a
+    // half-built play) return to the rack, so a play the opponent may have just
+    // invalidated (their tile landed on your staged cell) never carries over.
     this.pending.clear();
     this.selection = null;
     this.exchangeSelection = null;
@@ -551,7 +562,10 @@ export class GameController {
       };
     });
     const needsBlank = [...this.pending.entries()].find(([, p]) => p.letter === null)?.[0] ?? null;
-    const rack = game.racks[game.toMove] ?? [];
+    // The acting seat, not game.toMove: off-turn (multiplayer) the mover is the
+    // opponent, but the staged tiles — and the rack to check them against — are
+    // mine. On-turn actingSeat === game.toMove, so behavior is unchanged.
+    const rack = game.racks[this.actingSeat()] ?? [];
     const check = checkPlay(game.board, rack, placements, ruleset);
     if (!check.ok) {
       return { check, words: [], total: 0, bingo: false, needsBlank, playable: false };
@@ -570,9 +584,11 @@ export class GameController {
 
   // ── tap-tap selection (DESIGN §7.2) ────────────────────────────────────────
 
-  /** Arm (or toggle off) a rack slot for tap-tap placement. */
+  /** Arm (or toggle off) a rack slot for tap-tap placement. Allowed off-turn:
+   * you can lay out a planned play while the opponent thinks (Play stays
+   * disabled until it's your turn). */
   selectRackSlot(index: number): void {
-    if (!this.interactive()) return;
+    if (this.ended()) return;
     this.syncRack();
     if (!this.rackSlots[index]) return;
     this.selection = this.selection === index ? null : index;
@@ -604,7 +620,10 @@ export class GameController {
   // ── pending placements (the lex drag/tap model, DESIGN §7.2) ───────────────
 
   placeAt(cell: Cell, rackIndex: number): void {
-    if (!this.interactive()) return;
+    // Off-turn staging is allowed (plan your next move); the play can't be
+    // COMMITTED until it's your turn (preview.playable gates on interactive),
+    // and a fresh game state recalls the whole plan (syncRack).
+    if (this.ended()) return;
     this.syncRack();
     const key = cellKey(cell);
     const s = this.sessionState();

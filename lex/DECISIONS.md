@@ -200,3 +200,17 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   budget). Unlike the other two it is **copyrighted** (© NASPA); README states
   the terms and it ships at the owner's explicit direction, which DESIGN §5.4
   already reserved as the owner's call.
+
+- **2026-07-08 — Off-turn planning: stage tiles (rack + board), reorder, and
+  shuffle while the opponent moves.** Previously the whole tray was `disabled`
+  off-turn, freezing even reorder/shuffle. Now staging is decoupled from
+  committing: `placeAt`/`selectRackSlot` gate on `ended()` (game over) instead of
+  `interactive()`, so you can lay out a planned play off-turn; `interactive()`
+  still gates Play/Exchange/Pass, so nothing commits until your turn (DESIGN §7.2
+  step 1 amended; same off-turn-action precedent as resign, §2.3). `disabled` now
+  means the hard lock at game over only. Recall policy is **recall-everything**:
+  a new game state (the opponent's move) already clears `pending` in `syncRack`,
+  so any staged plan — including a tile on a cell the opponent just filled —
+  returns to the rack wholesale rather than trying to partially reconcile.
+  `buildPreview` now reads the acting seat's rack (off-turn `game.toMove` is the
+  opponent), and the engine state is never touched by staging.
