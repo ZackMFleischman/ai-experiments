@@ -70,12 +70,28 @@ pnpm validate:m0    # typecheck && test && e2e — the full gate
 ## Refreshing stream IDs each season
 
 explore.org restarts the YouTube streams every summer, minting **new video ids**. The cam
-*set* is stable; the ids are not. Two ways to keep it current:
+*set* is stable; the ids are not. Three ways to keep it current, easiest first:
 
-1. **In-app (no code):** Settings → **Stream IDs** → paste a fresh YouTube video id. Saved
-   to `localStorage`, overrides the built-in seed. This is the recommended path.
-2. **In code:** update `defaultYoutubeId` in
-   [`packages/app/src/streams.ts`](./packages/app/src/streams.ts) and bump `SEASON`.
+1. **Refresh from the playlist (recommended):** run
+
+   ```
+   pnpm refresh:streams                 # explore.org's Katmai live-cams playlist
+   pnpm refresh:streams <playlistUrl>   # or a different playlist / bare list id
+   ```
+
+   from `katmai-bears/`. It scrapes the playlist page (no API key) and rewrites
+   [`packages/app/src/streams.generated.ts`](./packages/app/src/streams.generated.ts) with
+   the current ids + titles, **in playlist order**. That file is the live source of truth:
+   [`streams.ts`](./packages/app/src/streams.ts) enriches each entry with the curated
+   blurb / tags / explore.org link by matching titles, and any playlist cam with no curated
+   match still shows up (title/blurb derived from the playlist). Commit the regenerated file.
+   Must run somewhere with access to youtube.com (your machine or CI); the app + deploy build
+   never touch YouTube.
+2. **In-app (no code, one cam):** Settings → **Stream IDs** → paste a fresh YouTube video id.
+   Saved to `localStorage`, overrides everything for that cam.
+3. **In code (seed):** update a curated cam's `defaultYoutubeId` in
+   [`packages/app/src/streams.ts`](./packages/app/src/streams.ts). These seeds are only used
+   as a fallback until `refresh:streams` has been run (`streams.generated.ts` is empty).
 
 Cams with no known id degrade gracefully to an "Open on explore.org ↗" link.
 

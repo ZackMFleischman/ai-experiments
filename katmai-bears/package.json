@@ -9,6 +9,7 @@
     "dev": "pnpm --filter @katmai/app dev",
     "build": "pnpm --filter @katmai/app build",
     "preview": "pnpm --filter @katmai/app preview",
+    "refresh:streams": "pnpm --filter @katmai/app refresh:streams",
     "typecheck": "pnpm -r --sequential typecheck",
     "test": "pnpm -r --filter '!e2e' test",
     "e2e": "pnpm --filter e2e test",
