@@ -213,7 +213,17 @@ gates. Once this + Phase 2 land, a perfect-info game's multiplayer glue collapse
 
 ---
 
-## Phase 4 — New-game scaffold *(tooling, low–medium risk, biggest QoL)*
+## Phase 4 — New-game scaffold *(tooling, low–medium risk, biggest QoL)* — ✅ SHIPPED (doc) 2026-07-08
+
+> Shipped the doc half: repo-root `GAME-SETUP.md` — the full checklist + copy-paste
+> `firebase.json`/`.firebaserc`, the esbuild functions line, emulator-seed layout,
+> the `resolve.dedupe` list, the CI matrix (install-parlor-first), and the deploy
+> job's load-bearing tribal knowledge lifted verbatim from hive's `DECISIONS.md`
+> (the invoker-IAM repair, `cloudbilling` enable, strip-devDeps, SA-JSON auth,
+> `roles/run.admin`), cross-referencing the Phase 1–3 parlor primitives. Placed at
+> the repo root (parlor's doc set is closed + line-budgeted), matching this plan's
+> placement. **Deferred:** the `create-parlor-game <name>` generator (the more
+> ambitious second half) — until it exists, `GAME-SETUP.md` is the source of truth.
 
 **Goal:** kill the "clone hive/ and delete the Hive parts" onboarding cost.
 
