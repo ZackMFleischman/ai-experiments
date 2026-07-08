@@ -30,6 +30,13 @@ const ENTRIES: readonly RegistryEntry[] = Object.freeze([
     wordCount: 81_883,
     sourceHash: '71194db1340c21c0c886ec38ee72211873530aea3575a709ed8f2c320b235a31',
   }),
+  Object.freeze({
+    id: 'nwl2023',
+    name: 'North American (NWL2023)',
+    description: 'The official NASPA Word List 2023 — the North American tournament standard.',
+    wordCount: 196_601,
+    sourceHash: 'f86d87ebf9274ab40b8866ffc22ecfe404ea25c216a1787c4d5647e006a209b1',
+  }),
 ]);
 
 export const DICTIONARIES: readonly DictionaryInfo[] = Object.freeze(

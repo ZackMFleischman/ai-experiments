@@ -191,3 +191,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   error falls back to a self-contained reload card (plain DOM, no MUI/providers —
   those may be what threw). Twin exists in hive (same missing boundary) — flagged
   for a follow-up port.
+
+- **2026-07-08 — Added `nwl2023` dictionary (NASPA Word List 2023).** Third
+  registry entry alongside `enable1`/`2of12inf` (DESIGN §5.4). Vendored from
+  `scrabblewords/scrabblewords`; its source carries a definition per line, so the
+  word file is the first column (`cut -d' ' -f1`), one word per line, LF — kept
+  reproducible rather than hand-edited. 196,601 words; DAWG 541 KB (≤800 KB
+  budget). Unlike the other two it is **copyrighted** (© NASPA); README states
+  the terms and it ships at the owner's explicit direction, which DESIGN §5.4
+  already reserved as the owner's call.

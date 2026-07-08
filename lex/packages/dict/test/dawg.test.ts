@@ -41,6 +41,7 @@ describe('small-list round trip', () => {
 describe.each([
   ['enable1.txt', 'enable1'],
   ['2of12inf.txt', '2of12inf'],
+  ['nwl2023.txt', 'nwl2023'],
 ])('%s', (file, id) => {
   const words = loadList(file);
   const reference = new Set(words);

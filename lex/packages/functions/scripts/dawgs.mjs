@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 // The v1 registry ids (DESIGN §5.4) — plain node can't import the TS
 // registry; the dict completeness tests keep this list honest.
-const DICTIONARIES = [{ id: 'enable1' }, { id: '2of12inf' }];
+const DICTIONARIES = [{ id: 'enable1' }, { id: '2of12inf' }, { id: 'nwl2023' }];
 
 const here = dirname(fileURLToPath(import.meta.url));
 const generated = join(here, '..', '..', 'dict', 'generated');

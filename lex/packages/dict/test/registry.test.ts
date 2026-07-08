@@ -20,8 +20,8 @@ function artifactFor(id: string): Uint8Array {
 }
 
 describe('DICTIONARIES registry', () => {
-  it('lists exactly the two v1 dictionaries for the picker', () => {
-    expect(DICTIONARIES.map((d) => d.id)).toEqual(['enable1', '2of12inf']);
+  it('lists exactly the three v1 dictionaries for the picker', () => {
+    expect(DICTIONARIES.map((d) => d.id)).toEqual(['enable1', '2of12inf', 'nwl2023']);
     for (const info of DICTIONARIES) {
       expect(info.name.length).toBeGreaterThan(0);
       expect(info.description.length).toBeGreaterThan(0);

@@ -43,6 +43,23 @@ describe('2of12inf.txt', () => {
   });
 });
 
+describe('nwl2023.txt', () => {
+  const raw = read('nwl2023.txt');
+
+  it('content hash is pinned', () => {
+    expect(sha256(raw)).toBe('120cbfa8d596baa2c17328ceed75dec91e4c6863e356004b2306b4f5190c830c');
+  });
+
+  it('normalizes to exactly 196,601 unique playable words', () => {
+    const words = normalizeWordList(raw.toString('utf8'));
+    expect(words).toHaveLength(196_601);
+    expect(words).toContain('QI'); // a valid NWL two-letter tournament word
+    expect(words).toContain('MUZJIKS');
+    expect(words.every((w) => /^[A-Z]{2,}$/.test(w))).toBe(true);
+    expect(new Set(words).size).toBe(words.length); // unique
+  });
+});
+
 describe('normalizeWordList', () => {
   it('uppercases, strips markers/CR, drops empties and one-letter words, sorts, dedupes', () => {
     expect(normalizeWordList('cat\r\ndogs%\n!new\nnew\na\n\nzoo!\n')).toEqual(['CAT', 'DOGS', 'NEW', 'ZOO']);

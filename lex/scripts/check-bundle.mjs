@@ -25,7 +25,7 @@ if (hits.length > 0) {
   process.exit(1);
 }
 
-for (const dict of ['enable1.dawg', '2of12inf.dawg']) {
+for (const dict of ['enable1.dawg', '2of12inf.dawg', 'nwl2023.dawg']) {
   if (!existsSync(join(dist, 'dict', dict))) {
     console.error(`missing dictionary in dist: dict/${dict} — run \`pnpm --filter @lex/dict build\` before the app build`);
     process.exit(1);
