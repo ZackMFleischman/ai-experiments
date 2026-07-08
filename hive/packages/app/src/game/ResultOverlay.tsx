@@ -1,6 +1,6 @@
 // Result overlay + persistent banner (T3.9/T4.7, DESIGN §6.3).
 // Full-screen sheet on phones, centered card above; restrained per-outcome tone.
-import { Box, Button, Dialog, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Dialog, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import type { GameController, GameEnd, Snapshot } from '../controller/GameController';
 import '../board/board.css';
@@ -101,6 +101,30 @@ export function ResultOverlay({
         <Typography variant="caption" color="text.secondary" data-testid="result-stats">
           {moveCount} moves
         </Typography>
+        {/* The overlay is modal — without this, a result that never reached the
+            backend (dropped connection on the final move) would look final while
+            the Retry bar sits hidden behind the dialog. */}
+        {snap.syncStatus === 'error' ? (
+          <Alert
+            severity="warning"
+            data-testid="overlay-sync-error"
+            action={
+              <Button color="inherit" size="small" onClick={() => controller.retryPending()} data-testid="overlay-sync-retry">
+                Retry
+              </Button>
+            }
+            sx={{ width: '100%', alignItems: 'center' }}
+          >
+            Not saved yet — check your connection.
+          </Alert>
+        ) : snap.syncStatus === 'saving' ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} data-testid="overlay-sync-saving">
+            <CircularProgress size={12} thickness={6} />
+            <Typography variant="caption" color="text.secondary">
+              Saving result…
+            </Typography>
+          </Box>
+        ) : null}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1, width: { xs: '100%', sm: 'auto' } }}>
           {onRematch ? (
             <Button variant="contained" onClick={onRematch} data-testid="overlay-rematch">

@@ -2,7 +2,7 @@
 // move list, menu, end-of-game beat and result overlay.
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import { Box, Button, IconButton, Paper, Typography, Snackbar } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, IconButton, Paper, Typography, Snackbar } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { cellCenter } from '../board/hexGeometry';
@@ -48,6 +48,14 @@ export function GameScreen({
   // Debug surface for validators (the loom `window.__loom` convention).
   useEffect(() => {
     (window as unknown as { __hive?: unknown }).__hive = { controller };
+  }, [controller]);
+
+  // A move stuck on a dropped connection re-sends itself the moment the browser
+  // reports it is back online (the controller no-ops unless one is stuck).
+  useEffect(() => {
+    const onOnline = () => controller.retryPending();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
   }, [controller]);
 
   // The end-of-game beat (§6.3): center the surrounded queen, pulse its ring,
@@ -142,6 +150,38 @@ export function GameScreen({
           </Button>
         </Box>
       )}
+      {/* Persist status: reassure while a move is saving, and — critically for a
+          game-ending move — surface a durable, actionable failure instead of a
+          move that silently never reached the backend. */}
+      {snap.syncStatus === 'error' ? (
+        <Alert
+          severity="warning"
+          data-testid="sync-error"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => controller.retryPending()}
+              data-testid="sync-retry"
+            >
+              Retry
+            </Button>
+          }
+          sx={{ mx: 1, mb: 0.5, py: 0, alignItems: 'center' }}
+        >
+          Move not saved — check your connection.
+        </Alert>
+      ) : snap.syncStatus === 'saving' ? (
+        <Box
+          data-testid="sync-saving"
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.25 }}
+        >
+          <CircularProgress size={12} thickness={6} />
+          <Typography variant="caption" color="text.secondary">
+            Saving…
+          </Typography>
+        </Box>
+      ) : null}
       <Box sx={{ px: 1, pb: 'max(4px, env(safe-area-inset-bottom))' }}>
         <HandTray controller={controller} />
       </Box>
