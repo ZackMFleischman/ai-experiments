@@ -406,7 +406,10 @@ export function GameBoard({
           rackSize={snap.ruleset.rackSize}
           points={points}
           bagCount={snap.bagCount}
-          disabled={!snap.interactive}
+          // Fully locked only once the game is over; while it's the opponent's
+          // turn the rack stays rearrangeable so you can plan your next move.
+          disabled={!!snap.end}
+          rearrangeOnly={!snap.interactive && !snap.end}
           drawing={snap.drawing}
           selectedIndex={snap.selection}
           exchangeSelection={snap.exchange}

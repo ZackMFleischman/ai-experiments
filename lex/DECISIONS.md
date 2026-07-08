@@ -200,3 +200,14 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   budget). Unlike the other two it is **copyrighted** (© NASPA); README states
   the terms and it ships at the owner's explicit direction, which DESIGN §5.4
   already reserved as the owner's call.
+
+- **2026-07-08 — Rack is rearrangeable off-turn (reorder + shuffle) so you can
+  plan your next move.** Previously the tray was fully `disabled` whenever it
+  wasn't your turn, freezing reorder/shuffle too. Now the tray takes a
+  `rearrangeOnly` mode: reorder + shuffle stay live off-turn, but tap-to-arm and
+  drag-out-to-board are suppressed (you can't play a hand that isn't yours yet).
+  `disabled` now means the hard lock at game over only. The controller already
+  allowed `reorderRack`/`shuffleRack` off-turn (no `interactive` gate); the block
+  was purely UI. Display-order only — the engine rack is untouched, and the
+  arrangement survives into your turn via `reconcileSlots`. Same off-turn-action
+  precedent as resign (§2.3).

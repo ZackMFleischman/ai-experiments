@@ -281,4 +281,27 @@ describe('GameController — perspective (multiplayer seam)', () => {
     // The rack shown is MY rack, not the mover's.
     expect(controller.getSnapshot().rack.filter(Boolean)).toEqual(P1_RACK);
   });
+
+  it('lets you reorder and shuffle your rack off-turn (plan your next move)', async () => {
+    const opts = options();
+    const transport = new LocalTransport<HotSeatOptions, LexEntry>(opts);
+    // perspective = seat 1; seat 0 is to move, so it is NOT my turn.
+    const controller = new GameController(transport, opts, { dict: stubDict(), rng: seededRng() }, 1);
+    await controller.init();
+    expect(controller.getSnapshot().interactive).toBe(false);
+
+    // Off-turn rearrange: move my first tile to slot 2 — arranging my hand.
+    controller.reorderRack(0, 2);
+    expect(controller.getSnapshot().rack.filter(Boolean)).toEqual(['O', 'G', 'D', 'L', 'I', 'P', 'U']);
+    // The engine rack is untouched — display order only, no move made.
+    expect(controller.getSnapshot().state.racks[1]).toEqual(P1_RACK);
+    expect(controller.getSnapshot().toMove).toBe(0);
+
+    // Shuffle is likewise available off-turn and keeps the multiset intact.
+    controller.shuffleRack();
+    expect([...(controller.getSnapshot().rack.filter(Boolean) as string[])].sort()).toEqual(
+      [...P1_RACK].sort(),
+    );
+    expect(controller.getSnapshot().interactive).toBe(false); // still not my turn
+  });
 });

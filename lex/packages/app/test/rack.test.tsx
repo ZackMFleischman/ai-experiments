@@ -125,6 +125,37 @@ describe('RackTray', () => {
     expect(onTileTap).not.toHaveBeenCalled();
   });
 
+  it('rearrangeOnly (off-turn): reorder and shuffle work, tap and drag-out are suppressed', () => {
+    const onReorder = vi.fn();
+    const onShuffle = vi.fn();
+    const onTileTap = vi.fn();
+    const onDragOut = vi.fn();
+    const { tray } = renderTray({ rearrangeOnly: true, onReorder, onShuffle, onTileTap, onDragOut });
+
+    // Shuffle still fires — planning your next hand off-turn.
+    fireEvent.click(screen.getByRole('button', { name: /shuffle/i }));
+    expect(onShuffle).toHaveBeenCalledOnce();
+
+    // A horizontal drag still reorders.
+    const tile = tray.querySelector('[data-rack-slot="0"]') as Element;
+    fireEvent.pointerDown(tile, { pointerId: 1, clientX: 25, clientY: 630, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 1, clientX: 125, clientY: 632 });
+    fireEvent.pointerUp(tray, { pointerId: 1, clientX: 125, clientY: 632 });
+    expect(onReorder).toHaveBeenCalledWith(0, 2);
+
+    // A motionless press does NOT arm a tile (nothing to place off-turn).
+    const tapTile = tray.querySelector('[data-rack-slot="1"]') as Element;
+    fireEvent.pointerDown(tapTile, { pointerId: 2, clientX: 75, clientY: 630, isPrimary: true });
+    fireEvent.pointerUp(tray, { pointerId: 2, clientX: 75, clientY: 630 });
+    expect(onTileTap).not.toHaveBeenCalled();
+
+    // Dragging upward off the tray does NOT hand off to the board.
+    const outTile = tray.querySelector('[data-rack-slot="2"]') as Element;
+    fireEvent.pointerDown(outTile, { pointerId: 3, clientX: 125, clientY: 630, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 3, clientX: 130, clientY: 500 });
+    expect(onDragOut).not.toHaveBeenCalled();
+  });
+
   it('marks the selected slot for the tap-tap flow', () => {
     const { container } = renderTray({ selectedIndex: 1 });
     expect(
