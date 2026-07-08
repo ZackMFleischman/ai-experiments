@@ -77,7 +77,25 @@ const CURATED: CuratedStream[] = [
     tags: ['river', 'autumn'],
     explorePage: 'https://explore.org/livecams/brown-bears/brooks-river-lower-river-bear-cam',
     defaultYoutubeId: 'cTsjMtjRLCo',
-    match: ['lower river'],
+    match: ['river view'],
+  },
+  {
+    id: 'river-watch',
+    title: 'River Watch',
+    blurb: 'A wide watch over the Brooks River corridor between the falls and the lake.',
+    tags: ['river', 'scenic'],
+    explorePage: 'https://explore.org/livecams/brown-bears',
+    defaultYoutubeId: 'wkVLYfU-Kew',
+    match: ['river watch'],
+  },
+  {
+    id: 'dumpling-mountain',
+    title: 'Dumpling Mountain',
+    blurb: 'A scenic overlook from Dumpling Mountain across Brooks Camp and Naknek Lake.',
+    tags: ['scenic', 'landscape'],
+    explorePage: 'https://explore.org/livecams/brown-bears',
+    defaultYoutubeId: 'uLgdUiT9WZQ',
+    match: ['dumpling'],
   },
 ];
 

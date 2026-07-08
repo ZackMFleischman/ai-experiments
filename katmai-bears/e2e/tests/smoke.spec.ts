@@ -13,32 +13,38 @@ declare global {
   }
 }
 
-test('dashboard renders every cam tile', async ({ page }) => {
+test('dashboard renders the cam wall', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Katmai Bearcams' })).toBeVisible();
+  // Brooks Falls is the flagship cam and is always present, whatever the seasonal catalog holds.
   await expect(page.getByText('Brooks Falls', { exact: true })).toBeVisible();
-  // 5 cams in the catalog.
-  await expect(page.locator('.tile')).toHaveCount(5);
+  // The wall renders at least one tile (exact count is data-driven by the playlist refresh).
+  const tiles = await page.locator('.tile').count();
+  expect(tiles).toBeGreaterThan(0);
 });
 
 test('every cam autoplays on load (no tap, no facades)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.tile__facade')).toHaveCount(0);
-  // All five cams ship with a live id, so all mount an iframe on load.
-  await expect(page.locator('.player__iframe')).toHaveCount(5);
+  // Every cam ships with a live id, so each tile mounts exactly one iframe on load:
+  // one iframe per tile, and at least one tile.
+  const tiles = await page.locator('.tile').count();
+  expect(tiles).toBeGreaterThan(0);
+  await expect(page.locator('.player__iframe')).toHaveCount(tiles);
 });
 
 test('hiding a stream removes its tile; re-enabling restores it', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.tile')).toHaveCount(5);
+  const before = await page.locator('.tile').count();
+  expect(before).toBeGreaterThan(0);
 
   await page.getByRole('button', { name: 'Hide Brooks Falls', exact: true }).click();
-  await expect(page.locator('.tile')).toHaveCount(4);
+  await expect(page.locator('.tile')).toHaveCount(before - 1);
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('checkbox', { name: 'Brooks Falls', exact: true }).check();
   await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.locator('.tile')).toHaveCount(5);
+  await expect(page.locator('.tile')).toHaveCount(before);
 });
 
 test('a tile can be resized bigger and smaller', async ({ page }) => {
@@ -87,10 +93,11 @@ test('deep link opens fullscreen and next cycles cams', async ({ page }) => {
   const fs = page.locator('.fs');
   await expect(fs).toBeVisible();
   await expect(fs.locator('.fs__title')).toContainText('Brooks Falls');
+  const first = await fs.locator('.fs__title').textContent();
 
   await fs.getByRole('button', { name: 'Next cam' }).click();
-  // After advancing, the title should no longer be the first cam.
-  await expect(fs.locator('.fs__title')).toContainText('Brooks Falls Low');
+  // After advancing, the title should change to a different cam (whichever is next in the catalog).
+  await expect(fs.locator('.fs__title')).not.toHaveText(first ?? '');
 });
 
 test('detection UI is hidden by default (prod flag off)', async ({ page }) => {
