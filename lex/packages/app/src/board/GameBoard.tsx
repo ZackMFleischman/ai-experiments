@@ -18,6 +18,7 @@ import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
 import { PreviewOverlay } from './PreviewOverlay';
+import { rackSlotGeometry } from './rackGeometry';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
 import { RackTray } from './RackTray';
@@ -108,9 +109,14 @@ export function GameBoard({
   );
   const rackIndexAt = useCallback(
     (clientX: number): number => {
-      const row = trayWrapRef.current?.querySelector('[data-rack-row]')?.getBoundingClientRect();
-      const rect = row?.width ? row : trayRect();
       const size = controller.getSnapshot().ruleset.rackSize;
+      // Measure the real slot pitch (see rackGeometry): on a wide window the
+      // slots row is far wider than the tiles, so row-width / rackSize maps the
+      // whole empty row to slots and lands the ghost in the wrong one.
+      const row = trayWrapRef.current?.querySelector('[data-rack-row]');
+      const g = rackSlotGeometry(row, size);
+      if (g) return Math.min(size - 1, Math.max(0, Math.floor((clientX - g.left) / g.pitch)));
+      const rect = trayRect();
       if (!rect || !rect.width) return 0;
       return Math.min(size - 1, Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * size)));
     },

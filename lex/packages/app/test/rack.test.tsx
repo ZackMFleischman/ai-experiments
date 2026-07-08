@@ -175,6 +175,29 @@ describe('RackTray', () => {
     expect(slot(1).style.transform).toBe('');
   });
 
+  it('reorders by the real slot pitch on a wide window, not the stretched row width', () => {
+    // Regression (desktop): the slots row is flex:1 / centered, so on a wide
+    // window it is far wider than the tiles. Dividing row width by rackSize
+    // overestimated the pitch, so a drag had to travel much farther to pass a
+    // neighbor. Here the row is 700px but each slot is only 52px (+4px gap →
+    // 56px pitch): a 90px drag is ~1.6 slots → rounds to 2, whereas the old
+    // row/rackSize pitch (100px) would round to just 1.
+    const onReorder = vi.fn();
+    const { tray, container } = renderTray({ onReorder });
+    const row = container.querySelector('[data-rack-row]') as HTMLElement;
+    row.getBoundingClientRect = () =>
+      ({ x: 0, y: 600, left: 0, top: 600, width: 700, height: 56, right: 700, bottom: 656 }) as DOMRect;
+    row.querySelectorAll('[data-rack-slot]').forEach((s) => {
+      (s as HTMLElement).getBoundingClientRect = () =>
+        ({ x: 0, y: 600, left: 0, top: 600, width: 52, height: 52, right: 52, bottom: 652 }) as DOMRect;
+    });
+    const tile = tray.querySelector('[data-rack-slot="0"]') as Element;
+    fireEvent.pointerDown(tile, { pointerId: 20, clientX: 200, clientY: 630, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 20, clientX: 290, clientY: 632 });
+    fireEvent.pointerUp(tray, { pointerId: 20, clientX: 290, clientY: 632 });
+    expect(onReorder).toHaveBeenCalledWith(0, 2);
+  });
+
   it('slides slots for an external drag-layer preview (ghost hovering the tray)', () => {
     // The preview prop arrives mid-drag, after mount — as in the real app.
     const props = {

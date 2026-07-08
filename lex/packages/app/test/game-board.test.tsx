@@ -160,6 +160,28 @@ describe('GameBoard — drag from the rack', () => {
     expect(snap.pending.size).toBe(0);
     expect(slot1.style.transform).toBe('');
   });
+
+  it('drops into the slot under the finger on a wide window (real pitch, not row/rackSize)', async () => {
+    // Regression (desktop): the tray row stretches far past the tiles, so
+    // mapping the whole row width to rackSize slots dropped the ghost in the
+    // wrong slot. Row 700px wide but slots 52px (+4px gap → 56px pitch,
+    // centered → slot 0 at x=156). clientX 250 is over slot 1 by the real
+    // geometry; the old row/rackSize math (100px pitch from x=0) read it as 2.
+    const { controller, tray } = await setup();
+    const row = tray.querySelector('[data-rack-row]') as HTMLElement;
+    row.getBoundingClientRect = () =>
+      ({ x: 0, y: 500, left: 0, top: 500, width: 700, height: 56, right: 700, bottom: 556 }) as DOMRect;
+    row.querySelectorAll('[data-rack-slot]').forEach((s) => {
+      (s as HTMLElement).getBoundingClientRect = () =>
+        ({ x: 0, y: 500, left: 0, top: 500, width: 52, height: 52, right: 52, bottom: 552 }) as DOMRect;
+    });
+    const slot = tray.querySelector('[data-rack-slot="0"]') as Element;
+    fireEvent.pointerDown(slot, { pointerId: 21, clientX: 156, clientY: 530, isPrimary: true });
+    fireEvent.pointerMove(tray, { pointerId: 21, clientX: 160, clientY: 480 }); // hand-off
+    fireEvent.pointerMove(window, { pointerId: 21, clientX: 250, clientY: 530 });
+    fireEvent.pointerUp(window, { pointerId: 21, clientX: 250, clientY: 530 });
+    expect(controller.getSnapshot().rack).toEqual(['A', 'C', 'T', 'S', 'E', 'R', 'N']);
+  });
 });
 
 describe('GameBoard — dragging staged tiles', () => {
