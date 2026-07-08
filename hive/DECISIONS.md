@@ -193,3 +193,18 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   still hive's (Phase 3 shares the lobby UI); backend untouched (Phase 4).
   Verified: typecheck, 150 unit tests, static+mp builds, firebase-free static
   bundle, and validate:m4 (integration + multiplayer e2e) all green.
+
+- **2026-07-08 — Robust move sync + no game-over on a staged move (user bug).**
+  A game-ending move made with Confirm-move on showed "queen surrounded" but
+  never reached the backend (or the opponent's phone). Two causes: (1)
+  `buildSnapshot` derived `end` from the *staged preview*, so staging the
+  winning move fired the beat/overlay and hid the Confirm bar — the move was
+  never sent. Fixed by computing end-of-game from committed state only (a stage
+  is a preview; confirm submits, then the win shows). (2) `submitMove` sent once
+  and silently rolled back on any error. Now the controller classifies
+  transient (network/`unavailable`/`internal`…) vs definite rejections, retries
+  transient failures with backoff, keeps the optimistic move on-screen, and
+  exposes a `syncStatus` ('saving'/'error') + `retryPending()`; GameScreen and
+  the (modal) ResultOverlay show a "Saving…/Not saved — Retry" affordance, and
+  it auto-retries on `online`. Definite rejections still roll back/resync.
+  Engine and callables untouched — pure client transport/UX.
