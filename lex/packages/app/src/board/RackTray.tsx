@@ -23,10 +23,6 @@ export interface RackTrayProps {
   points: TileSet['points'];
   bagCount: number;
   disabled?: boolean;
-  /** Off-turn planning: the rack may be reordered and shuffled, but tiles
-   * can't be armed (tap) or dragged out to the board — you're arranging a
-   * hand you can't play yet. Ignored when `disabled`. */
-  rearrangeOnly?: boolean;
   /** Multiplayer refill in flight (T4.6): this many empty slots render as
    * "drawing…" placeholders until the rack listener lands. */
   drawing?: number;
@@ -57,7 +53,6 @@ export function RackTray({
   points,
   bagCount,
   disabled = false,
-  rearrangeOnly = false,
   drawing = 0,
   selectedIndex = null,
   exchangeSelection = null,
@@ -110,9 +105,7 @@ export function RackTray({
     const d = drag.current;
     if (!d || d.pointerId !== e.pointerId) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    // Off-turn (rearrangeOnly): a tile can't leave the tray for the board —
-    // it just keeps sliding as an in-tray reorder.
-    if (onDragOut && !rearrangeOnly && e.clientY < (rect.top || 0) - DRAG_OUT_PX) {
+    if (onDragOut && e.clientY < (rect.top || 0) - DRAG_OUT_PX) {
       // Hand the pointer to the drag layer and forget it NOW — once capture
       // is released, the pointerup lands elsewhere and never reaches the
       // tray, so waiting for it would wedge every subsequent drag.
@@ -133,8 +126,7 @@ export function RackTray({
       const offset = Math.round((e.clientX - d.startX) / slotWidth());
       const target = Math.min(tiles.length - 1, Math.max(0, d.index + offset));
       if (target !== d.index) onReorder?.(d.index, target);
-    } else if (e.type === 'pointerup' && !rearrangeOnly) {
-      // A motionless press is a tap-to-arm — off-turn there's nothing to arm.
+    } else if (e.type === 'pointerup') {
       onTileTap?.(d.index);
     }
     reset();

@@ -1,7 +1,7 @@
 // T3.4 gate: GameController — pending-placement model, verdict-pipeline
 // preview, rack order management, optimistic submit over GameTransport with
 // rollback, refresh resume, blanks, exchange, resign.
-import { RULESETS, cellKey } from '@lex/engine';
+import { RULESETS, cellKey, initialState, serializeState } from '@lex/engine';
 import type { TileFace } from '@lex/engine';
 import { LocalTransport } from '@parlor/core';
 import { describe, expect, it, vi } from 'vitest';
@@ -270,19 +270,19 @@ describe('GameController — pass, exchange, resign', () => {
 });
 
 describe('GameController — perspective (multiplayer seam)', () => {
-  it('blocks interaction off-turn', async () => {
+  it('blocks COMMITTING a move off-turn (pass stays my opponent\'s to make)', async () => {
     const opts = options();
     const transport = new LocalTransport<HotSeatOptions, LexEntry>(opts);
     const controller = new GameController(transport, opts, { dict: stubDict(), rng: seededRng() }, 1);
-    controller.placeAt({ row: 7, col: 7 }, 0);
-    expect(controller.getSnapshot().pending.size).toBe(0);
     controller.pass();
+    expect(controller.getSnapshot().toMove).toBe(0);
+    controller.submitPlay();
     expect(controller.getSnapshot().toMove).toBe(0);
     // The rack shown is MY rack, not the mover's.
     expect(controller.getSnapshot().rack.filter(Boolean)).toEqual(P1_RACK);
   });
 
-  it('lets you reorder and shuffle your rack off-turn (plan your next move)', async () => {
+  it('lets you stage, reorder, and shuffle off-turn to plan — but not play', async () => {
     const opts = options();
     const transport = new LocalTransport<HotSeatOptions, LexEntry>(opts);
     // perspective = seat 1; seat 0 is to move, so it is NOT my turn.
@@ -293,9 +293,25 @@ describe('GameController — perspective (multiplayer seam)', () => {
     // Off-turn rearrange: move my first tile to slot 2 — arranging my hand.
     controller.reorderRack(0, 2);
     expect(controller.getSnapshot().rack.filter(Boolean)).toEqual(['O', 'G', 'D', 'L', 'I', 'P', 'U']);
-    // The engine rack is untouched — display order only, no move made.
-    expect(controller.getSnapshot().state.racks[1]).toEqual(P1_RACK);
+
+    // Off-turn board staging: lay a planned tile on the board.
+    controller.placeAt({ row: 7, col: 7 }, 0); // the 'O' now in slot 0
+    let snap = controller.getSnapshot();
+    expect(snap.pending.size).toBe(1);
+    expect(snap.pending.get('7,7')?.face).toBe('O');
+    // The engine rack is untouched — display/plan only, no move made.
+    expect(snap.state.racks[1]).toEqual(P1_RACK);
+    expect(snap.toMove).toBe(0);
+    // ...and the plan can't be committed off-turn.
+    expect(snap.preview?.playable ?? false).toBe(false);
+    controller.submitPlay();
     expect(controller.getSnapshot().toMove).toBe(0);
+
+    // Recall clears the plan back to the rack.
+    controller.recallAll();
+    snap = controller.getSnapshot();
+    expect(snap.pending.size).toBe(0);
+    expect([...(snap.rack.filter(Boolean) as string[])].sort()).toEqual([...P1_RACK].sort());
 
     // Shuffle is likewise available off-turn and keeps the multiset intact.
     controller.shuffleRack();
@@ -303,5 +319,45 @@ describe('GameController — perspective (multiplayer seam)', () => {
       [...P1_RACK].sort(),
     );
     expect(controller.getSnapshot().interactive).toBe(false); // still not my turn
+  });
+
+  it('recalls the whole off-turn plan when it becomes your turn', async () => {
+    const opts = options();
+    const myRack = 'CATSNTI';
+    // A resync-able sync transport: load() returns whatever the current entry
+    // is, so flipping toMove models the opponent moving (webhooks don't deliver
+    // that, but resync rebuilds from source of truth).
+    const order = [...myRack, ...'REDOGNU'] as string[];
+    const counts = new Map<string, number>(Object.entries(classic.tiles.counts));
+    for (const face of order) counts.set(face, (counts.get(face) ?? 0) - 1);
+    for (const [face, n] of counts) for (let i = 0; i < n; i++) order.push(face);
+    const syncEntry = (toMove: 0 | 1): LexEntry => {
+      const state = { ...initialState(classic, order as never, 2), toMove };
+      return { kind: 'sync', state: serializeState(state), myRack, rows: [] };
+    };
+    let current = syncEntry(1); // seat 1 to move → off-turn for perspective 0
+    const transport = {
+      load: async () => ({ options: opts, log: [current] }),
+      submit: async () => {},
+      onRemoteEntry: () => () => {},
+      reset: async () => {},
+    };
+    const controller = new GameController(transport, opts, { dict: stubDict() }, 0);
+    await controller.init();
+    expect(controller.getSnapshot().interactive).toBe(false);
+
+    // Plan off-turn: stage two tiles on the board.
+    controller.placeAt({ row: 7, col: 7 }, 0);
+    controller.placeAt({ row: 7, col: 8 }, 1);
+    expect(controller.getSnapshot().pending.size).toBe(2);
+
+    // The opponent moves → now my turn. The plan is recalled wholesale.
+    current = syncEntry(0);
+    await controller.resync();
+    const snap = controller.getSnapshot();
+    expect(snap.interactive).toBe(true);
+    expect(snap.pending.size).toBe(0);
+    expect(snap.rack.join('')).toBe(myRack);
+    controller.dispose();
   });
 });

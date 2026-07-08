@@ -406,10 +406,10 @@ export function GameBoard({
           rackSize={snap.ruleset.rackSize}
           points={points}
           bagCount={snap.bagCount}
-          // Fully locked only once the game is over; while it's the opponent's
-          // turn the rack stays rearrangeable so you can plan your next move.
+          // Locked only once the game is over. Off-turn the rack stays live so
+          // you can pre-stage tiles (on the rack or the board) to plan your next
+          // move; Play/Exchange/Pass remain turn-gated (GameActions).
           disabled={!!snap.end}
-          rearrangeOnly={!snap.interactive && !snap.end}
           drawing={snap.drawing}
           selectedIndex={snap.selection}
           exchangeSelection={snap.exchange}
