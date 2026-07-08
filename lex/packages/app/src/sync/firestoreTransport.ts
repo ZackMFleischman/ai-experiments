@@ -11,19 +11,12 @@
 // listeners are change SIGNALS; every emission re-fetches all three sources
 // and checks them against each other (rack doc `n`, move-log length), so a
 // half-landed transaction never reaches the controller.
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-} from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { RULESETS, type CellKey, type Seat, type TileFace, cellKey } from '@lex/engine';
 import type { GameTransport, StoredGame } from '@parlor/core';
 import type { GameOptions, LexEntry, SyncRow } from '../controller/entries';
 import { getDb } from '@parlor/web/firebase';
+import { fetchOrderedMoves, seatIndexOf, watchGameMeta } from '@parlor/web/transport';
 import * as api from './gameApi';
 import type { LexGameOptions } from './gameApi';
 
@@ -93,12 +86,6 @@ export function canonicalBagOrder(rulesetId: string): TileFace[] {
   return order;
 }
 
-function seatOf(uid: string, players: GameDocData['players']): Seat | null {
-  if (players.p0 === uid) return 0;
-  if (players.p1 === uid) return 1;
-  return null;
-}
-
 export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> {
   private players: GameDocData['players'] = { p0: null, p1: null };
   private serverMoveCount = 0;
@@ -122,7 +109,7 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
     if (!snap.exists()) throw new Error('game not found');
     const data = snap.data() as GameDocData;
     this.players = data.players;
-    const mySeat = seatOf(this.uid, data.players);
+    const mySeat = seatIndexOf(data.players, this.uid, ['p0', 'p1']);
     if (mySeat === null) throw new Error('you are not a player in this game');
     return {
       options: data.options,
@@ -137,17 +124,11 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
    * `null` = the doc was deleted out from under us (declined/withdrawn
    * challenge, cancelled invite). */
   watchMeta(cb: (meta: GameMeta | null) => void): () => void {
-    let seen = false;
-    return onSnapshot(
-      doc(getDb(), 'games', this.gameId),
-      (snap) => {
-        if (!snap.exists()) {
-          if (seen) cb(null);
-          return;
-        }
-        seen = true;
-        const data = snap.data() as GameDocData;
-        cb({
+    return watchGameMeta(
+      this.gameId,
+      (raw): GameMeta => {
+        const data = raw as GameDocData;
+        return {
           status: data.status,
           playerNames: data.playerNames,
           timeControl: (data.timeControl as { days: 1 | 3 | 7 } | null | undefined) ?? null,
@@ -155,14 +136,9 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
           ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
           ...(data.challenge ? { challenge: data.challenge } : {}),
           ...(data.rematchGameId ? { rematchGameId: data.rematchGameId } : {}),
-        });
+        };
       },
-      (err) => {
-        // The read rule needs resource.data (playerIds), which a deleted doc
-        // no longer has — so deletion reaches a live listener as
-        // permission-denied, not as an exists:false snapshot.
-        if (seen && (err as { code?: string }).code === 'permission-denied') cb(null);
-      },
+      cb,
     );
   }
 
@@ -174,16 +150,16 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
     if (!gameSnap.exists()) return null;
     const game = gameSnap.data() as GameDocData;
     this.players = game.players;
-    const mySeat = seatOf(this.uid, game.players);
+    const mySeat = seatIndexOf(game.players, this.uid, ['p0', 'p1']);
     if (mySeat === null) return null;
 
-    const [rackSnap, moveSnaps] = await Promise.all([
+    const [rackSnap, moveData] = await Promise.all([
       getDoc(doc(db, 'games', this.gameId, 'racks', this.uid)),
-      getDocs(query(collection(db, 'games', this.gameId, 'moves'), orderBy('n'))),
+      fetchOrderedMoves(this.gameId),
     ]);
     const rack = rackSnap.data() as { tiles: string; n: number } | undefined;
     if (!rack) return null;
-    const moves = moveSnaps.docs.map((d) => d.data() as MoveDocData);
+    const moves = moveData as MoveDocData[];
 
     // Coherence gates: the move log must have caught up with the game doc,
     // and the rack doc must be current for my latest rack-writing move.

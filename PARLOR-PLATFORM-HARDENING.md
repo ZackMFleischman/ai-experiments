@@ -166,7 +166,20 @@ rematch** all fit the same mold.
 
 ---
 
-## Phase 3 — `createFirestoreTransport(config)` + sync strategies *(client, medium-high)*
+## Phase 3 — `createFirestoreTransport(config)` + sync strategies *(client, medium-high)* — ✅ SHIPPED (shell) 2026-07-08
+
+> Shipped as composable helpers in `@parlor/web/transport` rather than a
+> monolithic factory: `seatIndexOf`, `watchGameMeta` (the game-doc meta listener,
+> incl. the subtle **permission-denied delete-detection**), and the log-replay
+> reads `fetchOrderedMoves` + `watchAddedMoves`. Both games adopt the shell; hive
+> (perfect-info) delegates its whole log-replay strategy to the two reads, lex
+> keeps its hidden-info **coherent-adoption** strategy game-side (the plan's
+> allowed "leave it game-provided"). A monolithic `createFirestoreTransport` was
+> deliberately NOT built: hive still uses its controller-local `GameTransport`
+> (its migration onto `@parlor/core`'s is separate), and lifting lex's
+> race-sensitive live-sync into a generic module carries risk out of proportion
+> to the dedup (the mp e2e is its only gate). Unit-tested delete-detection in
+> parlor; both games' app suites + mp e2e are the equivalence gate. DESIGN §4 updated.
 
 The second-biggest gap; the most design-sensitive because hive and lex diverge on
 the *sync strategy*.

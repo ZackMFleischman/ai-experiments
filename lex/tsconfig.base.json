@@ -27,6 +27,9 @@
       "@parlor/web/firebase": [
         "../parlor/packages/web/src/firebase.ts"
       ],
+      "@parlor/web/transport": [
+        "../parlor/packages/web/src/transport.ts"
+      ],
       "@parlor/web/gameApi": [
         "../parlor/packages/web/src/gameApi.ts"
       ],
