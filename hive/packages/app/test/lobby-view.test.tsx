@@ -21,10 +21,10 @@ const STATE = serializeState(initialState(OPTIONS));
 function game(over: Partial<LobbyGameSummary>): LobbyGameSummary {
   return {
     id: 'g1',
-    myColor: 'w',
+    mySeat: 0, // white
     opponentName: 'Sam',
     status: 'active',
-    toMove: 'w',
+    toMove: 0, // white to move → my turn by default
     updatedAtMs: NOW - 60_000,
     state: STATE,
     ...over,
@@ -44,10 +44,10 @@ describe('LobbyView', () => {
     renderIn(
       <LobbyView
         games={[
-          game({ id: 'a', toMove: 'w' }),
-          game({ id: 'b', toMove: 'b' }),
+          game({ id: 'a', toMove: 0 }),
+          game({ id: 'b', toMove: 1 }),
           game({ id: 'c', status: 'open', opponentName: null }),
-          game({ id: 'd', status: 'finished', result: 'white' }),
+          game({ id: 'd', status: 'finished', result: 'p0' }),
         ]}
         now={NOW}
         onOpen={() => {}}
@@ -56,14 +56,15 @@ describe('LobbyView', () => {
     expect(screen.getByTestId('group-your-turn')).toBeTruthy();
     expect(screen.getByTestId('your-turn-chip')).toBeTruthy();
     expect(screen.getByTestId('group-waiting')).toBeTruthy();
-    expect(screen.getByText(/waiting for opponent/i)).toBeTruthy();
+    // The open invite (no opponent yet) lands in the waiting group.
+    expect(screen.getByText(/open invite/i)).toBeTruthy();
     expect(screen.getByTestId('group-finished')).toBeTruthy();
     expect(screen.getByTestId('result-chip').textContent).toBe('Won');
   });
 
   it('shows Lost for a finished game the opponent won', () => {
     renderIn(
-      <LobbyView games={[game({ status: 'finished', result: 'black' })]} now={NOW} onOpen={() => {}} />,
+      <LobbyView games={[game({ status: 'finished', result: 'p1' })]} now={NOW} onOpen={() => {}} />,
     );
     expect(screen.getByTestId('result-chip').textContent).toBe('Lost');
   });
@@ -83,7 +84,7 @@ describe('LobbyView', () => {
   it('shows a deadline countdown on your-turn cards (T5.5)', () => {
     renderIn(
       <LobbyView
-        games={[game({ toMove: 'w', deadlineAtMs: NOW + 30 * 3_600_000 })]}
+        games={[game({ toMove: 0, deadlineAtMs: NOW + 30 * 3_600_000 })]}
         now={NOW}
         onOpen={() => {}}
       />,
