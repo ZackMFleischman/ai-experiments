@@ -28,26 +28,28 @@ const SIGNED_OUT_FULL: AuthValue = {
 const NOW = 1_751_500_000_000; // fixed for deterministic captures
 const mkState = (moves: string[]) => serializeState(replayUhp(moves));
 
+// Seat-index summaries (white = seat 0, black = seat 1) — the shape the shared
+// lobby-ui reads; the toSummary mapping does the same conversion live.
 const LOBBY_GAMES: LobbyGameSummary[] = [
-  { id: 'g1', myColor: 'w', opponentName: 'Sam', status: 'active', toMove: 'w',
+  { id: 'g1', mySeat: 0, opponentName: 'Sam', status: 'active', toMove: 0,
     updatedAtMs: NOW - 2 * 3_600_000, state: mkState(MID_GAME) },
-  { id: 'g2', myColor: 'b', opponentName: 'Priya', status: 'active', toMove: 'w',
+  { id: 'g2', mySeat: 1, opponentName: 'Priya', status: 'active', toMove: 0,
     updatedAtMs: NOW - 26 * 3_600_000, state: mkState(EARLY_GAME) },
-  { id: 'g3', myColor: 'w', opponentName: null, status: 'open', toMove: 'w',
+  { id: 'g3', mySeat: 0, opponentName: null, status: 'open', toMove: 0,
     updatedAtMs: NOW - 300_000, state: serializeState(initialState(ALL_ON)) },
-  { id: 'g4', myColor: 'w', opponentName: 'Sam', status: 'finished', result: 'white',
-    endedBy: 'surround', toMove: 'b', updatedAtMs: NOW - 3 * 86_400_000, state: mkState(MID_GAME) },
-  { id: 'g5', myColor: 'b', opponentName: 'Priya', status: 'finished', result: 'white',
-    endedBy: 'resign', toMove: 'w', updatedAtMs: NOW - 5 * 86_400_000, state: mkState(EARLY_GAME) },
+  { id: 'g4', mySeat: 0, opponentName: 'Sam', status: 'finished', result: 'p0',
+    endedBy: 'surround', toMove: 1, updatedAtMs: NOW - 3 * 86_400_000, state: mkState(MID_GAME) },
+  { id: 'g5', mySeat: 1, opponentName: 'Priya', status: 'finished', result: 'p0',
+    endedBy: 'resign', toMove: 0, updatedAtMs: NOW - 5 * 86_400_000, state: mkState(EARLY_GAME) },
 ];
 
 // Direct challenges (DESIGN §5.2/§6.1): an incoming one (accept/decline group)
 // and an outgoing one waiting under 'Challenge sent'.
 const LOBBY_WITH_CHALLENGES: LobbyGameSummary[] = [
-  { id: 'c1', myColor: 'b', opponentName: 'Ada', status: 'open', toMove: 'w',
+  { id: 'c1', mySeat: 1, opponentName: 'Ada', status: 'open', toMove: 0,
     challenge: { direction: 'incoming', name: 'Ada' },
     updatedAtMs: NOW - 120_000, state: serializeState(initialState(ALL_ON)) },
-  { id: 'c2', myColor: 'w', opponentName: 'Priya', status: 'open', toMove: 'w',
+  { id: 'c2', mySeat: 0, opponentName: 'Priya', status: 'open', toMove: 0,
     challenge: { direction: 'outgoing', name: 'Priya' },
     updatedAtMs: NOW - 600_000, state: serializeState(initialState(ALL_ON)) },
   ...LOBBY_GAMES.slice(0, 2),

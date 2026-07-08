@@ -41,10 +41,10 @@ describe('applyTurnBadge', () => {
 describe('actionableCount', () => {
   const base = (over: Partial<LobbyGameSummary>): LobbyGameSummary => ({
     id: 'g',
-    myColor: 'w',
+    mySeat: 0, // white
     opponentName: 'Opp',
     status: 'active',
-    toMove: 'b',
+    toMove: 1, // black to move → not my turn by default
     updatedAtMs: 0,
     state: '',
     ...over,
@@ -53,11 +53,11 @@ describe('actionableCount', () => {
   it('counts your-turn games, incoming challenges, and fresh opponent-activated games once each', () => {
     expect(
       actionableCount([
-        base({ id: 'my-turn', toMove: 'w' }),
+        base({ id: 'my-turn', toMove: 0 }),
         base({ id: 'challenge-in', status: 'open', challenge: { direction: 'incoming', name: 'Opp' } }),
-        base({ id: 'fresh-accepted', myColor: 'b', toMove: 'w', freshFromOpponent: true }),
+        base({ id: 'fresh-accepted', mySeat: 1, toMove: 0, freshFromOpponent: true }),
         // fresh AND my turn (rematch offer where I'm white) counts once
-        base({ id: 'fresh-my-turn', toMove: 'w', freshFromOpponent: true }),
+        base({ id: 'fresh-my-turn', toMove: 0, freshFromOpponent: true }),
       ]),
     ).toBe(4);
   });
@@ -68,7 +68,7 @@ describe('actionableCount', () => {
         base({ id: 'their-turn' }),
         base({ id: 'challenge-out', status: 'open', challenge: { direction: 'outgoing', name: 'Opp' } }),
         base({ id: 'invited', status: 'open' }),
-        base({ id: 'done', status: 'finished', result: 'white' }),
+        base({ id: 'done', status: 'finished', result: 'p0' }),
       ]),
     ).toBe(0);
   });

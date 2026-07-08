@@ -10,7 +10,9 @@ test('app boots with a clean console', async ({ page }) => {
 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'HIVE' })).toBeVisible();
-  await page.getByRole('link', { name: 'Play' }).click();
+  // Hot-seat landing offers Play hot-seat (→ the board) and Your games (→ the
+  // lobby); take the lobby route.
+  await page.getByRole('link', { name: /your games/i }).click();
   await expect(page.getByRole('heading', { name: /your games/i })).toBeVisible();
 
   expect(consoleErrors).toEqual([]);

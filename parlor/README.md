@@ -4,7 +4,7 @@ The shared, game-agnostic platform layer for this repo's parlor games —
 turn-based, two-player, invite-a-friend PWAs on Firebase. Ported from `hive/`'s
 proven platform code (every file carries a `// ported from hive/<path>` header);
 **`lex/`** is the first consumer; hive now consumes the `@parlor/web` platform
-layer too (its lobby UI and backend migrations are the remaining steps).
+layer and its shared lobby UI too (only its backend migration remains).
 
 Independent pnpm workspace. Packages (TS source, no build step):
 
