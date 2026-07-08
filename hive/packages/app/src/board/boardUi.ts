@@ -15,5 +15,6 @@ export function snapshotToBoardUi(snap: Snapshot): BoardUi {
     ...(snap.lastMove ? { lastMove: snap.lastMove } : {}),
     ...(snap.drag && selectedCell ? { hideTopOf: selectedCell } : {}),
     ...(snap.beat ? { pulseCells: snap.beat.pulseCells } : {}),
+    ...(snap.fannedStack ? { fannedStack: snap.fannedStack } : {}),
   };
 }
