@@ -2,10 +2,10 @@ name: HIVE CI
 
 on:
   pull_request:
-    paths: ['hive/**', '.github/workflows/hive-ci.yml']
+    paths: ['hive/**', 'parlor/**', '.github/workflows/hive-ci.yml']
   push:
     branches: [main]
-    paths: ['hive/**', '.github/workflows/hive-ci.yml']
+    paths: ['hive/**', 'parlor/**', '.github/workflows/hive-ci.yml']
 
 concurrency:
   group: hive-ci-${{ github.ref }}
@@ -33,7 +33,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: hive/pnpm-lock.yaml
+          cache-dependency-path: |
+            hive/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -44,6 +46,11 @@ jobs:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ runner.os }}-${{ hashFiles('hive/pnpm-lock.yaml') }}
           restore-keys: firebase-emulators-${{ runner.os }}-
+      # hive typechecks/bundles the source-linked @parlor/web — link: deps don't
+      # install the linked package's own deps, so parlor installs first.
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
@@ -61,7 +68,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: hive/pnpm-lock.yaml
+          cache-dependency-path: |
+            hive/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -72,6 +81,11 @@ jobs:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ runner.os }}-${{ hashFiles('hive/pnpm-lock.yaml') }}
           restore-keys: firebase-emulators-${{ runner.os }}-
+      # hive typechecks/bundles the source-linked @parlor/web — link: deps don't
+      # install the linked package's own deps, so parlor installs first.
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
       - run: pnpm install --frozen-lockfile
       - name: install playwright chromium
         working-directory: hive/e2e
