@@ -13,6 +13,8 @@ export function Fullscreen() {
   const fullscreenId = useUi((s) => s.fullscreenId);
   const openFullscreen = useUi((s) => s.openFullscreen);
   const closeFullscreen = useUi((s) => s.closeFullscreen);
+  const audioStreamId = useUi((s) => s.audioStreamId);
+  const toggleAudioStream = useUi((s) => s.toggleAudioStream);
   const overrides = useSettings((s) => s.streamOverrides);
   const count = useDetection((s) => (fullscreenId ? (s.state.byStream[fullscreenId]?.bearCount ?? 0) : 0));
 
@@ -47,11 +49,12 @@ export function Fullscreen() {
   const stream = STREAMS[index];
   if (!stream) return null;
   const youtubeId = overrides[stream.id] ?? effectiveYoutubeId(stream.id, stream.defaultYoutubeId);
+  const isAudio = audioStreamId === stream.id;
 
   return (
     <div className="fs" {...swipe}>
       <div className="fs__player">
-        <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active />
+        <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active muted={!isAudio} />
       </div>
 
       <button className="fs__nav fs__nav--prev" onClick={() => go(-1)} aria-label="Previous cam">
@@ -66,9 +69,21 @@ export function Fullscreen() {
           {stream.title}
           {FEATURES.detection ? <span className="badge badge--count badge--count-on">🐻 {count}</span> : null}
         </div>
-        <button className="iconbtn iconbtn--lg" onClick={closeFullscreen} aria-label="Close">
-          ✕
-        </button>
+        <div className="fs__actions">
+          <button
+            className={`iconbtn iconbtn--lg${isAudio ? ' iconbtn--on' : ''}`}
+            onClick={() => toggleAudioStream(stream.id)}
+            title={isAudio ? 'Mute this cam' : 'Listen to this cam'}
+            aria-label={isAudio ? `Mute ${stream.title}` : `Listen to ${stream.title}`}
+            aria-pressed={isAudio}
+            disabled={!youtubeId}
+          >
+            {isAudio ? '🔊' : '🔇'}
+          </button>
+          <button className="iconbtn iconbtn--lg" onClick={closeFullscreen} aria-label="Close">
+            ✕
+          </button>
+        </div>
       </div>
 
       <div className="fs__hint">Swipe or ← → to change cam · {index + 1}/{STREAMS.length}</div>

@@ -55,3 +55,12 @@ Can't capture real YouTube pixels, so a fish-catch records a hidden `<canvas>`
 (`captureStream` → codec-aware `MediaRecorder`) drawing a labeled recap card. Real,
 downloadable video; synthetic imagery until a backend supplies true frames. Verified end to
 end in headless Chromium via the e2e debug surface (`window.__katmai.ingest`).
+
+## 2026-07-08 — One cam at a time carries audio
+Every embed ships muted (`mute=1`) so the wall isn't a wall of noise and autoplay stays
+within browser policy. To let a user pick a cam to listen to, added a session-only
+`audioStreamId` in the UI store (radio behavior — selecting one mutes the rest) and a 🔇/🔊
+toggle on each tile and in fullscreen. Unmuting flips the embed's `mute` param to `0`, which
+reloads that one iframe; it's allowed because the toggle is a user gesture. Not persisted —
+a reload starts silent so we never fight the gesture requirement. Fullscreen owns audio while
+open (the wall behind it is muted) so the same cam never plays through two iframes at once.
