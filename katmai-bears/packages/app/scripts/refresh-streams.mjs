@@ -48,21 +48,32 @@ function extractJsonAfter(html, marker) {
 }
 
 /**
- * Walk any object graph, collecting every playlistVideoRenderer as {youtubeId, title} in
- * document order (recursive DFS — the first occurrence of a videoId wins, so dedup keeps the
- * playlist's own ordering, which is the wall order).
+ * Walk any object graph, collecting each playlist video as {youtubeId, title} in document
+ * order (recursive DFS — the first occurrence of a videoId wins, so dedup keeps the playlist's
+ * own ordering, which is the wall order). Handles both the legacy `playlistVideoRenderer` shape
+ * and the current `lockupViewModel` shape (YouTube migrated the playlist page to view-models).
  */
 function collectVideos(root) {
   const out = [];
   const seen = new Set();
+  const add = (youtubeId, title) => {
+    if (typeof youtubeId !== 'string' || seen.has(youtubeId)) return;
+    seen.add(youtubeId);
+    out.push({ youtubeId, title: String(title ?? '').trim() });
+  };
   const visit = (node) => {
     if (!node || typeof node !== 'object') return;
+
+    // Legacy layout: playlistVideoRenderer { videoId, title: { runs | simpleText } }.
     const r = node.playlistVideoRenderer;
-    if (r && typeof r.videoId === 'string' && !seen.has(r.videoId)) {
-      seen.add(r.videoId);
-      const title = r.title?.runs?.[0]?.text ?? r.title?.simpleText ?? '';
-      out.push({ youtubeId: r.videoId, title: String(title).trim() });
+    if (r) add(r.videoId, r.title?.runs?.[0]?.text ?? r.title?.simpleText);
+
+    // Current layout: lockupViewModel { contentId, contentType, metadata: { lockupMetadataViewModel: { title: { content } } } }.
+    const l = node.lockupViewModel;
+    if (l && l.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO') {
+      add(l.contentId, l.metadata?.lockupMetadataViewModel?.title?.content);
     }
+
     for (const v of Array.isArray(node) ? node : Object.values(node)) visit(v);
   };
   visit(root);
