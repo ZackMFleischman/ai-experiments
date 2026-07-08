@@ -12,7 +12,7 @@ import { GameController } from '../controller/GameController';
 
 export const HOTSEAT_STORAGE_KEY = 'lex.hotseat.v1';
 
-export const DEFAULT_HOTSEAT = { rulesetId: 'classic', dictionaryId: '2of12inf' } as const;
+export const DEFAULT_HOTSEAT = { rulesetId: 'classic', dictionaryId: 'nwl2023' } as const;
 
 /** Crypto-backed uniform rng in [0,1); Math.random fallback for old engines. */
 function cryptoRng(): number {
