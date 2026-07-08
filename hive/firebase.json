@@ -5,8 +5,8 @@
     "rewrites": [{ "source": "**", "destination": "/index.html" }]
   },
   "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "rules": "../parlor/firestore.rules",
+    "indexes": "../parlor/firestore.indexes.json"
   },
   "functions": [
     {

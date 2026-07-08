@@ -23,7 +23,14 @@ hive. Scope is **2-player** (N-player is a separate breaking epic, parked).
 
 ---
 
-## Phase 1 — Rules + indexes template *(low risk, high leverage, no code)*
+## Phase 1 — Rules + indexes template *(low risk, high leverage, no code)* — ✅ SHIPPED 2026-07-08
+
+> Shipped: `parlor/firestore.rules` + `parlor/firestore.indexes.json` are the
+> canonical reference (rack/bag override documented inline). hive consumes both
+> verbatim (`firebase.json` + rules-test re-pointed at `../parlor/...`, local
+> copies deleted); lex shares the indexes and keeps only its rack/bag rules
+> override. Equivalence proven by the games' unchanged negative-path rules tests;
+> `lex/DESIGN.md §4` + both `DECISIONS.md` updated.
 
 **Goal:** stop copy-pasting the security model. hive's and lex's `firestore.rules`
 + composite indexes are near-identical (three-tier: own `users/{uid}`, `games` by

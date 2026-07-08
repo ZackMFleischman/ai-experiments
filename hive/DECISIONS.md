@@ -267,3 +267,14 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   parlor source. Verified: full `pnpm validate` (typecheck, engine/app/functions
   unit incl. 68 emulator callable tests over the new contract, hot-seat + mp e2e,
   visual/ux, offline) green.
+
+- **2026-07-08 — Firestore rules + indexes consumed from the canonical parlor
+  reference (parlor hardening Phase 1).** hive is a perfect-information game, so
+  its `firestore.rules` and `firestore.indexes.json` were byte-identical (rule
+  logic) to the new `parlor/firestore.rules` + `parlor/firestore.indexes.json`
+  canonical reference. Deleted both local copies; `firebase.json` now points
+  `firestore.rules`/`indexes` at `../parlor/...`, and the rules-unit-test reads
+  the parlor file. Effective rules unchanged (identical statements, comments
+  aside), so the security posture and the negative-path rules tests are
+  unaffected. Stops copy-pasting the security model; a hidden-info game layers a
+  documented racks/private override instead.

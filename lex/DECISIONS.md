@@ -214,3 +214,17 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   returns to the rack wholesale rather than trying to partially reconcile.
   `buildPreview` now reads the acting seat's rack (off-turn `game.toMove` is the
   opponent), and the engine state is never touched by staging.
+
+- **2026-07-08 — Firestore rules + indexes now track a canonical parlor
+  reference (hardening Phase 1).** `parlor/firestore.rules` +
+  `parlor/firestore.indexes.json` are the single source of truth for the
+  security model (declarative files, not TS — parlor's boundary/doc lints ignore
+  non-`.md`, non-source files, so they live at the parlor root). The indexes are
+  byte-identical across games, so lex's `firebase.json` points `indexes` straight
+  at the parlor file and the local copy is deleted. lex keeps its own
+  `firestore.rules` **only** because it is a hidden-information game: the base
+  three tiers (users/games/moves/invites/deny-all) mirror the reference verbatim,
+  and lex adds the `racks/{uid}` (owner-read) + `private/*` (server-secret)
+  override, which the reference documents as a copy-in snippet. The negative-path
+  rules-unit-tests remain the equivalence gate — unchanged, so still green.
+  DESIGN §4 Share table updated.
