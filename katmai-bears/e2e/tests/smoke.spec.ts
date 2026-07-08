@@ -41,6 +41,30 @@ test('hiding a stream removes its tile; re-enabling restores it', async ({ page 
   await expect(page.locator('.tile')).toHaveCount(6);
 });
 
+test('a tile can be resized bigger and smaller', async ({ page }) => {
+  await page.goto('/');
+  const tile = page.locator('.tile').first();
+  await expect(tile).toHaveClass(/tile--sm/);
+
+  // Two clicks of "bigger" walk sm → md → lg, where the control disables at the max.
+  await page.getByRole('button', { name: 'Make Brooks Falls bigger' }).click();
+  await expect(tile).toHaveClass(/tile--md/);
+  await page.getByRole('button', { name: 'Make Brooks Falls bigger' }).click();
+  await expect(tile).toHaveClass(/tile--lg/);
+  await expect(page.getByRole('button', { name: 'Make Brooks Falls bigger' })).toBeDisabled();
+
+  // "smaller" walks back down.
+  await page.getByRole('button', { name: 'Make Brooks Falls smaller' }).click();
+  await expect(tile).toHaveClass(/tile--md/);
+});
+
+test('each tile exposes a drag handle for reordering', async ({ page }) => {
+  await page.goto('/');
+  const grips = page.getByRole('button', { name: /^Reorder / });
+  await expect(grips).toHaveCount(6);
+  await expect(grips.first()).toHaveAttribute('draggable', 'true');
+});
+
 test('deep link opens fullscreen and next cycles cams', async ({ page }) => {
   await page.goto('/?stream=brooks-falls&full=1');
   const fs = page.locator('.fs');

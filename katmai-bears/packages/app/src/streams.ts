@@ -77,6 +77,26 @@ export function getStream(id: string): StreamMeta | undefined {
   return STREAMS.find((s) => s.id === id);
 }
 
+/**
+ * Apply a user-chosen order to the catalog. Ids in `order` come first (in that order,
+ * de-duped, unknown ids dropped); any catalog cam missing from `order` is appended in
+ * its default position, so new cams surface automatically and a stale order never hides one.
+ */
+export function orderedStreams(order: string[]): StreamMeta[] {
+  const byId = new Map(STREAMS.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  const out: StreamMeta[] = [];
+  for (const id of order) {
+    const s = byId.get(id);
+    if (s && !seen.has(id)) {
+      out.push(s);
+      seen.add(id);
+    }
+  }
+  for (const s of STREAMS) if (!seen.has(s.id)) out.push(s);
+  return out;
+}
+
 /** Poster thumbnail for a facade tile. YouTube's still frame when we have an id, else a gradient placeholder handled in CSS. */
 export function posterUrl(youtubeId: string | undefined): string | undefined {
   return youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg` : undefined;

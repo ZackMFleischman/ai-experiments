@@ -2,6 +2,15 @@
 
 Append-only. Newest first. Keep entries ≤8 lines.
 
+## 2026-07-08 — Dashboard is a viewport-filling wall with per-tile controls
+The old auto-fit grid of fixed 16:9 tiles left desktop half-empty and didn't read as a
+camera wall. Replaced it with a security-camera mosaic: `.app` is a flex column at
+`100dvh`, `.dashboard` scrolls internally, and `.wall` uses a responsive fixed column count
+(2→5) with `grid-auto-rows: 1fr` + `dense` flow so tiles divide the height. Added per-tile
+size (sm/md/lg spans, ＋/−), and native HTML5 drag-reorder via a ⠿ grip — a transparent
+`.tile__drop` layer catches dragover/drop above the iframe (iframes swallow drag events).
+Order + sizes persist in settings (localStorage); "Reset wall" clears them.
+
 ## 2026-07-08 — Single-threaded ffmpeg.wasm, no COOP/COEP
 The Daily Reel stitches clips client-side. The multithreaded ffmpeg core needs
 SharedArrayBuffer → cross-origin isolation → which breaks third-party YouTube iframes, and
