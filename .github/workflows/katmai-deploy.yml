@@ -68,7 +68,10 @@ jobs:
           set -e
           printf '%s\n' "$out"
           [ "$status" -eq 0 ] || exit "$status"
-          url=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev' | tail -1)
+          # First pages.dev URL = the unique per-deploy subdomain (live immediately);
+          # the last is the branch alias, whose DNS can lag minutes on a fresh project.
+          # Smoke-check the unique URL so we don't fail on alias propagation delay.
+          url=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev' | head -1)
           echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
       - name: smoke-check the deployment
         if: steps.deploy.outcome == 'success'
