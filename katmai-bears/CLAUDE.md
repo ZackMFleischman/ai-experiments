@@ -14,6 +14,8 @@ when working in this directory.
   codecs, YouTube-pixel limits). **Read before touching `src/detection/`, `src/clips/`, or
   `src/sw.ts`.**
 - [`DECISIONS.md`](./DECISIONS.md) — append-only rationale log.
+- [`DETECTION-PLAN.md`](./DETECTION-PLAN.md) — milestoned path from simulated counts to real,
+  per-stream bear recognition (backend detector). Read before starting detection-backend work.
 
 ## Hard rules
 
