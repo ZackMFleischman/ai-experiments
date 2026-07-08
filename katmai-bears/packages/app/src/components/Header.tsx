@@ -1,3 +1,4 @@
+import { FEATURES } from '../features';
 import { requestNotificationPermission } from '../notifications/notify';
 import { useDetection } from '../state/detection';
 import { useSettings } from '../state/settings';
@@ -25,33 +26,41 @@ export function Header() {
         <span className="header__logo">🐻</span>
         <div>
           <h1 className="header__title">Katmai Bearcams</h1>
-          <p className="header__sub">Brooks Falls live · simulated bear counts</p>
+          <p className="header__sub">
+            Brooks Falls, Alaska{FEATURES.detection ? ' · simulated bear counts' : ' · live cams'}
+          </p>
         </div>
       </div>
 
-      <div className="header__stats">
-        <div className="stat">
-          <span className="stat__num">{total}</span>
-          <span className="stat__label">on screen</span>
+      {FEATURES.detection ? (
+        <div className="header__stats">
+          <div className="stat">
+            <span className="stat__num">{total}</span>
+            <span className="stat__label">on screen</span>
+          </div>
+          <div className="stat stat--muted">
+            <span className="stat__num">{peak}</span>
+            <span className="stat__label">peak</span>
+          </div>
         </div>
-        <div className="stat stat--muted">
-          <span className="stat__num">{peak}</span>
-          <span className="stat__label">peak</span>
-        </div>
-      </div>
+      ) : null}
 
       <div className="header__actions">
-        <button
-          className={`iconbtn${notificationsEnabled ? ' iconbtn--on' : ''}`}
-          aria-label={notificationsEnabled ? 'Notifications on' : 'Enable notifications'}
-          title={notificationsEnabled ? 'Notifications on' : 'Enable notifications'}
-          onClick={() => void toggleNotifications()}
-        >
-          {notificationsEnabled ? '🔔' : '🔕'}
-        </button>
-        <button className="iconbtn" aria-label="Clips & Daily Reel" title="Clips & Daily Reel" onClick={() => setPanel('clips')}>
-          🎞️
-        </button>
+        {FEATURES.detection ? (
+          <>
+            <button
+              className={`iconbtn${notificationsEnabled ? ' iconbtn--on' : ''}`}
+              aria-label={notificationsEnabled ? 'Notifications on' : 'Enable notifications'}
+              title={notificationsEnabled ? 'Notifications on' : 'Enable notifications'}
+              onClick={() => void toggleNotifications()}
+            >
+              {notificationsEnabled ? '🔔' : '🔕'}
+            </button>
+            <button className="iconbtn" aria-label="Clips & Daily Reel" title="Clips & Daily Reel" onClick={() => setPanel('clips')}>
+              🎞️
+            </button>
+          </>
+        ) : null}
         <button className="iconbtn" aria-label="Settings" title="Settings" onClick={() => setPanel('settings')}>
           ⚙️
         </button>

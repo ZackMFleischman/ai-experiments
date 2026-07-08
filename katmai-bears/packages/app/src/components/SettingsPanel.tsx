@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FEATURES } from '../features';
 import { requestNotificationPermission } from '../notifications/notify';
 import { effectiveYoutubeId, useSettings } from '../state/settings';
 import { useUi } from '../state/ui';
@@ -100,6 +101,8 @@ export function SettingsPanel() {
         <p className="muted small">Turn off to save data/CPU — tiles then wait for a tap to go live.</p>
       </section>
 
+      {FEATURES.detection ? (
+        <>
       <section className="drawer__section">
         <h3>Alert thresholds</h3>
         <ThresholdRow
@@ -138,6 +141,8 @@ export function SettingsPanel() {
           README).
         </p>
       </section>
+        </>
+      ) : null}
 
       <section className="drawer__section">
         <h3>Streams on the dashboard</h3>
@@ -157,6 +162,7 @@ export function SettingsPanel() {
         ))}
       </section>
 
+      {FEATURES.detection ? (
       <section className="drawer__section">
         <h3>Detection source</h3>
         <label className="field field--row">
@@ -189,6 +195,7 @@ export function SettingsPanel() {
         ) : null}
         <p className="muted small">Reload after switching sources.</p>
       </section>
+      ) : null}
     </aside>
   );
 }

@@ -35,18 +35,23 @@ So the app is built in two halves that don't fight each other:
 | One-tap fullscreen, swipe / arrow-key / prev-next cycling | ✅ real |
 | Deep links (`/?stream=<id>&full=1`) | ✅ real |
 | Installable PWA (offline app shell, service worker) | ✅ real |
-| Live bear counter (per-feed chip + total + peak) | ✅ via simulator |
-| Alert when a feed has **more than N** bears (N configurable) | ✅ via simulator |
-| **Bearapalooza** banner + notification at **12+** bears, deep-linking to that feed | ✅ via simulator |
-| Fish-catch **clips** saved to IndexedDB, browsable gallery | ✅ real recording pipeline |
-| **Daily Reel** — play sequence + stitch to one downloadable mp4 (ffmpeg.wasm) | ✅ real |
-| In-tab / installed notifications | ✅ real |
+| Live bear counter (per-feed chip + total + peak) | ✅ via simulator · flagged off in prod |
+| Alert when a feed has **more than N** bears (N configurable) | ✅ via simulator · flagged off in prod |
+| **Bearapalooza** banner + notification at **12+** bears, deep-linking to that feed | ✅ via simulator · flagged off in prod |
+| Fish-catch **clips** saved to IndexedDB, browsable gallery | ✅ real pipeline · flagged off in prod |
+| **Daily Reel** — play sequence + stitch to one downloadable mp4 (ffmpeg.wasm) | ✅ real · flagged off in prod |
+| In-tab / installed notifications | ✅ real · flagged off in prod |
 | True 24/7 background push (app closed) | ⏳ needs backend (seam wired) |
 | Real CV bear/fish detection on live feeds | ⏳ needs backend (seam wired) |
 
 Clips are recorded from a synthetic overlay canvas (title + animated boxes + "FISH CATCH!"),
 since the real YouTube pixels are off-limits — real, downloadable video, synthetic imagery
 until a backend supplies true frames.
+
+**The detection features are behind a flag (`FEATURES.detection`) that is OFF in production**
+— the deployed site is a clean video wall, because the counts are simulated. It's on in dev,
+and you can force it anywhere by appending **`?detection=1`** to the URL (`?detection=0` to
+force off). See `src/features.ts`.
 
 ## Develop
 
@@ -76,10 +81,16 @@ Cams with no known id degrade gracefully to an "Open on explore.org ↗" link.
 
 ## Deploy
 
-`pnpm build` emits a static `dist/` — host it anywhere (Cloudflare Pages, Netlify, etc.).
-No deploy workflow is wired here (it would need host secrets). The production build injects
+Wired to **Cloudflare Pages** via `.github/workflows/katmai-deploy.yml` (project
+`katmai-bears`) — production deploys on merge to `main`, and each PR touching
+`katmai-bears/` gets a preview URL commented on the PR. It reuses the repo's shared
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets and self-provisions the Pages
+project; if those secrets are absent it builds and skips the deploy with a notice.
+
+`pnpm build` emits a static `dist/` you can also host anywhere. The production build injects
 a CSP that intentionally does **not** enable cross-origin isolation, so YouTube embeds keep
-working; the ffmpeg reel uses the single-threaded core precisely so it needs no isolation.
+working; the ffmpeg reel uses the single-threaded core (fetched from jsDelivr) precisely so
+it needs no isolation.
 
 ## Layout
 

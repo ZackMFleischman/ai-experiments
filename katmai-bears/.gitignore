@@ -5,7 +5,6 @@ dist/
 
 # Generated at (pre)build time — never commit.
 packages/app/public/icons/
-packages/app/public/ffmpeg/
 
 # Playwright
 test-results/

@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { FEATURES } from '../features';
 import { useSwipe } from '../hooks/useSwipe';
 import { useDetection } from '../state/detection';
 import { effectiveYoutubeId, useSettings } from '../state/settings';
@@ -63,7 +64,7 @@ export function Fullscreen() {
       <div className="fs__top">
         <div className="fs__title">
           {stream.title}
-          <span className="badge badge--count badge--count-on">🐻 {count}</span>
+          {FEATURES.detection ? <span className="badge badge--count badge--count-on">🐻 {count}</span> : null}
         </div>
         <button className="iconbtn iconbtn--lg" onClick={closeFullscreen} aria-label="Close">
           ✕

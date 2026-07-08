@@ -9,6 +9,7 @@ import { Header } from './components/Header';
 import { SettingsPanel } from './components/SettingsPanel';
 import { createActiveSource } from './detection/createSource';
 import { useClips } from './clips/store';
+import { FEATURES } from './features';
 import { useDetection } from './state/detection';
 import { useUi } from './state/ui';
 
@@ -21,6 +22,9 @@ export default function App() {
     const params = new URLSearchParams(location.search);
     const stream = params.get('stream');
     if (stream && params.get('full') === '1') openFullscreen(stream);
+
+    // Detection (counter/alerts/clips) is flagged off in prod — the data is simulated.
+    if (!FEATURES.detection) return;
 
     void useClips.getState().load();
 
@@ -42,9 +46,9 @@ export default function App() {
   return (
     <div className="app">
       <Header />
-      <BearapaloozaBanner />
+      {FEATURES.detection ? <BearapaloozaBanner /> : null}
       <Dashboard />
-      <Alerts />
+      {FEATURES.detection ? <Alerts /> : null}
       <Fullscreen />
       {panel === 'settings' ? <SettingsPanel /> : null}
       {panel === 'clips' ? <ClipsGallery /> : null}

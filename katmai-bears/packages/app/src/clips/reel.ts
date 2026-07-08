@@ -2,11 +2,15 @@
 // mp4/H.264 file, fully client-side, using the single-threaded ffmpeg.wasm core.
 //
 // Single-threaded on purpose: the multithreaded core needs SharedArrayBuffer, which
-// needs cross-origin isolation (COOP/COEP), which would break the YouTube iframe
-// embeds. ST needs none of that. The core is self-hosted (see scripts/copy-ffmpeg.mjs)
-// and loaded on demand so it never weighs down the base bundle.
+// needs cross-origin isolation (COOP/COEP), which would break the YouTube iframe embeds.
+// ST needs none of that. The core (~30 MB wasm) is fetched on demand from jsDelivr — it
+// exceeds Cloudflare Pages' 25 MiB/file limit so we can't self-host it in the deploy, and
+// loading it lazily keeps it out of the base bundle entirely. The production CSP allows
+// cdn.jsdelivr.net in connect-src for exactly this fetch.
 
 import type { ClipView } from './store';
+
+const FFMPEG_CORE_CDN = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
 
 type FFmpegInstance = {
   load: (opts: { coreURL: string; wasmURL: string }) => Promise<boolean>;
@@ -24,11 +28,10 @@ async function getFfmpeg(): Promise<FFmpegInstance> {
     ffmpegPromise = (async () => {
       const { FFmpeg } = await import('@ffmpeg/ffmpeg');
       const { toBlobURL } = await import('@ffmpeg/util');
-      const base = import.meta.env.BASE_URL;
       const ffmpeg = new FFmpeg() as unknown as FFmpegInstance;
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${base}ffmpeg/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${base}ffmpeg/ffmpeg-core.wasm`, 'application/wasm'),
+        coreURL: await toBlobURL(`${FFMPEG_CORE_CDN}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${FFMPEG_CORE_CDN}/ffmpeg-core.wasm`, 'application/wasm'),
       });
       return ffmpeg;
     })();

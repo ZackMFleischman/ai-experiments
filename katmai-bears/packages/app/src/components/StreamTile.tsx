@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FEATURES } from '../features';
 import { useDetection } from '../state/detection';
 import { effectiveYoutubeId, useSettings } from '../state/settings';
 import { useUi } from '../state/ui';
@@ -52,9 +53,11 @@ export function StreamTile({ stream }: Props) {
         <div className="tile__topline">
           <span className="badge badge--live">● LIVE</span>
           <div className="tile__topright">
-            <span className={`badge badge--count${count > 0 ? ' badge--count-on' : ''}`} title="Bears on screen">
-              🐻 {count}
-            </span>
+            {FEATURES.detection ? (
+              <span className={`badge badge--count${count > 0 ? ' badge--count-on' : ''}`} title="Bears on screen">
+                🐻 {count}
+              </span>
+            ) : null}
             <button
               className="iconbtn iconbtn--sm"
               title="Hide this stream"

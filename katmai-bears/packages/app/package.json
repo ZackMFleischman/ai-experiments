@@ -4,9 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-ffmpeg.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/build-icons.mjs && node scripts/copy-ffmpeg.mjs",
+    "prebuild": "node scripts/build-icons.mjs",
     "build": "vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
@@ -23,7 +22,6 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "@ffmpeg/core": "^0.12.10",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",

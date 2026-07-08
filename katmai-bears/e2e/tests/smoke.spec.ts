@@ -52,8 +52,16 @@ test('deep link opens fullscreen and next cycles cams', async ({ page }) => {
   await expect(fs.locator('.fs__title')).toContainText('Brooks Falls Low');
 });
 
-test('a fish-catch is recorded to the clip gallery', async ({ page }) => {
+test('detection UI is hidden by default (prod flag off)', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('.stat')).toHaveCount(0);
+  await expect(page.locator('.badge--count')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Clips & Daily Reel' })).toHaveCount(0);
+});
+
+test('a fish-catch is recorded to the clip gallery', async ({ page }) => {
+  // Detection is flagged off by default; ?detection=1 opts the e2e run in.
+  await page.goto('/?detection=1');
   // Drive a deterministic catch via the debug surface.
   await page.evaluate(() => {
     window.__katmai?.ingest({
