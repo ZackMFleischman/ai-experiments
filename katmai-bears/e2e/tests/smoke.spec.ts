@@ -82,6 +82,22 @@ test('dragging a tile by its grip reorders the wall', async ({ page }) => {
   expect(await page.locator('.tile__title').allTextContents()).toContain('Brooks Falls');
 });
 
+test('choosing a cam to listen to unmutes exactly that one embed', async ({ page }) => {
+  await page.goto('/');
+  // Every embed starts muted (all tiles carry mute=1).
+  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(5);
+  await expect(page.locator('.player__iframe[src*="mute=0"]')).toHaveCount(0);
+
+  // Listen to Brooks Falls: its embed reloads with sound, all others stay muted.
+  await page.getByRole('button', { name: 'Listen to Brooks Falls', exact: true }).click();
+  await expect(page.locator('.player__iframe[src*="mute=0"]')).toHaveCount(1);
+  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(4);
+
+  // The control is now a mute toggle; clicking it silences everything again (radio behavior).
+  await page.getByRole('button', { name: 'Mute Brooks Falls', exact: true }).click();
+  await expect(page.locator('.player__iframe[src*="mute=0"]')).toHaveCount(0);
+});
+
 test('deep link opens fullscreen and next cycles cams', async ({ page }) => {
   await page.goto('/?stream=brooks-falls&full=1');
   const fs = page.locator('.fs');

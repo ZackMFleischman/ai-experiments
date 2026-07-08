@@ -548,6 +548,11 @@ a {
   gap: 10px;
   font-weight: 700;
 }
+.fs__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .fs__hint {
   position: absolute;
   bottom: 14px;

@@ -31,6 +31,9 @@ export function StreamTile({ stream, span, registerRef, isDragged, isOver, onGri
   const youtubeId = overrides[stream.id] ?? effectiveYoutubeId(stream.id, stream.defaultYoutubeId);
   const status = useDetection((s) => s.state.byStream[stream.id]);
   const openFullscreen = useUi((s) => s.openFullscreen);
+  const fullscreenId = useUi((s) => s.fullscreenId);
+  const audioStreamId = useUi((s) => s.audioStreamId);
+  const toggleAudioStream = useUi((s) => s.toggleAudioStream);
   const setStreamHidden = useSettings((s) => s.setStreamHidden);
   const size = useSettings((s) => s.tileSizes[stream.id] ?? 'sm');
   const setTileSize = useSettings((s) => s.setTileSize);
@@ -50,6 +53,15 @@ export function StreamTile({ stream, span, registerRef, isDragged, isOver, onGri
     if (next) setTileSize(stream.id, next);
   };
 
+  // This tile is the audio source only while no fullscreen is open — the immersive view
+  // owns sound so the same cam never plays through two iframes at once.
+  const isAudio = audioStreamId === stream.id;
+  const playAudio = isAudio && fullscreenId === null;
+  const toggleAudio = (): void => {
+    setTapped(true); // audio needs a mounted player; wake a facade tile first
+    toggleAudioStream(stream.id);
+  };
+
   const stateClass = isApalooza ? ' tile--apalooza' : isAlerting ? ' tile--alert' : '';
   const dragClass = `${isDragged ? ' tile--dragging' : ''}${isOver ? ' tile--over' : ''}`;
 
@@ -64,7 +76,7 @@ export function StreamTile({ stream, span, registerRef, isDragged, isOver, onGri
         style={poster ? { backgroundImage: `url(${poster})` } : undefined}
       >
         {showPlayer ? (
-          <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active minimalChrome />
+          <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active minimalChrome muted={!playAudio} />
         ) : (
           <button className="tile__facade" onClick={() => setTapped(true)} aria-label={`Play ${stream.title}`}>
             {poster ? (
@@ -81,6 +93,16 @@ export function StreamTile({ stream, span, registerRef, isDragged, isOver, onGri
         <div className="tile__topline">
           <span className="badge badge--live">● LIVE</span>
           <div className="tile__topright">
+            <button
+              className={`iconbtn iconbtn--sm${isAudio ? ' iconbtn--on' : ''}`}
+              title={isAudio ? 'Mute this cam' : 'Listen to this cam'}
+              aria-label={isAudio ? `Mute ${stream.title}` : `Listen to ${stream.title}`}
+              aria-pressed={isAudio}
+              onClick={toggleAudio}
+              disabled={!youtubeId}
+            >
+              {isAudio ? '🔊' : '🔇'}
+            </button>
             {FEATURES.detection ? (
               <span className={`badge badge--count${count > 0 ? ' badge--count-on' : ''}`} title="Bears on screen">
                 🐻 {count}
