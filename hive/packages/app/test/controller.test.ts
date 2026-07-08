@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { HEX_SIZE } from '../src/board/hexGeometry';
 import { GameController } from '../src/controller/GameController';
 import { LocalTransport } from '../src/controller/transport';
-import { ALL_ON } from './replay';
+import { ALL_ON, MID_GAME, seededController, TALL_STACK } from './replay';
 
 const px = (q: number, r: number) => hexToPixel({ q, r }, HEX_SIZE);
 
@@ -200,5 +200,55 @@ describe('GameController (T3.4)', () => {
 
   it('pass is exposed only when forced', () => {
     expect(c.getSnapshot().canPass).toBe(false);
+  });
+});
+
+describe('GameController peek (DESIGN §6.2 — inspect a stack)', () => {
+  it('fans a stack out and collapses it on a second toggle', async () => {
+    const c = await seededController(MID_GAME);
+    expect(c.getSnapshot().state.board.get('-1,0')).toHaveLength(2); // wQ + wB1
+    c.togglePeek({ q: -1, r: 0 });
+    expect(c.getSnapshot().fannedStack).toBe('-1,0');
+    c.togglePeek({ q: -1, r: 0 });
+    expect(c.getSnapshot().fannedStack).toBeUndefined();
+  });
+
+  it('does nothing for a lone tile — there is nothing buried to reveal', async () => {
+    const c = await seededController(MID_GAME);
+    expect(c.getSnapshot().state.board.get('0,0')).toHaveLength(1);
+    c.togglePeek({ q: 0, r: 0 });
+    expect(c.getSnapshot().fannedStack).toBeUndefined();
+  });
+
+  it('peeks even a stack whose top you could move (your own beetle)', async () => {
+    const c = await seededController(TALL_STACK);
+    expect(c.getSnapshot().toMove).toBe('w');
+    expect(c.getSnapshot().movableCells.has('0,0')).toBe(true); // white beetle on top
+    c.togglePeek({ q: 0, r: 0 });
+    expect(c.getSnapshot().fannedStack).toBe('0,0');
+  });
+
+  it('acting on the board dismisses an open peek (select and cancel both clear it)', async () => {
+    const c = await seededController(MID_GAME);
+    c.togglePeek({ q: -1, r: 0 });
+    c.selectCell({ q: 0, r: 0 }); // tap a piece
+    expect(c.getSnapshot().fannedStack).toBeUndefined();
+    c.togglePeek({ q: -1, r: 0 });
+    c.cancel(); // tap empty space / Esc
+    expect(c.getSnapshot().fannedStack).toBeUndefined();
+  });
+
+  it('a move dismisses an open peek', async () => {
+    const c = await seededController(TALL_STACK); // white to move, movable stack at 0,0
+    c.togglePeek({ q: 0, r: 0 });
+    expect(c.getSnapshot().fannedStack).toBe('0,0');
+    // Pick up a movable piece and drop it on its first legal target.
+    const from = [...c.getSnapshot().movableCells][0] as string;
+    const [fq, fr] = from.split(',').map(Number) as [number, number];
+    c.selectCell({ q: fq, r: fr });
+    const to = [...c.getSnapshot().targets, ...c.getSnapshot().climbTargets][0] as string;
+    const [tq, tr] = to.split(',').map(Number) as [number, number];
+    c.selectCell({ q: tq, r: tr });
+    expect(c.getSnapshot().fannedStack).toBeUndefined();
   });
 });

@@ -193,3 +193,12 @@ build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   still hive's (Phase 3 shares the lobby UI); backend untouched (Phase 4).
   Verified: typecheck, 150 unit tests, static+mp builds, firebase-free static
   bundle, and validate:m4 (integration + multiplayer e2e) all green.
+
+- **2026-07-08 — stack peek wired up (user request).** DESIGN §6.2 always promised
+  "tapping a stack fans it out" and the renderer already supported `fannedStack`, but
+  nothing drove it. Added `GameController.togglePeek` (read-only `peekCell` → `snapshot.
+  fannedStack` → `BoardUi`) and the GameBoard gesture. Judgment call: a tap fans an
+  *inert* stack (opponent's/off-turn — when you're actually curious), but a *movable*
+  stack is picked up by a tap (the move flow is sacred) and peeked on long-press instead,
+  reusing the piece-info hold timer. Any board action collapses it; never affects
+  legality. Covered by controller + game-board tests; gallery visual clean.

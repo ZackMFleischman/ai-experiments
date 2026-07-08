@@ -1,11 +1,11 @@
 import { hexToPixel } from '@hive/engine';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameBoard } from '../src/board/GameBoard';
 import { HEX_SIZE } from '../src/board/hexGeometry';
 import { GameController } from '../src/controller/GameController';
 import { LocalTransport } from '../src/controller/transport';
-import { ALL_ON } from './replay';
+import { ALL_ON, MID_GAME, seededController, TALL_STACK } from './replay';
 
 // The svg mock rect is 600x400; auto-fit viewBox varies, so tests locate cells
 // via their data attributes and drive the controller through pointer events on
@@ -121,5 +121,65 @@ describe('GameBoard drag layer (T3.6)', () => {
     render(<GameBoard controller={c} />);
     const previews = screen.getAllByTestId('drag-preview');
     expect(previews[previews.length - 1]?.getAttribute('data-allowed')).toBe('false');
+  });
+});
+
+describe('GameBoard peek (tap a stack to see what is buried)', () => {
+  it('tapping an inert stack fans it out, tapping it again collapses it', async () => {
+    // MID_GAME: white beetle atop -1,0 with black to move — a stack you cannot
+    // pick up, so a tap is free to fan it.
+    const c = await seededController(MID_GAME);
+    const { container } = render(<GameBoard controller={c} />);
+    const svg = screen.getByTestId('board-view');
+    mockRect(svg);
+
+    fireEvent.pointerDown(container.querySelector('[data-cell="-1,0"]') as Element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(svg, { pointerId: 1, clientX: 100, clientY: 100 });
+    expect(c.getSnapshot().fannedStack).toBe('-1,0');
+    // Both buried tiles now render laid out under the one cell.
+    expect(
+      (container.querySelector('[data-cell="-1,0"]') as Element).querySelectorAll('[data-tile]'),
+    ).toHaveLength(2);
+
+    fireEvent.pointerDown(container.querySelector('[data-cell="-1,0"]') as Element, {
+      pointerId: 2,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(svg, { pointerId: 2, clientX: 100, clientY: 100 });
+    expect(c.getSnapshot().fannedStack).toBeUndefined();
+  });
+
+  it('long-pressing a movable stack fans it (a tap would pick it up instead)', async () => {
+    const c = await seededController(TALL_STACK); // white to move; own beetle on a stack
+    const stackCell = [...c.getSnapshot().movableCells].find(
+      (k) => (c.getSnapshot().state.board.get(k)?.length ?? 0) >= 2,
+    ) as string;
+    expect(stackCell).toBeTruthy();
+    const { container } = render(<GameBoard controller={c} />);
+    const svg = screen.getByTestId('board-view');
+    mockRect(svg);
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.pointerDown(container.querySelector(`[data-cell="${stackCell}"]`) as Element, {
+        pointerId: 1,
+        clientX: 100,
+        clientY: 100,
+      });
+      // Down picks it up immediately; only holding past the threshold fans it.
+      const sel = c.getSnapshot().selection;
+      expect(sel?.kind === 'board' && sel.cell).toBe(stackCell);
+      expect(c.getSnapshot().fannedStack).toBeUndefined();
+      vi.advanceTimersByTime(600);
+      expect(c.getSnapshot().fannedStack).toBe(stackCell);
+      expect(c.getSnapshot().selection).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

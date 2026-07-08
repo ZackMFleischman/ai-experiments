@@ -55,6 +55,9 @@ export interface Snapshot {
   tossHint: boolean;
   lastMove?: { from?: Hex; to: Hex };
   drag?: DragState;
+  /** A stack the player asked to inspect: fanned out to reveal buried tiles
+   * (DESIGN §6.2). Pure inspection — never affects legality or moves. */
+  fannedStack?: CellKey;
   view: ViewState | null;
   /** Set in multiplayer (T4.6): the seat this client plays. Hot-seat: unset. */
   myColor?: Color;
@@ -90,6 +93,8 @@ export class GameController {
 
   private selection: Selection | undefined;
   private drag: DragState | undefined;
+  /** Cell whose stack is fanned out for inspection (peek). Read-only overlay. */
+  private peekCell: CellKey | undefined;
   private view: ViewState | null = null;
   private pendingDrawOffer: Color | undefined;
   private lastMove: { from?: Hex; to: Hex } | undefined;
@@ -148,6 +153,7 @@ export class GameController {
     let s = initialState(stored.options);
     this.stagedMove = undefined;
     this.preStage = undefined;
+    this.peekCell = undefined;
     this.pendingDrawOffer = undefined;
     this.resigned = undefined;
     this.timedOut = undefined;
@@ -183,6 +189,7 @@ export class GameController {
       const move = parseUhp(entry.uhp, this.state);
       this.state = applyMove(this.state, move);
       this.lastMove = moveCells(move);
+      this.peekCell = undefined; // the board moved under any open peek
       this.pendingDrawOffer = undefined;
     } else if (entry.kind === 'resign') this.resigned = entry.by;
     else if (entry.kind === 'timeout') this.timedOut = entry.by;
@@ -274,6 +281,7 @@ export class GameController {
         ),
       ...(this.lastMove ? { lastMove: this.lastMove } : {}),
       ...(this.drag ? { drag: this.drag } : {}),
+      ...(this.peekCell ? { fannedStack: this.peekCell } : {}),
       view: this.view,
       ...(this.perspective ? { myColor: this.perspective } : {}),
       ...(this.pendingDrawOffer ? { pendingDrawOffer: this.pendingDrawOffer } : {}),
@@ -323,6 +331,21 @@ export class GameController {
 
   // ── selection & the drag/tap state machine (§6.2) ──────────────────────────
 
+  /** Fan a stack out to inspect what's buried, or collapse it if already fanned
+   * (DESIGN §6.2). Only stacks (height ≥ 2) can be peeked — a lone tile hides
+   * nothing. Inspection only: it drops any in-progress selection/drag and never
+   * touches the position, so it is safe at any time (mid-game or after it ends). */
+  togglePeek(cell: Hex): void {
+    const key = hexKey(cell);
+    const stack = this.state.board.get(key);
+    const next = stack && stack.length >= 2 && this.peekCell !== key ? key : undefined;
+    if (next === this.peekCell) return;
+    this.peekCell = next;
+    this.selection = undefined;
+    this.drag = undefined;
+    this.emit();
+  }
+
   /** Tap or pick up a board piece. Enemy pieces are selectable when tossable. */
   selectCell(cell: Hex): void {
     if (this.getSnapshot().end || this.stagedMove) return;
@@ -339,6 +362,7 @@ export class GameController {
     } else {
       this.selection = undefined; // tap elsewhere cancels
     }
+    this.peekCell = undefined; // acting on the board dismisses a peek
     this.drag = undefined;
     this.emit();
   }
@@ -352,6 +376,7 @@ export class GameController {
     const place = moves.find((m) => m.type === 'place' && m.tile.kind === kind);
     if (place?.type !== 'place') return;
     this.selection = { kind: 'hand', tile: place.tile };
+    this.peekCell = undefined;
     this.drag = undefined;
     this.emit();
   }
@@ -387,6 +412,7 @@ export class GameController {
       return;
     }
     this.selection = undefined;
+    this.peekCell = undefined;
     this.drag = undefined;
     this.emit();
   }
@@ -426,6 +452,7 @@ export class GameController {
     this.state = applyMove(this.state, move); // preview; not yet sent
     this.lastMove = moveCells(move);
     this.selection = undefined;
+    this.peekCell = undefined;
     this.drag = undefined;
     this.emit();
   }
@@ -451,6 +478,7 @@ export class GameController {
     this.stagedMove = undefined;
     this.preStage = undefined;
     this.selection = undefined;
+    this.peekCell = undefined;
     this.drag = undefined;
     this.emit();
   }
@@ -472,6 +500,7 @@ export class GameController {
     this.log = [...this.log, entry];
     this.lastMove = moveCells(move);
     this.selection = undefined;
+    this.peekCell = undefined;
     this.drag = undefined;
     this.view = null; // auto-fit after the hive grows/moves
     this.pendingDrawOffer = undefined; // any move clears a pending offer
@@ -520,6 +549,7 @@ export class GameController {
     this.state = initialState(opts);
     this.log = [];
     this.selection = undefined;
+    this.peekCell = undefined;
     this.drag = undefined;
     this.stagedMove = undefined;
     this.preStage = undefined;
