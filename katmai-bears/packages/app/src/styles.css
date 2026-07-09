@@ -511,6 +511,23 @@ a {
   position: absolute;
   inset: 0;
 }
+/* Edge hover-zones: catch pointer movement over the video (the iframe eats it) so the
+   chrome can re-reveal. They stop short of the bottom so YouTube's own controls stay
+   clickable, and carry no visual of their own. */
+.fs__edge {
+  position: absolute;
+  top: 0;
+  bottom: 64px;
+  z-index: 1;
+  width: 14%;
+  max-width: 120px;
+}
+.fs__edge--left {
+  left: 0;
+}
+.fs__edge--right {
+  right: 0;
+}
 .fs__nav {
   position: absolute;
   top: 50%;
@@ -529,6 +546,18 @@ a {
 }
 .fs__nav--next {
   right: 10px;
+}
+/* Chrome fades out while idle so it never obscures the feed; interaction brings it back. */
+.fs__nav,
+.fs__top,
+.fs__hint {
+  transition: opacity 0.25s ease;
+}
+.fs--idle .fs__nav,
+.fs--idle .fs__top,
+.fs--idle .fs__hint {
+  opacity: 0;
+  pointer-events: none;
 }
 .fs__top {
   position: absolute;

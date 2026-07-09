@@ -90,14 +90,17 @@ test('dragging a tile by its grip reorders the wall', async ({ page }) => {
 
 test('choosing a cam to listen to unmutes exactly that one embed', async ({ page }) => {
   await page.goto('/');
-  // Every embed starts muted (all tiles carry mute=1).
-  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(5);
+  // Every embed starts muted (all tiles carry mute=1). Derive the expected count from the
+  // wall itself so the assertion tracks the seasonal catalog instead of a hardcoded number.
+  const camCount = await page.locator('.player__iframe').count();
+  expect(camCount).toBeGreaterThan(0);
+  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(camCount);
   await expect(page.locator('.player__iframe[src*="mute=0"]')).toHaveCount(0);
 
   // Listen to Brooks Falls: its embed reloads with sound, all others stay muted.
   await page.getByRole('button', { name: 'Listen to Brooks Falls', exact: true }).click();
   await expect(page.locator('.player__iframe[src*="mute=0"]')).toHaveCount(1);
-  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(4);
+  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(camCount - 1);
 
   // The control is now a mute toggle; clicking it silences everything again (radio behavior).
   await page.getByRole('button', { name: 'Mute Brooks Falls', exact: true }).click();
@@ -111,6 +114,8 @@ test('deep link opens fullscreen and next cycles cams', async ({ page }) => {
   await expect(fs.locator('.fs__title')).toContainText('Brooks Falls');
   const first = await fs.locator('.fs__title').textContent();
 
+  // Chrome auto-hides while watching; interacting (here, hovering an edge) re-reveals it.
+  await fs.locator('.fs__edge--right').hover();
   await fs.getByRole('button', { name: 'Next cam' }).click();
   // After advancing, the title should change to a different cam (whichever is next in the catalog).
   await expect(fs.locator('.fs__title')).not.toHaveText(first ?? '');
