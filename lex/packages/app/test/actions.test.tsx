@@ -151,4 +151,21 @@ describe('GameActions (pure) — pass/resign confirms, exchange availability', (
     fireEvent.click(play);
     expect(props.onPlay).toHaveBeenCalledOnce();
   });
+
+  it('plays instantly by default — no confirm dialog', () => {
+    const props = renderActions({ playable: true, hasPending: true });
+    fireEvent.click(screen.getByRole('button', { name: /^play$/i }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(props.onPlay).toHaveBeenCalledOnce();
+  });
+
+  it('confirmBeforePlay routes Play through a confirm dialog first', () => {
+    const props = renderActions({ playable: true, hasPending: true, confirmBeforePlay: true, playScore: 24 });
+    fireEvent.click(screen.getByRole('button', { name: /^play$/i }));
+    expect(props.onPlay).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toMatch(/\+24/);
+    fireEvent.click(within(dialog).getByRole('button', { name: /^play$/i }));
+    expect(props.onPlay).toHaveBeenCalledOnce();
+  });
 });

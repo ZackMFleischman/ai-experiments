@@ -10,6 +10,7 @@ import { Lobby } from './screens/Lobby';
 import { NewGame } from './screens/NewGame';
 import { Settings } from './screens/Settings';
 import { SkinProvider } from './board/skinContext';
+import { ConfirmPlayProvider } from './game/confirmPlayContext';
 import { ColorModeContext, createAppTheme, type ThemeMode } from './theme';
 
 const THEME_STORAGE_KEY = 'lex.theme.v1';
@@ -112,7 +113,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <SkinProvider>{children}</SkinProvider>
+        <SkinProvider>
+          <ConfirmPlayProvider>{children}</ConfirmPlayProvider>
+        </SkinProvider>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );
