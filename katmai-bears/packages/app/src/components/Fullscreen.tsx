@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FEATURES } from '../features';
 import { useSwipe } from '../hooks/useSwipe';
 import { useDetection } from '../state/detection';
@@ -34,16 +34,32 @@ export function Fullscreen() {
     () => go(-1),
   );
 
+  // Chrome (nav arrows, top bar, hint) auto-hides while watching so it never sits on top
+  // of the feed, and reappears on any interaction — the usual video-player behaviour.
+  // Swipe and arrow keys work whether or not the chrome is showing.
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nudgeChrome = useCallback(() => {
+    setChromeVisible(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setChromeVisible(false), 3000);
+  }, []);
+
   useEffect(() => {
     if (!fullscreenId) return;
+    nudgeChrome();
     const handler = (e: KeyboardEvent) => {
+      nudgeChrome();
       if (e.key === 'ArrowRight') go(1);
       else if (e.key === 'ArrowLeft') go(-1);
       else if (e.key === 'Escape') closeFullscreen();
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [fullscreenId, go, closeFullscreen]);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [fullscreenId, go, closeFullscreen, nudgeChrome]);
 
   if (!fullscreenId || index < 0) return null;
   const stream = STREAMS[index];
@@ -52,10 +68,20 @@ export function Fullscreen() {
   const isAudio = audioStreamId === stream.id;
 
   return (
-    <div className="fs" {...swipe}>
+    <div
+      className={`fs${chromeVisible ? '' : ' fs--idle'}`}
+      {...swipe}
+      onPointerMove={nudgeChrome}
+      onPointerDown={nudgeChrome}
+    >
       <div className="fs__player">
         <StreamPlayer youtubeId={youtubeId} title={stream.title} explorePage={stream.explorePage} active muted={!isAudio} />
       </div>
+
+      {/* Transparent edge zones sit above the cross-origin iframe (which swallows pointer
+          events), so moving the mouse toward an edge reliably re-reveals the arrows. */}
+      <div className="fs__edge fs__edge--left" onPointerEnter={nudgeChrome} />
+      <div className="fs__edge fs__edge--right" onPointerEnter={nudgeChrome} />
 
       <button className="fs__nav fs__nav--prev" onClick={() => go(-1)} aria-label="Previous cam">
         ‹

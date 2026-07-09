@@ -111,6 +111,8 @@ test('deep link opens fullscreen and next cycles cams', async ({ page }) => {
   await expect(fs.locator('.fs__title')).toContainText('Brooks Falls');
   const first = await fs.locator('.fs__title').textContent();
 
+  // Chrome auto-hides while watching; interacting (here, hovering an edge) re-reveals it.
+  await fs.locator('.fs__edge--right').hover();
   await fs.getByRole('button', { name: 'Next cam' }).click();
   // After advancing, the title should change to a different cam (whichever is next in the catalog).
   await expect(fs.locator('.fs__title')).not.toHaveText(first ?? '');
