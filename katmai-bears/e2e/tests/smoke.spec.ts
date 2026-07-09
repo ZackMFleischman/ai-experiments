@@ -90,14 +90,17 @@ test('dragging a tile by its grip reorders the wall', async ({ page }) => {
 
 test('choosing a cam to listen to unmutes exactly that one embed', async ({ page }) => {
   await page.goto('/');
-  // Every embed starts muted (all tiles carry mute=1).
-  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(5);
+  // Every embed starts muted (all tiles carry mute=1). Derive the expected count from the
+  // wall itself so the assertion tracks the seasonal catalog instead of a hardcoded number.
+  const camCount = await page.locator('.player__iframe').count();
+  expect(camCount).toBeGreaterThan(0);
+  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(camCount);
   await expect(page.locator('.player__iframe[src*="mute=0"]')).toHaveCount(0);
 
   // Listen to Brooks Falls: its embed reloads with sound, all others stay muted.
   await page.getByRole('button', { name: 'Listen to Brooks Falls', exact: true }).click();
   await expect(page.locator('.player__iframe[src*="mute=0"]')).toHaveCount(1);
-  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(4);
+  await expect(page.locator('.player__iframe[src*="mute=1"]')).toHaveCount(camCount - 1);
 
   // The control is now a mute toggle; clicking it silences everything again (radio behavior).
   await page.getByRole('button', { name: 'Mute Brooks Falls', exact: true }).click();
