@@ -3,8 +3,11 @@
 //   (a) any @parlor/* source imports a game package (@lex/*, @hive/*) —
 //       parlor is generic by construction;
 //   (b) firebase is imported outside packages/web/ and packages/server/;
-//   (c) react / firebase / MUI appear as regular dependencies (they must be
-//       peerDependencies — the consuming game provides them).
+//   (c) react / firebase / MUI / Capacitor appear as regular dependencies
+//       (they must be peerDependencies — the consuming app provides them);
+//   (d) @capacitor/* is imported outside packages/native/. (Today native's
+//       runtime imports none at all — it reaches Capacitor via the injected
+//       bridge so the free web bundle never grows a native import.)
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +37,9 @@ function imports(text) {
 const GAME_RE = /^@(lex|hive)\//;
 const FIREBASE_RE = /^(firebase|firebase-admin|firebase-functions)(\/|$)/;
 const FIREBASE_ALLOWED = [/^packages\/web\//, /^packages\/server\//];
-const PROVIDED_BY_CONSUMER = /^(react|react-dom|firebase|firebase-admin|firebase-functions|@mui\/.*|@emotion\/.*)$/;
+const CAPACITOR_RE = /^@capacitor(-community)?\//;
+const CAPACITOR_ALLOWED = [/^packages\/native\//];
+const PROVIDED_BY_CONSUMER = /^(react|react-dom|firebase|firebase-admin|firebase-functions|@mui\/.*|@emotion\/.*|@capacitor\/.*|@capacitor-community\/.*)$/;
 
 const errors = [];
 
@@ -46,6 +51,9 @@ for (const file of sourceFiles(join(root, 'packages'))) {
     }
     if (FIREBASE_RE.test(spec) && !FIREBASE_ALLOWED.some((re) => re.test(file))) {
       errors.push(`${file}: imports '${spec}' — firebase is confined to packages/web/ and packages/server/`);
+    }
+    if (CAPACITOR_RE.test(spec) && !CAPACITOR_ALLOWED.some((re) => re.test(file))) {
+      errors.push(`${file}: imports '${spec}' — Capacitor is confined to packages/native/ (parlor/CLAUDE.md)`);
     }
   }
 }

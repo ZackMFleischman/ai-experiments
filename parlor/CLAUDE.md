@@ -12,8 +12,11 @@ in service of a consumer's task. Nothing here relates to `loom/`.
   game-specific concepts (tiles, words, hexes) — types are generic or injected.
   `scripts/check-boundaries.mjs` (wired into typecheck) enforces this.
 - `@parlor/core` stays zero-dependency, pure, deterministic TS.
-- react / firebase / MUI are **peerDependencies** — never regular deps; the
-  consuming game provides them. Firebase imports only in `web/` and `server/`.
+- react / firebase / MUI / Capacitor are **peerDependencies** — never regular
+  deps; the consuming app provides them. Firebase imports only in `web/` and
+  `server/`; Capacitor imports only in `native/` — and `native/` runtime code
+  reaches Capacitor via the injected bridge (`globalThis.Capacitor`), never an
+  import, so every wrapper no-ops in a plain browser.
 - Every file ported from hive keeps its `// ported from hive/<path> (adapted)`
   header; when fixing a bug here, grep hive for the twin and flag it in the PR.
 - Breaking a `@parlor/*` public interface requires updating the consumers and
