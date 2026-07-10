@@ -1,0 +1,69 @@
+# ported from .github/workflows/lex-ci.yml (adapted — zero-backend solo app:
+# no Java, no firebase emulator, no functions)
+name: SUDOKU CI
+
+on:
+  pull_request:
+    paths: ['sudoku/**', 'parlor/**', '.github/workflows/sudoku-ci.yml']
+  push:
+    branches: [main]
+    paths: ['sudoku/**', 'parlor/**', '.github/workflows/sudoku-ci.yml']
+
+concurrency:
+  group: sudoku-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The shared platform workspace gates on its own (no game imports by
+  # construction).
+  parlor:
+    name: parlor · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: parlor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: parlor/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: parlor/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Fast required gate: typecheck + unit (engine + app). Parlor installs
+  # first — link: deps don't install the linked package's own deps.
+  checks:
+    name: sudoku · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sudoku
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: sudoku/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            sudoku/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: generation acceptance sweep (validate:m1)
+        run: pnpm validate:m1

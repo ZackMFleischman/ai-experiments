@@ -1,0 +1,107 @@
+name: SUDOKU deploy
+
+# ported from lex-deploy.yml (adapted — sudoku is zero-backend: the static
+# PWA on Cloudflare Pages is the whole deployment; there is no Firebase job
+# and never will be, per MINIMALIST-APPS-STRATEGY.md §2).
+# Production deploy on merge to main, a preview URL per PR touching sudoku/
+# or parlor/. Falls back gracefully (with a notice) when the Cloudflare
+# secrets are absent.
+
+on:
+  pull_request:
+    paths: ['sudoku/**', 'parlor/**', '.github/workflows/sudoku-deploy.yml']
+  push:
+    branches: [main]
+    paths: ['sudoku/**', 'parlor/**', '.github/workflows/sudoku-deploy.yml']
+  workflow_dispatch: # manual redeploy
+
+concurrency:
+  group: sudoku-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write # sticky preview comment
+
+jobs:
+  deploy:
+    name: build · verify bundle · deploy
+    runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: sudoku
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: sudoku/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            sudoku/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      # link: deps don't install the linked package's own deps — parlor first.
+      - name: install parlor (source-linked sibling workspace)
+        working-directory: parlor
+        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
+      - name: build the static PWA and verify the bundle (no firebase)
+        run: pnpm build
+      - name: deploy to Cloudflare Pages
+        id: deploy
+        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+        run: |
+          npm install -g wrangler@3
+          # Self-provision the Pages project (ignored if it already exists).
+          wrangler pages project create sudoku-zmf --production-branch main || true
+          set +e
+          branch="${GITHUB_HEAD_REF:-main}"
+          out=$(wrangler pages deploy sudoku/packages/app/dist \
+            --project-name=sudoku-zmf --branch="$branch" 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$out"
+          [ "$status" -eq 0 ] || exit "$status"
+          urls=$(printf '%s\n' "$out" | grep -oiE 'https://[a-z0-9.-]+\.pages\.dev')
+          echo "deployment-url=$(printf '%s\n' "$urls" | head -1)" >> "$GITHUB_OUTPUT"
+          echo "alias-url=$(printf '%s\n' "$urls" | tail -1)" >> "$GITHUB_OUTPUT"
+      - name: smoke-check the deployment
+        if: steps.deploy.outcome == 'success'
+        working-directory: ${{ github.workspace }}
+        run: |
+          url="${{ steps.deploy.outputs.deployment-url }}"
+          # Fresh *.pages.dev hostnames can take a few minutes on first deploy.
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$url/") && [ "$code" = "200" ] && break
+            sleep 10
+          done
+          [ "$code" = "200" ] || { echo "::error::deployment not serving ($code)"; exit 1; }
+          grep -q 'id="root"' /tmp/index.html || { echo "::error::index.html missing app root"; exit 1; }
+          for path in manifest.webmanifest icons/icon-512.png game; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/$path")
+            [ "$code" = "200" ] || { echo "::error::$path returned $code"; exit 1; }
+          done
+          echo "deployment serving: index, manifest, icons, SPA fallback all 200"
+      - name: preview comment
+        if: github.event_name == 'pull_request' && steps.deploy.outcome == 'success'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: sudoku-preview
+          message: |
+            ### 🔢 Sudoku preview
+
+            **[▶ Open the app](${{ steps.deploy.outputs.alias-url || steps.deploy.outputs.deployment-url }}/)**
+
+            Built from `${{ github.event.pull_request.head.sha }}` — static PWA, zero backend.
+      - name: notice when Cloudflare secrets are missing
+        if: env.CF_API_TOKEN == '' || env.CF_ACCOUNT_ID == ''
+        run: echo "::notice::Cloudflare secrets not set — built and verified the bundle but skipped deploy."
