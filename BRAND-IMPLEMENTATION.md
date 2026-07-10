@@ -93,7 +93,7 @@ starts while sudoku sits in App Review.
 
 ### 3a. `@parlor/native` (the package) — ✅ SHIPPED 2026-07-10
 
-> Shipped (PR #TBD): **`@parlor/native`** — Capacitor reached through the
+> Shipped (PR #85): **`@parlor/native`** — Capacitor reached through the
 > injected runtime bridge (`globalThis.Capacitor`), never an import, so every
 > wrapper no-ops cleanly in a plain browser and the free PWA bundle stays
 > byte-identical; `@capacitor/*` are optional peers the consuming app installs
