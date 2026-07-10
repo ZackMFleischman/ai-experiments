@@ -45,7 +45,7 @@ blocker for anything below.
 
 ---
 
-## Phase 2 — solo kit + first brand title — ✅ SHIPPED (M0) 2026-07-10 · M1–M2 open
+## Phase 2 — solo kit + first brand title — ✅ M0+M1 SHIPPED 2026-07-10 · ⚑ + M2 open
 
 > Shipped (PR #83, with the strategy doc itself): **`@parlor/solo`** —
 > `SoloSession` (append-only local log with an undo/redo cursor, mirroring
@@ -60,14 +60,20 @@ blocker for anything below.
 > `sudoku-{ci,deploy}.yml`. Gates: parlor 100 / sudoku 30 / lex 426 / hive
 > 377, all green. Detail in `sudoku/DECISIONS.md`.
 
+> Shipped (M1 agent side, same day): sudoku `/dev/gallery` over
+> `@parlor/harness` (8 fixed-seed fixtures), the `sudoku-e2e` workspace —
+> `validate:visual` walks 3 viewports × 2 themes with machine checks, wired
+> into CI with a screenshot artifact — and a Lighthouse pass on the built PWA
+> (99/100/100/100 after fixes). The a11y fixes landed at the brand layer on
+> purpose: `AppShell`'s content area is now the `<main>` landmark and
+> `MoreFromUs` titles are `<p>` not `<h6>`, so every future brand app
+> inherits them. Detail in `sudoku/DECISIONS.md`.
+
 **Remaining to close the phase** (task detail lives in
 `sudoku/IMPLEMENTATION.md` §2):
 
-- **Sudoku M1 — ship the web app.** ⚑ confirm the `sudoku-zmf` Cloudflare
-  Pages project + custom domain if wanted (PR previews already deploy).
-  Lighthouse PWA/a11y pass; Playwright visual sweep via `@parlor/harness`
-  `/dev/gallery` (port the lex pattern: board states × 3 viewports × 2
-  themes).
+- ⚑ confirm the `sudoku-zmf` Cloudflare Pages project + custom domain if
+  wanted (PR previews already deploy).
 - **Sudoku M2 — polish from real play** (feedback-driven; candidates listed
   in its IMPLEMENTATION.md).
 - **`MoreFromUs` stays a stub** until ≥2 brand titles are public, then

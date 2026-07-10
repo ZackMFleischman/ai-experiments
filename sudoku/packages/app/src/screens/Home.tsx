@@ -52,7 +52,8 @@ export function Home() {
         {inProgress && options && (
           <Card variant="outlined">
             <CardActionArea onClick={() => navigate('/game')} sx={{ p: 2 }}>
-              <Typography variant="subtitle1" fontWeight={600}>
+              {/* Not a heading — subtitle1 defaults to <h6> (a11y heading order). */}
+              <Typography variant="subtitle1" component="p" fontWeight={600}>
                 Continue
               </Typography>
               <Typography variant="body2" color="text.secondary">

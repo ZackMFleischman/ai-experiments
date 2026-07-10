@@ -43,7 +43,9 @@ export function MoreFromUs({ heading = 'More from us', apps }: MoreFromUsProps) 
                 {app.glyph}
               </Box>
               <Box>
-                <Typography variant="subtitle1" fontWeight={600}>
+                {/* Not a heading — subtitle1 defaults to <h6>, which breaks
+                    the page's heading order (Lighthouse a11y). */}
+                <Typography variant="subtitle1" component="p" fontWeight={600}>
                   {app.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">

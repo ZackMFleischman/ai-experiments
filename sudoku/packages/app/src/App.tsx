@@ -8,12 +8,16 @@ import {
   type ThemeMode,
 } from '@parlor/brand';
 import type { KeyValueStorage } from '@parlor/solo';
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, lazy, Suspense, useContext, useMemo, useState, type ReactNode } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { createSession, createStats, type Session } from './game/session';
 import type { StatsStore } from '@parlor/solo';
 import { Game } from './screens/Game';
 import { Home } from './screens/Home';
+
+// DEV-only: the validation gallery — lazy behind import.meta.env.DEV so it
+// never reaches a production bundle (same pattern as lex).
+const GalleryRoute = import.meta.env.DEV ? lazy(() => import('./dev/GalleryRoute')) : null;
 
 // Sudoku indigo — the app's single accent (family theme injects the rest).
 export const ACCENT = { main: '#3b5bdb' };
@@ -44,6 +48,18 @@ function initialMode(storage: KeyValueStorage): ThemeMode {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light';
+}
+
+/** Session/stats/storage context alone — no theme. The gallery uses this to
+ * put fixture state under its own ThemeProvider (dev/registry.tsx). */
+export function AppStateProvider({
+  children,
+  value,
+}: {
+  children: ReactNode;
+  value: AppContextValue;
+}) {
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export function AppProviders({
@@ -77,14 +93,14 @@ export function AppProviders({
   const theme = useMemo(() => createBrandTheme(mode, ACCENT), [mode]);
 
   return (
-    <AppContext.Provider value={value}>
+    <AppStateProvider value={value}>
       <ColorModeContext.Provider value={colorMode}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
           {children}
         </ThemeProvider>
       </ColorModeContext.Provider>
-    </AppContext.Provider>
+    </AppStateProvider>
   );
 }
 
@@ -93,6 +109,16 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/game" element={<Game />} />
+      {GalleryRoute && (
+        <Route
+          path="/dev/gallery"
+          element={
+            <Suspense fallback={null}>
+              <GalleryRoute />
+            </Suspense>
+          }
+        />
+      )}
       <Route path="*" element={<Home />} />
     </Routes>
   );

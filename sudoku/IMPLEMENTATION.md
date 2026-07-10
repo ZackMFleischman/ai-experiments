@@ -21,13 +21,16 @@ app (session/board/screens + 8 jsdom flow tests), icons prebuild, PWA
 build + bundle check, doc set, `sudoku-ci.yml` + `sudoku-deploy.yml`.
 Gate: `pnpm typecheck && pnpm test && pnpm build && pnpm validate:m1`.
 
-### M1 — ship the web app (⚑ owner steps, then agent)
+### M1 — ship the web app — agent side SHIPPED; ⚑ owner remainder
 
-- ⚑ Cloudflare secrets already repo-wide? If so previews go live on the
-  first PR; confirm `sudoku-zmf` Pages project + custom domain if wanted.
-- Lighthouse PWA/a11y pass; fix what it surfaces.
-- Playwright visual/ux sweep via `@parlor/harness` gallery (port the lex
-  pattern: `/dev/gallery` entries for board states, 3 viewports, 2 themes).
+`/dev/gallery` (8 fixed-seed fixtures over `AppStateProvider`) + the
+`sudoku-e2e` workspace: `pnpm validate:visual` walks it × 3 viewports × 2
+themes with machine checks (console noise, 81 cells, digit glyphs, board fits
+viewport); CI job uploads the captures. Lighthouse on the built PWA:
+99/100/100/100 after a11y fixes (AppShell content = `<main>`, card
+subtitles = `<p>` — the first two landed in `@parlor/brand`).
+Remaining: ⚑ confirm `sudoku-zmf` Pages project + custom domain if wanted
+(PR previews already deploy).
 
 ### M2 — polish from real play
 

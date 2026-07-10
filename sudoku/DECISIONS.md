@@ -18,3 +18,18 @@
   zero-import engines port anywhere; drift risk accepted knowingly.
 - Playwright visual/e2e deferred to M1 (harness gallery port) — jsdom flow
   tests cover the interaction logic meanwhile.
+
+## 2026-07-10 — M1 SHIPPED (agent side): gallery, visual sweep, Lighthouse
+
+- Gates run: parlor typecheck+test (100), sudoku typecheck+test+build+bundle
+  check, `validate:visual` (48 captures, 0 machine-check failures, captures
+  reviewed), Lighthouse 99/100/100/100 on the built PWA. All green.
+- Gallery fixtures use fixed seeds and an exported `AppStateProvider` (context
+  without theme) so entries sit under the harness Gallery's own ThemeProvider.
+- a11y fixes landed at the brand layer deliberately: AppShell's content area
+  is the `<main>` landmark and MoreFromUs titles are `<p>` — every future
+  brand app inherits both. Only sudoku consumes `@parlor/brand`; hive/lex
+  unaffected (their suites untouched).
+- `MoreFromUs` hiding URL-less family entries confirmed as designed (Lex
+  appears once it has a public URL) — no change.
+- ⚑ remaining to close M1: confirm `sudoku-zmf` Pages project + custom domain.
