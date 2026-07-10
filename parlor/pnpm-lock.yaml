@@ -84,6 +84,18 @@ importers:
         specifier: ^3.0.0
         version: 3.2.6(@types/node@22.20.0)(jsdom@25.0.1)
 
+  packages/solo:
+    devDependencies:
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@26.1.0)(jsdom@25.0.1)
+
   packages/web:
     devDependencies:
       '@emotion/react':
