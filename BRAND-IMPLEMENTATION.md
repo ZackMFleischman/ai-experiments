@@ -86,12 +86,25 @@ blocker for anything below.
 
 ---
 
-## Phase 3 — `@parlor/native` + the $1 store pipeline — ⬜ NOT STARTED
+## Phase 3 — `@parlor/native` + the $1 store pipeline — 3a SHIPPED · 3b/3c open
 
 Three slices; 3a+3b are one PR series (parlor packages need a consumer), 3c
 starts while sudoku sits in App Review.
 
-### 3a. `@parlor/native` (the package)
+### 3a. `@parlor/native` (the package) — ✅ SHIPPED 2026-07-10
+
+> Shipped (PR #TBD): **`@parlor/native`** — Capacitor reached through the
+> injected runtime bridge (`globalThis.Capacitor`), never an import, so every
+> wrapper no-ops cleanly in a plain browser and the free PWA bundle stays
+> byte-identical; `@capacitor/*` are optional peers the consuming app installs
+> for `cap sync`. `capacitorConfig(app)` factory pins the shell conventions
+> (webDir, `APP/native/{ios,android}` paths, androidScheme, splash);
+> haptics/share/status-bar/in-app-review + the utility trio wrappers;
+> `isNative()` + `usePremium()` (A2: premium *is* the native platform);
+> fastlane-compatible `StoreListing` schema + validator (the CI tripwire for
+> metadata a store would bounce). `check-boundaries.mjs` gains rule (d):
+> Capacitor imports confined to `native/`. 17 mocked-bridge tests; parlor 117
+> green. Background-audio wrapper is contract-only until stillness (3c).
 
 **Ship:**
 - `capacitorConfig(app)` factory — one place that pins Capacitor conventions
