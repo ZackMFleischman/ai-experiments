@@ -23,4 +23,6 @@ Read `DESIGN.md` before structural changes; decisions go to `DECISIONS.md`.
 
 From `sudoku/`: `pnpm install`, `pnpm dev`, `pnpm typecheck`, `pnpm test`,
 `pnpm build` (static PWA + bundle check), `pnpm validate:m1` (40-puzzle
-generation sweep). CI: `.github/workflows/sudoku-{ci,deploy}.yml`.
+generation sweep), `pnpm validate:visual` (gallery × viewports × themes —
+read the captures in `artifacts/screens/`, don't just pass the gate).
+CI: `.github/workflows/sudoku-{ci,deploy}.yml`.

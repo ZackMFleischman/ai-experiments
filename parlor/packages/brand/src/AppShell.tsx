@@ -50,10 +50,14 @@ export function AppShell({ title, onBack, actions, fullBleed = false, children }
           {actions}
         </Toolbar>
       </AppBar>
+      {/* The content area is the page's one <main> landmark (a11y); the bar
+          above stays chrome. */}
       {fullBleed ? (
-        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>{children}</Box>
+        <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+          {children}
+        </Box>
       ) : (
-        <Container maxWidth="sm" sx={{ flexGrow: 1, pb: 3 }}>
+        <Container component="main" maxWidth="sm" sx={{ flexGrow: 1, pb: 3 }}>
           {children}
         </Container>
       )}

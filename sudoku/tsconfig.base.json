@@ -17,7 +17,9 @@
     "esModuleInterop": true,
     "paths": {
       "@parlor/solo": ["../parlor/packages/solo/src/index.ts"],
-      "@parlor/brand": ["../parlor/packages/brand/src/index.ts"]
+      "@parlor/brand": ["../parlor/packages/brand/src/index.ts"],
+      "@parlor/harness": ["../parlor/packages/harness/src/index.ts"],
+      "@parlor/harness/walk": ["../parlor/packages/harness/src/walkGallery.ts"]
     }
   }
 }

@@ -67,3 +67,39 @@ jobs:
       - run: pnpm test
       - name: generation acceptance sweep (validate:m1)
         run: pnpm validate:m1
+
+  # Gallery visual sweep (validate:visual): registry × 3 viewports × 2 themes
+  # against the dev server. Machine checks (console noise, board geometry)
+  # gate here; the screenshots upload for human/agent review.
+  visual:
+    name: sudoku · visual gallery
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sudoku
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: sudoku/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            sudoku/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - name: install playwright chromium
+        working-directory: sudoku/e2e
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm validate:visual
+      - name: upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sudoku-gallery-screens
+          path: sudoku/artifacts/screens
