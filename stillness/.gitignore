@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+artifacts/
+*.log
+.eslintcache
+.DS_Store
+test-results/
+playwright-report/
+blob-report/
+.env.local
+packages/app/public/icons/
+packages/app/dev-dist/
+packages/app/assets/

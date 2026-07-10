@@ -86,7 +86,7 @@ blocker for anything below.
 
 ---
 
-## Phase 3 — `@parlor/native` + the $1 store pipeline — 3a+3b agent side SHIPPED · ⚑ store ops + 3c open
+## Phase 3 — `@parlor/native` + the $1 store pipeline — agent side SHIPPED · ⚑ store ops open
 
 Three slices; 3a+3b are one PR series (parlor packages need a consumer), 3c
 starts while sudoku sits in App Review.
@@ -167,7 +167,7 @@ runs fully offline on a clean device.
 **Risk:** medium — App Review is the one uncontrollable; everything else is
 mechanical.
 
-### 3c. `stillness/` — the meditation timer, first utility
+### 3c. `stillness/` — the meditation timer, first utility — ✅ agent side SHIPPED 2026-07-10
 
 App only: `@parlor/brand` + `@parlor/native`, no engine, no session kit
 (strategy archetype 4). It exercises exactly the plugins that justify a $1
@@ -177,6 +177,19 @@ both stores; own doc set + bundle check like every non-duo app. Submitted
 second, while sudoku's review is pending — a *utility* clearing 4.2 tells us
 the review posture for the whole archetype ("minimal must still be
 unmistakably crafted").
+
+> Shipped (PR #87): the whole utility in one slice — pure clock-injected
+> timer machine + synthesized bell (zero audio assets; the backgrounded bell
+> is a local notification scheduled at projected end +1 s), Home/Sit over
+> `@parlor/brand`, day-streak stats via `@parlor/solo`, gallery + visual
+> sweep (30 captures), committed `native/{ios,android}` shells + sage
+> ring-and-dot icons from the brand template, validated `store/listing.ts`,
+> keep-awake + notification wiring under mocked-bridge tests, 4.2 defenses,
+> `stillness-{ci,deploy,android}.yml`. 19 tests. Ambient background audio is
+> deliberately M2 (`stillness/IMPLEMENTATION.md`) — the `BackgroundAudio`
+> bridge contract is fixed, the plugin choice is the M2 decision.
+> `MoreFromUs` populated both directions with sudoku (both web-public).
+> Detail in `stillness/DECISIONS.md`. ⚑ store ops per GAME-SETUP.md §12.
 
 **Exit (strategy):** two $1 apps in both stores; store ops documented as code.
 

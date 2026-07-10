@@ -17,6 +17,7 @@ import { useSessionState } from '../game/useSession';
 import { useApp } from '../App';
 
 const FAMILY = [
+  { name: 'Stillness', tagline: 'A quiet meditation timer', url: 'https://stillness-zmf.pages.dev', glyph: '🧘' },
   { name: 'Hive', tagline: 'The bug board game, online with a friend', url: 'https://hive.zackmfleischman.com', glyph: '🐝' },
   { name: 'Lex', tagline: 'A crossword tile game for two', glyph: '🅻' },
 ];

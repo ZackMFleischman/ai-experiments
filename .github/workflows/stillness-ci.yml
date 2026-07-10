@@ -1,0 +1,103 @@
+# ported from .github/workflows/sudoku-ci.yml (adapted — no engine, so no
+# generation sweep; the visual gallery is the acceptance surface)
+name: STILLNESS CI
+
+on:
+  pull_request:
+    paths: ['stillness/**', 'parlor/**', '.github/workflows/stillness-ci.yml']
+  push:
+    branches: [main]
+    paths: ['stillness/**', 'parlor/**', '.github/workflows/stillness-ci.yml']
+
+concurrency:
+  group: stillness-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The shared platform workspace gates on its own (no game imports by
+  # construction).
+  parlor:
+    name: parlor · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: parlor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: parlor/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: parlor/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Fast required gate: typecheck + unit. Parlor installs first — link: deps
+  # don't install the linked package's own deps.
+  checks:
+    name: stillness · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stillness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: stillness/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            stillness/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Gallery visual sweep (validate:visual): registry × 3 viewports × 2 themes
+  # against the dev server. Machine checks (console noise, timer-face
+  # geometry) gate here; the screenshots upload for human/agent review.
+  visual:
+    name: stillness · visual gallery
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stillness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: stillness/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            stillness/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - name: install playwright chromium
+        working-directory: stillness/e2e
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm validate:visual
+      - name: upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stillness-gallery-screens
+          path: stillness/artifacts/screens
