@@ -1,0 +1,76 @@
+# The store pipeline's CI half (BRAND-IMPLEMENTATION.md 3b): every change to
+# stillness or the native glue proves the Android release bundle still builds,
+# and main uploads the unsigned AAB as an artifact. Signing + Play upload are
+# owner steps (GAME-SETUP.md native track ⚑); iOS archives ship from the
+# owner's Mac — no macOS CI until cadence demands it (strategy §1.0).
+name: STILLNESS android
+
+on:
+  pull_request:
+    paths:
+      [
+        'stillness/**',
+        'parlor/packages/native/**',
+        'parlor/packages/brand/**',
+        '.github/workflows/stillness-android.yml',
+      ]
+  push:
+    branches: [main]
+    paths:
+      [
+        'stillness/**',
+        'parlor/packages/native/**',
+        'parlor/packages/brand/**',
+        '.github/workflows/stillness-android.yml',
+      ]
+  workflow_dispatch: # manual rebuild (e.g. before a Play upload)
+
+concurrency:
+  group: stillness-android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  aab:
+    name: android · unsigned release AAB
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stillness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: stillness/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            stillness/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - name: build the web bundle the shell wraps (includes bundle check)
+        run: pnpm build
+      - name: sync web assets + plugins into the committed shell
+        working-directory: stillness/packages/app
+        run: pnpm exec cap sync android
+      - name: build the release AAB (unsigned — signing is an owner step)
+        working-directory: stillness/native/android
+        run: ./gradlew bundleRelease --no-daemon
+      - name: upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stillness-release-aab
+          path: stillness/native/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

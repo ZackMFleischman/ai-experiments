@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - e2e
+
+# @capacitor/assets pins sharp 0.32 whose postinstall downloads libvips (and
+# fails in script-blocked/proxied installs); 0.33 ships prebuilt binaries and
+# is API-compatible for the ops the tool uses. (Same as sudoku.)
+overrides:
+  "@capacitor/assets>sharp": "^0.33.5"
