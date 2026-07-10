@@ -1,11 +1,18 @@
-// The action row (T3.6/T3.7): Play is the primary CTA (contained, grows to
-// fill); Recall pairs with it; Exchange / Pass are low-emphasis turn choices;
-// Resign — rare and game-ending — lives in the ⋯ overflow so it never occupies
-// the natural CTA slot. Pure props — enablement comes from the controller's
-// verdicts upstream (the UI never computes rules). Pass and Resign confirm via
-// dialog; Resign stays reachable off-turn (canResign) per DESIGN §2.3.
+// The action row (T3.6/T3.7, updated for accidental-submit safety): the
+// secondary actions — Recall / Exchange / Pass — are a compact icon cluster on
+// the LEFT; Play is the prominent contained CTA pinned to the RIGHT ("thumb
+// corner"), separated from the cluster by a spacer so a reach for Recall can't
+// fat-finger a turn commit. Resign — rare and game-ending — stays in the ⋯
+// overflow so it never occupies the CTA slot. Pure props — enablement comes
+// from the controller's verdicts upstream (the UI never computes rules). Pass
+// and Resign always confirm via dialog; Play confirms only when the
+// "Confirm before playing" setting is on (confirmBeforePlay). Resign stays
+// reachable off-turn (canResign) per DESIGN §2.3.
 import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ReplayIcon from '@mui/icons-material/Replay';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import {
   Box,
   Button,
@@ -17,9 +24,25 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
+
+// Screen-reader-only style (MUI's visuallyHidden, inlined to avoid an extra
+// @mui/utils dependency): keeps the exchange-shortfall reason in the a11y tree
+// without occupying visual space in the icon cluster.
+const srOnly = {
+  border: 0,
+  clip: 'rect(0 0 0 0)',
+  height: '1px',
+  margin: '-1px',
+  overflow: 'hidden',
+  padding: 0,
+  position: 'absolute',
+  whiteSpace: 'nowrap',
+  width: '1px',
+} as const;
 
 export interface GameActionsProps {
   playable: boolean;
@@ -31,14 +54,21 @@ export interface GameActionsProps {
   canExchange: boolean;
   exchangeMinBag: number;
   bagCount: number;
+  /** When true, Play opens a confirm dialog before committing (Settings opt-in). */
+  confirmBeforePlay?: boolean;
+  /** Preview score, used to enrich the Play-confirm copy when available. */
+  playScore?: number | undefined;
   onPlay: () => void;
   onRecall: () => void;
   onExchange: () => void;
   onPass: () => void;
   onResign: () => void;
   /** Gallery hook: open a confirm dialog on mount. */
-  initialConfirm?: 'pass' | 'resign';
+  initialConfirm?: 'pass' | 'resign' | 'play';
 }
+
+/** ≥44px hit target (NFR-7); the icon cluster stays tight but tappable. */
+const iconBtn = { width: 44, height: 44 } as const;
 
 export function GameActions({
   playable,
@@ -48,6 +78,8 @@ export function GameActions({
   canExchange,
   exchangeMinBag,
   bagCount,
+  confirmBeforePlay,
+  playScore,
   onPlay,
   onRecall,
   onExchange,
@@ -55,52 +87,86 @@ export function GameActions({
   onResign,
   initialConfirm,
 }: GameActionsProps) {
-  const [confirm, setConfirm] = useState<'pass' | 'resign' | null>(initialConfirm ?? null);
+  const [confirm, setConfirm] = useState<'pass' | 'resign' | 'play' | null>(initialConfirm ?? null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const exchangeShort = interactive && !canExchange && bagCount < exchangeMinBag;
   const resignable = canResign ?? interactive;
-  // Drop MUI's 64px button min-width so the secondary actions stay tight; Play
-  // keeps a real footprint and grows to fill (T6.2). flexWrap is the safety net.
-  const compact = { minWidth: 0, px: 1 } as const;
+  const exchangeDisabled = !interactive || !canExchange;
+  const exchangeTitle = exchangeShort ? `Exchange — needs ${exchangeMinBag} in bag` : 'Exchange';
+
+  const dialogCopy = {
+    pass: { title: 'Pass your turn?', body: 'You will score nothing this turn.', cta: 'Pass', color: 'primary' as const },
+    resign: { title: 'Resign the game?', body: 'Your opponent wins immediately.', cta: 'Resign', color: 'error' as const },
+    play: {
+      title: 'Play your move?',
+      body:
+        playScore != null
+          ? `Submit for +${playScore} ${playScore === 1 ? 'point' : 'points'}? This ends your turn.`
+          : 'Submit your move? This ends your turn.',
+      cta: 'Play',
+      color: 'primary' as const,
+    },
+  };
 
   return (
-    <Box data-testid="game-actions" sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5, flexWrap: 'wrap' }}>
-      {/* Primary CTA: grows to dominate the row so Play is unmistakably the
-          action of the turn. */}
+    <Box
+      data-testid="game-actions"
+      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5 }}
+    >
+      {/* Secondary actions: a compact icon cluster, kept away from Play. */}
+      <Tooltip title="Recall">
+        <span>
+          <IconButton aria-label="Recall" disabled={!hasPending} onClick={onRecall} sx={iconBtn}>
+            <ReplayIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={exchangeTitle}>
+        <span>
+          <IconButton aria-label="Exchange" disabled={exchangeDisabled} onClick={onExchange} sx={iconBtn}>
+            <SwapHorizIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+      {exchangeShort && (
+        <Typography data-testid="exchange-reason" component="span" sx={srOnly}>
+          needs {exchangeMinBag} in bag
+        </Typography>
+      )}
+      <Tooltip title="Pass">
+        <span>
+          <IconButton aria-label="Pass" disabled={!interactive} onClick={() => setConfirm('pass')} sx={iconBtn}>
+            <SkipNextIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title="More actions">
+        <span>
+          <IconButton
+            aria-label="more actions"
+            data-testid="more-actions"
+            disabled={!resignable}
+            onClick={(e) => setMenuAnchor(e.currentTarget)}
+            sx={iconBtn}
+          >
+            <MoreVertIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+
+      {/* Spacer pushes Play to the far right — the thumb corner — so it never
+          sits adjacent to a secondary action. */}
+      <Box sx={{ flexGrow: 1 }} />
+
+      {/* Primary CTA: prominent, isolated on the right. */}
       <Button
         variant="contained"
-        size="small"
         disabled={!playable}
-        onClick={onPlay}
-        sx={{ flexGrow: 1, minWidth: 64, px: 1.5, fontWeight: 700 }}
+        onClick={() => (confirmBeforePlay ? setConfirm('play') : onPlay())}
+        sx={{ minWidth: 96, minHeight: 44, px: 2.5, fontWeight: 700 }}
       >
         Play
       </Button>
-      <Button variant="outlined" size="small" disabled={!hasPending} onClick={onRecall} sx={compact}>
-        Recall
-      </Button>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Button size="small" disabled={!interactive || !canExchange} onClick={onExchange} sx={compact}>
-          Exchange
-        </Button>
-        {exchangeShort && (
-          <Typography data-testid="exchange-reason" variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
-            needs {exchangeMinBag} in bag
-          </Typography>
-        )}
-      </Box>
-      <Button size="small" disabled={!interactive} onClick={() => setConfirm('pass')} sx={compact}>
-        Pass
-      </Button>
-      <IconButton
-        size="small"
-        aria-label="more actions"
-        data-testid="more-actions"
-        disabled={!resignable}
-        onClick={(e) => setMenuAnchor(e.currentTarget)}
-      >
-        <MoreVertIcon fontSize="small" />
-      </IconButton>
 
       <Menu
         anchorEl={menuAnchor}
@@ -125,26 +191,25 @@ export function GameActions({
       </Menu>
 
       <Dialog open={confirm !== null} onClose={() => setConfirm(null)}>
-        <DialogTitle>{confirm === 'pass' ? 'Pass your turn?' : 'Resign the game?'}</DialogTitle>
+        <DialogTitle>{confirm !== null && dialogCopy[confirm].title}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
-            {confirm === 'pass'
-              ? 'You will score nothing this turn.'
-              : 'Your opponent wins immediately.'}
+            {confirm !== null && dialogCopy[confirm].body}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirm(null)}>Cancel</Button>
           <Button
             variant="contained"
-            color={confirm === 'resign' ? 'error' : 'primary'}
+            color={confirm !== null ? dialogCopy[confirm].color : 'primary'}
             onClick={() => {
               if (confirm === 'pass') onPass();
-              else onResign();
+              else if (confirm === 'resign') onResign();
+              else if (confirm === 'play') onPlay();
               setConfirm(null);
             }}
           >
-            {confirm === 'pass' ? 'Pass' : 'Resign'}
+            {confirm !== null && dialogCopy[confirm].cta}
           </Button>
         </DialogActions>
       </Dialog>

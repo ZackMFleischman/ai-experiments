@@ -25,6 +25,7 @@ import { RackTray } from './RackTray';
 import { useTheme } from '@mui/material/styles';
 import { BOARD_PAD_PX, CELL_PX, skinVars } from './skin';
 import { useSkinId } from './skinContext';
+import { useConfirmPlay } from '../game/confirmPlayContext';
 import { GameInfoDialog } from '../game/GameInfoDialog';
 import { NoticeToast } from '../game/NoticeToast';
 import { Tile } from './Tile';
@@ -75,6 +76,7 @@ export function GameBoard({
   const snap = useGameController(controller);
   const mode = useTheme().palette.mode;
   const skinId = useSkinId();
+  const { confirmPlay } = useConfirmPlay();
   const viewportRef = useRef<BoardViewportHandle | null>(null);
   const [drag, setDragState] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -399,6 +401,8 @@ export function GameBoard({
           canExchange={snap.canExchange}
           exchangeMinBag={snap.ruleset.exchangeMinBag}
           bagCount={snap.bagCount}
+          confirmBeforePlay={confirmPlay}
+          playScore={snap.preview?.total}
           onPlay={() => controller.submitPlay()}
           onRecall={() => controller.recallAll()}
           onExchange={() => controller.beginExchange()}

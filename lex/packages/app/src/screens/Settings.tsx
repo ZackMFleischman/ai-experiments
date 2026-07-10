@@ -21,6 +21,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Tile } from '../board/Tile';
 import { SKIN_IDS, SKIN_NAMES, skinVars, type TileSkinId } from '../board/skin';
 import { useSkin } from '../board/skinContext';
+import { useConfirmPlay } from '../game/confirmPlayContext';
 import { useColorMode, type ThemeMode } from '../theme';
 
 /** Three sample tiles rendered in the actual skin vars — a live preview. */
@@ -54,6 +55,7 @@ export function Settings() {
   const mode = useTheme().palette.mode;
   const { toggle } = useColorMode();
   const { skin, setSkin } = useSkin();
+  const { confirmPlay, setConfirmPlay } = useConfirmPlay();
   // Auth seam only — firebase-free (the static build sees mode 'hotseat').
   const auth = useAuth();
   return (
@@ -130,6 +132,29 @@ export function Settings() {
             </Stack>
           </Stack>
         )}
+        <Stack spacing={1}>
+          <Typography variant="overline" color="text.secondary">
+            Gameplay
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            value={confirmPlay ? 'on' : 'off'}
+            onChange={(_, v: 'on' | 'off' | null) => {
+              if (v !== null) setConfirmPlay(v === 'on');
+            }}
+            fullWidth
+          >
+            <ToggleButton value="off" data-testid="confirm-play-off">
+              Play instantly
+            </ToggleButton>
+            <ToggleButton value="on" data-testid="confirm-play-on">
+              Confirm before playing
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Typography variant="caption" color="text.secondary">
+            Ask before submitting a move — helps avoid an accidental tap on Play.
+          </Typography>
+        </Stack>
         <Stack spacing={0.5}>
           <Typography variant="overline" color="text.secondary">
             Notifications

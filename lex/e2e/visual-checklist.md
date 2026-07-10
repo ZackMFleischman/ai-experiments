@@ -83,15 +83,20 @@ are logged at the bottom with date + reason, and deleted when fixed.
   in the active skin/theme.
 - Negative scores everywhere (score bar, result overlay) use the typographic
   minus (−), never hyphen-minus.
-- Action row fits one line at 390×844: Play is the dominant full-width CTA;
-  Recall/Exchange/Pass sit low-emphasis beside it; Resign is only in the ⋯
-  overflow menu (never in the row's CTA slot).
+- Action row fits one line at 390×844: Recall/Exchange/Pass are a compact
+  icon-button cluster (≥44px targets) on the left; Play is the prominent
+  contained CTA pinned to the right ("thumb corner"), clearly separated by a
+  spacer so it never sits adjacent to a secondary action; Resign is only in the
+  ⋯ overflow menu (never in the CTA slot).
 
 ## Tile skins & Settings (T6.1)
 
 - Settings: theme toggle and skin samples reflect the *rendered* theme (mode is
   read from the MUI theme, never a parallel context); active skin card outlined;
   each sample renders its own skin's vars live.
+- Settings → Gameplay: "Play instantly / Confirm before playing" toggle;
+  when on, tapping Play opens a confirm dialog ("Play your move?") before
+  committing the turn.
 - Walnut: premium squares + labels legible on wood in both themes; cream tiles
   clearly separate from cell background.
 - High contrast: hard-outlined tiles on a black/white grid (inverted in dark);

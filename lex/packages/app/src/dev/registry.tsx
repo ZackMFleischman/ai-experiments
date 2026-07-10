@@ -449,4 +449,28 @@ export const GALLERY: GalleryEntry[] = [
       </Box>
     ),
   },
+  {
+    id: 'confirm-play',
+    render: () => (
+      <Box sx={{ p: 2 }} data-gallery-ready>
+        {/* Opt-in "Confirm before playing": Play routes through the same dialog. */}
+        <GameActions
+          playable
+          hasPending
+          interactive
+          canExchange
+          exchangeMinBag={7}
+          bagCount={86}
+          confirmBeforePlay
+          playScore={24}
+          onPlay={() => {}}
+          onRecall={() => {}}
+          onExchange={() => {}}
+          onPass={() => {}}
+          onResign={() => {}}
+          initialConfirm="play"
+        />
+      </Box>
+    ),
+  },
 ];

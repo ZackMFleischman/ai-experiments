@@ -255,3 +255,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   refetch) — the plan explicitly allows leaving this game-provided, and lifting
   race-sensitive live-sync into a generic module carries risk out of proportion to
   the dedup (the mp e2e is its only gate). Behavior preserved; DESIGN §4 updated.
+
+- **2026-07-09 — Play button moved to the "thumb corner"; secondary actions
+  iconified; opt-in play-confirm.** Fat-finger fix: `GameActions` now renders
+  Recall/Exchange/Pass as a compact left-side icon cluster (≥44px, tooltip +
+  aria-label preserve the `getByRole('button', {name})` selectors) with Play
+  isolated as the prominent contained CTA on the right, separated by a spacer.
+  New `lex.confirmPlay.v1` preference (Context per the skinContext idiom,
+  provider in App.tsx, Settings toggle) gates a Play-confirm dialog; default
+  **off** so existing one-tap flow and e2e are unchanged. Visual-checklist amended.
