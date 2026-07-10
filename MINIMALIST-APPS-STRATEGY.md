@@ -114,6 +114,7 @@ No RN rebuild; no per-app backend beyond parlor's shells; no *multiplayer* realt
 
 ## Critical files
 
+- `BRAND-IMPLEMENTATION.md` (repo root) — the phased implementation plan executing this strategy; live status lives there
 - `GAME-SETUP.md` (repo root) — canonical new-game checklist; gains solo + native tracks
 - `PARLOR-PLATFORM-HARDENING.md` — the plan this continues (its deferred generator = Phase 4 here)
 - `parlor/packages/core/src/logSession.ts` — the session model `@parlor/solo` mirrors
