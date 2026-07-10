@@ -4,6 +4,11 @@
 // mechanical `cap sync` per app — never N hand-drifted configs. The return
 // type is a structural subset of @capacitor/cli's CapacitorConfig (typed
 // locally so this package imports nothing).
+//
+// This file must stay import-free: app configs import it via the
+// './capacitor-config' subpath because the Capacitor CLI's CJS config loader
+// can compile a lone .ts file but can't follow the barrel's .js-suffixed
+// internal imports.
 
 export interface BrandCapacitorApp {
   /** Reverse-DNS store identity, e.g. 'com.zmfapps.sudoku'. */

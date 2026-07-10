@@ -229,6 +229,66 @@ Two jobs (see `hive-deploy.yml`):
 
 ---
 
+## 12. Native track (Capacitor → both stores at $1) — any APP, not just duo
+
+Sudoku is the exemplar (`BRAND-IMPLEMENTATION.md` Phase 3); lift its files
+verbatim. Everything native goes through **`@parlor/native`** — app code never
+imports `@capacitor/*` (boundary-linted); wrappers reach the injected bridge
+and no-op on the web, so the free PWA is unchanged by the wrap existing.
+
+1. **Deps** (`packages/app/package.json`): runtime — `@capacitor/core` + the
+   plugins the app actually uses (haptics/share/status-bar/splash-screen are
+   the brand floor) + the `@parlor/native` link; dev — `@capacitor/{cli,
+   android,ios,assets}`. Add the `@parlor/native` tsconfig paths (root +
+   `/capacitor-config` subpath) and vite `optimizeDeps.exclude`. pnpm gotcha:
+   override `@capacitor/assets>sharp` to `^0.33.5` (see sudoku's
+   `pnpm-workspace.yaml`) — the pinned 0.32's postinstall can't run in
+   script-blocked installs.
+2. **Config** (`packages/app/capacitor.config.ts`): one call to
+   `capacitorConfig({appId, appName, backgroundColor})` imported from
+   `@parlor/native/capacitor-config` (the subpath keeps the CLI's CJS config
+   loader off the barrel's `.js`-suffixed imports). appId is reverse-DNS and
+   ⚑ final only at first store upload.
+3. **Shells**: `pnpm build`, then from `packages/app`:
+   `pnpm exec cap add android && pnpm exec cap add ios` → committed
+   `APP/native/{android,ios}` (the template .gitignores already exclude the
+   copied web assets + generated configs). Add `native` to check-docs
+   SKIP_DIRS (shells ship their own READMEs) and `packages/app/assets/` to
+   .gitignore.
+4. **Icons/splash**: the app's mark lives in `packages/app/scripts/mark.mjs`;
+   frames come from `@parlor/brand/icon-template`; `pnpm native:assets`
+   renders both shells' icons + splash (committed). `pnpm native:sync` after
+   any web change you want on a device.
+5. **Store metadata**: `APP/store/listing.ts` typed as `StoreListing`
+   (`@parlor/native`), validated by a unit test against the capacitor config
+   so identity can't drift. Non-duo privacy label is `data-not-collected` —
+   the bundle check is the enforcement. Support + privacy URLs point at
+   `support-site/` (`zmf-apps.pages.dev`) until Phase 5's brand site.
+6. **CI**: `APP-android.yml` (lift `sudoku-android.yml`) — ubuntu, Java 21,
+   web build → `cap sync android` → `gradlew bundleRelease` → unsigned AAB
+   artifact. **No macOS CI** (strategy §1.0 tradeoff 3).
+7. **Apple 4.2 defense wiring** (in-app, all native-gated no-ops on web):
+   haptics on primary interactions + a success haptic on the win; a share
+   sheet somewhere natural; in-app review from the third win on
+   (OS-throttled, fire-and-forget); status bar synced to color mode; splash
+   on the app's paper. Verify on a real device before submitting: offline
+   cold-start, real launch screen + safe areas, no login wall.
+
+⚑ **Owner steps (store ops)** — the agent stops here and waits:
+- Apple Developer Program ($99/yr, one account covers all apps) + Play
+  Console ($25 once).
+- iOS from the owner's Mac: `pnpm native:sync`, open `native/ios` in Xcode,
+  set the team, archive → upload; TestFlight on a real device. Signing stays
+  on Xcode automatic management until cadence demands fastlane.
+- Android: create the app in Play Console, enroll Play App Signing with an
+  upload key, feed it the CI AAB signed with that key (or build locally with
+  the keystore configured).
+- Both consoles: $1 price tier, rating questionnaires, screenshots per the
+  listing manifest, privacy = Data Not Collected, and the support URL live
+  first (deploy `support-site/`; ⚑ custom domain optional).
+
+---
+
 A generator (`create-parlor-game <name>`) that stamps this skeleton is the
 plan's second, more ambitious Phase-4 deliverable; until it exists, this
 checklist is the source of truth (`PARLOR-PLATFORM-HARDENING.md` Phase 4).

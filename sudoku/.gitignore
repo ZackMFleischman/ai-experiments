@@ -11,3 +11,4 @@ blob-report/
 .env.local
 packages/app/public/icons/
 packages/app/dev-dist/
+packages/app/assets/

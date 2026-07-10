@@ -86,7 +86,7 @@ blocker for anything below.
 
 ---
 
-## Phase 3 — `@parlor/native` + the $1 store pipeline — 3a SHIPPED · 3b/3c open
+## Phase 3 — `@parlor/native` + the $1 store pipeline — 3a+3b agent side SHIPPED · ⚑ store ops + 3c open
 
 Three slices; 3a+3b are one PR series (parlor packages need a consumer), 3c
 starts while sudoku sits in App Review.
@@ -125,7 +125,22 @@ extended so Capacitor imports live only in `@parlor/native`. Unit tests run
 against a mocked bridge (real-device behavior is verified in 3b, not unit
 tests).
 
-### 3b. sudoku → both stores at $1
+### 3b. sudoku → both stores at $1 — ✅ agent side SHIPPED 2026-07-10 · ⚑ store ops open
+
+> Shipped (PR #86): committed `sudoku/native/{ios,android}` shells from the
+> factory (config stays in `packages/app`; the CLI loads the import-free
+> `@parlor/native/capacitor-config` subpath); icons/splash rendered into both
+> shells from the new `@parlor/brand/icon-template` + sudoku's `mark.mjs`
+> (`pnpm native:assets`); `store/listing.ts` validated in unit tests, privacy
+> = Data Not Collected; 4.2 defenses wired native-gated (haptics, share,
+> review-from-3rd-win, status-bar sync) — web UI byte-stable, gallery
+> untouched; `sudoku-android.yml` builds the unsigned release AAB on ubuntu;
+> native track runbook = `GAME-SETUP.md` §12; `support-site/` placeholder
+> (support + privacy pages, `zmf-apps.pages.dev`) with its own deploy
+> workflow. Gates: parlor 117 / sudoku 37 / build + bundle check / m1.
+> Remaining ⚑ (GAME-SETUP.md §12): Apple + Play accounts, signing, consoles,
+> price, questionnaires, screenshots; confirm appId + support domain before
+> first upload; on-device 4.2 checklist pass.
 
 - `sudoku/packages/app/capacitor.config.ts` from the factory; committed
   `sudoku/native/{ios,android}` shells; icons/splash from `@parlor/brand`

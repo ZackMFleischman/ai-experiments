@@ -19,7 +19,9 @@ const BUDGETS = new Map([
   ['DECISIONS.md', null],
 ]);
 
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'artifacts', 'coverage', 'test-results', 'playwright-report', 'generated']);
+// native/ holds the generated Capacitor shells (they ship their own READMEs);
+// they're factory output, not part of sudoku's authored doc set.
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'artifacts', 'coverage', 'test-results', 'playwright-report', 'generated', 'native']);
 
 function* mdFiles(dir) {
   for (const entry of readdirSync(dir)) {
