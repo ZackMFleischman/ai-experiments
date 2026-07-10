@@ -37,10 +37,15 @@ Remaining: ⚑ confirm `sudoku-zmf` Pages project + custom domain if wanted
 Feedback-driven: highlight-completed-units beat, digit-first entry mode,
 settings (error-highlight toggle), haptics-ready interaction hooks.
 
-### M3 — the $1 native wrap (strategy Phase 3)
+### M3 — the $1 native wrap (strategy Phase 3) — agent side SHIPPED; ⚑ store ops
 
-`@parlor/native` + Capacitor shells + store metadata — starts only after
-the strategy's Phase 3 kickoff; not v1 web scope.
+Committed `native/{ios,android}` shells from the `capacitorConfig` factory;
+icons/splash rendered from `@parlor/brand/icon-template` + `scripts/mark.mjs`
+(`pnpm native:assets`); `store/listing.ts` validated in unit tests (privacy =
+Data Not Collected); 4.2 defenses wired native-gated (entry/success haptics,
+share from the solved dialog, review ask from the third win, status-bar sync);
+`sudoku-android.yml` builds the unsigned release AAB. Runbook + ⚑ owner store
+ops (accounts, signing, consoles, price): `GAME-SETUP.md` §12.
 
 ## §7 Docs policy
 

@@ -9,7 +9,9 @@
     "test": "pnpm -r test",
     "build": "pnpm --filter @sudoku/app build && node scripts/check-bundle.mjs",
     "validate:m1": "SUDOKU_PROP_PUZZLES=40 pnpm --filter @sudoku/engine test",
-    "validate:visual": "pnpm --filter sudoku-e2e test:visual"
+    "validate:visual": "pnpm --filter sudoku-e2e test:visual",
+    "native:sync": "pnpm build && pnpm --filter @sudoku/app exec cap sync",
+    "native:assets": "pnpm --filter @sudoku/app exec node scripts/build-native-assets.mjs && pnpm --filter @sudoku/app exec capacitor-assets generate --ios --android --iosProject ../../native/ios/App --androidProject ../../native/android/app"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

@@ -12,10 +12,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor-community/in-app-review": "^8.0.0",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/material": "^5.16.14",
     "@parlor/brand": "link:../../../parlor/packages/brand",
+    "@parlor/native": "link:../../../parlor/packages/native",
     "@parlor/solo": "link:../../../parlor/packages/solo",
     "@sudoku/engine": "workspace:*",
     "react": "^18.3.1",
@@ -23,6 +30,10 @@
     "react-router-dom": "^6.28.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/assets": "^3.0.0",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "@parlor/harness": "link:../../../parlor/packages/harness",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.5",

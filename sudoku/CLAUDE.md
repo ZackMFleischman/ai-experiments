@@ -25,4 +25,7 @@ From `sudoku/`: `pnpm install`, `pnpm dev`, `pnpm typecheck`, `pnpm test`,
 `pnpm build` (static PWA + bundle check), `pnpm validate:m1` (40-puzzle
 generation sweep), `pnpm validate:visual` (gallery × viewports × themes —
 read the captures in `artifacts/screens/`, don't just pass the gate).
-CI: `.github/workflows/sudoku-{ci,deploy}.yml`.
+Native wrap: `pnpm native:sync` / `pnpm native:assets` (committed
+`native/{ios,android}` shells; runbook `GAME-SETUP.md` §12 — app code never
+imports `@capacitor/*`, only `@parlor/native`).
+CI: `.github/workflows/sudoku-{ci,deploy,android}.yml`.

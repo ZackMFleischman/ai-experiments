@@ -33,3 +33,31 @@
 - `MoreFromUs` hiding URL-less family entries confirmed as designed (Lex
   appears once it has a public URL) — no change.
 - ⚑ remaining to close M1: confirm `sudoku-zmf` Pages project + custom domain.
+
+## 2026-07-10 — M3 agent side SHIPPED: the $1 native wrap (strategy Phase 3a+3b)
+
+- Gates run: parlor typecheck+test (117, incl. 17 new `@parlor/native`
+  mocked-bridge tests), sudoku typecheck+test (37: +4 native wiring, +3 store
+  listing), `pnpm build` + bundle check, `validate:m1`. Android AAB builds in
+  the new `sudoku-android.yml` (no local SDK — CI is the proof).
+- **Bridge, not imports**: `@parlor/native` reaches Capacitor via the injected
+  `globalThis.Capacitor` only; `@capacitor/*` are optional peers. The free PWA
+  bundle is byte-identical with the wrap in the tree; app tests mock the
+  bridge global. Boundary rule (d) machine-enforces it.
+- Shells committed at `native/{ios,android}` via the factory's `ios.path` /
+  `android.path` (config stays in `packages/app` per the strategy). The CLI's
+  CJS config loader can't follow the barrel's `.js` imports → the factory is
+  exposed as the import-free `@parlor/native/capacitor-config` subpath.
+- Icons/splash: family frames extracted to `@parlor/brand/icon-template`
+  (plain .mjs — node scripts import it loader-free); sudoku keeps only its
+  mark. Rendered shell assets are committed; `packages/app/assets/` sources
+  are generated (gitignored). `@capacitor/assets>sharp` overridden to 0.33
+  (0.32's postinstall can't run in script-blocked installs).
+- 4.2 defenses all native-gated: entry haptic per digit, success haptic +
+  review ask from the 3rd win (OS-throttled) on solve, share in the solved
+  dialog, status bar synced to color mode. Web UI unchanged (gallery stable).
+- `check-docs` skips `native/` (generated shells ship their own READMEs).
+- ⚑ owner store ops remain (GAME-SETUP.md §12): Apple/Play accounts, signing,
+  consoles, $1 tier, questionnaires, screenshots; appId `com.zmfapps.sudoku`
+  and the `zmf-apps.pages.dev` support placeholder are final only at first
+  upload — rename before then if wanted.

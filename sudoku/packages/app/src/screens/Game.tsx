@@ -11,6 +11,13 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { AppShell } from '@parlor/brand';
+import {
+  hapticNotification,
+  hapticSelection,
+  isNative,
+  requestReview,
+  shareContent,
+} from '@parlor/native';
 import { dayKey } from '@parlor/solo';
 import { conflictCells, digitCounts, type SudokuState } from '@sudoku/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -52,12 +59,18 @@ export function Game() {
   useEffect(() => {
     if (!solved || recorded.current || !options) return;
     recorded.current = true;
+    const today = dayKey(new Date());
     stats.record({
-      day: dayKey(new Date()),
+      day: today,
       durationMs: loadElapsed(storage, gameKey as string),
       won: true,
       bucket: options.daily ? 'daily' : options.difficulty,
     });
+    // Native polish (Apple 4.2 defense, no-ops on web): a success tap, and
+    // from the third win on, let the OS decide whether to show the rating
+    // prompt (both stores throttle it — fire-and-forget).
+    void hapticNotification('success');
+    if (stats.summary(today).won >= 3) void requestReview();
   }, [solved, options, gameKey, stats, storage]);
 
   // ---- input ----
@@ -65,6 +78,7 @@ export function Game() {
     (digit: number) => {
       if (selected === null || solved) return;
       session.submit(notesMode ? { t: 'note', cell: selected, digit } : { t: 'set', cell: selected, digit });
+      void hapticSelection(); // native tick per entry; no-op on web
     },
     [selected, solved, notesMode, session],
   );
@@ -148,6 +162,21 @@ export function Game() {
           </Typography>
         </DialogContent>
         <DialogActions>
+          {isNative() && (
+            <Button
+              onClick={() =>
+                void shareContent({
+                  title: 'Sudoku',
+                  text: `Solved ${
+                    options.daily ? `the ${options.daily} daily sudoku` : `a ${options.difficulty} sudoku`
+                  } in ${formatElapsed(elapsed)}.`,
+                  url: 'https://sudoku-zmf.pages.dev',
+                })
+              }
+            >
+              Share
+            </Button>
+          )}
           <Button
             onClick={() => {
               session.clear();

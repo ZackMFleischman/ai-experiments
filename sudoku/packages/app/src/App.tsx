@@ -7,8 +7,9 @@ import {
   createBrandTheme,
   type ThemeMode,
 } from '@parlor/brand';
+import { syncStatusBar } from '@parlor/native';
 import type { KeyValueStorage } from '@parlor/solo';
-import { createContext, lazy, Suspense, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { createSession, createStats, type Session } from './game/session';
 import type { StatsStore } from '@parlor/solo';
@@ -91,6 +92,12 @@ export function AppProviders({
     [mode, storage],
   );
   const theme = useMemo(() => createBrandTheme(mode, ACCENT), [mode]);
+
+  // Native shells: keep the status bar readable across mode flips (no-op on
+  // web — the Phase-3a bridge discipline).
+  useEffect(() => {
+    void syncStatusBar(mode, theme.palette.background.default);
+  }, [mode, theme]);
 
   return (
     <AppStateProvider value={value}>

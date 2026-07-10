@@ -43,6 +43,6 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@emotion/react', '@emotion/styled'],
   },
   optimizeDeps: {
-    exclude: ['@parlor/solo', '@parlor/brand', '@parlor/harness'],
+    exclude: ['@parlor/solo', '@parlor/brand', '@parlor/harness', '@parlor/native'],
   },
 });
