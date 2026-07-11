@@ -14,20 +14,20 @@ export type JoinState =
   | {
       kind: 'ready';
       hostName: string;
-      hostSeat: 'attackers' | 'defenders';
+      hostSeat: 'dark' | 'light';
       options: CheckersGameOptions;
     };
 
 export function JoinCard({ state, onAccept }: { state: JoinState; onAccept: () => void }) {
   if (state.kind !== 'ready') return <ParlorJoinCard state={state} onAccept={onAccept} />;
-  const mySide = state.hostSeat === 'attackers' ? 'defenders' : 'attackers';
+  const mySide = state.hostSeat === 'dark' ? 'light' : 'dark';
   return (
     <ParlorJoinCard
       state={{
         kind: 'ready',
         hostName: state.hostName,
         // The shared card keys "who moves first" off p0/p1 seat indices.
-        hostSeat: state.hostSeat === 'attackers' ? 'p0' : 'p1',
+        hostSeat: state.hostSeat === 'dark' ? 'p0' : 'p1',
         details: (
           <>
             <Chip label={`You play ${sideLabel(mySide)}`} size="small" />

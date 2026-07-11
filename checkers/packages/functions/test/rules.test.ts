@@ -48,12 +48,12 @@ beforeEach(async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     await setDoc(doc(db, 'games/g1'), {
-      players: { attackers: 'ada', defenders: 'sam' },
-      playerNames: { attackers: 'Ada', defenders: 'Sam' },
+      players: { dark: 'ada', light: 'sam' },
+      playerNames: { dark: 'Ada', light: 'Sam' },
       playerIds: ['ada', 'sam'],
       options: { timeControl: null },
       status: 'active',
-      toMove: 'attackers',
+      toMove: 'dark',
       moveCount: 1,
       state: serializeCheckers(initialCheckers()),
       updatedAt: 1,
@@ -61,9 +61,8 @@ beforeEach(async () => {
     await setDoc(doc(db, 'games/g1/moves/0'), {
       n: 0,
       kind: 'move',
-      from: 10,
-      to: 7,
-      name: 'd6-a6',
+      path: [17, 24],
+      name: 'b3-a4',
       by: 'ada',
       at: 1,
     });
@@ -104,8 +103,8 @@ describe('games/{gameId}', () => {
 
   it('nobody writes a game doc from the client — not even a player', async () => {
     const db = env.authenticatedContext('ada').firestore();
-    await assertFails(updateDoc(doc(db, 'games/g1'), { toMove: 'defenders' }));
-    await assertFails(updateDoc(doc(db, 'games/g1'), { status: 'finished', result: 'attackers' }));
+    await assertFails(updateDoc(doc(db, 'games/g1'), { toMove: 'light' }));
+    await assertFails(updateDoc(doc(db, 'games/g1'), { status: 'finished', result: 'dark' }));
     await assertFails(setDoc(doc(db, 'games/g2'), { players: {}, playerIds: ['ada'] }));
   });
 
@@ -126,7 +125,7 @@ describe('games/{gameId}', () => {
     const eve = env.authenticatedContext('eve').firestore();
     await assertFails(getDocs(query(collection(eve, 'games/g1/moves'), orderBy('n'))));
     await assertFails(
-      setDoc(doc(ada, 'games/g1/moves/1'), { n: 1, kind: 'move', from: 17, to: 14, by: 'ada' }),
+      setDoc(doc(ada, 'games/g1/moves/1'), { n: 1, kind: 'move', path: [40, 33], by: 'ada' }),
     );
   });
 });

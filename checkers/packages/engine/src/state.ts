@@ -1,26 +1,28 @@
 // Game state and its (de)serialization. State is a plain JSON value — a
-// 49-char board string plus bookkeeping — so it snapshots, diffs, and ships
+// 64-char board string plus bookkeeping — so it snapshots, diffs, and ships
 // over the wire for free. applyCheckers in apply.ts is the only thing that
 // advances it; nothing here mutates. `seen` counts (board + side-to-move)
 // position keys for threefold repetition; games are short, so it never needs
 // pruning. The initial position is seeded into `seen` at 1 so returning to
 // it twice is the third occurrence — the draw fires on the third sighting.
 
-export type Side = 'attackers' | 'defenders';
+export type Side = 'dark' | 'light';
 
-export type Piece = 'A' | 'D' | 'K' | '.';
+/** 'd'/'l' men, 'D'/'L' kings, '.' empty. Pieces live on dark squares only. */
+export type Piece = 'd' | 'D' | 'l' | 'L' | '.';
 
+/** A whole move as its square sequence: path[0] is the origin, then each
+ * landing. Simple moves have exactly 2 entries; multi-jumps one per hop. */
 export interface CheckersMove {
-  from: number;
-  to: number;
+  path: number[];
 }
 
 export type CheckersResult =
-  | { winner: Side; by: 'escape' | 'capture' | 'no-moves' | 'resign' | 'timeout' }
+  | { winner: Side; by: 'no-moves' | 'resign' | 'timeout' }
   | { winner: null; by: 'repetition' };
 
 export interface CheckersState {
-  /** 49-char board string, row-major. */
+  /** 64-char board string, row-major. */
   board: string;
   toMove: Side;
   moveCount: number;
@@ -36,16 +38,17 @@ export class IllegalMoveError extends Error {
   }
 }
 
-// Brandub setup: a cross of 8 attackers, 4 defenders around the king on the
-// throne. Attackers move first.
+// American checkers setup: 12 dark men on the dark squares of rows 0-2 (top),
+// 12 light men on rows 5-7. Dark moves first, heading down the board.
 const INITIAL_BOARD =
-  '...A...' + // rank 1
-  '...A...' + // rank 2
-  '...D...' + // rank 3
-  'AADKDAA' + // rank 4
-  '...D...' + // rank 5
-  '...A...' + // rank 6
-  '...A...'; //  rank 7
+  '.d.d.d.d' + // rank 1
+  'd.d.d.d.' + // rank 2
+  '.d.d.d.d' + // rank 3
+  '........' + // rank 4
+  '........' + // rank 5
+  'l.l.l.l.' + // rank 6
+  '.l.l.l.l' + // rank 7
+  'l.l.l.l.'; //  rank 8
 
 /** Repetition key: the full position is the board plus whose turn it is. */
 export function positionKey(board: string, toMove: Side): string {
@@ -55,22 +58,22 @@ export function positionKey(board: string, toMove: Side): string {
 export function initialCheckers(): CheckersState {
   return {
     board: INITIAL_BOARD,
-    toMove: 'attackers',
+    toMove: 'dark',
     moveCount: 0,
-    seen: { [positionKey(INITIAL_BOARD, 'attackers')]: 1 },
+    seen: { [positionKey(INITIAL_BOARD, 'dark')]: 1 },
     result: null,
   };
 }
 
-/** Which side a piece fights for — the king is a defender; '.' is nobody's. */
+/** Which side a piece fights for — '.' is nobody's. */
 export function sideOf(piece: Piece): Side | null {
-  if (piece === 'A') return 'attackers';
-  if (piece === 'D' || piece === 'K') return 'defenders';
+  if (piece === 'd' || piece === 'D') return 'dark';
+  if (piece === 'l' || piece === 'L') return 'light';
   return null;
 }
 
 export function otherSide(side: Side): Side {
-  return side === 'attackers' ? 'defenders' : 'attackers';
+  return side === 'dark' ? 'light' : 'dark';
 }
 
 export function pieceAt(state: CheckersState, cell: number): Piece {
@@ -83,7 +86,7 @@ export function serializeCheckers(state: CheckersState): string {
   return JSON.stringify(state);
 }
 
-const WIN_BYS: readonly string[] = ['escape', 'capture', 'no-moves', 'resign', 'timeout'];
+const WIN_BYS: readonly string[] = ['no-moves', 'resign', 'timeout'];
 
 function parseResult(raw: unknown): CheckersResult | null {
   if (raw === null) return null;
@@ -94,12 +97,8 @@ function parseResult(raw: unknown): CheckersResult | null {
   const winner = o['winner'];
   const by = o['by'];
   if (winner === null && by === 'repetition') return { winner: null, by: 'repetition' };
-  if (
-    (winner === 'attackers' || winner === 'defenders') &&
-    typeof by === 'string' &&
-    WIN_BYS.includes(by)
-  ) {
-    return { winner, by: by as 'escape' | 'capture' | 'no-moves' | 'resign' | 'timeout' };
+  if ((winner === 'dark' || winner === 'light') && typeof by === 'string' && WIN_BYS.includes(by)) {
+    return { winner, by: by as 'no-moves' | 'resign' | 'timeout' };
   }
   throw new Error('deserializeCheckers: corrupt result');
 }
@@ -118,14 +117,18 @@ export function deserializeCheckers(text: string): CheckersState {
   const o = raw as Record<string, unknown>;
 
   const board = o['board'];
-  if (typeof board !== 'string' || board.length !== 49 || /[^ADK.]/.test(board)) {
+  if (typeof board !== 'string' || board.length !== 64 || /[^dDlL.]/.test(board)) {
     throw new Error('deserializeCheckers: corrupt board');
   }
-  const kings = board.split('').filter((ch) => ch === 'K').length;
-  if (kings > 1) throw new Error('deserializeCheckers: more than one king');
+  for (let cell = 0; cell < 64; cell++) {
+    const light = (Math.floor(cell / 8) + (cell % 8)) % 2 === 0;
+    if (light && board.charAt(cell) !== '.') {
+      throw new Error('deserializeCheckers: piece on a light square');
+    }
+  }
 
   const toMove = o['toMove'];
-  if (toMove !== 'attackers' && toMove !== 'defenders') {
+  if (toMove !== 'dark' && toMove !== 'light') {
     throw new Error('deserializeCheckers: corrupt toMove');
   }
 

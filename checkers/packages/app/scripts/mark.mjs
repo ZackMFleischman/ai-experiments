@@ -1,20 +1,15 @@
-// checkers's mark inside the family tile (@parlor/brand/icon-template): the
-// four corner refuges and the king holding the center — the whole game in
-// one glyph. Shared by the PWA icon build and any future native build.
+// checkers's mark inside the family tile (@parlor/brand/icon-template): a
+// crowned checker — two stacked discs, the accent piece wearing a smaller
+// ink cap — the whole game in one glyph. Shared by the PWA icon build and
+// any future native build.
 import { BRAND_INK } from '@parlor/brand/icon-template';
 
-export const FIELD = '#7a1f3d'; // checkers teal (theme primary)
+export const FIELD = '#7a1f3d'; // checkers wine (theme primary)
 
 export const MARK = `
-  <g fill="none" stroke="${BRAND_INK}" stroke-width="2.5">
-    <rect x="20" y="20" width="9" height="9" rx="2"/>
-    <rect x="71" y="20" width="9" height="9" rx="2"/>
-    <rect x="20" y="71" width="9" height="9" rx="2"/>
-    <rect x="71" y="71" width="9" height="9" rx="2"/>
-  </g>
-  <g fill="${BRAND_INK}">
-    <rect x="33" y="46" width="8" height="8" rx="2" transform="rotate(45 37 50)"/>
-    <rect x="59" y="46" width="8" height="8" rx="2" transform="rotate(45 63 50)"/>
-  </g>
-  <circle cx="50" cy="50" r="9" fill="${FIELD}"/>
-  <circle cx="50" cy="50" r="3.5" fill="#f5f3ee"/>`;
+  <ellipse cx="50" cy="58" rx="24" ry="9" fill="${BRAND_INK}" opacity="0.35"/>
+  <ellipse cx="50" cy="54" rx="24" ry="10" fill="${BRAND_INK}"/>
+  <rect x="26" y="44" width="48" height="10" fill="${BRAND_INK}"/>
+  <ellipse cx="50" cy="44" rx="24" ry="10" fill="#f5f3ee"/>
+  <ellipse cx="50" cy="41" rx="14" ry="6" fill="${BRAND_INK}"/>
+  <ellipse cx="50" cy="38" rx="14" ry="6" fill="${FIELD}"/>`;

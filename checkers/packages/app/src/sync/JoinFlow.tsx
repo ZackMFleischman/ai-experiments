@@ -13,7 +13,7 @@ import * as api from './gameApi';
 interface InviteDoc {
   gameId: string;
   hostName: string;
-  hostSeat: 'attackers' | 'defenders';
+  hostSeat: 'dark' | 'light';
   options: CheckersGameOptions;
   expiresAt: { toMillis(): number };
 }

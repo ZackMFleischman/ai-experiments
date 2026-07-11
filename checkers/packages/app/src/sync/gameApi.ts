@@ -10,10 +10,10 @@ const api = createGameApi<CheckersGameOptions, SeatChoice>();
 export const { createGame, joinGame, cancelGame, challengeUser, respondChallenge, resign, rematch } =
   api;
 
-/** The typed JSON move on the wire — plain cell indices. */
+/** The typed JSON move on the wire — the whole path as plain cell indices
+ * (multi-jumps are one move). */
 export interface WireMove {
-  from: number;
-  to: number;
+  path: number[];
 }
 
 export const submitMove = callable<

@@ -28,26 +28,37 @@ const memoryStorage = (): KeyValueStorage => {
 
 // ---- deterministic positions ------------------------------------------------
 
-/** A real four-ply opening, folded through the engine (crashes loudly here
- * if a listed move ever goes illegal — the gallery is honest by force). */
+/** A real six-ply opening — two of them jumps — folded through the engine
+ * (crashes loudly here if a listed move ever goes illegal, mandatory
+ * captures included — the gallery is honest by force). */
 function midGame(): CheckersState {
   let s = initialCheckers();
-  for (const move of [
-    { from: 10, to: 7 }, // attacker sweeps to the left wall
-    { from: 17, to: 14 }, // defender follows
-    { from: 3, to: 2 }, // attacker sidles along the top
-    { from: 24, to: 17 }, // the king steps off the throne
+  for (const path of [
+    [17, 26], // dark b3-c4
+    [40, 33], // light a6-b5
+    [26, 40], // dark c4×a6 — the mandatory jump
+    [42, 33], // light c6-b5
+    [19, 26], // dark d3-c4
+    [33, 19], // light b5×d3 — mandatory again
   ]) {
-    s = applyCheckers(s, move);
+    s = applyCheckers(s, { path });
   }
   return s;
 }
 
-/** A hand-built endgame: the king one step from the corner, guard thinned. */
+/** A hand-built endgame: a crowned king each, dark a man up and closing. */
 const ENDGAME: CheckersState = {
-  board: ('.K.....' + '..A....' + '.......' + 'A...D..' + '.......' + '....A..' + '.......').slice(0, 49),
-  toMove: 'defenders',
-  moveCount: 22,
+  board:
+    '........' +
+    '........' +
+    '.....d..' +
+    '........' +
+    '...D....' +
+    '..l.....' +
+    '........' +
+    '....L...',
+  toMove: 'light',
+  moveCount: 30,
   seen: {},
   result: null,
 };
@@ -81,7 +92,7 @@ export const GALLERY: GalleryEntry[] = [
         state={{
           kind: 'ready',
           hostName: 'Ada',
-          hostSeat: 'attackers',
+          hostSeat: 'dark',
           options: { timeControl: { days: 3 } },
         }}
         onAccept={() => {}}

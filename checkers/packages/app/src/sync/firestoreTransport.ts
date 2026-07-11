@@ -21,8 +21,8 @@ import type { CheckersEntry } from '../game/entries';
 import * as api from './gameApi';
 
 interface GameDocData {
-  players: { attackers: string | null; defenders: string | null };
-  playerNames: { attackers: string | null; defenders: string | null };
+  players: { dark: string | null; light: string | null };
+  playerNames: { dark: string | null; light: string | null };
   status: 'open' | 'active' | 'finished';
   options: CheckersGameOptions;
   moveCount: number;
@@ -36,8 +36,7 @@ interface GameDocData {
 interface MoveDocData {
   n: number;
   kind: 'move' | 'resign' | 'timeout';
-  from?: number;
-  to?: number;
+  path?: number[];
   by: string;
 }
 
@@ -60,7 +59,7 @@ export interface GameMeta {
 }
 
 export class FirestoreTransport implements GameTransport<CheckersGameOptions, CheckersEntry> {
-  private players: GameDocData['players'] = { attackers: null, defenders: null };
+  private players: GameDocData['players'] = { dark: null, light: null };
 
   constructor(
     private readonly gameId: string,
@@ -73,11 +72,11 @@ export class FirestoreTransport implements GameTransport<CheckersGameOptions, Ch
     if (!snap.exists()) throw new Error('game not found');
     const data = snap.data() as GameDocData;
     this.players = data.players;
-    const seat = seatIndexOf(data.players, this.uid, ['attackers', 'defenders']);
+    const seat = seatIndexOf(data.players, this.uid, ['dark', 'light']);
     if (seat === null) throw new Error('you are not a player in this game');
     return {
       options: data.options,
-      mySide: seat === 0 ? 'attackers' : 'defenders',
+      mySide: seat === 0 ? 'dark' : 'light',
       status: data.status,
       playerNames: data.playerNames,
       ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
@@ -106,9 +105,9 @@ export class FirestoreTransport implements GameTransport<CheckersGameOptions, Ch
 
   private toEntry(move: MoveDocData): CheckersEntry {
     if (move.kind === 'move') {
-      return { kind: 'move', from: move.from ?? -1, to: move.to ?? -1 };
+      return { kind: 'move', path: move.path ?? [] };
     }
-    const by: Side = move.by === this.players.attackers ? 'attackers' : 'defenders';
+    const by: Side = move.by === this.players.dark ? 'dark' : 'light';
     return { kind: move.kind, by };
   }
 
@@ -126,7 +125,7 @@ export class FirestoreTransport implements GameTransport<CheckersGameOptions, Ch
       let replayed = initialCheckers();
       for (const entry of log) {
         if (entry.kind === 'move') {
-          replayed = applyCheckers(replayed, { from: entry.from, to: entry.to });
+          replayed = applyCheckers(replayed, { path: entry.path });
         }
       }
       const snapshot = deserializeCheckers(game.state);
@@ -145,7 +144,7 @@ export class FirestoreTransport implements GameTransport<CheckersGameOptions, Ch
       await api.submitMove({
         gameId: this.gameId,
         expectedMoveCount: expectedIndex,
-        move: { from: entry.from, to: entry.to },
+        move: { path: entry.path },
       });
     } else if (entry.kind === 'resign') {
       await api.resign({ gameId: this.gameId });

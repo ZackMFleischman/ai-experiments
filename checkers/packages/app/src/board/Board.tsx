@@ -1,16 +1,16 @@
-// The 7×7 board. Pure presentation: it renders engine state and the
-// engine's own legalDestinations() — never computes a rule. Squares are a
-// CSS grid of buttons (keyboard + screen-reader friendly: each square is
-// labelled 'd4' with its occupant); the selected piece's legal targets get a
-// quiet dot, the last move a soft wash, restricted squares their motif.
+// The 8×8 board. Pure presentation: it renders engine state and the
+// engine's own legalMovesFrom() — never computes a rule. Squares are a CSS
+// grid of buttons (keyboard + screen-reader friendly: each square is
+// labelled 'b3' with its occupant); selecting a piece dots the LANDING
+// squares of its complete legal paths, and tapping a dot submits the whole
+// path — multi-jumps ride along for free. The last move gets a soft wash on
+// its endpoints.
 import Box from '@mui/material/Box';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   BOARD_SIZE,
-  CORNERS,
-  THRONE,
   cellName,
-  legalDestinations,
+  legalMovesFrom,
   pieceAt,
   sideOf,
   type Piece,
@@ -25,7 +25,7 @@ export interface BoardProps {
   onMove?: ((move: CheckersMove) => void) | undefined;
   /** Which side may pick pieces up right now (hot-seat: the side to move;
    * online: my side on my turn; undefined: display only). */
-  actingSide?: 'attackers' | 'defenders' | undefined;
+  actingSide?: 'dark' | 'light' | undefined;
   lastMove?: CheckersMove | undefined;
 }
 
@@ -33,71 +33,53 @@ function PieceGlyph({ piece, size }: { piece: Piece; size: string }) {
   const theme = useTheme();
   const ink = theme.palette.text.primary;
   const paper = theme.palette.background.paper;
-  const accent = theme.palette.primary.main;
-  if (piece === 'A') {
-    return (
-      <Box
-        sx={{
-          width: size,
-          height: size,
-          borderRadius: '28%',
-          bgcolor: ink,
-          transform: 'rotate(45deg)',
-        }}
-      />
-    );
-  }
-  if (piece === 'D') {
-    return (
-      <Box
-        sx={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          bgcolor: paper,
-          border: 2,
-          borderColor: ink,
-        }}
-      />
-    );
-  }
-  if (piece === 'K') {
-    return (
-      <Box
-        sx={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          bgcolor: accent,
-          display: 'grid',
-          placeItems: 'center',
-          color: theme.palette.primary.contrastText,
-          fontSize: `calc(${size} * 0.62)`,
-          lineHeight: 1,
-          fontWeight: 700,
-        }}
-      >
-        ♜
-      </Box>
-    );
-  }
-  return null;
+  if (piece === '.') return null;
+  const dark = piece === 'd' || piece === 'D';
+  const king = piece === 'D' || piece === 'L';
+  return (
+    <Box
+      sx={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        bgcolor: dark ? ink : paper,
+        border: 2,
+        borderColor: ink,
+        display: 'grid',
+        placeItems: 'center',
+        color: dark ? paper : ink,
+        fontSize: `calc(${size} * 0.5)`,
+        lineHeight: 1,
+      }}
+    >
+      {king ? '♛' : ''}
+    </Box>
+  );
 }
 
 export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
   const theme = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
 
-  const targets = useMemo(
-    () => (selected === null ? new Set<number>() : new Set(legalDestinations(state, selected))),
-    [state, selected],
-  );
+  // Landing square → the complete path to submit. When two paths of the same
+  // piece share a landing square (rare double-jump geometry), the first one
+  // wins — a v1 simplification recorded in DECISIONS.md.
+  const targets = useMemo(() => {
+    const map = new Map<number, number[]>();
+    if (selected === null) return map;
+    for (const move of legalMovesFrom(state, selected)) {
+      const landing = move.path[move.path.length - 1];
+      if (landing !== undefined && !map.has(landing)) map.set(landing, move.path);
+    }
+    return map;
+  }, [state, selected]);
 
   const pick = (cell: number): void => {
     if (!onMove || !actingSide || state.result) return;
-    if (selected !== null && targets.has(cell)) {
+    const path = selected !== null ? targets.get(cell) : undefined;
+    if (path) {
       setSelected(null);
-      onMove({ from: selected, to: cell });
+      onMove({ path });
       return;
     }
     const piece = pieceAt(state, cell);
@@ -109,8 +91,9 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
   };
 
   const cells = Array.from({ length: BOARD_SIZE * BOARD_SIZE }, (_, i) => i);
-  const restricted = new Set<number>([THRONE, ...CORNERS]);
-  const lastCells = new Set(lastMove ? [lastMove.from, lastMove.to] : []);
+  const lastCells = new Set(
+    lastMove ? [lastMove.path[0] ?? -1, lastMove.path[lastMove.path.length - 1] ?? -1] : [],
+  );
 
   return (
     <Box
@@ -134,7 +117,7 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
         const piece = pieceAt(state, cell);
         const row = Math.floor(cell / BOARD_SIZE);
         const col = cell % BOARD_SIZE;
-        const checker = (row + col) % 2 === 1;
+        const playable = (row + col) % 2 === 1; // the dark squares
         const label = piece === '.' ? cellName(cell) : `${cellName(cell)} ${pieceLabel(piece)}`;
         return (
           <Box
@@ -157,8 +140,8 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
                 ? alpha(theme.palette.primary.main, 0.18)
                 : selected === cell
                   ? alpha(theme.palette.primary.main, 0.28)
-                  : checker
-                    ? alpha(theme.palette.text.primary, 0.05)
+                  : playable
+                    ? alpha(theme.palette.text.primary, 0.14)
                     : 'transparent',
               '&:focus-visible': {
                 outline: `2px solid ${theme.palette.primary.main}`,
@@ -166,19 +149,7 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
               },
             }}
           >
-            {restricted.has(cell) && piece === '.' && (
-              <Box
-                aria-hidden
-                sx={{
-                  position: 'absolute',
-                  inset: '30%',
-                  border: 1.5,
-                  borderColor: alpha(theme.palette.text.primary, 0.35),
-                  borderRadius: cell === THRONE ? '50%' : '20%',
-                }}
-              />
-            )}
-            <PieceGlyph piece={piece} size="68%" />
+            <PieceGlyph piece={piece} size="72%" />
             {targets.has(cell) && (
               <Box
                 aria-hidden
@@ -200,5 +171,8 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
 }
 
 function pieceLabel(piece: Piece): string {
-  return piece === 'A' ? 'attacker' : piece === 'D' ? 'defender' : 'king';
+  if (piece === 'd') return 'dark man';
+  if (piece === 'D') return 'dark king';
+  if (piece === 'l') return 'light man';
+  return 'light king';
 }

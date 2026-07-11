@@ -3,11 +3,12 @@
 // log). Pure presentation, no interaction.
 import Box from '@mui/material/Box';
 import { alpha, useTheme } from '@mui/material/styles';
-import { BOARD_SIZE, THRONE, CORNERS } from '@checkers/engine';
+import { BOARD_SIZE } from '@checkers/engine';
 
 export function MiniBoard({ board, size = 72 }: { board: string; size?: number }) {
   const theme = useTheme();
-  const restricted = new Set<number>([THRONE, ...CORNERS]);
+  const ink = theme.palette.text.primary;
+  const paper = theme.palette.background.paper;
   return (
     <Box
       aria-hidden
@@ -26,36 +27,44 @@ export function MiniBoard({ board, size = 72 }: { board: string; size?: number }
     >
       {Array.from({ length: BOARD_SIZE * BOARD_SIZE }, (_, cell) => {
         const piece = board[cell] ?? '.';
+        const row = Math.floor(cell / BOARD_SIZE);
+        const col = cell % BOARD_SIZE;
+        const playable = (row + col) % 2 === 1;
+        const dark = piece === 'd' || piece === 'D';
+        const king = piece === 'D' || piece === 'L';
         return (
-          <Box key={cell} sx={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
-            {piece === '.' && restricted.has(cell) && (
-              <Box
-                sx={{
-                  width: '45%',
-                  height: '45%',
-                  borderRadius: cell === THRONE ? '50%' : '25%',
-                  border: 1,
-                  borderColor: alpha(theme.palette.text.primary, 0.3),
-                }}
-              />
-            )}
+          <Box
+            key={cell}
+            sx={{
+              position: 'relative',
+              display: 'grid',
+              placeItems: 'center',
+              bgcolor: playable ? alpha(ink, 0.14) : 'transparent',
+            }}
+          >
             {piece !== '.' && (
               <Box
                 sx={{
                   width: '72%',
                   height: '72%',
-                  borderRadius: piece === 'A' ? '25%' : '50%',
-                  transform: piece === 'A' ? 'rotate(45deg) scale(0.9)' : 'none',
-                  bgcolor:
-                    piece === 'K'
-                      ? theme.palette.primary.main
-                      : piece === 'A'
-                        ? theme.palette.text.primary
-                        : theme.palette.background.paper,
-                  border: piece === 'D' ? 1 : 0,
-                  borderColor: theme.palette.text.primary,
+                  borderRadius: '50%',
+                  bgcolor: dark ? ink : paper,
+                  border: 1,
+                  borderColor: ink,
+                  boxSizing: 'border-box',
                 }}
-              />
+              >
+                {king && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      inset: '38%',
+                      borderRadius: '50%',
+                      bgcolor: theme.palette.primary.main,
+                    }}
+                  />
+                )}
+              </Box>
             )}
           </Box>
         );

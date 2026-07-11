@@ -48,52 +48,53 @@ const cell = (name: string): HTMLElement => {
 };
 
 describe('hot-seat game', () => {
-  it('renders the initial position with attackers to move', async () => {
+  it('renders the initial position with dark to move', async () => {
     await renderHotSeat(memoryStorage());
     expect(screen.getByRole('grid', { name: 'checkers board' })).toBeTruthy();
-    expect(screen.getAllByRole('gridcell')).toHaveLength(49);
-    expect(screen.getByTestId('status-line').textContent).toContain('Attackers to move');
-    expect(cell('d4').getAttribute('aria-label')).toBe('d4 king');
+    expect(screen.getAllByRole('gridcell')).toHaveLength(64);
+    expect(screen.getByTestId('status-line').textContent).toContain('Dark to move');
+    expect(cell('b3').getAttribute('aria-label')).toBe('b3 dark man');
+    expect(cell('a6').getAttribute('aria-label')).toBe('a6 light man');
   });
 
   it('a click-move folds through the engine and flips the turn', async () => {
     await renderHotSeat(memoryStorage());
-    // Attacker at d6 (row1,col3 = cell 10) → a6 (row1,col0 = cell 7).
-    fireEvent.click(cell('d6'));
+    // Dark man at b3 (row 2, col 1 = cell 17) → a4 (row 3, col 0 = cell 24).
+    fireEvent.click(cell('b3'));
     await waitFor(() => expect(screen.getAllByTestId('move-target').length).toBeGreaterThan(0));
-    fireEvent.click(cell('a6'));
+    fireEvent.click(cell('a4'));
     await waitFor(() =>
-      expect(screen.getByTestId('status-line').textContent).toContain('Defenders to move'),
+      expect(screen.getByTestId('status-line').textContent).toContain('Light to move'),
     );
-    expect(cell('a6').getAttribute('aria-label')).toBe('a6 attacker');
+    expect(cell('a4').getAttribute('aria-label')).toBe('a4 dark man');
   });
 
   it('the wrong side cannot pick a piece up', async () => {
     await renderHotSeat(memoryStorage());
-    fireEvent.click(cell('d5')); // defender piece, attackers to move
+    fireEvent.click(cell('a6')); // light man, dark to move
     expect(screen.queryAllByTestId('move-target')).toHaveLength(0);
   });
 
   it('the stored game survives a remount (localStorage transport)', async () => {
     const storage = memoryStorage();
     const first = await renderHotSeat(storage);
-    fireEvent.click(cell('d6'));
+    fireEvent.click(cell('b3'));
     await waitFor(() => expect(screen.getAllByTestId('move-target').length).toBeGreaterThan(0));
-    fireEvent.click(cell('a6'));
+    fireEvent.click(cell('a4'));
     await waitFor(() =>
-      expect(screen.getByTestId('status-line').textContent).toContain('Defenders to move'),
+      expect(screen.getByTestId('status-line').textContent).toContain('Light to move'),
     );
     first.unmount();
     await renderHotSeat(storage);
-    expect(screen.getByTestId('status-line').textContent).toContain('Defenders to move');
-    expect(cell('a6').getAttribute('aria-label')).toBe('a6 attacker');
+    expect(screen.getByTestId('status-line').textContent).toContain('Light to move');
+    expect(cell('a4').getAttribute('aria-label')).toBe('a4 dark man');
   });
 
   it('resign ends the game for the other side', async () => {
     await renderHotSeat(memoryStorage());
     fireEvent.click(screen.getByRole('button', { name: 'Resign' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Resign' }));
-    await waitFor(() => expect(screen.getByTestId('outcome').textContent).toContain('Defenders win'));
+    await waitFor(() => expect(screen.getByTestId('outcome').textContent).toContain('Light wins'));
   });
 });
 
@@ -107,7 +108,7 @@ describe('shell screens', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText('CHECKERS')).toBeTruthy();
-    expect(screen.getByText('The Viking siege game, for two.')).toBeTruthy();
+    expect(screen.getByText('Draughts, plain and sharp — for two.')).toBeTruthy();
   });
 
   it('the static lobby offers hot-seat play', () => {

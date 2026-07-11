@@ -1,62 +1,58 @@
 // The move fold: applyCheckers(state, move) → new state. Pure and immutable —
-// board edits happen on a char array copy, `seen` is respread. Custodian
-// captures are evaluated only for the mover, only around the destination:
-// an enemy neighbor dies iff the square beyond it (same direction) is on the
-// board and is a mover-friendly piece or a hostile square (corners always;
-// the throne while empty). The king is armed (a valid capturer) and dies
-// two-sided like anyone else; a piece is never captured by walking itself
-// between two enemies. Result checks run in a fixed order after captures:
-// king captured → king on a corner → opponent stuck → threefold repetition.
+// board edits happen on a char array copy, `seen` is respread. A move is a
+// complete path; validation is by construction: the path must be one of
+// legalMovesFrom(state, path[0])'s complete paths, which bakes in mandatory
+// capture (a simple move is illegal while any jump exists) and mandatory
+// continuation (stopping a multi-jump early is illegal). Execution walks the
+// path, lifting each jumped piece (the hop's midpoint), and crowns a man
+// that ends on the far row. Result checks run in a fixed order after the
+// move: opponent has no legal moves (covers no-pieces and blocked alike) →
+// threefold repetition.
 
-import { CORNERS, DIRECTIONS, isCorner, step, THRONE } from './board.js';
-import { allLegalMoves, legalDestinations } from './moves.js';
+import { rowOf } from './board.js';
+import { allLegalMoves, crownRow, legalMovesFrom } from './moves.js';
 import {
   IllegalMoveError,
   otherSide,
   positionKey,
-  sideOf,
   type Piece,
   type Side,
   type CheckersMove,
   type CheckersState,
 } from './state.js';
 
+function samePath(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((cell, i) => cell === b[i]);
+}
+
 export function applyCheckers(state: CheckersState, move: CheckersMove): CheckersState {
   if (state.result !== null) {
     throw new IllegalMoveError('game is over');
   }
-  const { from, to } = move;
-  if (!legalDestinations(state, from).includes(to)) {
-    throw new IllegalMoveError(`illegal move ${from}->${to} for ${state.toMove}`);
+  const path = move.path;
+  const from = path[0];
+  if (from === undefined || !legalMovesFrom(state, from).some((m) => samePath(m.path, path))) {
+    throw new IllegalMoveError(`illegal move ${path.join('-')} for ${state.toMove}`);
   }
 
   const mover = state.toMove;
-  const enemy = otherSide(mover);
   const cells = state.board.split('');
-  const piece = cells[from] as Piece; // legalDestinations proved it's real
+  const piece = cells[from] as Piece; // legalMovesFrom proved it's real
   cells[from] = '.';
-  cells[to] = piece;
-
-  // Custodian captures against the post-move board. The four directions are
-  // independent (a neighbor in one is never the "beyond" of another), so
-  // collect first, remove after.
-  const captured: number[] = [];
-  for (const dir of DIRECTIONS) {
-    const n = step(to, dir);
-    if (n === -1) continue;
-    const victim = (cells[n] ?? '.') as Piece;
-    if (sideOf(victim) !== enemy) continue;
-    const b = step(n, dir);
-    if (b === -1) continue; // off-board backing never captures
-    const beyond = (cells[b] ?? '.') as Piece;
-    const friendlyAnvil = sideOf(beyond) === mover;
-    const hostileSquare = isCorner(b) || (b === THRONE && beyond === '.');
-    if (friendlyAnvil || hostileSquare) captured.push(n);
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1] as number;
+    const b = path[i] as number;
+    if (Math.abs(rowOf(b) - rowOf(a)) === 2) cells[(a + b) / 2] = '.'; // the jumped piece
   }
-  for (const c of captured) cells[c] = '.';
+  const landing = path[path.length - 1] as number;
+  const crowned =
+    (piece === 'd' || piece === 'l') && rowOf(landing) === crownRow(mover)
+      ? ((piece === 'd' ? 'D' : 'L') as Piece)
+      : piece;
+  cells[landing] = crowned;
 
   const board = cells.join('');
-  const toMove = enemy;
+  const toMove = otherSide(mover);
   const key = positionKey(board, toMove);
   const seen: Record<string, number> = {
     ...state.seen,
@@ -71,12 +67,6 @@ export function applyCheckers(state: CheckersState, move: CheckersMove): Checker
   };
 
   // Ordered end-of-move checks.
-  if (!board.includes('K')) {
-    return { ...next, result: { winner: 'attackers', by: 'capture' } };
-  }
-  if (CORNERS.some((corner) => board.charAt(corner) === 'K')) {
-    return { ...next, result: { winner: 'defenders', by: 'escape' } };
-  }
   if (allLegalMoves(next).length === 0) {
     return { ...next, result: { winner: mover, by: 'no-moves' } };
   }

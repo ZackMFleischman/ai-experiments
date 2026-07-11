@@ -1,6 +1,6 @@
 // validate:visual: walk the registry × 3 viewports × 2 themes via
 // @parlor/harness, with the checkers machine checks — every board renders all
-// 49 squares and fits the viewport.
+// 64 squares and fits the viewport.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
@@ -19,7 +19,7 @@ test('gallery: every entry renders clean at every viewport and theme', async ({ 
       const board = p.locator('[role="grid"][aria-label="checkers board"]').first();
       if ((await board.count()) > 0) {
         const cells = await p.locator('[role="gridcell"]').count();
-        if (cells !== 49) found.push(`${label}: board has ${cells} cells, expected 49`);
+        if (cells !== 64) found.push(`${label}: board has ${cells} cells, expected 64`);
         const box = await board.boundingBox();
         if (!box || box.width <= 0 || box.height <= 0) {
           found.push(`${label}: board has no size`);

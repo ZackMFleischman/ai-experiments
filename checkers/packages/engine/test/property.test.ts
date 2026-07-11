@@ -8,7 +8,10 @@ import {
   allLegalMoves,
   applyCheckers,
   initialCheckers,
+  isPlayable,
   serializeCheckers,
+  sideOf,
+  type Piece,
   type CheckersState,
 } from '../src/index.js';
 
@@ -28,6 +31,10 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+function count(board: string, side: 'dark' | 'light'): number {
+  return board.split('').filter((ch) => sideOf(ch as Piece) === side).length;
+}
+
 /** Play a full random game, asserting the invariants at every ply. */
 function playGame(seed: number): CheckersState {
   const rand = mulberry32(seed);
@@ -38,20 +45,24 @@ function playGame(seed: number): CheckersState {
     expect(moves.length).toBeGreaterThan(0);
     const move = moves[Math.floor(rand() * moves.length)];
     if (move === undefined) throw new Error('unreachable: empty move list');
+    const before = state;
     state = applyCheckers(state, move); // never throws on a listed move
-    expect(state.board).toHaveLength(49);
-    const kings = state.board.split('').filter((ch) => ch === 'K').length;
-    if (state.result !== null && state.result.by === 'capture') {
-      expect(kings).toBe(0);
-    } else {
-      expect(kings).toBe(1); // exactly one king until captured
+    expect(state.board).toHaveLength(64);
+    // Piece counts only ever decrease, and never below zero-sum sanity.
+    expect(count(state.board, 'dark')).toBeLessThanOrEqual(count(before.board, 'dark'));
+    expect(count(state.board, 'light')).toBeLessThanOrEqual(count(before.board, 'light'));
+    // Pieces live on dark squares only (one assert per ply keeps this cheap).
+    let offSquare = false;
+    for (let cell = 0; cell < 64; cell++) {
+      if (state.board.charAt(cell) !== '.' && !isPlayable(cell)) offSquare = true;
     }
+    expect(offSquare).toBe(false);
   }
   return state;
 }
 
 describe('random games', () => {
-  it('hold the invariants and replay to the identical final state', () => {
+  it('hold the invariants and replay to the identical final state', { timeout: 120_000 }, () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 2 ** 31 - 1 }), (seed) => {
         const a = playGame(seed);

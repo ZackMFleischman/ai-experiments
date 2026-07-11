@@ -17,14 +17,16 @@ describe('round-trip', () => {
     expect(deserializeCheckers(serializeCheckers(s))).toEqual(s);
   });
 
-  it('recovers a mid-game and a finished state exactly', () => {
+  it('recovers a mid-game (including a jump) and a finished state exactly', () => {
     let s = initialCheckers();
-    s = applyCheckers(s, { from: at(0, 3), to: at(0, 1) });
-    s = applyCheckers(s, { from: at(2, 3), to: at(2, 5) });
-    s = applyCheckers(s, { from: at(1, 3), to: at(1, 5) });
+    s = applyCheckers(s, { path: [at(2, 1), at(3, 2)] });
+    s = applyCheckers(s, { path: [at(5, 0), at(4, 1)] });
+    // Mandatory: dark's c4 man must take the light man on b5.
+    s = applyCheckers(s, { path: [at(3, 2), at(5, 0)] });
+    expect(s.board.split('').filter((ch) => ch === 'l')).toHaveLength(11);
     expect(deserializeCheckers(serializeCheckers(s))).toEqual(s);
 
-    const done = resignCheckers(s, 'attackers');
+    const done = resignCheckers(s, 'dark');
     expect(deserializeCheckers(serializeCheckers(done))).toEqual(done);
   });
 });
@@ -42,9 +44,10 @@ describe('corrupt input', () => {
   });
 
   it('rejects a corrupt board', () => {
-    expect(() => deserializeCheckers(mangle({ board: 'ADK.' }))).toThrow();
-    expect(() => deserializeCheckers(mangle({ board: 'X'.repeat(49) }))).toThrow();
-    expect(() => deserializeCheckers(mangle({ board: 'K'.repeat(49) }))).toThrow();
+    expect(() => deserializeCheckers(mangle({ board: 'dl..' }))).toThrow();
+    expect(() => deserializeCheckers(mangle({ board: 'X'.repeat(64) }))).toThrow();
+    // A piece on a light square is structurally impossible.
+    expect(() => deserializeCheckers(mangle({ board: 'd' + '.'.repeat(63) }))).toThrow();
   });
 
   it('rejects corrupt fields', () => {
@@ -56,8 +59,9 @@ describe('corrupt input', () => {
   });
 
   it('rejects a corrupt result', () => {
-    expect(() => deserializeCheckers(mangle({ result: { winner: 'attackers', by: 'luck' } }))).toThrow();
-    expect(() => deserializeCheckers(mangle({ result: { winner: null, by: 'escape' } }))).toThrow();
-    expect(() => deserializeCheckers(mangle({ result: 'attackers' }))).toThrow();
+    expect(() => deserializeCheckers(mangle({ result: { winner: 'dark', by: 'luck' } }))).toThrow();
+    expect(() => deserializeCheckers(mangle({ result: { winner: null, by: 'no-moves' } }))).toThrow();
+    expect(() => deserializeCheckers(mangle({ result: { winner: 'dark', by: 'repetition' } }))).toThrow();
+    expect(() => deserializeCheckers(mangle({ result: 'dark' }))).toThrow();
   });
 });

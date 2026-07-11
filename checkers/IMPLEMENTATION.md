@@ -10,11 +10,19 @@ always-on; docs amended in the same PR; never weaken a gate.
 
 ## §2 Milestones
 
-### M0 — morph the stamp into Checkers — IN PROGRESS
+### M0 — morph the stamp into Checkers — DONE (local gates)
 
-The stamp arrives green, playing the exemplar's game. Morph the core
-(engine → screens → docs) per the PLAYBOOK, keeping every gate green;
-check off `DONE.md` as each lands.
+The stamp arrived green playing Brandub; the morph landed engine-first
+(tests rewritten to specify American checkers, then the kernel: path
+moves, mandatory captures, crowning, no-moves/repetition results), then
+the app layer (board/MiniBoard, path-landing selection, seat copy,
+gallery fixtures, mark), then functions (dark/light seats, path wire
+moves, rigged no-moves terminal test). All local gates green: typecheck
+(+ docs/boundary/parity lints), engine 54 / app 7 / functions 19 tests,
+build + no-firebase bundle assert, validate:m1 (200-game sweep),
+hot-seat e2e, visual gallery (36 captures reviewed). Remaining: CI runs
+on the PR, then the Ship items (deploy preview, ⚑ prod Firebase,
+⚑ human playtest).
 
 ## §7 Docs policy
 

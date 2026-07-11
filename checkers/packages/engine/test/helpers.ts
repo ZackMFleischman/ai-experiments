@@ -1,12 +1,12 @@
-// Test scaffolding: build hand-crafted positions from 7-row board pictures.
+// Test scaffolding: build hand-crafted positions from 8-row board pictures.
 // Whitespace is stripped, so templates can be drawn one rank per line.
 
 import { positionKey, type Side, type CheckersState } from '../src/index.js';
 
-/** Flatten a drawn board (7 rows × 7 cols of A/D/K/.) to a 49-char string. */
+/** Flatten a drawn board (8 rows × 8 cols of d/D/l/L/.) to a 64-char string. */
 export function board(picture: string): string {
   const flat = picture.replace(/\s+/g, '');
-  if (flat.length !== 49 || /[^ADK.]/.test(flat)) {
+  if (flat.length !== 64 || /[^dDlL.]/.test(flat)) {
     throw new Error(`bad board template: '${flat}'`);
   }
   return flat;
@@ -26,5 +26,5 @@ export function pos(picture: string, toMove: Side): CheckersState {
 
 /** Cell index from (row, col), row 0 at the top. */
 export function at(row: number, col: number): number {
-  return row * 7 + col;
+  return row * 8 + col;
 }

@@ -4,7 +4,7 @@
 // (createGameCallables), submitMove (createSubmitMove over the engine
 // `advance`), and the hourly forfeit sweep (createForfeitHandlers — checkers's
 // toMove IS a seat key, so the generic sweep needs nothing game-side).
-// Brandub's only draw is engine-derived (threefold repetition), so the
+// Checkers's only draw is engine-derived (threefold repetition), so the
 // opt-in draw callables are deliberately not included (lex's pattern).
 // `ping` remains the emulator-wiring smoke check.
 import { initializeApp } from 'firebase-admin/app';

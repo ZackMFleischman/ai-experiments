@@ -1,5 +1,5 @@
 // New game: the full-mode create flow (callable + invite link). checkers's form
-// is small — pick a side (attackers open) and an optional move clock; a past
+// is small — pick a side (dark opens) and an optional move clock; a past
 // opponent can be challenged directly. The static hot-seat build keeps all
 // of it out of the bundle.
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -62,12 +62,12 @@ export function NewGameForm({
           aria-label="your side"
           size="small"
         >
-          <ToggleButton value="attackers">Attackers</ToggleButton>
-          <ToggleButton value="defenders">Defenders</ToggleButton>
+          <ToggleButton value="dark">Dark</ToggleButton>
+          <ToggleButton value="light">Light</ToggleButton>
           <ToggleButton value="random">Random</ToggleButton>
         </ToggleButtonGroup>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Attackers move first; the defenders hold the king.
+          Dark moves first.
         </Typography>
       </Box>
 

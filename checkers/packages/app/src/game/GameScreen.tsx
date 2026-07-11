@@ -24,7 +24,7 @@ export type GameMode = { kind: 'hotseat' } | { kind: 'online'; mySide: Side };
 export interface GameScreenProps {
   session: CheckersSession;
   mode: GameMode;
-  /** [attackers, defenders] display names. */
+  /** [dark, light] display names. */
   seatNames: readonly [string | null, string | null];
   onExit: () => void;
   /** Online: offer/converge on the next game. Hot-seat: omitted. */
@@ -40,18 +40,11 @@ function outcomeText(state: CheckersState, mode: GameMode): string {
   if (!result) return '';
   if (result.winner === null) return 'A draw — the same position three times.';
   const winner = sideLabel(result.winner);
-  const how =
-    result.by === 'escape'
-      ? 'the king reached a corner'
-      : result.by === 'capture'
-        ? 'the king was taken'
-        : result.by === 'no-moves'
-          ? 'no legal moves left'
-          : result.by;
+  const how = result.by === 'no-moves' ? 'no moves left' : result.by;
   if (mode.kind === 'online') {
     return result.winner === mode.mySide ? `You won — ${how}.` : `You lost — ${how}.`;
   }
-  return `${winner} win — ${how}.`;
+  return `${winner} wins — ${how}.`;
 }
 
 export function GameScreen({ session, mode, seatNames, onExit, onRematch }: GameScreenProps) {
@@ -68,10 +61,10 @@ export function GameScreen({ session, mode, seatNames, onExit, onRematch }: Game
 
   const lastEntry = session.log[session.log.length - 1];
   const lastMove: CheckersMove | undefined =
-    lastEntry?.kind === 'move' ? { from: lastEntry.from, to: lastEntry.to } : undefined;
+    lastEntry?.kind === 'move' ? { path: lastEntry.path } : undefined;
 
   const submitMove = (move: CheckersMove): void => {
-    const entry: CheckersEntry = { kind: 'move', ...move };
+    const entry: CheckersEntry = { kind: 'move', path: move.path };
     // Online transports may refuse (stale/turn) — resync adopts the truth.
     session.submit(entry, mode.kind === 'online' ? 'resync' : 'rollback');
   };
@@ -83,7 +76,7 @@ export function GameScreen({ session, mode, seatNames, onExit, onRematch }: Game
   };
 
   const name = (side: Side): string =>
-    (side === 'attackers' ? seatNames[0] : seatNames[1]) ?? sideLabel(side);
+    (side === 'dark' ? seatNames[0] : seatNames[1]) ?? sideLabel(side);
 
   const statusLine = state.result
     ? outcomeText(state, mode)
@@ -114,7 +107,7 @@ export function GameScreen({ session, mode, seatNames, onExit, onRematch }: Game
 
         <Stack direction="row" spacing={1} justifyContent="center">
           <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-            {name('attackers')} ⚔ {name('defenders')}
+            {name('dark')} ⚫ {name('light')}
           </Typography>
           {!state.result && (mode.kind === 'hotseat' || actingSide !== undefined) && (
             <Button size="small" color="inherit" onClick={() => setConfirmResign(true)}>
@@ -129,7 +122,7 @@ export function GameScreen({ session, mode, seatNames, onExit, onRematch }: Game
         <DialogContent>
           <Typography>
             {mode.kind === 'hotseat'
-              ? `${name(state.toMove)} concede — ${name(otherSide(state.toMove))} win.`
+              ? `${name(state.toMove)} concedes — ${name(otherSide(state.toMove))} wins.`
               : 'Your opponent wins the game.'}
           </Typography>
         </DialogContent>

@@ -27,7 +27,7 @@ export default defineConfig({
       manifest: {
         name: 'Checkers',
         short_name: 'Checkers',
-        description: 'Hnefacheckers — the Viking siege game, for two.',
+        description: 'Draughts, plain and sharp. Free hot-seat, online with a friend.',
         theme_color: '#7a1f3d',
         background_color: '#f5f3ee',
         display: 'standalone',

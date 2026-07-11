@@ -36,13 +36,13 @@ export interface JoinedGame {
   p1: TestUser;
 }
 
-/** Create a game as Ada (seat 'attackers' = seat 0, moves first), join as Sam. */
+/** Create a game as Ada (seat 'dark' = seat 0, moves first), join as Sam. */
 export async function createJoinedGame(
   options: Record<string, unknown> = { ...OPTIONS },
 ): Promise<JoinedGame> {
   const ada = await signUp('Ada');
   const sam = await signUp('Sam');
-  const created = await call('createGame', { options, seat: 'attackers' }, ada);
+  const created = await call('createGame', { options, seat: 'dark' }, ada);
   if (created.status !== 200) throw new Error(`createGame failed: ${created.errorMessage}`);
   const { gameId, code } = created.result as { gameId: string; code: string };
   const joined = await call('joinGame', { code }, sam);

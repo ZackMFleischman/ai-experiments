@@ -192,7 +192,7 @@ export default function MultiplayerGame({ gameId }: { gameId: string }) {
     <GameScreen
       session={session.session}
       mode={{ kind: 'online', mySide: session.mySide }}
-      seatNames={[meta.playerNames.attackers, meta.playerNames.defenders]}
+      seatNames={[meta.playerNames.dark, meta.playerNames.light]}
       onExit={() => void navigate('/lobby')}
       onRematch={rematch}
     />

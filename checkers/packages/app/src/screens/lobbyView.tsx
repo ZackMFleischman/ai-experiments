@@ -9,7 +9,7 @@ import { MiniBoard } from '../board/MiniBoard';
 import { sideLabel } from '../gameOptions';
 
 export interface LobbyGameSummary extends LobbySummary {
-  /** My side, by seat index (0 = attackers). */
+  /** My side, by seat index (0 = dark). */
   mySeat: 0 | 1;
   toMove: 0 | 1;
   /** games/{id}.state — the serialized engine state; board renders without
@@ -19,7 +19,7 @@ export interface LobbyGameSummary extends LobbySummary {
 }
 
 function cardCaption(game: LobbyGameSummary, now: number): string {
-  const side = sideLabel(game.mySeat === 0 ? 'attackers' : 'defenders');
+  const side = sideLabel(game.mySeat === 0 ? 'dark' : 'light');
   const moves = `${game.moveCount} move${game.moveCount === 1 ? '' : 's'}`;
   return `You play ${side} · ${moves} · ${relativeTime(game.updatedAtMs, now)}`;
 }

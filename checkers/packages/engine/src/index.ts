@@ -1,20 +1,15 @@
-// @checkers/engine — the pure, deterministic rules kernel for Brandub, the 7×7
-// hnefacheckers variant: rook moves, custodian captures, a king racing for the
-// corners. Zero dependencies, no DOM, no clock, no Math.random — state in,
-// state out. Clients fold applyCheckers over a move log; resign/timeout entries
-// fold with resignCheckers/timeoutCheckers.
+// @checkers/engine — the pure, deterministic rules kernel for American
+// checkers (English draughts): 8×8 board, men march diagonally forward,
+// mandatory captures with mandatory multi-jump continuation, crowning on the
+// far row. Zero dependencies, no DOM, no clock, no Math.random — state in,
+// state out. Clients fold applyCheckers over a move log; resign/timeout
+// entries fold with resignCheckers/timeoutCheckers.
 
 export { applyCheckers, resignCheckers, timeoutCheckers } from './apply.js';
 
-export {
-  BOARD_SIZE,
-  CORNERS,
-  THRONE,
-  cellName,
-  moveName,
-} from './board.js';
+export { BOARD_SIZE, CELL_COUNT, cellName, isPlayable, moveName } from './board.js';
 
-export { allLegalMoves, legalDestinations } from './moves.js';
+export { allLegalMoves, crownRow, legalMovesFrom } from './moves.js';
 
 export {
   IllegalMoveError,
