@@ -288,7 +288,8 @@ merge gate.
 **2(M1) → 3a+3b → 3c → 4a ∥ 4b → 4c → 5 — all agent-side work shipped
 2026-07-11.** What remains is the ⚑ owner ledger: store ops for
 sudoku/stillness/breakout (GAME-SETUP §12), the tafl/checkers Firebase
-projects + secrets (§11), lex soft-launch + cost recalibration (§Phase 1),
+projects + secrets and their Cloudflare Pages projects for the deploy
+workflows to go green (§11), lex soft-launch + cost recalibration (§Phase 1),
 sudoku M2 polish from play, pricing revisit with real data, and the A4
 autonomy Routine if ever wanted. New titles now run the factory loop:
 brief → `tools/create-app` stamp → PLAYBOOK → playtest the preview → ship.

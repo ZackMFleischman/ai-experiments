@@ -9,7 +9,20 @@ A brand of minimalist apps done extremely well — board games (checkers, hnefat
 3. **Solo realtime arcade** (breakout, snake-like) — canvas + game-loop kit, zero backend. Realtime is only a problem for *multiplayer* on Firestore; single-player realtime runs entirely on-device and is squarely in scope.
 4. **Minimalist utilities** (meditation timer) — no game engine at all; brand shell + native plugins (local notifications, background audio, keep-awake). This archetype is where native beats PWA hardest: iOS Safari can't reliably fire timers/audio in the background, while a Capacitor app can — a genuine product reason for the $1 native version.
 
-The repo already contains most of the hard parts. **`parlor/`** is a hardened, game-agnostic platform (packages `core`/`web`/`server`/`harness`) for turn-based two-player games: server-authoritative Firebase backend (append-only move log, optimistic client sync), shared lobby/auth/push UI, free hot-seat `LocalTransport`, Playwright harness. **`hive/`** is the live proof (free static hot-seat PWA on Cloudflare Pages + multiplayer on Firebase; its functions are ~33 lines of config over `@parlor/server`). **`lex/`** is fully spec'd, not built. Nothing exists yet for single-player games, app-store packaging, monetization, or an automated game pipeline. This plan fills those four gaps.
+The strategy rests on parts the repo already had when this was written:
+**`parlor/`**, a game-agnostic platform (packages `core`/`web`/`server`/
+`harness`) for turn-based two-player games — server-authoritative Firebase
+backend (append-only move log, optimistic client sync), shared lobby/auth/push
+UI, free hot-seat `LocalTransport`, Playwright harness — proven by **`hive/`**
+(a free static hot-seat PWA on Cloudflare Pages + multiplayer on Firebase,
+functions ~33 lines of config over `@parlor/server`). The four gaps this plan
+fills are single-player games, app-store packaging, monetization, and an
+automated game pipeline.
+
+> **This is a strategy doc, not a status doc.** What is built, live, or
+> pending lives solely in `BRAND-IMPLEMENTATION.md` (and the current portfolio
+> map in the root `CLAUDE.md`). Do not record "where we are" here — a strategy
+> that narrates today's state rots the moment the state changes.
 
 ## Load-bearing decisions (defaults — revisit any deliberately, not by drift)
 
@@ -89,11 +102,29 @@ All stamp: the line-budgeted doc set (CLAUDE/DESIGN/REQUIREMENTS/IMPLEMENTATION/
 
 ## 4. Sequencing
 
-1. **Build lex** (fully spec'd, workflows staged, `lex/IMPLEMENTATION.md` is the build plan). Cheapest validation that parlor truly supports a second game + the hardest variant (hidden info). *Exit: lex live; hive+lex green on shared parlor.*
-2. **Single-player kit + sudoku web.** Build `@parlor/solo` + `@parlor/brand`; `sudoku/` as first consumer (generator/solver engine, difficulty grading, daily puzzle by seed). Pure Cloudflare. *Exit: first brand title live at $0 infrastructure.*
-3. **Capacitor + store pipeline.** Build `@parlor/native`; ship sudoku at $1 to both stores (lowest-risk submission: offline, no accounts — learn any Apple 4.2 pushback on the simplest possible game). While review is pending, build the **meditation timer** (`stillness/`) as the first utility — it exercises exactly the native plugins that justify its $1 native version (background audio, local notifications, keep-awake) — and submit it second. *Exit: two $1 apps in both stores; store ops documented as code.*
-4. **Broaden the archetypes, then extract the generator.** Build **breakout** (`breakout/`) as the first `@parlor/arcade` consumer and **hnefatafl** (`tafl/`) manually via GAME-SETUP.md. Then extract `tools/create-app/` from the living exemplars (hive/lex/tafl for duo; sudoku for solo; breakout for arcade; stillness for utility) and validate it by stamping `checkers/` to all-gates-green. *Exit: generator proven on a real game.*
-5. **Factory cadence + optional autonomy.** Brand site, backlog of briefs, then (only now) consider a scheduled Routine that drafts the next app's brief/engine PR for review. Revisit pricing data; execute RevenueCat fallback behind `usePremium()` only if needed.
+The intended order and *why* that order — not a progress tracker. Which phases
+have landed is `BRAND-IMPLEMENTATION.md`'s job.
+
+1. **A second duo game before anything else.** The cheapest validation that
+   parlor truly supports more than hive, and the hardest variant to boot
+   (hidden information) — do it before spreading to new archetypes.
+2. **Single-player kit + a puzzle web app.** Build `@parlor/solo` +
+   `@parlor/brand`; a sudoku consumer (generator/solver engine, difficulty
+   grading, daily puzzle by seed) proves the zero-backend archetype on pure
+   Cloudflare — first brand title at $0 infrastructure.
+3. **Capacitor + store pipeline.** Build `@parlor/native`; ship the simplest
+   app (offline, no accounts) to both stores first to learn any Apple 4.2
+   pushback cheaply, then a **meditation timer** utility that exercises exactly
+   the native plugins justifying its $1 version (background audio, local
+   notifications, keep-awake) — store ops documented as code.
+4. **Broaden the archetypes, then extract the generator.** Add a `@parlor/
+   arcade` consumer (breakout) and a hand-wired hnefatafl via GAME-SETUP.md,
+   then extract `tools/create-app/` from the living exemplars (duo/solo/arcade/
+   utility) and validate it by stamping a fresh game to all-gates-green.
+5. **Factory cadence + optional autonomy.** Brand site, a backlog of briefs,
+   then (only now) consider a scheduled Routine that drafts the next app's
+   brief/engine PR for review. Revisit pricing data; execute the RevenueCat
+   fallback behind `usePremium()` only if needed.
 
 ## 5. Store operations reality check
 

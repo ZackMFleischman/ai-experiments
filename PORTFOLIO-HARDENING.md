@@ -32,48 +32,55 @@ loom-centric root `CLAUDE.md` mis-oriented every fresh agent session.
 Gate: `grep -ri loom` outside `lex/packages/dict` and `hive/DECISIONS.md`
 returns nothing; every edited project's `check-docs.mjs` stays green.
 
-## M1 — App registry + truthful docs (S–M)
+## M1 — App registry + truthful docs ✅ SHIPPED (2026-07-11, this PR)
 
 The root cause behind four separate holes is that "the list of apps" exists
 only as hand-copies. Fix the map first; everything later builds on it.
 
-- [ ] **Registry**: add `registry/apps.json` (repo root) — one entry per app:
+- [x] **Registry**: added `registry/apps.json` (repo root) — one entry per app:
       `name`, `dir`, `kind` (duo/solo/arcade/utility/other), `displayName`,
       `tagline`, `glyph`, `accent`, `webUrl`, `status` (live/built/coming-soon),
-      `firebaseProject` (duo only), `workflows`. Plus
-      `registry/check-registry.mjs` validating shape and that every `dir`
-      exists (and every game dir has an entry).
-- [ ] **CI-coverage meta-check**: a `registry-ci.yml` job asserting every
-      registry entry of kind duo/solo/arcade/utility has a
-      `.github/workflows/<name>-ci.yml` whose `paths` include `parlor/**` —
-      kills the silent-8th-game failure mode.
-- [ ] **Boundary-lint scope from the registry**:
+      `firebaseProject` (duo only), `linkedParlor`, `workflows`. Plus
+      `registry/apps.schema.json` and `registry/check-registry.mjs` validating
+      shape and filesystem parity (every `dir`/`workflow`/`linkedParlor`
+      exists; every on-disk game dir has an entry; firebaseProject iff duo).
+- [x] **CI-coverage meta-check**: `registry-ci.yml` runs
+      `registry/check-ci-coverage.mjs` — every game entry has a
+      `.github/workflows/<name>-ci.yml` whose `paths` include both `parlor/**`
+      and its own dir. Kills the silent-8th-game failure mode.
+- [x] **Boundary-lint scope from the registry**:
       `parlor/scripts/check-boundaries.mjs` builds its banned game-scope list
       (`@hive/*`, `@lex/*`, `@checkers/*`, `@tafl/*`, `@sudoku/*`,
-      `@breakout/*`, `@stillness/*`, …) from `registry/apps.json` instead of
-      the hardcoded `lex|hive`.
-- [ ] **Family list generated**: emit
-      `parlor/packages/brand/src/family.generated.ts` from the registry
-      (script + `--check` staleness mode wired into parlor typecheck); apps
-      keep their local arrays for now (replaced in M5) but a parity check
-      fails CI if any app's `FAMILY` array or `arcade-site/index.html`
-      disagrees with the registry.
-- [ ] **De-status the strategy doc**: strip all "where we are" prose from
-      `MINIMALIST-APPS-STRATEGY.md` (e.g. "lex is fully spec'd, not built",
-      "nothing exists yet for single-player…") and point at
-      `BRAND-IMPLEMENTATION.md` as the sole status ledger; reconcile
-      `BRAND-IMPLEMENTATION.md` with reality while there.
-- [ ] **Root check-docs**: add `tools/check-root-docs.mjs` (run by
+      `@breakout/*`, `@stillness/*`) from `registry/apps.json` instead of the
+      hardcoded `lex|hive` (graceful fallback if parlor is consumed alone).
+- [x] **Family list generated**: `registry/gen-family.mjs` emits
+      `parlor/packages/brand/src/family.generated.ts` from the registry;
+      `--check` (wired into parlor typecheck + `registry-ci.yml`) enforces
+      staleness *and* parity — every app's local `FAMILY` array and
+      `arcade-site/index.html` must agree with the registry (name set + live
+      hrefs). Brought the three solo arrays back into sync (they'd drifted:
+      each was missing Tafl + Checkers).
+- [x] **De-status the strategy doc**: stripped the "where we are" prose from
+      `MINIMALIST-APPS-STRATEGY.md` (§intro status claims, §4 status verbs)
+      and pointed at `BRAND-IMPLEMENTATION.md` as the sole status ledger.
+- [x] **Root check-docs**: added `tools/check-root-docs.mjs` (run by
       `registry-ci.yml`) — closed set + line budgets for the repo-root `.md`
-      files, and a budgeted doc set for `katmai-bears/` (the two unlinted
-      zones left after loom's removal).
-- [ ] **Close out checkers**: finish the agent-side Ship items in
-      `checkers/DONE.md` (deploy preview, brand mark) and surface the ⚑ owner
-      items (prod Firebase project, human playtest) in
-      `BRAND-IMPLEMENTATION.md`'s owner ledger.
+      files and for `katmai-bears/` (the two unlinted zones after loom).
+- [x] **Close out checkers**: checked the agent-side brand-mark Ship item in
+      `checkers/DONE.md` (wine accent + crowned-checker mark are Checkers's
+      own); left the deploy-preview item honest (⚑ needs owner Cloudflare
+      project + secrets) and surfaced that in `BRAND-IMPLEMENTATION.md`.
 
-Gate: registry checks green in CI; deleting a workflow's `parlor/**` filter or
-desyncing a family list turns CI red; strategy/status contradiction gone.
+Deviations: registry accents corrected to each app's real theme primary
+(the review's copy had them shifted); `arcade-site` lists the *full* family
+(live as links, unlaunched as spans) so parity is "all games", not "live
+only". Logged here rather than a consumer DECISIONS.md since the change is
+repo-root infrastructure.
+
+Gate: `node registry/check-registry.mjs`, `gen-family.mjs --check`,
+`check-ci-coverage.mjs`, `check-root-docs.mjs`, and
+`parlor/scripts/check-boundaries.mjs` all green; desyncing a family list or
+dropping a workflow's `parlor/**` filter turns `registry-ci` red.
 
 ## M2 — Factory + CI hardening (M)
 

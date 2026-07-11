@@ -25,8 +25,13 @@ starts green — keep it green at every step.
 ## Ship
 
 - [ ] Deploy workflow green (Cloudflare preview link works)
-- [ ] Brand theme + MoreFromUs present; accent/mark/icons are
-      Checkers's own (packages/app/scripts/mark.mjs)
+- [x] Brand theme present; accent/mark/icons are Checkers's own — wine
+      accent (#7a1f3d) + crowned-checker mark (packages/app/scripts/
+      mark.mjs). (MoreFromUs is a solo-app footer; duo titles cross-promote
+      via arcade-site + the registry family list, not a play-screen footer.)
+- [ ] Deploy workflow green (Cloudflare preview link) — ⚑ needs the
+      owner's `checkers-zmf` Cloudflare Pages project + deploy secrets
+      before the workflow can go green (surfaced in BRAND-IMPLEMENTATION.md)
 - [ ] ⚑ prod Firebase project + secrets (GAME-SETUP.md §11); budget
       alerts; real-device push check
 - [ ] ⚑ human playtest on the PR preview URL — the button only a person

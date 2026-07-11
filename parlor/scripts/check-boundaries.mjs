@@ -8,11 +8,28 @@
 //   (d) @capacitor/* is imported outside packages/native/. (Today native's
 //       runtime imports none at all — it reaches Capacitor via the injected
 //       bridge so the free web bundle never grows a native import.)
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// The banned game-scope list is derived from the repo-root app registry
+// (registry/apps.json) so a newly stamped game is fenced off automatically —
+// no more hand-editing `lex|hive` here every time a game lands. Falls back to
+// the two originals if the registry is absent (e.g. parlor consumed alone).
+function gameScopesFromRegistry() {
+  const path = join(root, '..', 'registry', 'apps.json');
+  if (!existsSync(path)) return ['lex', 'hive'];
+  try {
+    const { apps } = JSON.parse(readFileSync(path, 'utf8'));
+    const GAME_KINDS = new Set(['duo', 'solo', 'arcade', 'utility']);
+    const names = apps.filter((a) => GAME_KINDS.has(a.kind)).map((a) => a.name);
+    return names.length ? names : ['lex', 'hive'];
+  } catch {
+    return ['lex', 'hive'];
+  }
+}
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'coverage', 'test-results']);
 const SOURCE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
@@ -34,7 +51,7 @@ function imports(text) {
   return specs;
 }
 
-const GAME_RE = /^@(lex|hive)\//;
+const GAME_RE = new RegExp(`^@(${gameScopesFromRegistry().join('|')})\\/`);
 const FIREBASE_RE = /^(firebase|firebase-admin|firebase-functions)(\/|$)/;
 const FIREBASE_ALLOWED = [/^packages\/web\//, /^packages\/server\//];
 const CAPACITOR_RE = /^@capacitor(-community)?\//;

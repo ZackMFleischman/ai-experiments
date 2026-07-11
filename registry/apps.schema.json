@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ai-experiments app registry",
+  "type": "object",
+  "required": ["apps"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "dir", "kind", "displayName", "tagline", "glyph", "accent", "status", "webUrl", "firebaseProject", "linkedParlor", "workflows"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "dir": { "type": "string" },
+          "kind": { "enum": ["duo", "solo", "arcade", "utility", "other"] },
+          "displayName": { "type": "string" },
+          "tagline": { "type": "string" },
+          "glyph": { "type": "string" },
+          "accent": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "status": { "enum": ["live", "built", "coming-soon"] },
+          "webUrl": { "type": ["string", "null"], "pattern": "^https?://" },
+          "firebaseProject": { "type": ["string", "null"] },
+          "linkedParlor": { "type": "array", "items": { "type": "string" } },
+          "workflows": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
