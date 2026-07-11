@@ -12,7 +12,7 @@ mark it `✅ SHIPPED (date)` here and log deviations in the most-affected
 project's `DECISIONS.md`.
 
 **Status legend:** ✅ shipped · ◐ partially shipped · ○ not started. Progress as
-of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M6 ◐, M4/M5/M7/M8 ○.** The deferred
+of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M6 ◐, M4/M5/M7/M8/M9 ○.** The deferred
 items share one cause — they need a runnable environment (full `pnpm install`
 per workspace, the Firebase emulator jars, or a GitHub Actions run) or live
 owner action (Firebase data migration, store submission) that this session
@@ -365,6 +365,42 @@ Gate: 2-player games unchanged (all existing validate suites green on the
 generalized platform); the N-player acceptance title plays a full game
 end-to-end via emulator MP test; factory stamps `--kind duo --players 4`.
 
+## M9 — Duo CI wall-clock (S–M) — ○ not started
+
+Hive CI runs ~14 min on every PR — too slow. The time is structural, not
+irreducible; the fixes below cut wall-clock without deleting a gate (all four
+duo games share this shape, so land it in the M2 reusable CI template, not
+per-game). Grounded in the current `hive-ci.yml` + hive `validate` chain:
+
+- [ ] **Stop double-running typecheck+unit.** The `checks` job runs
+      `typecheck && test`; `validate:m0` then runs `typecheck && test && e2e`
+      *again* on the critical-path `validate` job. Have `validate` assume the
+      `checks` gate (drop the re-run) or drop the `checks` job and let the
+      split `validate` jobs cover it — the duplicated typecheck+unit is pure
+      critical-path waste.
+- [ ] **Parallelize the `validate:m0..m5` chain.** It's serial (`&&`). Split
+      into concurrent CI jobs — engine property sweep (m1/m2), app+hot-seat
+      e2e + visual/ux (m3), emulator integration + MP (m4), offline (m5) —
+      so wall-clock falls to the longest single gate, not their sum.
+- [ ] **Tier property-test fidelity by trigger.** `HIVE_PROP_GAMES=500` runs
+      the engine sweeps at full size on *every PR* (m1 and m2, 500 games
+      each). Drop PR runs to a smaller sample (e.g. 100–150) and keep the full
+      500 on push-to-main + a nightly `schedule:` run — fidelity stays where a
+      regression must not slip through, PRs get fast feedback.
+- [ ] **Boot the emulator once for m4+m5.** Each `firebase emulators:exec` is
+      a fresh emulator boot; m4 and m5 pay it separately. Run the emulator-
+      backed suites under a single `emulators:exec` (or a start/stop around the
+      job) so the boot + seed import is paid once.
+- [ ] **Share the install across jobs.** Both jobs install parlor+hive from
+      scratch; a single setup job (pnpm-store cache warm + Playwright browser
+      cache keyed on the lockfile) that the split jobs restore avoids
+      re-resolving on every parallel job.
+
+Gate: hive PR CI wall-clock materially down (target ≤ ~7 min) with **no gate
+removed** — only re-timed, parallelized, or fidelity-tiered; the full 500-game
+sweep + all emulator/e2e coverage still runs on main and nightly. Baked into
+the M2 reusable duo CI template so all four duo games inherit it.
+
 ---
 
 **Sequencing summary**: M1 → M2 unblock everything (registry + trustworthy
@@ -373,4 +409,5 @@ migration); M5 → M6 cut the ongoing copy/context tax; M7 → M8 are the two
 structural bets (identity, then N seats) in the order that touches the seat
 model once. Each milestone merges independently with the standard rule:
 typecheck + tests + affected validate suites green, and a DECISIONS entry for
-anything non-obvious.
+anything non-obvious. M9 (CI wall-clock) is independent — do it whenever the
+14-min duo CI hurts most, ideally folded into M2's reusable template.
