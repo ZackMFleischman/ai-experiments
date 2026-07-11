@@ -5,18 +5,9 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { AppShell, MoreFromUs, useColorMode } from '@parlor/brand';
+import { AppShell, FAMILY, MoreFromUs, useColorMode } from '@parlor/brand';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../App';
-
-const FAMILY = [
-  { name: 'Hive', tagline: 'The bug board game, online with a friend', url: 'https://hive.zackmfleischman.com', glyph: '🐝' },
-  { name: 'Lex', tagline: 'A crossword tile game for two', glyph: '🅻' },
-  { name: 'Checkers', tagline: 'Draughts, online with a friend', glyph: '⛃' },
-  { name: 'Tafl', tagline: 'The Viking siege game, for two', url: 'https://tafl.pages.dev', glyph: '⚔️' },
-  { name: 'Sudoku', tagline: 'A calm daily puzzle', url: 'https://sudoku-zmf.pages.dev', glyph: '🔢' },
-  { name: 'Stillness', tagline: 'A quiet meditation timer', url: 'https://stillness-zmf.pages.dev', glyph: '🧘' },
-];
 
 export function Home() {
   const { scores } = useApp();
@@ -73,7 +64,7 @@ export function Home() {
       </Stack>
 
       {/* Direct child of the shell's flex column so mt:auto sinks it. */}
-      <MoreFromUs apps={FAMILY} />
+      <MoreFromUs apps={FAMILY.filter((app) => app.name !== 'Bricks')} />
     </AppShell>
   );
 }

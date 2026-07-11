@@ -3,10 +3,13 @@
 // "More from us" catalog — from `registry/apps.json`, and (with `--check`)
 // enforces two things in CI:
 //   1. the generated module is fresh (regenerate when the registry changes);
-//   2. every app's hand-kept local FAMILY array and `arcade-site/index.html`
-//      still agree with the registry (name parity). Apps keep their local
-//      arrays until M5 wires them onto the generated module; until then this
-//      parity check is what turns a desync red.
+//   2. `arcade-site/index.html` (a static, un-bundled page that can't import
+//      the module) still agrees with the registry (name parity + live links).
+//
+// The React apps now consume the generated module directly (they import
+// `FAMILY` from `@parlor/brand` and filter out their own entry), so their old
+// hand-kept local arrays — and the transition parity check that policed them —
+// are gone (PORTFOLIO-HARDENING M5). arcade-site is the last hand-kept copy.
 //
 // Zero deps. `node registry/gen-family.mjs` writes; `--check` verifies.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -15,11 +18,6 @@ import { dirname, join } from 'node:path';
 import { loadRegistry, GAME_KINDS, REPO_ROOT } from './check-registry.mjs';
 
 const OUT = join(REPO_ROOT, 'parlor/packages/brand/src/family.generated.ts');
-const APP_FAMILY_FILES = {
-  sudoku: 'sudoku/packages/app/src/screens/Home.tsx',
-  breakout: 'breakout/packages/app/src/screens/Home.tsx',
-  stillness: 'stillness/packages/app/src/screens/Home.tsx',
-};
 const ARCADE_SITE = 'arcade-site/index.html';
 
 /** Canonical family: every game-kind app, in registry order. */
@@ -50,16 +48,12 @@ function render() {
   ].join('\n');
 }
 
-// Pull the set of app display-names out of a hand-written source: `name: '..'`
-// object keys, or arcade-site's `<a class="name" ...>Name</a>` anchors.
-function extractNames(src, mode) {
+// Pull the set of app display-names out of arcade-site's
+// `<a class="name" ...>Name</a>` anchors (and `<span class="name">` for the
+// not-yet-launched entries).
+function extractNames(src) {
   const names = new Set();
-  if (mode === 'arcade') {
-    for (const m of src.matchAll(/class="name"[^>]*>([^<]+)</g)) names.add(m[1].trim());
-  } else {
-    const body = src.slice(src.indexOf('const FAMILY'), src.indexOf('];', src.indexOf('const FAMILY')));
-    for (const m of body.matchAll(/name:\s*'([^']+)'/g)) names.add(m[1]);
-  }
+  for (const m of src.matchAll(/class="name"[^>]*>([^<]+)</g)) names.add(m[1].trim());
   return names;
 }
 
@@ -74,16 +68,6 @@ function check() {
 
   const games = familyApps();
   const allNames = new Set(games.map((a) => a.displayName));
-  const urlNames = new Set(games.filter((a) => a.webUrl).map((a) => a.displayName));
-
-  for (const [name, rel] of Object.entries(APP_FAMILY_FILES)) {
-    const abs = join(REPO_ROOT, rel);
-    if (!existsSync(abs)) continue;
-    const self = games.find((a) => a.name === name)?.displayName;
-    const expected = new Set([...allNames].filter((n) => n !== self));
-    const got = extractNames(readFileSync(abs, 'utf8'), 'app');
-    if (!eqSet(got, expected)) errors.push(`${rel}: FAMILY [${fmt(got)}] ≠ registry-minus-self [${fmt(expected)}]`);
-  }
 
   const arcadeAbs = join(REPO_ROOT, ARCADE_SITE);
   if (existsSync(arcadeAbs)) {
@@ -91,20 +75,19 @@ function check() {
     // not-yet-launched ones as plain `<span>`. Parity = full name set, plus
     // each live game linked to its registry webUrl.
     const html = readFileSync(arcadeAbs, 'utf8');
-    const got = extractNames(html, 'arcade');
+    const got = extractNames(html);
     if (!eqSet(got, allNames)) errors.push(`${ARCADE_SITE}: listed apps [${fmt(got)}] ≠ registry games [${fmt(allNames)}]`);
     for (const a of games.filter((g) => g.webUrl)) {
       if (!html.includes(`class="name" href="${a.webUrl}"`)) errors.push(`${ARCADE_SITE}: ${a.displayName} should link to ${a.webUrl}`);
     }
   }
-  void urlNames;
 
   if (errors.length) {
     console.error('✗ family parity:');
     for (const e of errors) console.error(`  - ${e}`);
     process.exit(1);
   }
-  console.log('✓ family: generated module fresh; app arrays + arcade-site match registry');
+  console.log('✓ family: generated module fresh; arcade-site matches registry');
 }
 
 if (process.argv.includes('--check')) {
