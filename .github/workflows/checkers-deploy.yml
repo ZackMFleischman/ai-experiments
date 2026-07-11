@@ -157,6 +157,8 @@ jobs:
       # lib/ by esbuild) would fail it. The cloud needs runtime deps only.
       - name: strip devDependencies from the packed functions package
         run: cd packages/functions && npm pkg delete devDependencies
+      - name: rules parity (re-check at deploy time — a post-lint edit of the rules copy must not ship unchecked)
+        run: node scripts/check-rules-parity.mjs
       - name: firebase deploy
         if: env.FIREBASE_SA != ''
         run: |

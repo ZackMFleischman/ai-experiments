@@ -17,6 +17,7 @@ const BUDGETS = new Map([
   ['DESIGN.md', 500],
   ['IMPLEMENTATION.md', 400],
   ['DECISIONS.md', null],
+  // create-app:done-budget — the stamp inserts DONE.md's budget row here
 ]);
 
 // native/ holds the generated Capacitor shells (they ship their own READMEs).

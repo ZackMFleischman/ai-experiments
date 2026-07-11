@@ -1,0 +1,39 @@
+# Portfolio meta-checks driven by the app registry (registry/apps.json), the
+# single source of truth for "the list of apps". Intentionally NOT path-filtered:
+# a coverage gate must fire even when a change is *adding* a game dir or a
+# workflow, which a path filter could let slip through. Every job is a few
+# seconds of plain `node` — no install, no matrix.
+name: REGISTRY CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: registry-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  meta:
+    name: registry · family · ci-coverage · root-docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Shape + filesystem parity of the registry itself.
+      - run: node registry/check-registry.mjs
+      # Generated family module is fresh AND app arrays + arcade-site agree.
+      - run: node registry/gen-family.mjs --check
+      # Every game has a <name>-ci.yml filtered on its dir + parlor/**.
+      - run: node registry/check-ci-coverage.mjs
+      # Shared peerDeps (react/firebase/MUI/emotion) stay within parlor's peer
+      # ranges and don't conflict inside a lockfile (cross-game minor drift warns).
+      - run: node registry/check-peerdeps.mjs
+      # Repo-root + katmai-bears docs stay inside their closed, budgeted sets.
+      - run: node tools/check-root-docs.mjs

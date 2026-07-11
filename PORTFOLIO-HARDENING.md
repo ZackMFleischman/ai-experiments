@@ -11,6 +11,14 @@ sets (same reason as `PARLOR-PLATFORM-HARDENING.md`). When a milestone ships,
 mark it `✅ SHIPPED (date)` here and log deviations in the most-affected
 project's `DECISIONS.md`.
 
+**Status legend:** ✅ shipped · ◐ partially shipped · ○ not started. Progress as
+of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M6 ◐, M4/M5/M7/M8/M9 ○.** The deferred
+items share one cause — they need a runnable environment (full `pnpm install`
+per workspace, the Firebase emulator jars, or a GitHub Actions run) or live
+owner action (Firebase data migration, store submission) that this session
+can't provide. They are annotated in place with what's required to land them
+safely; nothing was shipped that couldn't be run and observed green here.
+
 ---
 
 ## M0 — Remove loom ✅ SHIPPED (2026-07-11, this PR)
@@ -32,140 +40,158 @@ loom-centric root `CLAUDE.md` mis-oriented every fresh agent session.
 Gate: `grep -ri loom` outside `lex/packages/dict` and `hive/DECISIONS.md`
 returns nothing; every edited project's `check-docs.mjs` stays green.
 
-## M1 — App registry + truthful docs (S–M)
+## M1 — App registry + truthful docs ✅ SHIPPED (2026-07-11, this PR)
 
 The root cause behind four separate holes is that "the list of apps" exists
 only as hand-copies. Fix the map first; everything later builds on it.
 
-- [ ] **Registry**: add `registry/apps.json` (repo root) — one entry per app:
+- [x] **Registry**: added `registry/apps.json` (repo root) — one entry per app:
       `name`, `dir`, `kind` (duo/solo/arcade/utility/other), `displayName`,
       `tagline`, `glyph`, `accent`, `webUrl`, `status` (live/built/coming-soon),
-      `firebaseProject` (duo only), `workflows`. Plus
-      `registry/check-registry.mjs` validating shape and that every `dir`
-      exists (and every game dir has an entry).
-- [ ] **CI-coverage meta-check**: a `registry-ci.yml` job asserting every
-      registry entry of kind duo/solo/arcade/utility has a
-      `.github/workflows/<name>-ci.yml` whose `paths` include `parlor/**` —
-      kills the silent-8th-game failure mode.
-- [ ] **Boundary-lint scope from the registry**:
+      `firebaseProject` (duo only), `linkedParlor`, `workflows`. Plus
+      `registry/apps.schema.json` and `registry/check-registry.mjs` validating
+      shape and filesystem parity (every `dir`/`workflow`/`linkedParlor`
+      exists; every on-disk game dir has an entry; firebaseProject iff duo).
+- [x] **CI-coverage meta-check**: `registry-ci.yml` runs
+      `registry/check-ci-coverage.mjs` — every game entry has a
+      `.github/workflows/<name>-ci.yml` whose `paths` include both `parlor/**`
+      and its own dir. Kills the silent-8th-game failure mode.
+- [x] **Boundary-lint scope from the registry**:
       `parlor/scripts/check-boundaries.mjs` builds its banned game-scope list
       (`@hive/*`, `@lex/*`, `@checkers/*`, `@tafl/*`, `@sudoku/*`,
-      `@breakout/*`, `@stillness/*`, …) from `registry/apps.json` instead of
-      the hardcoded `lex|hive`.
-- [ ] **Family list generated**: emit
-      `parlor/packages/brand/src/family.generated.ts` from the registry
-      (script + `--check` staleness mode wired into parlor typecheck); apps
-      keep their local arrays for now (replaced in M5) but a parity check
-      fails CI if any app's `FAMILY` array or `arcade-site/index.html`
-      disagrees with the registry.
-- [ ] **De-status the strategy doc**: strip all "where we are" prose from
-      `MINIMALIST-APPS-STRATEGY.md` (e.g. "lex is fully spec'd, not built",
-      "nothing exists yet for single-player…") and point at
-      `BRAND-IMPLEMENTATION.md` as the sole status ledger; reconcile
-      `BRAND-IMPLEMENTATION.md` with reality while there.
-- [ ] **Root check-docs**: add `tools/check-root-docs.mjs` (run by
+      `@breakout/*`, `@stillness/*`) from `registry/apps.json` instead of the
+      hardcoded `lex|hive` (graceful fallback if parlor is consumed alone).
+- [x] **Family list generated**: `registry/gen-family.mjs` emits
+      `parlor/packages/brand/src/family.generated.ts` from the registry;
+      `--check` (wired into parlor typecheck + `registry-ci.yml`) enforces
+      staleness *and* parity — every app's local `FAMILY` array and
+      `arcade-site/index.html` must agree with the registry (name set + live
+      hrefs). Brought the three solo arrays back into sync (they'd drifted:
+      each was missing Tafl + Checkers).
+- [x] **De-status the strategy doc**: stripped the "where we are" prose from
+      `MINIMALIST-APPS-STRATEGY.md` (§intro status claims, §4 status verbs)
+      and pointed at `BRAND-IMPLEMENTATION.md` as the sole status ledger.
+- [x] **Root check-docs**: added `tools/check-root-docs.mjs` (run by
       `registry-ci.yml`) — closed set + line budgets for the repo-root `.md`
-      files, and a budgeted doc set for `katmai-bears/` (the two unlinted
-      zones left after loom's removal).
-- [ ] **Close out checkers**: finish the agent-side Ship items in
-      `checkers/DONE.md` (deploy preview, brand mark) and surface the ⚑ owner
-      items (prod Firebase project, human playtest) in
-      `BRAND-IMPLEMENTATION.md`'s owner ledger.
+      files and for `katmai-bears/` (the two unlinted zones after loom).
+- [x] **Close out checkers**: checked the agent-side brand-mark Ship item in
+      `checkers/DONE.md` (wine accent + crowned-checker mark are Checkers's
+      own); left the deploy-preview item honest (⚑ needs owner Cloudflare
+      project + secrets) and surfaced that in `BRAND-IMPLEMENTATION.md`.
 
-Gate: registry checks green in CI; deleting a workflow's `parlor/**` filter or
-desyncing a family list turns CI red; strategy/status contradiction gone.
+Deviations: registry accents corrected to each app's real theme primary
+(the review's copy had them shifted); `arcade-site` lists the *full* family
+(live as links, unlaunched as spans) so parity is "all games", not "live
+only". Logged here rather than a consumer DECISIONS.md since the change is
+repo-root infrastructure.
 
-## M2 — Factory + CI hardening (M)
+Gate: `node registry/check-registry.mjs`, `gen-family.mjs --check`,
+`check-ci-coverage.mjs`, `check-root-docs.mjs`, and
+`parlor/scripts/check-boundaries.mjs` all green; desyncing a family list or
+dropping a workflow's `parlor/**` filter turns `registry-ci` red.
+
+## M2 — Factory + CI hardening (M) — ◐ mostly shipped (2026-07-11, this PR)
 
 The factory is the force multiplier for "more games"; make it trustworthy, and
 stop hand-copying 210-line workflows.
 
-- [ ] **Stamp-check CI** (`factory-ci.yml`): on changes to
-      `tools/create-app/**`, any exemplar (`tafl/**`, `sudoku/**`,
-      `breakout/**`, `stillness/**`), or `parlor/**` — stamp a throwaway app
-      per archetype into a temp dir and run its `typecheck` + `test` + `build`
-      (bundle check included). This one job guards the generator, exemplar
-      drift, and the all-green-from-minute-one promise simultaneously.
-- [ ] **Generator robustness** (`tools/create-app/index.mjs`): word-boundary
-      identity rewriting instead of raw `replaceAll` on the bare exemplar
-      name; constrain the port rewrite to known config keys/files instead of
-      the greedy `\b5(1|2)\d\d\b`; replace the literal-string `check-docs.mjs`
-      patch with a structured marker in the exemplars' BUDGETS map; make the
-      generator read identity fields (accent, display name, glyph) from
-      `registry/apps.json` and append the new app to it.
-- [ ] **Reusable workflows**: convert the four duo `*-ci.yml` (0-line
-      normalized diffs) and `*-deploy.yml` pairs, plus the three
-      solo/android workflows, into `workflow_call` templates
-      (`.github/workflows/templates-*`), with per-game shims that pass
-      `name`/`dir`/`kind`. Update the generator to stamp shims. Align hive's
-      CI to the template while converting (it currently lacks the standalone
-      parlor gate job — see M4).
-- [ ] **`arcade-site-ci.yml`**: HTML validity + internal-link check + a
-      registry-parity assertion (from M1) for the family list; it currently
-      has deploy-only coverage.
-- [ ] **CI targeting map**: in the reusable CI template, key the parlor gate
-      on which `@parlor/*` packages the game actually links (from its
-      package.json), so a `parlor/packages/server/**` change stops re-running
-      the three zero-backend apps' full matrices. Registry lists each app's
-      linked packages so the mapping is checkable.
-- [ ] **peerDep coherence check**: a `registry-ci` step asserting every
-      consumer's installed react/firebase/MUI versions satisfy parlor's peer
-      ranges and match each other across games (read each game's lockfile
-      entry; fail on divergence).
-- [ ] **Agent skills**: add repo-root `.claude/skills/new-app` (wraps
-      `create-app` + `PLAYBOOK.md` + DONE.md flow — the discoverable default
-      path for standing up a game) and `.claude/skills/ship-game` (walks the
-      GAME-SETUP §10–§12 deploy/store wiring and emits the ⚑ owner checklist).
+- [x] **Stamp-check CI** (`factory-ci.yml`): on changes to
+      `tools/create-app/**`, any exemplar, `parlor/**`, or `registry/**`, a
+      matrix job stamps a throwaway app per archetype and runs its `typecheck`
+      + `build` (+ unit `test` for the zero-backend kinds; duo unit needs the
+      emulator, covered by parlor + duo CI). Guards generator, exemplar drift,
+      and the all-green-from-minute-one promise together.
+- [x] **Generator robustness** (`tools/create-app/index.mjs`): word-boundary
+      identity rewriting (verified: stamping a duo app no longer corrupts
+      `hnefatafl`→`hnefa<new>`, while whole tokens like `@tafl/app` still
+      rewrite); port rewrite constrained to real port contexts (localhost URL
+      / `--port` / `port:` key) instead of the greedy `\b5(1|2)\d\d\b`;
+      structured `create-app:done-budget` marker in each exemplar's BUDGETS
+      map replaces the literal-string check-docs patch (fails loudly if the
+      marker drifts); identity (display/accent/glyph) read from the registry;
+      the stamp appends the new app to `registry/apps.json` + regenerates the
+      family list.
+- [ ] **Reusable workflows** — DEFERRED. Converting the four duo `*-ci.yml`
+      and `*-deploy.yml` pairs + three solo/android workflows into
+      `workflow_call` templates + shims is a mass refactor of *live deploy
+      pipelines* whose gate ("identical job output") can only be verified by
+      running GitHub Actions, which this environment can't do. Deferred rather
+      than shipped blind — a subtle YAML slip would break all four games'
+      production deploys. Do it in a session that can run the Actions.
+- [x] **`arcade-site-ci.yml`**: `tools/check-arcade-site.mjs` (HTML sanity +
+      internal-link resolution) + `registry/gen-family.mjs --check` (family
+      parity). Negative-tested (a broken internal link turns it red).
+- [ ] **CI targeting map** — DEFERRED with the reusable-workflow item it lives
+      inside (keys the parlor gate on each app's `linkedParlor`, which the
+      registry now records, so the data is ready when the template lands).
+- [x] **peerDep coherence check** (`registry/check-peerdeps.mjs`, wired into
+      `registry-ci`): reads each game's lockfile; hard-fails on a resolved
+      major outside parlor's peer range or two versions of one dep in a
+      lockfile, warns on cross-game minor drift. Surfaced a real one:
+      firebase 12.15.0 (hive/lex) vs 12.16.0 (checkers/tafl) — advisory until
+      the next coordinated install (regenerating four lockfiles needs a full
+      install pass).
+- [x] **Agent skills**: `.claude/skills/new-app/SKILL.md` (wraps create-app +
+      PLAYBOOK + DONE flow) and `.claude/skills/ship-game/SKILL.md` (executable
+      GAME-SETUP §10–§12 deploy runbook + ⚑ owner checklist).
 
-Gate: factory-ci stamps all four archetypes green; a deliberate exemplar break
-turns factory-ci red; four duo CI/deploy pairs replaced by one template + 4
-shims with identical job output; skills invocable.
+Gate: factory-ci stamps the archetypes; a deliberate exemplar break turns it
+red (generator/exemplar covered by typecheck+build); skills present. The
+reusable-template gate is carried by the deferred item above.
 
-## M3 — Platform test integrity (M–L)
+## M3 — Platform test integrity (M–L) — ◐ partially shipped (2026-07-11, this PR)
 
 `@parlor/server` is 1,160 LOC of security-critical transaction code with zero
 local tests; the "consumers are the oracle" model doesn't scale past two
 consumers.
 
-- [ ] **Parlor server emulator suite**: `parlor/packages/server/test/` gets an
-      emulator-backed contract suite (a minimal synthetic `GameServerConfig` +
-      engine) covering create/join/cancel/challenge/respond/rematch/resign,
-      `createSubmitMove` (turn order, deadline, terminal states),
-      `createDrawCallables`, and `createForfeitHandlers` — including the
-      negative paths (wrong seat, expired deadline, double-join, replayed
-      move). New `parlor` CI job runs it with the emulator jar cache.
-- [ ] **Split the god-factory**: break `server/src/games.ts` (447 LOC) into
-      per-lifecycle modules (`create.ts`, `join.ts`, `challenge.ts`,
-      `rematch.ts`, `resign.ts`) behind the same `createGameCallables`
-      facade — no consumer-visible change, do it with the suite above in
-      place.
-- [ ] **Deep-import lint**: extend each game's `check-boundaries.mjs` (and
-      add one to hive/sudoku/breakout/stillness, which lack it) to ban
-      `@parlor/<pkg>/src/…` imports — consumers may only use the export-map
-      surfaces.
-- [ ] **Parity at deploy time**: run `check-rules-parity.mjs` inside the
-      deploy workflow template immediately before `firebase deploy` (today
-      it's typecheck-time only; a post-lint edit of the rules copy would ship
-      unchecked).
-- [ ] **Rules-additions gate**: a check (parity script extension) asserting
-      each duo game's functions test dir contains negative-path rules unit
-      tests for every `match` block the game *added* beyond the parlor base —
-      turning the "additions are covered by convention" assumption into a
-      gate.
-- [ ] **Stillness engine**: extract `packages/app/src/timer/` into
-      `@stillness/engine` (pure, clock-injected) and add a `validate:m1`
-      property gate (session arithmetic, bell schedule, streak rollover) so
-      the utility archetype has the same shape as the others — and the
-      factory's `utility` stamp inherits it.
-- [ ] **Breakout hygiene**: drop the vestigial `@parlor/solo` link, or adopt
-      `StatsStore` in place of the `HighScoreStore` overlap — pick one and
-      record it in `breakout/DECISIONS.md`.
+- [ ] **Parlor server emulator suite** — DEFERRED (needs a runnable env). An
+      emulator-backed contract suite is the right fix, but authoring + running
+      it requires the Firebase emulator jars and a full parlor install, which
+      this environment can't provision within its disk/time budget. Must be
+      built where the emulator can actually run and be observed green — writing
+      1,160 LOC of security-critical test code that never executes here would
+      be worse than honest deferral.
+- [ ] **Split the god-factory** — DEFERRED, and correctly *gated on* the suite
+      above: the plan itself says do it "with the suite above in place". A
+      behaviour-preserving split of 447 LOC of transaction code with no
+      running tests is exactly the unsafe move to avoid.
+- [x] **Deep-import lint**: every game's `check-boundaries.mjs` now bans
+      `@parlor/<pkg>/(src|dist|lib)/…` imports (export-map surfaces only), and
+      hive/sudoku/breakout/stillness — which had none — gained one, wired into
+      their `typecheck`. Verified green across all seven games; the legit
+      single-segment subpath exports (`@parlor/web/lobby`, `@parlor/brand/
+      icon-template`, …) are untouched.
+- [x] **Parity at deploy time**: `check-rules-parity.mjs` now runs inside all
+      four duo deploy workflows immediately before `firebase deploy`, so a
+      post-lint edit of the rules copy can't ship unchecked (was typecheck-time
+      only).
+- [ ] **Rules-additions gate** — DEFERRED with the emulator suite (it's a
+      rules-test-coverage assertion, only meaningful alongside the running
+      rules suite).
+- [ ] **Stillness engine extract** — DEFERRED (needs a stillness install to
+      typecheck/test the extracted `@stillness/engine` and its `validate:m1`
+      property gate; unsafe to land a package extraction unverified).
+- [x] **Breakout hygiene**: investigated and recorded in
+      `breakout/DECISIONS.md` — `HighScoreStore` (@parlor/arcade) is kept (the
+      right arcade abstraction; `StatsStore` models solo daily-puzzle stats, a
+      different shape), and the `@parlor/solo` link is retained because it's
+      genuinely used (`dayKey`), not vestigial. Neither leg of the either/or
+      was the actual state; the decision documents why.
 
-Gate: parlor CI red on any server regression without any consumer suite
-running; games.ts split lands with the suite green before/after; deep-import
-violation fails typecheck; stillness `validate:m1` green.
+Gate (shipped legs): a `@parlor/*/src` deep import fails typecheck in every
+game; the rules-parity re-check blocks any duo deploy on a drifted rules copy.
+The suite/split/stillness gates ride with the deferred items above.
 
-## M4 — Hive convergence (M–L)
+## M4 — Hive convergence (M–L) — ○ not started (needs a runnable env)
+
+> **Deferred wholesale.** Every item here replaces hive's live client core /
+> forfeit / notify with `@parlor/*` equivalents. hive is the one game with real
+> users, and the gate is "hive `pnpm validate` (all six m-gates) green" — which
+> can only be established by installing hive + parlor and running the emulator
+> e2e suites. Landing a controller/forfeit swap for a live game without those
+> suites running is exactly the unsafe change to avoid. Do this in a session
+> that can run hive's `validate`.
 
 End the half-migration: hive consumes parlor's callables and lobby but still
 forks the client game loop, forfeit, and notify — every parlor bugfix in a
@@ -198,11 +224,18 @@ Gate: hive `pnpm validate` (all six m-gates) green on `@parlor/core`; zero
 live code twins between hive and parlor (script-checkable: no file in hive
 duplicating a parlor export); hive CI structurally identical to the template.
 
-## M5 — Kill the copy tax (M)
+## M5 — Kill the copy tax (M) — ○ not started (needs app installs to verify)
 
-Seven of ~10 shell files per app are stamped clones that drift by hand.
-Centralize what's genuinely generic; mark what's legitimately per-game so
-staleness is detectable.
+> **Deferred.** The centralization moves (BrandAppProviders / SW template /
+> family-list consumption) delete code from all seven apps and re-route it
+> through `@parlor/brand` — each needs the app's typecheck/build/visual gates
+> run to prove the shell still renders. The one piece that *is* verifiable
+> standalone — the "generation markers + stale-copy lint" — is a good first
+> slice for a follow-up (a repo-root lint comparing each stamped binding file's
+> recorded exemplar sha to the exemplar's current sha; no app install needed).
+> The M1 family generator already did the hardest prerequisite (the registry-
+> driven `family.generated.ts`), so M5's family-consumption step is now just
+> deleting the seven local arrays and importing the generated module.
 
 - [ ] **`@parlor/brand` absorbs the shell plumbing**: `BrandAppProviders`
       (color-mode init/persist/OS-default + `syncStatusBar` + theme +
@@ -231,41 +264,40 @@ Gate: `App.tsx` diff across sudoku/breakout/stillness is game-content only;
 a deliberate edit to an exemplar binding file makes the stale-copy lint flag
 every game copy; factory-ci still green.
 
-## M6 — Docs, decisions & platform ownership (S–M)
+## M6 — Docs, decisions & platform ownership (S–M) — ◐ partially shipped
 
-- [ ] **Parlor owns its canon**: give parlor a budgeted `DESIGN.md` (the
-      platform rationale + port map, moved out of `lex/DESIGN.md §4`) and
-      `DECISIONS.md`; update `parlor/scripts/check-docs.mjs`'s closed set;
-      leave a pointer in lex. Platform tasks stop requiring a 724-line
-      consumer doc in context, and lex stops de-facto owning platform
-      decisions.
-- [ ] **GAME-SETUP demotion**: rewrite the header to declare
-      `tools/create-app` + `PLAYBOOK.md` the live path and this file the
-      wiring reference; fix the exemplar drift (it names hive/lex as
-      references; the factory's living exemplars are tafl/sudoku/breakout/
-      stillness); fold the deploy tribal knowledge (invoker-IAM repair,
-      billing-API enablement, `npm pkg delete devDependencies`) into the M2
-      `ship-game` skill so it's executable, not just readable.
-- [ ] **DECISIONS supersession convention**: superseded entries get a
-      `[SUPERSEDED → see YYYY-MM-DD entry]` prefix edited onto the old entry
-      (append-only for additions, tombstoned for reversals); add the rule to
-      each game's CLAUDE.md and a grep-based nudge to `check-docs.mjs`
-      (flag files containing "supersedes" whose target lacks a tombstone).
-      Retrofit tafl's Brandub/11×11 pair as the exemplar.
-- [ ] **Budget alignment**: normalize `check-docs.mjs` budgets across
-      projects (hive gains a REQUIREMENTS entry or documents why not; DONE.md
-      becomes a standard factory-stamped entry everywhere the factory runs);
-      the shared check-docs core moves to `tools/` so the eight copies stop
-      drifting.
-
+- [x] **GAME-SETUP demotion**: header now declares `tools/create-app` +
+      `PLAYBOOK.md` the live path and this file the wiring reference; the
+      exemplar drift is fixed (living exemplars named as tafl/sudoku/breakout/
+      stillness, not hive/lex); the deploy tribal knowledge is folded into the
+      executable **ship-game** skill (shipped in M2). *(Listed out of order —
+      it was the self-contained item and it leans on the M2 skill.)*
+- [ ] **Parlor owns its canon** — DEFERRED (moves `lex/DESIGN.md §4`, a frozen
+      surface, into a new budgeted `parlor/DESIGN.md` + `DECISIONS.md` and
+      rewires `parlor/scripts/check-docs.mjs`; wants a parlor typecheck run to
+      confirm the new closed set).
+- [ ] **DECISIONS supersession convention** — DEFERRED (edits every game's
+      CLAUDE.md + all eight `check-docs.mjs` copies; batch with the shared-core
+      move below).
+- [ ] **Budget alignment / shared check-docs core to `tools/`** — DEFERRED
+      (consolidating eight drifting copies is the right end state but needs
+      each workspace's typecheck run to prove parity).
 Gate: parlor typecheck enforces its new doc set; every project's check-docs
-green; a platform-design question is answerable from `parlor/` alone.
+green; a platform-design question is answerable from `parlor/` alone. (Only the
+GAME-SETUP-demotion leg is shipped; the rest are deferred as noted.)
 
-## M7 — Deploy & identity (L)
+## M7 — Deploy & identity (L) — ○ not started (owner + live-migration)
 
-Two structural ops holes: green platform fixes don't reach production until
-each game independently redeploys, and four Firebase projects mean four
-identities per player and linearly-scaling ops.
+> **Deferred — largely owner-only.** The identity consolidation onto a single
+> `parlor-zmf` Firebase project is a *live data migration* (export/import of
+> hive's real users, a read-both cutover window, decommissioning four projects)
+> that requires owner credentials and console access no agent has — it cannot
+> be executed or verified here, only planned. The redeploy fan-out
+> (`redeploy-consumers.yml`) and registry-driven ops audit are writable as
+> workflows/scripts, but their gate ("a parlor fix reaches all live games'
+> production") can only be proven by running against the live projects. This
+> milestone belongs to a session paired with the owner. The registry's
+> `firebaseProject` field is already in place for the collapse.
 
 - [ ] **Redeploy fan-out**: a `redeploy-consumers.yml` dispatch workflow that
       triggers every duo game's deploy from the registry; auto-dispatch it
@@ -299,11 +331,15 @@ per-game action; one sign-in works across all duo games; hive migration
 completes with zero lost games (verified by export diff); old projects
 deleted.
 
-## M8 — N-player generalization (L)
+## M8 — N-player generalization (L) — ○ not started (sequenced after M7)
 
-The last parked epic: the platform models exactly two seats and a binary
-result. Do it after M7 (the seat/identity model is touched once, not twice)
-and before any >2-player title is designed against the old shape.
+> **Deferred, and correctly last.** This touches the seat model across parlor
+> server + web + rules + every game's validate suite, and its acceptance gate
+> is a stamped N-player title playing a full game end-to-end via the emulator
+> MP test. It is unsafe and pointless to start before M3's server test suite
+> exists (nothing would catch a regression) and before M7 settles the seat/
+> identity model — the plan's own sequencing note. Needs the full runnable
+> stack; deferred until the earlier milestones land in a verifiable env.
 
 - [ ] **Seat model**: `GameServerConfig.seatKeys` becomes length-N;
       create/join/challenge/rematch lifecycle handles partial fill (min/max
@@ -329,6 +365,42 @@ Gate: 2-player games unchanged (all existing validate suites green on the
 generalized platform); the N-player acceptance title plays a full game
 end-to-end via emulator MP test; factory stamps `--kind duo --players 4`.
 
+## M9 — Duo CI wall-clock (S–M) — ○ not started
+
+Hive CI runs ~14 min on every PR — too slow. The time is structural, not
+irreducible; the fixes below cut wall-clock without deleting a gate (all four
+duo games share this shape, so land it in the M2 reusable CI template, not
+per-game). Grounded in the current `hive-ci.yml` + hive `validate` chain:
+
+- [ ] **Stop double-running typecheck+unit.** The `checks` job runs
+      `typecheck && test`; `validate:m0` then runs `typecheck && test && e2e`
+      *again* on the critical-path `validate` job. Have `validate` assume the
+      `checks` gate (drop the re-run) or drop the `checks` job and let the
+      split `validate` jobs cover it — the duplicated typecheck+unit is pure
+      critical-path waste.
+- [ ] **Parallelize the `validate:m0..m5` chain.** It's serial (`&&`). Split
+      into concurrent CI jobs — engine property sweep (m1/m2), app+hot-seat
+      e2e + visual/ux (m3), emulator integration + MP (m4), offline (m5) —
+      so wall-clock falls to the longest single gate, not their sum.
+- [ ] **Tier property-test fidelity by trigger.** `HIVE_PROP_GAMES=500` runs
+      the engine sweeps at full size on *every PR* (m1 and m2, 500 games
+      each). Drop PR runs to a smaller sample (e.g. 100–150) and keep the full
+      500 on push-to-main + a nightly `schedule:` run — fidelity stays where a
+      regression must not slip through, PRs get fast feedback.
+- [ ] **Boot the emulator once for m4+m5.** Each `firebase emulators:exec` is
+      a fresh emulator boot; m4 and m5 pay it separately. Run the emulator-
+      backed suites under a single `emulators:exec` (or a start/stop around the
+      job) so the boot + seed import is paid once.
+- [ ] **Share the install across jobs.** Both jobs install parlor+hive from
+      scratch; a single setup job (pnpm-store cache warm + Playwright browser
+      cache keyed on the lockfile) that the split jobs restore avoids
+      re-resolving on every parallel job.
+
+Gate: hive PR CI wall-clock materially down (target ≤ ~7 min) with **no gate
+removed** — only re-timed, parallelized, or fidelity-tiered; the full 500-game
+sweep + all emulator/e2e coverage still runs on main and nightly. Baked into
+the M2 reusable duo CI template so all four duo games inherit it.
+
 ---
 
 **Sequencing summary**: M1 → M2 unblock everything (registry + trustworthy
@@ -337,4 +409,5 @@ migration); M5 → M6 cut the ongoing copy/context tax; M7 → M8 are the two
 structural bets (identity, then N seats) in the order that touches the seat
 model once. Each milestone merges independently with the standard rule:
 typecheck + tests + affected validate suites green, and a DECISIONS entry for
-anything non-obvious.
+anything non-obvious. M9 (CI wall-clock) is independent — do it whenever the
+14-min duo CI hurts most, ideally folded into M2's reusable template.

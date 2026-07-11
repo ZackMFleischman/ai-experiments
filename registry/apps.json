@@ -1,0 +1,181 @@
+{
+  "$schema": "./apps.schema.json",
+  "apps": [
+    {
+      "name": "hive",
+      "dir": "hive",
+      "kind": "duo",
+      "displayName": "Hive",
+      "tagline": "The bug board game, online with a friend",
+      "glyph": "🐝",
+      "accent": "#e8a013",
+      "webUrl": "https://hive.zackmfleischman.com",
+      "status": "live",
+      "firebaseProject": "hive-zmf",
+      "linkedParlor": [
+        "core",
+        "web",
+        "server"
+      ],
+      "workflows": [
+        "hive-ci.yml",
+        "hive-deploy.yml"
+      ]
+    },
+    {
+      "name": "lex",
+      "dir": "lex",
+      "kind": "duo",
+      "displayName": "Lex",
+      "tagline": "A crossword tile game for two",
+      "glyph": "🅻",
+      "accent": "#0d7a5f",
+      "webUrl": null,
+      "status": "built",
+      "firebaseProject": "lex-zmf",
+      "linkedParlor": [
+        "core",
+        "harness",
+        "web",
+        "server"
+      ],
+      "workflows": [
+        "lex-ci.yml",
+        "lex-deploy.yml"
+      ]
+    },
+    {
+      "name": "checkers",
+      "dir": "checkers",
+      "kind": "duo",
+      "displayName": "Checkers",
+      "tagline": "Draughts, online with a friend",
+      "glyph": "⛃",
+      "accent": "#7a1f3d",
+      "webUrl": null,
+      "status": "built",
+      "firebaseProject": "checkers-zmf",
+      "linkedParlor": [
+        "brand",
+        "core",
+        "web",
+        "harness",
+        "server"
+      ],
+      "workflows": [
+        "checkers-ci.yml",
+        "checkers-deploy.yml"
+      ]
+    },
+    {
+      "name": "tafl",
+      "dir": "tafl",
+      "kind": "duo",
+      "displayName": "Tafl",
+      "tagline": "The Viking siege game, for two",
+      "glyph": "⚔️",
+      "accent": "#0b7285",
+      "webUrl": "https://tafl.pages.dev",
+      "status": "live",
+      "firebaseProject": "tafl-zmf",
+      "linkedParlor": [
+        "brand",
+        "core",
+        "web",
+        "harness",
+        "server"
+      ],
+      "workflows": [
+        "tafl-ci.yml",
+        "tafl-deploy.yml"
+      ]
+    },
+    {
+      "name": "sudoku",
+      "dir": "sudoku",
+      "kind": "solo",
+      "displayName": "Sudoku",
+      "tagline": "A calm daily puzzle",
+      "glyph": "🔢",
+      "accent": "#3b5bdb",
+      "webUrl": "https://sudoku-zmf.pages.dev",
+      "status": "live",
+      "firebaseProject": null,
+      "linkedParlor": [
+        "brand",
+        "native",
+        "solo",
+        "harness"
+      ],
+      "workflows": [
+        "sudoku-ci.yml",
+        "sudoku-deploy.yml",
+        "sudoku-android.yml"
+      ]
+    },
+    {
+      "name": "breakout",
+      "dir": "breakout",
+      "kind": "arcade",
+      "displayName": "Bricks",
+      "tagline": "The wall, the paddle, the ball",
+      "glyph": "🧱",
+      "accent": "#d9480f",
+      "webUrl": "https://breakout-zmf.pages.dev",
+      "status": "live",
+      "firebaseProject": null,
+      "linkedParlor": [
+        "arcade",
+        "brand",
+        "native",
+        "solo",
+        "harness"
+      ],
+      "workflows": [
+        "breakout-ci.yml",
+        "breakout-deploy.yml",
+        "breakout-android.yml"
+      ]
+    },
+    {
+      "name": "stillness",
+      "dir": "stillness",
+      "kind": "utility",
+      "displayName": "Stillness",
+      "tagline": "A quiet meditation timer",
+      "glyph": "🧘",
+      "accent": "#4e7d5b",
+      "webUrl": "https://stillness-zmf.pages.dev",
+      "status": "live",
+      "firebaseProject": null,
+      "linkedParlor": [
+        "brand",
+        "native",
+        "solo",
+        "harness"
+      ],
+      "workflows": [
+        "stillness-ci.yml",
+        "stillness-deploy.yml",
+        "stillness-android.yml"
+      ]
+    },
+    {
+      "name": "katmai-bears",
+      "dir": "katmai-bears",
+      "kind": "other",
+      "displayName": "Katmai Bears",
+      "tagline": "Live Katmai & Brooks Falls bear cams",
+      "glyph": "🐻",
+      "accent": "#214635",
+      "webUrl": null,
+      "status": "live",
+      "firebaseProject": null,
+      "linkedParlor": [],
+      "workflows": [
+        "katmai-ci.yml",
+        "katmai-deploy.yml"
+      ]
+    }
+  ]
+}

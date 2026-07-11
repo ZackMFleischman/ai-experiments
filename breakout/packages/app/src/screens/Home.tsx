@@ -10,9 +10,12 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../App';
 
 const FAMILY = [
+  { name: 'Hive', tagline: 'The bug board game, online with a friend', url: 'https://hive.zackmfleischman.com', glyph: '🐝' },
+  { name: 'Lex', tagline: 'A crossword tile game for two', glyph: '🅻' },
+  { name: 'Checkers', tagline: 'Draughts, online with a friend', glyph: '⛃' },
+  { name: 'Tafl', tagline: 'The Viking siege game, for two', url: 'https://tafl.pages.dev', glyph: '⚔️' },
   { name: 'Sudoku', tagline: 'A calm daily puzzle', url: 'https://sudoku-zmf.pages.dev', glyph: '🔢' },
   { name: 'Stillness', tagline: 'A quiet meditation timer', url: 'https://stillness-zmf.pages.dev', glyph: '🧘' },
-  { name: 'Hive', tagline: 'The bug board game, online with a friend', url: 'https://hive.zackmfleischman.com', glyph: '🐝' },
 ];
 
 export function Home() {

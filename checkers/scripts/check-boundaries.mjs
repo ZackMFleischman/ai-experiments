@@ -38,6 +38,9 @@ const FIREBASE_ALLOWED = [
   /^packages\/app\/test-integration\//,
   /^packages\/functions\//,
 ];
+// Consumers reach parlor only through its export map (@parlor/web,
+// @parlor/web/lobby, …), never a deep src/dist/lib path into its internals.
+const PARLOR_DEEP_RE = /^@parlor\/[^/]+\/(src|dist|lib)(\/|$)/;
 
 const errors = [];
 
@@ -46,6 +49,9 @@ for (const file of sourceFiles(join(root, 'packages'))) {
   for (const spec of imports(text)) {
     if (FIREBASE_RE.test(spec) && !FIREBASE_ALLOWED.some((re) => re.test(file))) {
       errors.push(`${file}: imports '${spec}' — firebase is confined to packages/app/src/sync/ and packages/functions/ (CLAUDE.md hard rules)`);
+    }
+    if (PARLOR_DEEP_RE.test(spec)) {
+      errors.push(`${file}: imports '${spec}' — reach @parlor/* through its export map only, never its src/ internals`);
     }
     if (spec.startsWith('@hive/')) {
       errors.push(`${file}: imports '${spec}' — checkers never imports another game's packages`);

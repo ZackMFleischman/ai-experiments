@@ -1,10 +1,19 @@
 # Standing up a new parlor game
 
-The checklist for building a new turn-based, two-player, invite-a-friend PWA on
-the `@parlor/*` platform (hive, lex are the reference consumers). It kills the
-"clone hive/ and delete the Hive parts" onboarding cost by naming every wiring
-point and the tribal knowledge that is otherwise scattered across hive's
-`DECISIONS.md`. Scope is **2-player** (N-player is a parked epic).
+> **The live path is the factory, not this file.** To create a game, run
+> `tools/create-app` (see the **new-app** skill / `tools/create-app/
+> PLAYBOOK.md`) — it stamps an all-gates-green workspace from a living
+> exemplar. This document is the **wiring reference**: what each generated
+> piece is and why, for working by hand or debugging a stamp. The living
+> exemplars the factory stamps from are **tafl** (duo), **sudoku** (solo),
+> **breakout** (arcade), and **stillness** (utility) — read those, not a
+> narrative clone. For deploy + store wiring, use the **ship-game** skill,
+> which turns §10–§12 below into an executable runbook.
+
+The wiring reference for a turn-based, two-player, invite-a-friend PWA on the
+`@parlor/*` platform. It names every wiring point and the tribal knowledge that
+is otherwise scattered across a game's `DECISIONS.md`. Scope is **2-player**
+(N-player is a parked epic).
 
 > Placement: this lives at the repo root, not under `parlor/`, because parlor
 > keeps a closed, line-budgeted doc set (`CLAUDE.md` + `README.md` only —

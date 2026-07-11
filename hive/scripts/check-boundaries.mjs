@@ -1,17 +1,19 @@
-// Boundary lint (CLAUDE.md hard rules; IMPLEMENTATION.md §0.7/§3) — wired
-// into `pnpm typecheck` and CI. Fails when:
-//   (a) firebase escapes its confinement: inside lex, firebase imports are
-//       legal only under packages/app/src/sync/ and packages/functions/
-//       (+ the emulator integration suite, which drives the real SDK)
-//       (@parlor/web|server are checked by parlor's own copy of this gate);
-//   (b) any lex source imports another game's package (@hive/*).
+// Boundary lint (CLAUDE.md hard rules) — wired into `pnpm typecheck` and CI.
+// Fails when:
+//   (a) firebase escapes its confinement: inside hive, firebase imports are
+//       legal only under packages/app/src/sync/, packages/app/test-integration/,
+//       and packages/functions/ (@parlor/web|server are checked by parlor's own
+//       copy of this gate);
+//   (b) a source reaches into @parlor/* internals via a deep src/dist/lib path
+//       instead of the package's export map;
+//   (c) any hive source imports another game's package.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'artifacts', 'coverage', 'test-results', 'playwright-report', 'emulator-seed', '.firebase', 'words', 'generated']);
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'artifacts', 'coverage', 'test-results', 'playwright-report', 'emulator-seed', '.firebase', 'generated']);
 const SOURCE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
 function* sourceFiles(dir) {
@@ -38,9 +40,10 @@ const FIREBASE_ALLOWED = [
   /^packages\/app\/test-integration\//,
   /^packages\/functions\//,
 ];
-// Consumers reach parlor only through its export map (@parlor/web,
-// @parlor/web/lobby, …), never a deep src/dist/lib path into its internals.
+// Reach @parlor/* through its export map only, never a deep src/dist/lib path.
 const PARLOR_DEEP_RE = /^@parlor\/[^/]+\/(src|dist|lib)(\/|$)/;
+// The other games' package scopes (hive never imports a sibling game).
+const OTHER_GAME_RE = /^@(lex|checkers|tafl|sudoku|breakout|stillness)\//;
 
 const errors = [];
 
@@ -48,13 +51,13 @@ for (const file of sourceFiles(join(root, 'packages'))) {
   const text = readFileSync(join(root, file), 'utf8');
   for (const spec of imports(text)) {
     if (FIREBASE_RE.test(spec) && !FIREBASE_ALLOWED.some((re) => re.test(file))) {
-      errors.push(`${file}: imports '${spec}' — firebase is confined to packages/app/src/sync/ and packages/functions/ (CLAUDE.md hard rules)`);
+      errors.push(`${file}: imports '${spec}' — firebase is confined to packages/app/src/sync/, test-integration/, and packages/functions/ (CLAUDE.md hard rules)`);
     }
     if (PARLOR_DEEP_RE.test(spec)) {
       errors.push(`${file}: imports '${spec}' — reach @parlor/* through its export map only, never its src/ internals`);
     }
-    if (spec.startsWith('@hive/')) {
-      errors.push(`${file}: imports '${spec}' — lex never imports another game's packages`);
+    if (OTHER_GAME_RE.test(spec)) {
+      errors.push(`${file}: imports '${spec}' — hive never imports another game's packages`);
     }
   }
 }

@@ -1,0 +1,31 @@
+name: ARCADE SITE CI
+
+# The brand site ships with no build step, so nothing else gates it before it
+# deploys. This checks HTML sanity + internal links, and (via the registry
+# family generator's --check) that the listed family agrees with the registry
+# — the same parity that keeps every app's MoreFromUs panel in sync.
+on:
+  pull_request:
+    paths: ['arcade-site/**', 'registry/**', '.github/workflows/arcade-site-ci.yml']
+  push:
+    branches: [main]
+    paths: ['arcade-site/**', 'registry/**', '.github/workflows/arcade-site-ci.yml']
+
+concurrency:
+  group: arcade-site-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: arcade-site · html · links · registry parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/check-arcade-site.mjs
+      - run: node registry/gen-family.mjs --check
