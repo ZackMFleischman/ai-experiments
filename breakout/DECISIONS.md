@@ -1,0 +1,39 @@
+# DECISIONS — Bricks
+
+> Append-only. New entries at the bottom: date, decision, one-line why.
+> ≤8 lines each. Milestone SHIPPED entries follow the same format (date,
+> gates run, deviations, stumbles). Post-v1 ideas go here as one-liners
+> tagged `post-v1`.
+
+---
+
+- **2026-07-11 — store name is "Bricks", directory stays `breakout/`.**
+  Breakout is Atari's trademark; the strategy/plan name the archetype and
+  directory, the store listing needs a clean name. appId
+  `com.zmfapps.bricks` (⚑ final only at first upload).
+
+- **2026-07-11 — engine rng is a state field, not a generator object.**
+  `nextRand(cursor) → [value, cursor']` keeps the whole game JSON-plain and
+  makes the determinism property (same seed + trace → same end state)
+  trivially true by construction — nothing hides outside the fold.
+
+- **2026-07-11 — collision = axis probes against the grid, one hit/tick.**
+  Ball step (≤0.95u) ≪ brick cell (14×7u), so tunneling can't happen and a
+  swept-AABB solver would be complexity without behavior. Golden trace pins
+  the outcome.
+
+- **2026-07-11 — pause never auto-resumes** (kit-level decision, arcade
+  `pauseWhenHidden`): coming back to a hidden tab mid-flight kills runs;
+  resume is the player's tap. One-way by design.
+
+- `post-v1`: in-app TraceRecorder capture (share a bug as a replayable
+  trace); synthesized sound + haptic-style toggle; canvas particles on
+  brick break.
+
+- **2026-07-11 — M0 SHIPPED** (PR #88, Phase 4a slice). Gates: typecheck /
+  28 unit tests / build+bundle check / validate:m1 (200 traces) /
+  validate:visual (36 captures) green locally and in CI. Deviations: one
+  branch for all Phase 4+5 slices (session constraint) instead of one PR
+  per slice. Stumbles: TS 5.x inferred-type-predicate narrowing in
+  levels.ts fallback; canvas fillStyle union vs the structural context
+  twin.

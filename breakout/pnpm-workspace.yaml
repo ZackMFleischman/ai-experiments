@@ -1,0 +1,7 @@
+packages:
+  - packages/*
+  - e2e
+
+# 0.32's postinstall downloads libvips and fails in script-blocked installs.
+overrides:
+  "@capacitor/assets>sharp": "^0.33.5"
