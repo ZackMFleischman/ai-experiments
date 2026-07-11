@@ -5,7 +5,7 @@ friend, on the shared parlor platform.
 
 ## Functional
 
-- FR-1: Brandub rules (7×7): rook moves; only the king lands on the throne
+- FR-1: Hnefatafl rules (11×11): rook moves; only the king lands on the throne
   or corners; custodian capture with corners (and the empty throne) as
   hostile anvils; the armed king is captured like any piece.
 - FR-2: Wins — king to a corner (defenders), king captured (attackers), no

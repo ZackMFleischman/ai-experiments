@@ -1,8 +1,8 @@
 # Tafl (tafl/)
 
-Hnefatafl — the Viking siege game, for two. Brandub (7×7): eight attackers
-against a king and four defenders; the king runs for a corner, the
-attackers close the net. Free hot-seat + online multiplayer on the
+Hnefatafl — the Viking siege game, for two. The classic 11×11 board:
+twenty-four attackers against a king and twelve defenders; the king runs
+for a corner, the attackers close the net. Free hot-seat + online multiplayer on the
 `@parlor/*` platform, and the **first duo title on `@parlor/brand`**.
 
 - **Play**: hot-seat on one device (static PWA, zero backend) or online

@@ -20,8 +20,8 @@ describe('round-trip', () => {
   it('recovers a mid-game and a finished state exactly', () => {
     let s = initialTafl();
     s = applyTafl(s, { from: at(0, 3), to: at(0, 1) });
-    s = applyTafl(s, { from: at(2, 3), to: at(2, 5) });
-    s = applyTafl(s, { from: at(1, 3), to: at(1, 5) });
+    s = applyTafl(s, { from: at(3, 5), to: at(3, 3) });
+    s = applyTafl(s, { from: at(1, 5), to: at(1, 8) });
     expect(deserializeTafl(serializeTafl(s))).toEqual(s);
 
     const done = resignTafl(s, 'attackers');
@@ -43,8 +43,8 @@ describe('corrupt input', () => {
 
   it('rejects a corrupt board', () => {
     expect(() => deserializeTafl(mangle({ board: 'ADK.' }))).toThrow();
-    expect(() => deserializeTafl(mangle({ board: 'X'.repeat(49) }))).toThrow();
-    expect(() => deserializeTafl(mangle({ board: 'K'.repeat(49) }))).toThrow();
+    expect(() => deserializeTafl(mangle({ board: 'X'.repeat(121) }))).toThrow();
+    expect(() => deserializeTafl(mangle({ board: 'K'.repeat(121) }))).toThrow();
   });
 
   it('rejects corrupt fields', () => {

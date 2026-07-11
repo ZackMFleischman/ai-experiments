@@ -1,6 +1,6 @@
 // The client twin of @tafl/functions' TaflGameOptions — structurally
 // identical; the emulator e2e exercises compatibility. tafl has a single
-// ruleset (Brandub 7×7), so options carry only the async time control.
+// ruleset (11×11 hnefatafl), so options carry only the async time control.
 export interface TaflGameOptions {
   timeControl: { days: 1 | 3 | 7 } | null;
 }

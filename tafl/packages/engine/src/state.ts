@@ -1,5 +1,5 @@
 // Game state and its (de)serialization. State is a plain JSON value — a
-// 49-char board string plus bookkeeping — so it snapshots, diffs, and ships
+// 121-char board string plus bookkeeping — so it snapshots, diffs, and ships
 // over the wire for free. applyTafl in apply.ts is the only thing that
 // advances it; nothing here mutates. `seen` counts (board + side-to-move)
 // position keys for threefold repetition; games are short, so it never needs
@@ -20,7 +20,7 @@ export type TaflResult =
   | { winner: null; by: 'repetition' };
 
 export interface TaflState {
-  /** 49-char board string, row-major. */
+  /** 121-char board string, row-major. */
   board: string;
   toMove: Side;
   moveCount: number;
@@ -36,16 +36,20 @@ export class IllegalMoveError extends Error {
   }
 }
 
-// Brandub setup: a cross of 8 attackers, 4 defenders around the king on the
-// throne. Attackers move first.
+// Hnefatafl setup: 24 attackers in four edge camps, 12 defenders in a
+// diamond around the king on the throne. Attackers move first.
 const INITIAL_BOARD =
-  '...A...' + // rank 1
-  '...A...' + // rank 2
-  '...D...' + // rank 3
-  'AADKDAA' + // rank 4
-  '...D...' + // rank 5
-  '...A...' + // rank 6
-  '...A...'; //  rank 7
+  '...AAAAA...' + // rank 1
+  '.....A.....' + // rank 2
+  '...........' + // rank 3
+  'A....D....A' + // rank 4
+  'A...DDD...A' + // rank 5
+  'AA.DDKDD.AA' + // rank 6
+  'A...DDD...A' + // rank 7
+  'A....D....A' + // rank 8
+  '...........' + // rank 9
+  '.....A.....' + // rank 10
+  '...AAAAA...'; //  rank 11
 
 /** Repetition key: the full position is the board plus whose turn it is. */
 export function positionKey(board: string, toMove: Side): string {
@@ -118,7 +122,7 @@ export function deserializeTafl(text: string): TaflState {
   const o = raw as Record<string, unknown>;
 
   const board = o['board'];
-  if (typeof board !== 'string' || board.length !== 49 || /[^ADK.]/.test(board)) {
+  if (typeof board !== 'string' || board.length !== 121 || /[^ADK.]/.test(board)) {
     throw new Error('deserializeTafl: corrupt board');
   }
   const kings = board.split('').filter((ch) => ch === 'K').length;

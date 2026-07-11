@@ -39,7 +39,7 @@ function playGame(seed: number): TaflState {
     const move = moves[Math.floor(rand() * moves.length)];
     if (move === undefined) throw new Error('unreachable: empty move list');
     state = applyTafl(state, move); // never throws on a listed move
-    expect(state.board).toHaveLength(49);
+    expect(state.board).toHaveLength(121);
     const kings = state.board.split('').filter((ch) => ch === 'K').length;
     if (state.result !== null && state.result.by === 'capture') {
       expect(kings).toBe(0);
@@ -51,14 +51,20 @@ function playGame(seed: number): TaflState {
 }
 
 describe('random games', () => {
-  it('hold the invariants and replay to the identical final state', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 2 ** 31 - 1 }), (seed) => {
-        const a = playGame(seed);
-        const b = playGame(seed);
-        expect(serializeTafl(b)).toBe(serializeTafl(a));
-      }),
-      { numRuns: GAMES },
-    );
-  });
+  // Budget scales with the sweep: an 11×11 game costs ~0.2s to play twice,
+  // and validate:m1 widens the sweep to 200 games.
+  it(
+    'hold the invariants and replay to the identical final state',
+    () => {
+      fc.assert(
+        fc.property(fc.integer({ min: 0, max: 2 ** 31 - 1 }), (seed) => {
+          const a = playGame(seed);
+          const b = playGame(seed);
+          expect(serializeTafl(b)).toBe(serializeTafl(a));
+        }),
+        { numRuns: GAMES },
+      );
+    },
+    Math.max(30_000, GAMES * 500),
+  );
 });

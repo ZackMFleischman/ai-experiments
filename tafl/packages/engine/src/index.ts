@@ -1,5 +1,5 @@
-// @tafl/engine — the pure, deterministic rules kernel for Brandub, the 7×7
-// hnefatafl variant: rook moves, custodian captures, a king racing for the
+// @tafl/engine — the pure, deterministic rules kernel for hnefatafl on the
+// classic 11×11 board: rook moves, custodian captures, a king racing for the
 // corners. Zero dependencies, no DOM, no clock, no Math.random — state in,
 // state out. Clients fold applyTafl over a move log; resign/timeout entries
 // fold with resignTafl/timeoutTafl.
