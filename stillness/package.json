@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "pnpm --filter @stillness/app dev",
-    "typecheck": "node scripts/check-docs.mjs && pnpm -r --sequential typecheck",
+    "typecheck": "node scripts/check-docs.mjs && node scripts/check-boundaries.mjs && pnpm -r --sequential typecheck",
     "test": "pnpm -r test",
     "build": "pnpm --filter @stillness/app build && node scripts/check-bundle.mjs",
     "validate:visual": "pnpm --filter stillness-e2e test:visual",

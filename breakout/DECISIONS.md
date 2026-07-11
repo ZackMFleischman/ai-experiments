@@ -42,3 +42,15 @@
   `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
   (GameHud play header coherent by player count, accent-derived
   palette + board tokens, MoreFromUs demoted to a footer). Play's score/level/lives row is now the shared `GameHud`; the court reads `theme.palette.board.surface`. Home's cross-promo renders as the quiet brand footer.
+
+- **2026-07-11 — keep `HighScoreStore` (@parlor/arcade); keep the
+  `@parlor/solo` link (PORTFOLIO-HARDENING M3).** The two are not a
+  duplication: `HighScoreStore` (@parlor/arcade) is the arcade high-score
+  persister — the right store for an action game; `StatsStore`
+  (@parlor/solo) aggregates account-free *solo daily-puzzle* results, a
+  different shape (opaque difficulty buckets, per-day records) that would
+  be the wrong abstraction here. So we do **not** adopt StatsStore. The
+  `@parlor/solo` link is not vestigial either: `Play.tsx` imports `dayKey`
+  from it (the local-day helper arcade's `highScores.ts` documents but
+  doesn't re-export). Follow-up candidate (not now): promote `dayKey` to a
+  shared seed surface so arcade titles need no @parlor/solo link at all.

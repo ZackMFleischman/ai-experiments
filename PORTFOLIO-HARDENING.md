@@ -131,49 +131,49 @@ Gate: factory-ci stamps the archetypes; a deliberate exemplar break turns it
 red (generator/exemplar covered by typecheck+build); skills present. The
 reusable-template gate is carried by the deferred item above.
 
-## M3 — Platform test integrity (M–L)
+## M3 — Platform test integrity (M–L) — ◐ partially shipped (2026-07-11, this PR)
 
 `@parlor/server` is 1,160 LOC of security-critical transaction code with zero
 local tests; the "consumers are the oracle" model doesn't scale past two
 consumers.
 
-- [ ] **Parlor server emulator suite**: `parlor/packages/server/test/` gets an
-      emulator-backed contract suite (a minimal synthetic `GameServerConfig` +
-      engine) covering create/join/cancel/challenge/respond/rematch/resign,
-      `createSubmitMove` (turn order, deadline, terminal states),
-      `createDrawCallables`, and `createForfeitHandlers` — including the
-      negative paths (wrong seat, expired deadline, double-join, replayed
-      move). New `parlor` CI job runs it with the emulator jar cache.
-- [ ] **Split the god-factory**: break `server/src/games.ts` (447 LOC) into
-      per-lifecycle modules (`create.ts`, `join.ts`, `challenge.ts`,
-      `rematch.ts`, `resign.ts`) behind the same `createGameCallables`
-      facade — no consumer-visible change, do it with the suite above in
-      place.
-- [ ] **Deep-import lint**: extend each game's `check-boundaries.mjs` (and
-      add one to hive/sudoku/breakout/stillness, which lack it) to ban
-      `@parlor/<pkg>/src/…` imports — consumers may only use the export-map
-      surfaces.
-- [ ] **Parity at deploy time**: run `check-rules-parity.mjs` inside the
-      deploy workflow template immediately before `firebase deploy` (today
-      it's typecheck-time only; a post-lint edit of the rules copy would ship
-      unchecked).
-- [ ] **Rules-additions gate**: a check (parity script extension) asserting
-      each duo game's functions test dir contains negative-path rules unit
-      tests for every `match` block the game *added* beyond the parlor base —
-      turning the "additions are covered by convention" assumption into a
-      gate.
-- [ ] **Stillness engine**: extract `packages/app/src/timer/` into
-      `@stillness/engine` (pure, clock-injected) and add a `validate:m1`
-      property gate (session arithmetic, bell schedule, streak rollover) so
-      the utility archetype has the same shape as the others — and the
-      factory's `utility` stamp inherits it.
-- [ ] **Breakout hygiene**: drop the vestigial `@parlor/solo` link, or adopt
-      `StatsStore` in place of the `HighScoreStore` overlap — pick one and
-      record it in `breakout/DECISIONS.md`.
+- [ ] **Parlor server emulator suite** — DEFERRED (needs a runnable env). An
+      emulator-backed contract suite is the right fix, but authoring + running
+      it requires the Firebase emulator jars and a full parlor install, which
+      this environment can't provision within its disk/time budget. Must be
+      built where the emulator can actually run and be observed green — writing
+      1,160 LOC of security-critical test code that never executes here would
+      be worse than honest deferral.
+- [ ] **Split the god-factory** — DEFERRED, and correctly *gated on* the suite
+      above: the plan itself says do it "with the suite above in place". A
+      behaviour-preserving split of 447 LOC of transaction code with no
+      running tests is exactly the unsafe move to avoid.
+- [x] **Deep-import lint**: every game's `check-boundaries.mjs` now bans
+      `@parlor/<pkg>/(src|dist|lib)/…` imports (export-map surfaces only), and
+      hive/sudoku/breakout/stillness — which had none — gained one, wired into
+      their `typecheck`. Verified green across all seven games; the legit
+      single-segment subpath exports (`@parlor/web/lobby`, `@parlor/brand/
+      icon-template`, …) are untouched.
+- [x] **Parity at deploy time**: `check-rules-parity.mjs` now runs inside all
+      four duo deploy workflows immediately before `firebase deploy`, so a
+      post-lint edit of the rules copy can't ship unchecked (was typecheck-time
+      only).
+- [ ] **Rules-additions gate** — DEFERRED with the emulator suite (it's a
+      rules-test-coverage assertion, only meaningful alongside the running
+      rules suite).
+- [ ] **Stillness engine extract** — DEFERRED (needs a stillness install to
+      typecheck/test the extracted `@stillness/engine` and its `validate:m1`
+      property gate; unsafe to land a package extraction unverified).
+- [x] **Breakout hygiene**: investigated and recorded in
+      `breakout/DECISIONS.md` — `HighScoreStore` (@parlor/arcade) is kept (the
+      right arcade abstraction; `StatsStore` models solo daily-puzzle stats, a
+      different shape), and the `@parlor/solo` link is retained because it's
+      genuinely used (`dayKey`), not vestigial. Neither leg of the either/or
+      was the actual state; the decision documents why.
 
-Gate: parlor CI red on any server regression without any consumer suite
-running; games.ts split lands with the suite green before/after; deep-import
-violation fails typecheck; stillness `validate:m1` green.
+Gate (shipped legs): a `@parlor/*/src` deep import fails typecheck in every
+game; the rules-parity re-check blocks any duo deploy on a drifted rules copy.
+The suite/split/stillness gates ride with the deferred items above.
 
 ## M4 — Hive convergence (M–L)
 
