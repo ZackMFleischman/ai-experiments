@@ -11,6 +11,14 @@ sets (same reason as `PARLOR-PLATFORM-HARDENING.md`). When a milestone ships,
 mark it `✅ SHIPPED (date)` here and log deviations in the most-affected
 project's `DECISIONS.md`.
 
+**Status legend:** ✅ shipped · ◐ partially shipped · ○ not started. Progress as
+of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M6 ◐, M4/M5/M7/M8 ○.** The deferred
+items share one cause — they need a runnable environment (full `pnpm install`
+per workspace, the Firebase emulator jars, or a GitHub Actions run) or live
+owner action (Firebase data migration, store submission) that this session
+can't provide. They are annotated in place with what's required to land them
+safely; nothing was shipped that couldn't be run and observed green here.
+
 ---
 
 ## M0 — Remove loom ✅ SHIPPED (2026-07-11, this PR)
@@ -175,7 +183,15 @@ Gate (shipped legs): a `@parlor/*/src` deep import fails typecheck in every
 game; the rules-parity re-check blocks any duo deploy on a drifted rules copy.
 The suite/split/stillness gates ride with the deferred items above.
 
-## M4 — Hive convergence (M–L)
+## M4 — Hive convergence (M–L) — ○ not started (needs a runnable env)
+
+> **Deferred wholesale.** Every item here replaces hive's live client core /
+> forfeit / notify with `@parlor/*` equivalents. hive is the one game with real
+> users, and the gate is "hive `pnpm validate` (all six m-gates) green" — which
+> can only be established by installing hive + parlor and running the emulator
+> e2e suites. Landing a controller/forfeit swap for a live game without those
+> suites running is exactly the unsafe change to avoid. Do this in a session
+> that can run hive's `validate`.
 
 End the half-migration: hive consumes parlor's callables and lobby but still
 forks the client game loop, forfeit, and notify — every parlor bugfix in a
@@ -208,11 +224,18 @@ Gate: hive `pnpm validate` (all six m-gates) green on `@parlor/core`; zero
 live code twins between hive and parlor (script-checkable: no file in hive
 duplicating a parlor export); hive CI structurally identical to the template.
 
-## M5 — Kill the copy tax (M)
+## M5 — Kill the copy tax (M) — ○ not started (needs app installs to verify)
 
-Seven of ~10 shell files per app are stamped clones that drift by hand.
-Centralize what's genuinely generic; mark what's legitimately per-game so
-staleness is detectable.
+> **Deferred.** The centralization moves (BrandAppProviders / SW template /
+> family-list consumption) delete code from all seven apps and re-route it
+> through `@parlor/brand` — each needs the app's typecheck/build/visual gates
+> run to prove the shell still renders. The one piece that *is* verifiable
+> standalone — the "generation markers + stale-copy lint" — is a good first
+> slice for a follow-up (a repo-root lint comparing each stamped binding file's
+> recorded exemplar sha to the exemplar's current sha; no app install needed).
+> The M1 family generator already did the hardest prerequisite (the registry-
+> driven `family.generated.ts`), so M5's family-consumption step is now just
+> deleting the seven local arrays and importing the generated module.
 
 - [ ] **`@parlor/brand` absorbs the shell plumbing**: `BrandAppProviders`
       (color-mode init/persist/OS-default + `syncStatusBar` + theme +
@@ -241,41 +264,40 @@ Gate: `App.tsx` diff across sudoku/breakout/stillness is game-content only;
 a deliberate edit to an exemplar binding file makes the stale-copy lint flag
 every game copy; factory-ci still green.
 
-## M6 — Docs, decisions & platform ownership (S–M)
+## M6 — Docs, decisions & platform ownership (S–M) — ◐ partially shipped
 
-- [ ] **Parlor owns its canon**: give parlor a budgeted `DESIGN.md` (the
-      platform rationale + port map, moved out of `lex/DESIGN.md §4`) and
-      `DECISIONS.md`; update `parlor/scripts/check-docs.mjs`'s closed set;
-      leave a pointer in lex. Platform tasks stop requiring a 724-line
-      consumer doc in context, and lex stops de-facto owning platform
-      decisions.
-- [ ] **GAME-SETUP demotion**: rewrite the header to declare
-      `tools/create-app` + `PLAYBOOK.md` the live path and this file the
-      wiring reference; fix the exemplar drift (it names hive/lex as
-      references; the factory's living exemplars are tafl/sudoku/breakout/
-      stillness); fold the deploy tribal knowledge (invoker-IAM repair,
-      billing-API enablement, `npm pkg delete devDependencies`) into the M2
-      `ship-game` skill so it's executable, not just readable.
-- [ ] **DECISIONS supersession convention**: superseded entries get a
-      `[SUPERSEDED → see YYYY-MM-DD entry]` prefix edited onto the old entry
-      (append-only for additions, tombstoned for reversals); add the rule to
-      each game's CLAUDE.md and a grep-based nudge to `check-docs.mjs`
-      (flag files containing "supersedes" whose target lacks a tombstone).
-      Retrofit tafl's Brandub/11×11 pair as the exemplar.
-- [ ] **Budget alignment**: normalize `check-docs.mjs` budgets across
-      projects (hive gains a REQUIREMENTS entry or documents why not; DONE.md
-      becomes a standard factory-stamped entry everywhere the factory runs);
-      the shared check-docs core moves to `tools/` so the eight copies stop
-      drifting.
-
+- [x] **GAME-SETUP demotion**: header now declares `tools/create-app` +
+      `PLAYBOOK.md` the live path and this file the wiring reference; the
+      exemplar drift is fixed (living exemplars named as tafl/sudoku/breakout/
+      stillness, not hive/lex); the deploy tribal knowledge is folded into the
+      executable **ship-game** skill (shipped in M2). *(Listed out of order —
+      it was the self-contained item and it leans on the M2 skill.)*
+- [ ] **Parlor owns its canon** — DEFERRED (moves `lex/DESIGN.md §4`, a frozen
+      surface, into a new budgeted `parlor/DESIGN.md` + `DECISIONS.md` and
+      rewires `parlor/scripts/check-docs.mjs`; wants a parlor typecheck run to
+      confirm the new closed set).
+- [ ] **DECISIONS supersession convention** — DEFERRED (edits every game's
+      CLAUDE.md + all eight `check-docs.mjs` copies; batch with the shared-core
+      move below).
+- [ ] **Budget alignment / shared check-docs core to `tools/`** — DEFERRED
+      (consolidating eight drifting copies is the right end state but needs
+      each workspace's typecheck run to prove parity).
 Gate: parlor typecheck enforces its new doc set; every project's check-docs
-green; a platform-design question is answerable from `parlor/` alone.
+green; a platform-design question is answerable from `parlor/` alone. (Only the
+GAME-SETUP-demotion leg is shipped; the rest are deferred as noted.)
 
-## M7 — Deploy & identity (L)
+## M7 — Deploy & identity (L) — ○ not started (owner + live-migration)
 
-Two structural ops holes: green platform fixes don't reach production until
-each game independently redeploys, and four Firebase projects mean four
-identities per player and linearly-scaling ops.
+> **Deferred — largely owner-only.** The identity consolidation onto a single
+> `parlor-zmf` Firebase project is a *live data migration* (export/import of
+> hive's real users, a read-both cutover window, decommissioning four projects)
+> that requires owner credentials and console access no agent has — it cannot
+> be executed or verified here, only planned. The redeploy fan-out
+> (`redeploy-consumers.yml`) and registry-driven ops audit are writable as
+> workflows/scripts, but their gate ("a parlor fix reaches all live games'
+> production") can only be proven by running against the live projects. This
+> milestone belongs to a session paired with the owner. The registry's
+> `firebaseProject` field is already in place for the collapse.
 
 - [ ] **Redeploy fan-out**: a `redeploy-consumers.yml` dispatch workflow that
       triggers every duo game's deploy from the registry; auto-dispatch it
@@ -309,11 +331,15 @@ per-game action; one sign-in works across all duo games; hive migration
 completes with zero lost games (verified by export diff); old projects
 deleted.
 
-## M8 — N-player generalization (L)
+## M8 — N-player generalization (L) — ○ not started (sequenced after M7)
 
-The last parked epic: the platform models exactly two seats and a binary
-result. Do it after M7 (the seat/identity model is touched once, not twice)
-and before any >2-player title is designed against the old shape.
+> **Deferred, and correctly last.** This touches the seat model across parlor
+> server + web + rules + every game's validate suite, and its acceptance gate
+> is a stamped N-player title playing a full game end-to-end via the emulator
+> MP test. It is unsafe and pointless to start before M3's server test suite
+> exists (nothing would catch a regression) and before M7 settles the seat/
+> identity model — the plan's own sequencing note. Needs the full runnable
+> stack; deferred until the earlier milestones land in a verifiable env.
 
 - [ ] **Seat model**: `GameServerConfig.seatKeys` becomes length-N;
       create/join/challenge/rematch lifecycle handles partial fill (min/max
