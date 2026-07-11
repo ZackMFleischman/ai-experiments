@@ -1,20 +1,21 @@
-name: SUPPORT SITE deploy
+name: ARCADE SITE (brand site) deploy
 
-# The Phase-3b support/privacy placeholder (BRAND-IMPLEMENTATION.md): the URL
-# both store listings point at until Phase 5's brand site replaces it. Static
-# files, no build. Same Cloudflare pattern as sudoku-deploy.yml, same graceful
-# no-op (with a notice) when the secrets are absent.
+# Phase 5's brand site (BRAND-IMPLEMENTATION.md): the family listing +
+# support/privacy pages, replacing the Phase-3b placeholder AT THE SAME
+# Cloudflare Pages project (zmf-apps) so the store listings' support and
+# privacy URLs never move. Static files, no build; graceful no-op (with a
+# notice) when the secrets are absent.
 
 on:
   pull_request:
-    paths: ['support-site/**', '.github/workflows/support-site-deploy.yml']
+    paths: ['arcade-site/**', '.github/workflows/arcade-site-deploy.yml']
   push:
     branches: [main]
-    paths: ['support-site/**', '.github/workflows/support-site-deploy.yml']
+    paths: ['arcade-site/**', '.github/workflows/arcade-site-deploy.yml']
   workflow_dispatch:
 
 concurrency:
-  group: support-site-deploy-${{ github.ref }}
+  group: arcade-site-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -39,7 +40,7 @@ jobs:
           # Self-provision the Pages project (ignored if it already exists).
           wrangler pages project create zmf-apps --production-branch main || true
           branch="${GITHUB_HEAD_REF:-main}"
-          wrangler pages deploy support-site --project-name=zmf-apps --branch="$branch"
+          wrangler pages deploy arcade-site --project-name=zmf-apps --branch="$branch"
       - name: smoke-check the deployment
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
@@ -54,4 +55,4 @@ jobs:
           [ "$code" = "200" ] || { echo "::error::privacy.html returned $code"; exit 1; }
       - name: notice when Cloudflare secrets are missing
         if: env.CF_API_TOKEN == '' || env.CF_ACCOUNT_ID == ''
-        run: echo "::notice::Cloudflare secrets not set — skipped support-site deploy."
+        run: echo "::notice::Cloudflare secrets not set — skipped arcade-site deploy."

@@ -195,50 +195,80 @@ unmistakably crafted").
 
 ---
 
-## Phase 4 — broaden the archetypes, then extract the generator — ⬜ NOT STARTED
+## Phase 4 — broaden the archetypes, then extract the generator — ✅ agent side SHIPPED 2026-07-11
 
-### 4a. `@parlor/arcade` + `breakout/`
+### 4a. `@parlor/arcade` + `breakout/` — ✅ SHIPPED 2026-07-11
 
-Kit: fixed-timestep game loop (deterministic update tick, rAF render),
-canvas helpers, pause-on-background (`visibilitychange`), input abstraction
-(touch/pointer/keyboard), local high-score store over the same injected
-`KeyValueStorage` seam `@parlor/solo` uses. Zero-dep, firebase-forbidden.
-`breakout/` is the first consumer, and its gate is the archetype's key test:
-**same seed + same input trace → identical end state** (the determinism that
-keeps arcade games replayable and testable without a backend).
+> Shipped (PR #88): **`@parlor/arcade`** — fixed-timestep loop (deterministic
+> tick, injected driver), recordable/replayable input traces, one-way
+> pause-on-background, letterbox/DPR canvas math, HighScoreStore over the
+> injected storage seam; zero-dep, DOM-free, 31 tests. **`breakout/`**
+> (store name **Bricks** — Breakout is Atari's trademark): pure fixed-tick
+> engine with the archetype gate as a 200-trace property + golden trace
+> (`validate:m1`), canvas court over the kit loop, brand shell, 6-entry
+> frozen-fixture gallery (36 captures), native shells + validated listing +
+> 4.2 defenses, `breakout-{ci,deploy,android}.yml`. MoreFromUs updated both
+> directions. Gates: parlor 155 / breakout 28 / bundle check / visual.
+> ⚑ store ops per GAME-SETUP.md §12. Detail in `breakout/DECISIONS.md`.
 
-### 4b. `tafl/` — duo, built manually via `GAME-SETUP.md`
+Kit: fixed-timestep game loop, canvas helpers, pause-on-background, input
+abstraction with traces, local high-score store. The archetype's key test —
+**same seed + same input trace → identical end state** — is breakout's
+merge gate.
 
-Second full manual pass of the checklist — the friction log *is* the
-generator's requirements doc. First duo title to use `@parlor/brand` from day
-one (AppShell + theme + MoreFromUs), which settles the hive/lex retrofit
-question with evidence. Independent of 4a; can run in parallel.
+### 4b. `tafl/` — duo, built manually via `GAME-SETUP.md` — ✅ agent side SHIPPED 2026-07-11
 
-### 4c. `tools/create-app/` — the generator, extracted last
+> Shipped (PR #88): Brandub 7×7 — pure kernel (50 tests incl. seeded
+> random-game property), one LogSession fold for hot-seat and online
+> (log-replay transport + snapshot regression check), **seats ARE sides**
+> (seatKeys = engine toMove — no mapping layer; parlor shells + forfeit
+> sweep work unmodified), functions as @parlor/server shells with 19
+> emulator tests incl. the rules negative suite, first duo title on
+> `@parlor/brand` (theme + AppShell + lobby-ui slots ≈ zero bespoke chrome
+> — the hive/lex retrofit now has evidence: cheap, batch it with other
+> work), hot-seat Playwright smoke + 36-capture gallery,
+> `tafl-{ci,deploy}.yml`. The friction log lives in
+> `tafl/IMPLEMENTATION.md` §3 — it drove 4c's design. ⚑ GAME-SETUP §11
+> owner steps (tafl-zmf project, secrets); native wrap deliberately
+> post-v1 (`tafl/DECISIONS.md`).
 
-From living exemplars only: duo = hive/lex/tafl, solo = sudoku, arcade =
-breakout, utility = stillness. Four `--kind`s per the strategy (§3); all stamp
-the line-budgeted doc set + `check-docs.mjs`, `APP/store/` skeleton,
-`capacitor.config.ts`, CI/deploy workflows. The strategy's quality-gate list
-(§3) becomes a stamped **`DONE.md`** checklist per app. Ships with
-`PLAYBOOK.md`, the per-app runbook handed to Claude Code.
+### 4c. `tools/create-app/` — the generator, extracted last — ✅ SHIPPED 2026-07-11
 
-**Validation (strategy):** stamp `checkers/` and drive it to all-gates-green
-with <~5 human interventions against `DONE.md`.
+> Shipped (PR #88): four `--kind`s stamped **from the living exemplars**
+> (duo=tafl, solo=sudoku, arcade=breakout, utility=stillness) — taken
+> literally: the stamp arrives all-gates-green *playing the exemplar's
+> game*, and `PLAYBOOK.md` walks the builder through morphing the
+> game-specific core while every other gate stays green (tafl's friction
+> log said the mechanical 90% is pure templating; the generator stamps
+> exactly that). Identity (names/ids/accent/ports) rewritten; docs stamped
+> as fresh budgeted skeletons + **`DONE.md`** (added to the check-docs
+> closed set); workflows stamped at the repo root. **Validation:**
+> `checkers/` stamped (88 files, green untouched: 76 tests + all lints
+> before a single edit) and morphed to American checkers per the PLAYBOOK
+> — see the Shipped note in `checkers/DECISIONS.md` for gates and the
+> interventions count. Briefs backlog in `tools/create-app/briefs/`.
 
-**Exit (strategy):** generator proven on a real game.
+**Exit (strategy):** generator proven on a real game. ✅
 
 ---
 
-## Phase 5 — brand site + factory cadence — ⬜ NOT STARTED
+## Phase 5 — brand site + factory cadence — ✅ agent side SHIPPED 2026-07-11
 
-- `arcade-site/` on Cloudflare Pages — replaces 3b's placeholder as the
-  support URL; lists the family (the web ends of `MoreFromUs` links).
-- Backlog of 1-page briefs; factory cadence per the playbook.
-- Only now: consider the opt-in scheduled Routine that drafts the next app's
-  brief/engine PR for review (decision A4 — autonomy stays a later opt-in).
-- Revisit pricing with real data; execute the RevenueCat fallback behind
-  `usePremium()` only if paid conversion proves terrible (A2).
+> Shipped (PR #88): **`arcade-site/`** — the brand site (family listing =
+> the web ends of the MoreFromUs links, support + privacy), replacing
+> `support-site/` **at the same Cloudflare Pages project** (`zmf-apps`) so
+> the store listings' support/privacy URLs never move; still static,
+> zero-script, zero-backend. Backlog of 1-page briefs
+> (`tools/create-app/briefs/`: snake, solitaire, breathe) — the factory
+> cadence is: pick a brief → stamp → PLAYBOOK → owner playtests the
+> preview → ship. ⚑ remaining owner items below.
+
+- ⚑ The opt-in scheduled Routine that drafts the next app's brief/engine PR
+  (decision A4) stays un-created on purpose — autonomy is an owner opt-in;
+  the factory loop above works human-triggered today.
+- ⚑ Revisit pricing with real store data; execute the RevenueCat fallback
+  behind `usePremium()` only if paid conversion proves terrible (A2).
+- ⚑ Optional custom domain for the brand site (zmf-apps.pages.dev works).
 
 ---
 
@@ -255,8 +285,10 @@ with <~5 human interventions against `DONE.md`.
 
 ## Sequence
 
-**2(M1) → 3a+3b → 3c → 4a ∥ 4b → 4c → 5.** Phase 2's remainder is small and
-unblocks "first title live". 3a+3b are one series; 3c overlaps sudoku's review
-window. 4a and 4b are independent tracks; 4c waits for both (exemplar-first).
-The lex soft-launch cost recalibration (§Phase 1) runs whenever the owner
-pulls that trigger — it gates nothing here but feeds the strategy's §2 model.
+**2(M1) → 3a+3b → 3c → 4a ∥ 4b → 4c → 5 — all agent-side work shipped
+2026-07-11.** What remains is the ⚑ owner ledger: store ops for
+sudoku/stillness/breakout (GAME-SETUP §12), the tafl/checkers Firebase
+projects + secrets (§11), lex soft-launch + cost recalibration (§Phase 1),
+sudoku M2 polish from play, pricing revisit with real data, and the A4
+autonomy Routine if ever wanted. New titles now run the factory loop:
+brief → `tools/create-app` stamp → PLAYBOOK → playtest the preview → ship.
