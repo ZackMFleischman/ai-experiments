@@ -7,6 +7,9 @@ changes; decisions go to `DECISIONS.md`.
 
 ## Hard rules
 
+- UI follows repo-root `DESIGN-PRINCIPLES.md` — the `@parlor/brand`
+  shell/HUD/theme components ARE the rules; deviations need a
+  `DECISIONS.md` entry.
 - The UI never computes rules — it renders `legalDestinations()` output and
   folds engine entries only.
 - `@tafl/engine` stays zero-dependency, pure, deterministic (no

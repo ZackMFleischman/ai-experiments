@@ -11,7 +11,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
-import { AppShell } from '@parlor/brand';
+import { AppShell, GameHud } from '@parlor/brand';
 import {
   InputQueue,
   createFixedLoop,
@@ -85,7 +85,7 @@ export function Play({ fixture }: PlayProps) {
   const palette = useMemo<CourtPalette>(
     () => ({
       paper: theme.palette.background.default,
-      court: theme.palette.mode === 'dark' ? '#1b1b1f' : '#efece3',
+      court: theme.palette.board.surface,
       ink: theme.palette.text.primary,
       accent: theme.palette.primary.main,
     }),
@@ -237,23 +237,19 @@ export function Play({ fixture }: PlayProps) {
       fullBleed
     >
       <Stack sx={{ flex: 1, minHeight: 0, px: 1.5, pb: 1.5, pt: 0.5, maxWidth: 560, width: '100%', mx: 'auto' }}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="baseline"
-          data-hud
-          sx={{ px: 0.5, pb: 0.5 }}
-        >
-          <Typography variant="subtitle1" component="p" fontWeight={600} data-hud-score>
-            {hud.score}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            level {hud.level} · best {Math.max(best, hud.score)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" aria-label={`${hud.lives} balls left`}>
-            {'●'.repeat(Math.max(0, hud.lives))}
-          </Typography>
-        </Stack>
+        <Box sx={{ px: 0.5, pb: 0.5 }}>
+          <GameHud
+            status={<span data-hud-score>{hud.score}</span>}
+            meta={
+              <>
+                level {hud.level} · best {Math.max(best, hud.score)} ·{' '}
+                <span aria-label={`${hud.lives} balls left`}>
+                  {'●'.repeat(Math.max(0, hud.lives))}
+                </span>
+              </>
+            }
+          />
+        </Box>
         <Box ref={courtRef} sx={{ position: 'relative', flex: 1, minHeight: 0 }}>
           <canvas
             ref={canvasRef}

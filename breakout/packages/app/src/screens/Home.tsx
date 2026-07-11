@@ -67,9 +67,10 @@ export function Home() {
             </Typography>
           </Box>
         )}
-
-        <MoreFromUs apps={FAMILY} />
       </Stack>
+
+      {/* Direct child of the shell's flex column so mt:auto sinks it. */}
+      <MoreFromUs apps={FAMILY} />
     </AppShell>
   );
 }

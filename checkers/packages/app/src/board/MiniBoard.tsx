@@ -2,7 +2,7 @@
 // string (the game doc's serialized state renders without replaying the
 // log). Pure presentation, no interaction.
 import Box from '@mui/material/Box';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { BOARD_SIZE } from '@checkers/engine';
 
 export function MiniBoard({ board, size = 72 }: { board: string; size?: number }) {
@@ -21,7 +21,7 @@ export function MiniBoard({ board, size = 72 }: { board: string; size?: number }
         borderColor: 'divider',
         borderRadius: 1,
         overflow: 'hidden',
-        bgcolor: theme.palette.mode === 'dark' ? '#1b1b1f' : '#efece3',
+        bgcolor: theme.palette.board.surface,
         flexShrink: 0,
       }}
     >
@@ -39,7 +39,7 @@ export function MiniBoard({ board, size = 72 }: { board: string; size?: number }
               position: 'relative',
               display: 'grid',
               placeItems: 'center',
-              bgcolor: playable ? alpha(ink, 0.14) : 'transparent',
+              bgcolor: playable ? theme.palette.board.cell : 'transparent',
             }}
           >
             {piece !== '.' && (

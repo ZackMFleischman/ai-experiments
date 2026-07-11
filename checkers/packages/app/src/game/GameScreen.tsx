@@ -11,7 +11,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { AppShell } from '@parlor/brand';
+import { useTheme } from '@mui/material/styles';
+import { AppShell, GameHud, type HudSeat } from '@parlor/brand';
 import type { Side, CheckersMove, CheckersState } from '@checkers/engine';
 import { useState, useSyncExternalStore } from 'react';
 import { sideLabel } from '../gameOptions';
@@ -45,6 +46,25 @@ function outcomeText(state: CheckersState, mode: GameMode): string {
     return result.winner === mode.mySide ? `You won — ${how}.` : `You lost — ${how}.`;
   }
   return `${winner} wins — ${how}.`;
+}
+
+/** The seat's piece mark — the same ink/paper language the board speaks. */
+function SideDot({ side }: { side: Side }) {
+  const theme = useTheme();
+  const ink = theme.palette.text.primary;
+  return (
+    <span
+      style={{
+        width: 12,
+        height: 12,
+        borderRadius: '50%',
+        display: 'inline-block',
+        background: side === 'dark' ? ink : theme.palette.background.paper,
+        border: `2px solid ${ink}`,
+        boxSizing: 'border-box',
+      }}
+    />
+  );
 }
 
 export function GameScreen({ session, mode, seatNames, onExit, onRematch }: GameScreenProps) {
@@ -86,29 +106,33 @@ export function GameScreen({ session, mode, seatNames, onExit, onRematch }: Game
         : `Waiting for ${name(state.toMove)}…`
       : `${name(state.toMove)} to move`;
 
+  const seat = (side: Side): HudSeat => ({
+    label: name(side),
+    glyph: <SideDot side={side} />,
+    active: !state.result && state.toMove === side,
+  });
+
   return (
     <AppShell title="Checkers" onBack={onExit} fullBleed>
       <Stack spacing={1.5} sx={{ flex: 1, minHeight: 0, px: 1.5, pb: 2, pt: 0.5, width: '100%', maxWidth: 560, mx: 'auto' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="baseline" data-hud>
-          <Typography variant="subtitle1" component="p" fontWeight={600} data-testid="status-line">
-            {statusLine}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            move {state.moveCount + 1}
-          </Typography>
-        </Stack>
-
-        <Board
-          state={state}
-          onMove={submitMove}
-          actingSide={state.result ? undefined : actingSide}
-          lastMove={lastMove}
+        <GameHud
+          seats={[seat('dark'), seat('light')]}
+          status={statusLine}
+          meta={`move ${state.moveCount + 1}`}
         />
 
+        {/* The board centers in the leftover space — the game owns the
+            screen (DESIGN-PRINCIPLES.md §1), never a board over a void. */}
+        <Stack sx={{ flex: 1, minHeight: 0, justifyContent: 'center' }}>
+          <Board
+            state={state}
+            onMove={submitMove}
+            actingSide={state.result ? undefined : actingSide}
+            lastMove={lastMove}
+          />
+        </Stack>
+
         <Stack direction="row" spacing={1} justifyContent="center">
-          <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-            {name('dark')} ⚫ {name('light')}
-          </Typography>
           {!state.result && (mode.kind === 'hotseat' || actingSide !== undefined) && (
             <Button size="small" color="inherit" onClick={() => setConfirmResign(true)}>
               Resign
