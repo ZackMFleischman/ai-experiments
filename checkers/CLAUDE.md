@@ -7,6 +7,9 @@ checked, `tools/create-app/PLAYBOOK.md` is the build runbook.
 
 ## Hard rules
 
+- UI follows repo-root `DESIGN-PRINCIPLES.md` — the `@parlor/brand`
+  shell/HUD/theme components ARE the rules; deviations need a
+  `DECISIONS.md` entry.
 - The stamped gates are the exemplar's, and they are law here too: never
   weaken a test, a lint, or a budget to pass one.
 - The UI never computes rules — it renders engine verdicts only.

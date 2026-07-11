@@ -20,7 +20,7 @@ export function MiniBoard({ board, size = 72 }: { board: string; size?: number }
         borderColor: 'divider',
         borderRadius: 1,
         overflow: 'hidden',
-        bgcolor: theme.palette.mode === 'dark' ? '#1b1b1f' : '#efece3',
+        bgcolor: theme.palette.board.surface,
         flexShrink: 0,
       }}
     >

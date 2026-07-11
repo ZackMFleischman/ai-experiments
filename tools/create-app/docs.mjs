@@ -39,6 +39,9 @@ checked, \`tools/create-app/PLAYBOOK.md\` is the build runbook.
 
 - The stamped gates are the exemplar's, and they are law here too: never
   weaken a test, a lint, or a budget to pass one.
+- UI follows repo-root \`DESIGN-PRINCIPLES.md\` — the \`@parlor/brand\`
+  shell/HUD/theme components ARE the rules; deviations need a
+  \`DECISIONS.md\` entry.
 ${
   x.kind === 'duo'
     ? `- The UI never computes rules — it renders engine verdicts only.

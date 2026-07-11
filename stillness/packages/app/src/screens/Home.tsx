@@ -80,9 +80,10 @@ export function Home() {
             {summary.currentStreak > 1 ? ` · ${summary.currentStreak}-day streak` : ''}
           </Typography>
         )}
-
-        <MoreFromUs apps={FAMILY} />
       </Stack>
+
+      {/* Direct child of the shell's flex column so mt:auto sinks it. */}
+      <MoreFromUs apps={FAMILY} />
     </AppShell>
   );
 }

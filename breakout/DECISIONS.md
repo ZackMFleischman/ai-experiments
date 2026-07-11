@@ -37,3 +37,8 @@
   per slice. Stumbles: TS 5.x inferred-type-predicate narrowing in
   levels.ts fallback; canvas fillStyle union vs the structural context
   twin.
+
+- **2026-07-11 — house design language adopted.** Repo-root
+  `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
+  (GameHud play header coherent by player count, accent-derived
+  palette + board tokens, MoreFromUs demoted to a footer). Play's score/level/lives row is now the shared `GameHud`; the court reads `theme.palette.board.surface`. Home's cross-promo renders as the quiet brand footer.

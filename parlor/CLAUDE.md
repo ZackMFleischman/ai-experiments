@@ -21,6 +21,9 @@ in service of a consumer's task. Nothing here relates to `loom/`.
   header; when fixing a bug here, grep hive for the twin and flag it in the PR.
 - Breaking a `@parlor/*` public interface requires updating the consumers and
   `lex/DESIGN.md` §4 in the same PR.
+- `brand/` components encode repo-root `DESIGN-PRINCIPLES.md` (game-first
+  real estate, GameHud by player count, accent-derived palette, footer
+  cross-promo) — read it before changing them.
 - Never weaken tests to pass a gate. Docs: this file + README only, ≤55 lines
   each, current-state only; decisions go to the consumer's DECISIONS.md.
 

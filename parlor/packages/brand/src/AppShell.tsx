@@ -1,6 +1,9 @@
-// The shared app chrome: a quiet top bar (title, optional back, action
-// slots) over a width-capped content column with safe-area padding baked in
-// (the Capacitor/notch defense every app needs). Screens render inside;
+// The shared app chrome (DESIGN-PRINCIPLES.md §1): one dense top bar —
+// back affordance, small wordmark, quiet action slots — over a
+// width-capped content column with safe-area padding baked in (the
+// Capacitor/notch defense every app needs). The title stays the app's
+// name; game state belongs to GameHud. The content column is a flex
+// column so a MoreFromUs footer can sink to the bottom (mt: 'auto');
 // games keep their boards full-bleed by opting out of the container.
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -35,7 +38,7 @@ export function AppShell({ title, onBack, actions, fullBleed = false, children }
       }}
     >
       <AppBar position="static" color="transparent" elevation={0}>
-        <Toolbar sx={{ gap: 1 }}>
+        <Toolbar variant="dense" sx={{ gap: 1, minHeight: 52 }}>
           {onBack && (
             <IconButton edge="start" aria-label="back" onClick={onBack}>
               {/* Text glyph keeps @mui/icons-material out of the peer surface. */}
@@ -44,7 +47,11 @@ export function AppShell({ title, onBack, actions, fullBleed = false, children }
               </Box>
             </IconButton>
           )}
-          <Typography variant="h3" component="h1" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h3"
+            component="h1"
+            sx={{ flexGrow: 1, fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.02em' }}
+          >
             {title}
           </Typography>
           {actions}
@@ -57,7 +64,11 @@ export function AppShell({ title, onBack, actions, fullBleed = false, children }
           {children}
         </Box>
       ) : (
-        <Container component="main" maxWidth="sm" sx={{ flexGrow: 1, pb: 3 }}>
+        <Container
+          component="main"
+          maxWidth="sm"
+          sx={{ flexGrow: 1, pb: 3, display: 'flex', flexDirection: 'column' }}
+        >
           {children}
         </Container>
       )}

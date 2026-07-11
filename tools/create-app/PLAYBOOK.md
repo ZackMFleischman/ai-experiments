@@ -52,6 +52,10 @@ faster step 3 goes.
 - **utility**: screens + the native plugin wiring the app exists for.
 - All kinds: `packages/app/scripts/mark.mjs` (the app's own mark — icons
   regenerate from it), manifest/index.html copy, Home pitch, FAMILY list.
+- All kinds: keep the `@parlor/brand` shell — `AppShell`, `GameHud`,
+  `MoreFromUs`, theme tokens (`palette.board`) — in place; they encode
+  repo-root `DESIGN-PRINCIPLES.md`. Morph what the game *is*, never how
+  the family *looks*; no hardcoded surface hexes in app code.
 
 ## 4. Docs + DONE
 

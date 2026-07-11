@@ -11,7 +11,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { AppShell } from '@parlor/brand';
+import { AppShell, GameHud, type HudSeat } from '@parlor/brand';
 import type { Side, TaflMove, TaflState } from '@tafl/engine';
 import { useState, useSyncExternalStore } from 'react';
 import { sideLabel } from '../gameOptions';
@@ -93,29 +93,37 @@ export function GameScreen({ session, mode, seatNames, onExit, onRematch }: Game
         : `Waiting for ${name(state.toMove)}…`
       : `${name(state.toMove)} to move`;
 
+  const seat = (side: Side): HudSeat => ({
+    label: name(side),
+    glyph: (
+      <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>
+        {side === 'attackers' ? '⚔' : '🛡'}
+      </span>
+    ),
+    active: !state.result && state.toMove === side,
+  });
+
   return (
     <AppShell title="Tafl" onBack={onExit} fullBleed>
       <Stack spacing={1.5} sx={{ flex: 1, minHeight: 0, px: 1.5, pb: 2, pt: 0.5, width: '100%', maxWidth: 560, mx: 'auto' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="baseline" data-hud>
-          <Typography variant="subtitle1" component="p" fontWeight={600} data-testid="status-line">
-            {statusLine}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            move {state.moveCount + 1}
-          </Typography>
-        </Stack>
-
-        <Board
-          state={state}
-          onMove={submitMove}
-          actingSide={state.result ? undefined : actingSide}
-          lastMove={lastMove}
+        <GameHud
+          seats={[seat('attackers'), seat('defenders')]}
+          status={statusLine}
+          meta={`move ${state.moveCount + 1}`}
         />
 
+        {/* The board centers in the leftover space — the game owns the
+            screen (DESIGN-PRINCIPLES.md §1), never a board over a void. */}
+        <Stack sx={{ flex: 1, minHeight: 0, justifyContent: 'center' }}>
+          <Board
+            state={state}
+            onMove={submitMove}
+            actingSide={state.result ? undefined : actingSide}
+            lastMove={lastMove}
+          />
+        </Stack>
+
         <Stack direction="row" spacing={1} justifyContent="center">
-          <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-            {name('attackers')} ⚔ {name('defenders')}
-          </Typography>
           {!state.result && (mode.kind === 'hotseat' || actingSide !== undefined) && (
             <Button size="small" color="inherit" onClick={() => setConfirmResign(true)}>
               Resign

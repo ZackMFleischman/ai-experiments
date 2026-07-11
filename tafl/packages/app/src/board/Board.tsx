@@ -127,7 +127,7 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
         borderColor: 'divider',
         borderRadius: 2,
         overflow: 'hidden',
-        bgcolor: theme.palette.mode === 'dark' ? '#1b1b1f' : '#efece3',
+        bgcolor: theme.palette.board.surface,
       }}
     >
       {cells.map((cell) => {

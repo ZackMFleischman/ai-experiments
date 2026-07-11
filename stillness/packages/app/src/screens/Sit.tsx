@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 import { AppShell } from '@parlor/brand';
 import {
   allowSleep,
@@ -140,7 +141,9 @@ export function Sit({ fixture }: { fixture?: 'paused' | 'done' } = {}) {
   }
 
   return (
-    <AppShell title={`${minutes} minutes`} onBack={() => navigate('/')}>
+    // Wordmark stays in the chrome (DESIGN-PRINCIPLES.md §2); the sit's
+    // length is legible from the ring itself.
+    <AppShell title="Stillness" onBack={() => navigate('/')}>
       <Stack spacing={4} alignItems="center" sx={{ mt: 6 }}>
         <Box sx={{ position: 'relative', width: 240, height: 240 }}>
           <ProgressRing progress={progress} />
@@ -185,6 +188,7 @@ export function Sit({ fixture }: { fixture?: 'paused' | 'done' } = {}) {
 }
 
 function ProgressRing({ progress }: { progress: number }) {
+  const theme = useTheme();
   const radius = 112;
   const circumference = 2 * Math.PI * radius;
   return (
@@ -195,7 +199,7 @@ function ProgressRing({ progress }: { progress: number }) {
         cy="120"
         r={radius}
         fill="none"
-        stroke="#4e7d5b"
+        stroke={theme.palette.primary.main}
         strokeWidth="4"
         strokeLinecap="round"
         strokeDasharray={circumference}

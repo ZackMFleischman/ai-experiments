@@ -42,3 +42,8 @@
   parallel agent to spec. Stumbles: REST PATCH needs updateMask to rig
   positions; lex's check-bundle carried dictionary checks into the port;
   MUI dialogs aria-hide background buttons in tests.
+
+- **2026-07-11 — house design language adopted.** Repo-root
+  `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
+  (GameHud play header coherent by player count, accent-derived
+  palette + board tokens, MoreFromUs demoted to a footer). GameScreen now renders the shared `GameHud` (seat plaques, active side carries the accent) with the board centered in the leftover space; Board/MiniBoard read `theme.palette.board` tokens.
