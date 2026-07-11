@@ -32,5 +32,8 @@ jobs:
       - run: node registry/gen-family.mjs --check
       # Every game has a <name>-ci.yml filtered on its dir + parlor/**.
       - run: node registry/check-ci-coverage.mjs
+      # Shared peerDeps (react/firebase/MUI/emotion) stay within parlor's peer
+      # ranges and don't conflict inside a lockfile (cross-game minor drift warns).
+      - run: node registry/check-peerdeps.mjs
       # Repo-root + katmai-bears docs stay inside their closed, budgeted sets.
       - run: node tools/check-root-docs.mjs

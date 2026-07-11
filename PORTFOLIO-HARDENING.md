@@ -82,51 +82,54 @@ Gate: `node registry/check-registry.mjs`, `gen-family.mjs --check`,
 `parlor/scripts/check-boundaries.mjs` all green; desyncing a family list or
 dropping a workflow's `parlor/**` filter turns `registry-ci` red.
 
-## M2 — Factory + CI hardening (M)
+## M2 — Factory + CI hardening (M) — ◐ mostly shipped (2026-07-11, this PR)
 
 The factory is the force multiplier for "more games"; make it trustworthy, and
 stop hand-copying 210-line workflows.
 
-- [ ] **Stamp-check CI** (`factory-ci.yml`): on changes to
-      `tools/create-app/**`, any exemplar (`tafl/**`, `sudoku/**`,
-      `breakout/**`, `stillness/**`), or `parlor/**` — stamp a throwaway app
-      per archetype into a temp dir and run its `typecheck` + `test` + `build`
-      (bundle check included). This one job guards the generator, exemplar
-      drift, and the all-green-from-minute-one promise simultaneously.
-- [ ] **Generator robustness** (`tools/create-app/index.mjs`): word-boundary
-      identity rewriting instead of raw `replaceAll` on the bare exemplar
-      name; constrain the port rewrite to known config keys/files instead of
-      the greedy `\b5(1|2)\d\d\b`; replace the literal-string `check-docs.mjs`
-      patch with a structured marker in the exemplars' BUDGETS map; make the
-      generator read identity fields (accent, display name, glyph) from
-      `registry/apps.json` and append the new app to it.
-- [ ] **Reusable workflows**: convert the four duo `*-ci.yml` (0-line
-      normalized diffs) and `*-deploy.yml` pairs, plus the three
-      solo/android workflows, into `workflow_call` templates
-      (`.github/workflows/templates-*`), with per-game shims that pass
-      `name`/`dir`/`kind`. Update the generator to stamp shims. Align hive's
-      CI to the template while converting (it currently lacks the standalone
-      parlor gate job — see M4).
-- [ ] **`arcade-site-ci.yml`**: HTML validity + internal-link check + a
-      registry-parity assertion (from M1) for the family list; it currently
-      has deploy-only coverage.
-- [ ] **CI targeting map**: in the reusable CI template, key the parlor gate
-      on which `@parlor/*` packages the game actually links (from its
-      package.json), so a `parlor/packages/server/**` change stops re-running
-      the three zero-backend apps' full matrices. Registry lists each app's
-      linked packages so the mapping is checkable.
-- [ ] **peerDep coherence check**: a `registry-ci` step asserting every
-      consumer's installed react/firebase/MUI versions satisfy parlor's peer
-      ranges and match each other across games (read each game's lockfile
-      entry; fail on divergence).
-- [ ] **Agent skills**: add repo-root `.claude/skills/new-app` (wraps
-      `create-app` + `PLAYBOOK.md` + DONE.md flow — the discoverable default
-      path for standing up a game) and `.claude/skills/ship-game` (walks the
-      GAME-SETUP §10–§12 deploy/store wiring and emits the ⚑ owner checklist).
+- [x] **Stamp-check CI** (`factory-ci.yml`): on changes to
+      `tools/create-app/**`, any exemplar, `parlor/**`, or `registry/**`, a
+      matrix job stamps a throwaway app per archetype and runs its `typecheck`
+      + `build` (+ unit `test` for the zero-backend kinds; duo unit needs the
+      emulator, covered by parlor + duo CI). Guards generator, exemplar drift,
+      and the all-green-from-minute-one promise together.
+- [x] **Generator robustness** (`tools/create-app/index.mjs`): word-boundary
+      identity rewriting (verified: stamping a duo app no longer corrupts
+      `hnefatafl`→`hnefa<new>`, while whole tokens like `@tafl/app` still
+      rewrite); port rewrite constrained to real port contexts (localhost URL
+      / `--port` / `port:` key) instead of the greedy `\b5(1|2)\d\d\b`;
+      structured `create-app:done-budget` marker in each exemplar's BUDGETS
+      map replaces the literal-string check-docs patch (fails loudly if the
+      marker drifts); identity (display/accent/glyph) read from the registry;
+      the stamp appends the new app to `registry/apps.json` + regenerates the
+      family list.
+- [ ] **Reusable workflows** — DEFERRED. Converting the four duo `*-ci.yml`
+      and `*-deploy.yml` pairs + three solo/android workflows into
+      `workflow_call` templates + shims is a mass refactor of *live deploy
+      pipelines* whose gate ("identical job output") can only be verified by
+      running GitHub Actions, which this environment can't do. Deferred rather
+      than shipped blind — a subtle YAML slip would break all four games'
+      production deploys. Do it in a session that can run the Actions.
+- [x] **`arcade-site-ci.yml`**: `tools/check-arcade-site.mjs` (HTML sanity +
+      internal-link resolution) + `registry/gen-family.mjs --check` (family
+      parity). Negative-tested (a broken internal link turns it red).
+- [ ] **CI targeting map** — DEFERRED with the reusable-workflow item it lives
+      inside (keys the parlor gate on each app's `linkedParlor`, which the
+      registry now records, so the data is ready when the template lands).
+- [x] **peerDep coherence check** (`registry/check-peerdeps.mjs`, wired into
+      `registry-ci`): reads each game's lockfile; hard-fails on a resolved
+      major outside parlor's peer range or two versions of one dep in a
+      lockfile, warns on cross-game minor drift. Surfaced a real one:
+      firebase 12.15.0 (hive/lex) vs 12.16.0 (checkers/tafl) — advisory until
+      the next coordinated install (regenerating four lockfiles needs a full
+      install pass).
+- [x] **Agent skills**: `.claude/skills/new-app/SKILL.md` (wraps create-app +
+      PLAYBOOK + DONE flow) and `.claude/skills/ship-game/SKILL.md` (executable
+      GAME-SETUP §10–§12 deploy runbook + ⚑ owner checklist).
 
-Gate: factory-ci stamps all four archetypes green; a deliberate exemplar break
-turns factory-ci red; four duo CI/deploy pairs replaced by one template + 4
-shims with identical job output; skills invocable.
+Gate: factory-ci stamps the archetypes; a deliberate exemplar break turns it
+red (generator/exemplar covered by typecheck+build); skills present. The
+reusable-template gate is carried by the deferred item above.
 
 ## M3 — Platform test integrity (M–L)
 

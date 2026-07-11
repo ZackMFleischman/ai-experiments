@@ -1,0 +1,78 @@
+name: FACTORY CI
+
+# Guards the app factory (tools/create-app) AND the living exemplars it stamps
+# from AND the parlor platform they all consume — one job proves the
+# "all-gates-green from minute one" promise still holds. On a change to the
+# generator, any exemplar, or parlor, stamp a throwaway app per archetype and
+# run its own gates. A deliberate break in the generator or an exemplar turns
+# this red before it can ship a broken stamp.
+on:
+  pull_request:
+    paths:
+      - 'tools/create-app/**'
+      - 'tafl/**'
+      - 'sudoku/**'
+      - 'breakout/**'
+      - 'stillness/**'
+      - 'parlor/**'
+      - 'registry/**'
+      - '.github/workflows/factory-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/create-app/**'
+      - 'tafl/**'
+      - 'sudoku/**'
+      - 'breakout/**'
+      - 'stillness/**'
+      - 'parlor/**'
+      - 'registry/**'
+      - '.github/workflows/factory-ci.yml'
+
+concurrency:
+  group: factory-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stamp:
+    name: stamp · ${{ matrix.kind }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { kind: duo, run_test: false } # unit test needs the firebase emulator (covered by parlor + duo CI)
+          - { kind: solo, run_test: true }
+          - { kind: arcade, run_test: true }
+          - { kind: utility, run_test: true }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: parlor/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - name: stamp a throwaway ${{ matrix.kind }} app
+        run: node tools/create-app/index.mjs probe --kind ${{ matrix.kind }} --display Probe --glyph "🧪"
+      - name: install the stamped app (fresh resolve — the stamp ships no lockfile)
+        run: pnpm install
+        working-directory: probe
+      - name: typecheck (docs + boundary + rules-parity lints included)
+        run: pnpm typecheck
+        working-directory: probe
+      - name: unit tests
+        if: ${{ matrix.run_test }}
+        run: pnpm test
+        working-directory: probe
+      - name: build (no-firebase bundle assert included)
+        run: pnpm build
+        working-directory: probe
