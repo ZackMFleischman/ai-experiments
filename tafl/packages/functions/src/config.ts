@@ -27,7 +27,7 @@ import type {
   TriggerArgs,
 } from '@parlor/server';
 
-/** Per-game options: tafl has one ruleset (Brandub), so only the async time
+/** Per-game options: tafl has one ruleset (11×11 hnefatafl), so only the async time
  * control travels. The app declares the structurally identical client twin
  * in sync/gameApi.ts. */
 export interface TaflGameOptions {

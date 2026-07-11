@@ -1,6 +1,6 @@
 # CLAUDE.md — tafl/
 
-TAFL: a two-player hnefatafl (Brandub) PWA on the `@parlor/*` platform —
+TAFL: a two-player hnefatafl (11×11) PWA on the `@parlor/*` platform —
 the second manual pass of the repo-root `GAME-SETUP.md` checklist and the
 first duo title on `@parlor/brand`. Read `DESIGN.md` before structural
 changes; decisions go to `DECISIONS.md`.

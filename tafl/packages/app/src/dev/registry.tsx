@@ -33,10 +33,10 @@ const memoryStorage = (): KeyValueStorage => {
 function midGame(): TaflState {
   let s = initialTafl();
   for (const move of [
-    { from: 10, to: 7 }, // attacker sweeps to the left wall
-    { from: 17, to: 14 }, // defender follows
-    { from: 3, to: 2 }, // attacker sidles along the top
-    { from: 24, to: 17 }, // the king steps off the throne
+    { from: 16, to: 12 }, // attacker sweeps left along the second rank
+    { from: 38, to: 36 }, // the vanguard defender steps out
+    { from: 3, to: 25 }, // attacker drops down the d-file
+    { from: 48, to: 26 }, // a defender screens the e-file
   ]) {
     s = applyTafl(s, move);
   }
@@ -45,7 +45,18 @@ function midGame(): TaflState {
 
 /** A hand-built endgame: the king one step from the corner, guard thinned. */
 const ENDGAME: TaflState = {
-  board: ('.K.....' + '..A....' + '.......' + 'A...D..' + '.......' + '....A..' + '.......').slice(0, 49),
+  board:
+    '.K.........' +
+    '..A........' +
+    '...........' +
+    'A....D.....' +
+    '...........' +
+    '....A......' +
+    '...........' +
+    '......D....' +
+    '...........' +
+    '.........A.' +
+    '...........',
   toMove: 'defenders',
   moveCount: 22,
   seen: {},

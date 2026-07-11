@@ -1,12 +1,12 @@
-// Test scaffolding: build hand-crafted positions from 7-row board pictures.
+// Test scaffolding: build hand-crafted positions from 11-row board pictures.
 // Whitespace is stripped, so templates can be drawn one rank per line.
 
 import { positionKey, type Side, type TaflState } from '../src/index.js';
 
-/** Flatten a drawn board (7 rows × 7 cols of A/D/K/.) to a 49-char string. */
+/** Flatten a drawn board (11 rows × 11 cols of A/D/K/.) to a 121-char string. */
 export function board(picture: string): string {
   const flat = picture.replace(/\s+/g, '');
-  if (flat.length !== 49 || /[^ADK.]/.test(flat)) {
+  if (flat.length !== 121 || /[^ADK.]/.test(flat)) {
     throw new Error(`bad board template: '${flat}'`);
   }
   return flat;
@@ -26,5 +26,5 @@ export function pos(picture: string, toMove: Side): TaflState {
 
 /** Cell index from (row, col), row 0 at the top. */
 export function at(row: number, col: number): number {
-  return row * 7 + col;
+  return row * 11 + col;
 }

@@ -80,10 +80,10 @@ describe('joinGame + submitMove', () => {
     const joined = await adminGetDoc(`games/${gameId}`);
     expect(joined?.['status']).toBe('active');
 
-    // Attacker d1 → a1-file side: (1,3)=10 → (1,0)=7 (rook move, clear row).
+    // Attacker f2 → a2: (1,5)=16 → (1,0)=11 (rook move, clear rank).
     const first = await call(
       'submitMove',
-      { gameId, expectedMoveCount: 0, move: { from: 10, to: 7 } },
+      { gameId, expectedMoveCount: 0, move: { from: 16, to: 11 } },
       p0,
     );
     expect(first.status).toBe(200);
@@ -93,13 +93,13 @@ describe('joinGame + submitMove', () => {
     const moves = await adminListDocs(`games/${gameId}/moves`);
     expect(moves).toHaveLength(1);
     expect(moves[0]?.['kind']).toBe('move');
-    expect(moves[0]?.['from']).toBe(10);
-    expect(moves[0]?.['to']).toBe(7);
+    expect(moves[0]?.['from']).toBe(16);
+    expect(moves[0]?.['to']).toBe(11);
 
-    // Defender replies: (2,3)=17 → (2,0)=14.
+    // Defender replies: (3,5)=38 → (3,3)=36.
     const second = await call(
       'submitMove',
-      { gameId, expectedMoveCount: 1, move: { from: 17, to: 14 } },
+      { gameId, expectedMoveCount: 1, move: { from: 38, to: 36 } },
       p1,
     );
     expect(second.status).toBe(200);
@@ -114,14 +114,14 @@ describe('joinGame + submitMove', () => {
 
     const notYourTurn = await call(
       'submitMove',
-      { gameId, expectedMoveCount: 0, move: { from: 17, to: 14 } },
+      { gameId, expectedMoveCount: 0, move: { from: 38, to: 36 } },
       p1,
     );
     expect(notYourTurn.errorMessage).toMatch(/not your turn/);
 
     const stale = await call(
       'submitMove',
-      { gameId, expectedMoveCount: 5, move: { from: 10, to: 7 } },
+      { gameId, expectedMoveCount: 5, move: { from: 16, to: 11 } },
       p0,
     );
     expect(stale.errorMessage).toMatch(/stale/);
@@ -144,13 +144,13 @@ describe('joinGame + submitMove', () => {
     // Rig a defenders-to-move position with the king one step from a corner
     // (the emulator admin bypass writes what a real game would reach).
     const rigged: TaflState = {
-      board: ('.K' + '.'.repeat(28) + 'A' + '.'.repeat(9) + 'D' + '.'.repeat(8)).slice(0, 49),
+      board: '.K' + '.'.repeat(59) + 'A' + '.'.repeat(29) + 'D' + '.'.repeat(29),
       toMove: 'defenders',
       moveCount: 4,
       seen: {},
       result: null,
     };
-    expect(rigged.board).toHaveLength(49);
+    expect(rigged.board).toHaveLength(121);
     expect(CORNERS).toContain(0);
     expect(rigged.board[THRONE]).toBe('.');
     await adminUpdateDoc(`games/${gameId}`, {

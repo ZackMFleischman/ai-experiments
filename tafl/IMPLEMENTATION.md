@@ -24,7 +24,7 @@ review them).
 
 ### M0 — the whole game — SHIPPED (this PR)
 
-Engine + app + functions in one slice, per GAME-SETUP.md §§1–10: Brandub
+Engine + app + functions in one slice, per GAME-SETUP.md §§1–10: tafl
 kernel; hot-seat + online over one LogSession fold; parlor callable shells
 (no draws — repetition is engine-derived); log-replay transport with
 snapshot regression check; lobby/landing/join over lobby-ui slots; brand

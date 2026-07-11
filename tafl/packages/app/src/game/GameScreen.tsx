@@ -1,8 +1,11 @@
 // The shared game surface: one board screen over a LogSession, used by both
 // hot-seat (acting side follows the turn) and online (perspective locked to
-// my side). Renders under the brand AppShell — tafl is the first duo title
-// on @parlor/brand. The UI folds engine state only; every mutation is a log
-// entry through the session.
+// my side). Wears the house play chrome (DESIGN-PRINCIPLES §1–2): AppShell
+// bar, the shared GameHud (seat plaques carry the accent on the active
+// side, tafl passes its own piece glyphs), then the 11×11 board edge to
+// edge and centered in the leftover space — play screens never scroll. The
+// UI folds engine state only; every mutation is a log entry through the
+// session.
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -17,7 +20,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { sideLabel } from '../gameOptions';
 import { otherSide, type TaflEntry } from './entries';
 import type { TaflSession } from './localSession';
-import { Board } from '../board/Board';
+import { Board, PieceGlyph } from '../board/Board';
 
 export type GameMode = { kind: 'hotseat' } | { kind: 'online'; mySide: Side };
 
@@ -96,34 +99,53 @@ export function GameScreen({ session, mode, seatNames, onExit, onRematch }: Game
   const seat = (side: Side): HudSeat => ({
     label: name(side),
     glyph: (
-      <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>
-        {side === 'attackers' ? '⚔' : '🛡'}
-      </span>
+      <Box
+        component="span"
+        aria-hidden
+        sx={{ width: 14, height: 14, display: 'inline-grid', placeItems: 'center' }}
+      >
+        <PieceGlyph piece={side === 'attackers' ? 'A' : 'D'} size="13px" />
+      </Box>
     ),
     active: !state.result && state.toMove === side,
   });
 
   return (
     <AppShell title="Tafl" onBack={onExit} fullBleed>
-      <Stack spacing={1.5} sx={{ flex: 1, minHeight: 0, px: 1.5, pb: 2, pt: 0.5, width: '100%', maxWidth: 560, mx: 'auto' }}>
+      <Stack
+        spacing={1.25}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          width: '100%',
+          maxWidth: { xs: '100%', sm: 640 },
+          mx: 'auto',
+          px: { xs: 1, sm: 2 },
+          pb: { xs: 1.5, sm: 2 },
+          pt: 0.5,
+        }}
+      >
         <GameHud
           seats={[seat('attackers'), seat('defenders')]}
           status={statusLine}
           meta={`move ${state.moveCount + 1}`}
         />
 
-        {/* The board centers in the leftover space — the game owns the
-            screen (DESIGN-PRINCIPLES.md §1), never a board over a void. */}
-        <Stack sx={{ flex: 1, minHeight: 0, justifyContent: 'center' }}>
-          <Board
-            state={state}
-            onMove={submitMove}
-            actingSide={state.result ? undefined : actingSide}
-            lastMove={lastMove}
-          />
-        </Stack>
+        {/* The board owns the leftover space (§1): full width on phones,
+            clamped to the viewport height so the screen never scrolls. */}
+        <Box sx={{ flex: 1, minHeight: 0, display: 'grid', placeItems: 'center' }}>
+          <Box sx={{ width: 'min(100%, calc(100dvh - 230px))' }}>
+            <Board
+              state={state}
+              onMove={submitMove}
+              actingSide={state.result ? undefined : actingSide}
+              lastMove={lastMove}
+            />
+          </Box>
+        </Box>
 
-        <Stack direction="row" spacing={1} justifyContent="center">
+        {/* One quiet control row below the play area. */}
+        <Stack direction="row" spacing={1} justifyContent="center" sx={{ minHeight: 32 }}>
           {!state.result && (mode.kind === 'hotseat' || actingSide !== undefined) && (
             <Button size="small" color="inherit" onClick={() => setConfirmResign(true)}>
               Resign

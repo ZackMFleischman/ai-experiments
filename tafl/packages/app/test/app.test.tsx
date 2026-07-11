@@ -51,42 +51,42 @@ describe('hot-seat game', () => {
   it('renders the initial position with attackers to move', async () => {
     await renderHotSeat(memoryStorage());
     expect(screen.getByRole('grid', { name: 'tafl board' })).toBeTruthy();
-    expect(screen.getAllByRole('gridcell')).toHaveLength(49);
+    expect(screen.getAllByRole('gridcell')).toHaveLength(121);
     expect(screen.getByTestId('status-line').textContent).toContain('Attackers to move');
-    expect(cell('d4').getAttribute('aria-label')).toBe('d4 king');
+    expect(cell('f6').getAttribute('aria-label')).toBe('f6 king');
   });
 
   it('a click-move folds through the engine and flips the turn', async () => {
     await renderHotSeat(memoryStorage());
-    // Attacker at d6 (row1,col3 = cell 10) → a6 (row1,col0 = cell 7).
-    fireEvent.click(cell('d6'));
+    // Attacker at f2 (row1,col5 = cell 16) → a2 (row1,col0 = cell 11).
+    fireEvent.click(cell('f2'));
     await waitFor(() => expect(screen.getAllByTestId('move-target').length).toBeGreaterThan(0));
-    fireEvent.click(cell('a6'));
+    fireEvent.click(cell('a2'));
     await waitFor(() =>
       expect(screen.getByTestId('status-line').textContent).toContain('Defenders to move'),
     );
-    expect(cell('a6').getAttribute('aria-label')).toBe('a6 attacker');
+    expect(cell('a2').getAttribute('aria-label')).toBe('a2 attacker');
   });
 
   it('the wrong side cannot pick a piece up', async () => {
     await renderHotSeat(memoryStorage());
-    fireEvent.click(cell('d5')); // defender piece, attackers to move
+    fireEvent.click(cell('f4')); // defender piece, attackers to move
     expect(screen.queryAllByTestId('move-target')).toHaveLength(0);
   });
 
   it('the stored game survives a remount (localStorage transport)', async () => {
     const storage = memoryStorage();
     const first = await renderHotSeat(storage);
-    fireEvent.click(cell('d6'));
+    fireEvent.click(cell('f2'));
     await waitFor(() => expect(screen.getAllByTestId('move-target').length).toBeGreaterThan(0));
-    fireEvent.click(cell('a6'));
+    fireEvent.click(cell('a2'));
     await waitFor(() =>
       expect(screen.getByTestId('status-line').textContent).toContain('Defenders to move'),
     );
     first.unmount();
     await renderHotSeat(storage);
     expect(screen.getByTestId('status-line').textContent).toContain('Defenders to move');
-    expect(cell('a6').getAttribute('aria-label')).toBe('a6 attacker');
+    expect(cell('a2').getAttribute('aria-label')).toBe('a2 attacker');
   });
 
   it('resign ends the game for the other side', async () => {

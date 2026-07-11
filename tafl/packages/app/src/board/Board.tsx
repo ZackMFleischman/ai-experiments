@@ -1,4 +1,4 @@
-// The 7×7 board. Pure presentation: it renders engine state and the
+// The 11×11 board. Pure presentation: it renders engine state and the
 // engine's own legalDestinations() — never computes a rule. Squares are a
 // CSS grid of buttons (keyboard + screen-reader friendly: each square is
 // labelled 'd4' with its occupant); the selected piece's legal targets get a
@@ -29,11 +29,29 @@ export interface BoardProps {
   lastMove?: TaflMove | undefined;
 }
 
-function PieceGlyph({ piece, size }: { piece: Piece; size: string }) {
+/** Piece glyphs, shared with the turn indicator: attackers are dark diamonds,
+ * defenders pale rounds, the king the accent piece. A soft top-light gradient
+ * and drop shadow give them the carved-piece depth of a physical set. */
+export function PieceGlyph({
+  piece,
+  size,
+  selected = false,
+}: {
+  piece: Piece;
+  size: string;
+  selected?: boolean;
+}) {
   const theme = useTheme();
-  const ink = theme.palette.text.primary;
-  const paper = theme.palette.background.paper;
+  const dark = theme.palette.mode === 'dark';
+  // Deliberate §3 deviation (see DECISIONS.md): piece colors stay fixed
+  // across color modes so attackers always read dark, defenders pale.
+  const ink = dark ? '#2e2528' : '#3b2e31'; // warm near-black, like carved horn
+  const bone = dark ? '#e8e2d4' : '#f7f3e8'; // pale bone for the defenders
   const accent = theme.palette.primary.main;
+  const lift = selected ? 'translateY(-6%) scale(1.06)' : 'none';
+  const shadow = selected
+    ? `0 ${dark ? '3px 7px' : '3px 6px'} ${alpha('#000', dark ? 0.6 : 0.35)}`
+    : `0 1px 3px ${alpha('#000', dark ? 0.5 : 0.25)}`;
   if (piece === 'A') {
     return (
       <Box
@@ -41,8 +59,11 @@ function PieceGlyph({ piece, size }: { piece: Piece; size: string }) {
           width: size,
           height: size,
           borderRadius: '28%',
-          bgcolor: ink,
-          transform: 'rotate(45deg)',
+          background: `linear-gradient(135deg, ${alpha('#fff', 0.22)}, transparent 55%), ${ink}`,
+          // scale(0.8) keeps the rotated diamond's diagonal inside the square.
+          transform: `${lift === 'none' ? '' : `${lift} `}rotate(45deg) scale(0.8)`.trim(),
+          boxShadow: shadow,
+          transition: 'transform 120ms ease, box-shadow 120ms ease',
         }}
       />
     );
@@ -54,9 +75,12 @@ function PieceGlyph({ piece, size }: { piece: Piece; size: string }) {
           width: size,
           height: size,
           borderRadius: '50%',
-          bgcolor: paper,
+          background: `linear-gradient(135deg, ${alpha('#fff', 0.65)}, transparent 60%), ${bone}`,
           border: 2,
-          borderColor: ink,
+          borderColor: alpha(ink, 0.85),
+          boxShadow: shadow,
+          transform: lift,
+          transition: 'transform 120ms ease, box-shadow 120ms ease',
         }}
       />
     );
@@ -68,13 +92,16 @@ function PieceGlyph({ piece, size }: { piece: Piece; size: string }) {
           width: size,
           height: size,
           borderRadius: '50%',
-          bgcolor: accent,
+          background: `linear-gradient(135deg, ${alpha('#fff', 0.3)}, transparent 55%), ${accent}`,
           display: 'grid',
           placeItems: 'center',
           color: theme.palette.primary.contrastText,
-          fontSize: `calc(${size} * 0.62)`,
+          fontSize: `calc(${size} * 0.58)`,
           lineHeight: 1,
           fontWeight: 700,
+          boxShadow: shadow,
+          transform: lift,
+          transition: 'transform 120ms ease, box-shadow 120ms ease',
         }}
       >
         ♜
@@ -86,6 +113,7 @@ function PieceGlyph({ piece, size }: { piece: Piece; size: string }) {
 
 export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
   const theme = useTheme();
+  const dark = theme.palette.mode === 'dark';
   const [selected, setSelected] = useState<number | null>(null);
 
   const targets = useMemo(
@@ -112,6 +140,11 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
   const restricted = new Set<number>([THRONE, ...CORNERS]);
   const lastCells = new Set(lastMove ? [lastMove.from, lastMove.to] : []);
 
+  // Surfaces come from the accent-derived board tokens (DESIGN-PRINCIPLES §3);
+  // the cell token doubles as the hairline grid color.
+  const line = theme.palette.board.cell;
+  const frame = alpha(theme.palette.text.primary, dark ? 0.4 : 0.55);
+
   return (
     <Box
       role="grid"
@@ -121,20 +154,19 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
         gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
         aspectRatio: '1',
         width: '100%',
-        maxWidth: 480,
         mx: 'auto',
         border: 2,
-        borderColor: 'divider',
-        borderRadius: 2,
+        borderColor: frame,
+        borderRadius: 1.5,
         overflow: 'hidden',
         bgcolor: theme.palette.board.surface,
+        boxShadow: `0 4px ${dark ? '24px' : '20px'} ${alpha('#000', dark ? 0.5 : 0.14)}`,
+        touchAction: 'manipulation',
       }}
     >
       {cells.map((cell) => {
         const piece = pieceAt(state, cell);
-        const row = Math.floor(cell / BOARD_SIZE);
-        const col = cell % BOARD_SIZE;
-        const checker = (row + col) % 2 === 1;
+        const isThrone = cell === THRONE;
         const label = piece === '.' ? cellName(cell) : `${cellName(cell)} ${pieceLabel(piece)}`;
         return (
           <Box
@@ -153,16 +185,21 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
               placeItems: 'center',
               position: 'relative',
               aspectRatio: '1',
+              WebkitTapHighlightColor: 'transparent',
+              // The woven grid: hairlines on every square, a quiet tint on the
+              // king's squares (throne + corners) so the goal reads at a glance.
+              boxShadow: `inset 0 0 0 0.5px ${line}`,
               bgcolor: lastCells.has(cell)
-                ? alpha(theme.palette.primary.main, 0.18)
+                ? alpha(theme.palette.primary.main, dark ? 0.22 : 0.16)
                 : selected === cell
-                  ? alpha(theme.palette.primary.main, 0.28)
-                  : checker
-                    ? alpha(theme.palette.text.primary, 0.05)
+                  ? alpha(theme.palette.primary.main, dark ? 0.34 : 0.26)
+                  : restricted.has(cell)
+                    ? alpha(theme.palette.primary.main, dark ? 0.1 : 0.08)
                     : 'transparent',
               '&:focus-visible': {
                 outline: `2px solid ${theme.palette.primary.main}`,
                 outlineOffset: -2,
+                zIndex: 1,
               },
             }}
           >
@@ -171,24 +208,34 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
                 aria-hidden
                 sx={{
                   position: 'absolute',
-                  inset: '30%',
+                  inset: '26%',
                   border: 1.5,
-                  borderColor: alpha(theme.palette.text.primary, 0.35),
-                  borderRadius: cell === THRONE ? '50%' : '20%',
+                  borderColor: alpha(theme.palette.primary.main, dark ? 0.6 : 0.5),
+                  borderRadius: isThrone ? '50%' : '22%',
+                  '&::after': isThrone
+                    ? {
+                        content: '""',
+                        position: 'absolute',
+                        inset: '28%',
+                        borderRadius: '50%',
+                        bgcolor: alpha(theme.palette.primary.main, dark ? 0.5 : 0.4),
+                      }
+                    : undefined,
                 }}
               />
             )}
-            <PieceGlyph piece={piece} size="68%" />
+            <PieceGlyph piece={piece} size="78%" selected={selected === cell} />
             {targets.has(cell) && (
               <Box
                 aria-hidden
                 data-testid="move-target"
                 sx={{
                   position: 'absolute',
-                  width: '22%',
-                  height: '22%',
+                  width: '30%',
+                  height: '30%',
                   borderRadius: '50%',
                   bgcolor: alpha(theme.palette.primary.main, 0.55),
+                  border: `1.5px solid ${alpha(theme.palette.primary.main, 0.85)}`,
                 }}
               />
             )}

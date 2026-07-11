@@ -9,7 +9,7 @@ recipe this app was built from is the repo-root `GAME-SETUP.md`.
 Independent pnpm workspace, sibling of `parlor/` (source-linked `link:` +
 tsconfig paths + vite dedupe):
 
-- `packages/engine` — `@tafl/engine`, the pure Brandub kernel.
+- `packages/engine` — `@tafl/engine`, the pure hnefatafl kernel.
 - `packages/app` — `@tafl/app`, React PWA over `@parlor/{core,web,brand}`.
 - `packages/functions` — `@tafl/functions`, Cloud Functions =
   `@parlor/server` shells over tafl's config.
@@ -19,7 +19,7 @@ tsconfig paths + vite dedupe):
 
 ## §2 Engine
 
-Plain state (`board` 49-char string, `toMove`, `seen` repetition ledger,
+Plain state (`board` 121-char string, `toMove`, `seen` repetition ledger,
 `result`) + pure functions: `legalDestinations` (ray walk),
 `applyTafl` (validate → move → custodian captures → ordered result
 checks: capture > escape > no-moves > repetition), `resignTafl`/
@@ -43,7 +43,7 @@ game shouldn't (this is a generator lesson, see IMPLEMENTATION §3).
 subdocs, no racks). `submitMove.advance` deserializes the snapshot, runs
 `applyTafl`, writes the new snapshot + `{kind:'move', from, to, name}`
 move doc, maps `state.result` → seat-keyed terminal. Draw callables are
-deliberately absent — Brandub's only draw is engine-derived (repetition).
+deliberately absent — tafl's only draw is engine-derived (repetition).
 
 ## §5 Client
 

@@ -9,14 +9,14 @@ test('hot-seat: land → play two moves → resign → outcome', async ({ page }
   await expect(board).toBeVisible();
   await expect(page.getByTestId('status-line')).toContainText('Attackers to move');
 
-  // Attacker d6 → a6.
-  await page.getByRole('gridcell', { name: 'd6 attacker' }).click();
-  await page.getByRole('gridcell', { name: 'a6', exact: true }).click();
+  // Attacker f2 → a2.
+  await page.getByRole('gridcell', { name: 'f2 attacker' }).click();
+  await page.getByRole('gridcell', { name: 'a2', exact: true }).click();
   await expect(page.getByTestId('status-line')).toContainText('Defenders to move');
 
-  // Defender d5 → f5 (row 2 is clear either way).
-  await page.getByRole('gridcell', { name: 'd5 defender' }).click();
-  await page.getByRole('gridcell', { name: 'f5', exact: true }).click();
+  // Defender f4 → c4 (rank 4 is clear to the left).
+  await page.getByRole('gridcell', { name: 'f4 defender' }).click();
+  await page.getByRole('gridcell', { name: 'c4', exact: true }).click();
   await expect(page.getByTestId('status-line')).toContainText('Attackers to move');
 
   // Attackers concede.

@@ -1,19 +1,19 @@
-// Geometry of the 7×7 Brandub board. Cells are flat indices 0..48 in
-// row-major order (r*7+c); the throne is the center, the four corners are
+// Geometry of the 11×11 hnefatafl board. Cells are flat indices 0..120 in
+// row-major order (r*11+c); the throne is the center, the four corners are
 // the king's escape squares. Everything here is pure arithmetic — no state,
 // no rules — so movement and capture code can reason in cells + directions
 // without ever touching (row, col) pairs except at this boundary.
 
 import type { TaflMove } from './state.js';
 
-export const BOARD_SIZE = 7;
+export const BOARD_SIZE = 11;
 export const CELL_COUNT = BOARD_SIZE * BOARD_SIZE;
 
 /** Center square. Only the king may land here (it may re-enter). */
-export const THRONE = 24;
+export const THRONE = 60;
 
 /** Escape squares. Only the king may land here; reaching one wins. */
-export const CORNERS: readonly number[] = [0, 6, 42, 48];
+export const CORNERS: readonly number[] = [0, 10, 110, 120];
 
 export function rowOf(cell: number): number {
   return Math.floor(cell / BOARD_SIZE);
@@ -48,7 +48,7 @@ export function step(cell: number, dir: readonly [number, number]): number {
   return r * BOARD_SIZE + c;
 }
 
-/** 'a1'-style name: files a-g left→right, rank 1 the TOP row (cell 0 = a1). */
+/** 'a1'-style name: files a-k left→right, rank 1 the TOP row (cell 0 = a1). */
 export function cellName(cell: number): string {
   if (!Number.isInteger(cell) || cell < 0 || cell >= CELL_COUNT) {
     throw new RangeError(`cell out of range: ${cell}`);
