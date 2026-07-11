@@ -1,3 +1,4 @@
+// stamped-from tafl/packages/app/src/sync/NewGameFlow.tsx@b2985c19d4efa62ba295fc4f21b31a0320bb1b4c — regenerate, don't hand-sync (lint: registry/check-stamps.mjs)
 // New-game flow container: create via callable, then show the invite link —
 // or, when a past opponent is picked, send a direct challenge and jump
 // straight to the game. Lazy-loaded by the NewGame screen in full mode.

@@ -1,3 +1,4 @@
+// stamped-from tafl/packages/app/src/sync/OnlineGames.tsx@0f22b259e3798e4c423dd2c71b3a113301452f63 — regenerate, don't hand-sync (lint: registry/check-stamps.mjs)
 // ported from hive/packages/app/src/sync/OnlineGames.tsx (adapted)
 // Online games list container (T4.7/T5.2): lazy-loaded by the Lobby in full
 // mode, with the push-permission banner (enable button / iOS coach mark).

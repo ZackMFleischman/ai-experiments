@@ -1,3 +1,4 @@
+// stamped-from tafl/packages/app/src/sw.ts@66577eaada0423f7a429a88e6453501408d63e5c — regenerate, don't hand-sync (lint: registry/check-stamps.mjs)
 /// <reference lib="webworker" />
 // ported from hive/packages/app/src/sw.ts (adapted)
 // Custom service worker (T5.1, DESIGN §8): precached app shell (dictionaries

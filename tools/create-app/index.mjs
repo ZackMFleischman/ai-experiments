@@ -37,6 +37,12 @@ function loadRegistryApps() {
 const registryApps = loadRegistryApps();
 const registryFor = (n) => registryApps.find((a) => a.name === n);
 
+// True-glue manifest (M5): files listed there get a `// stamped-from
+// <exemplar>@<blob-sha>` header on stamp so registry/check-stamps.mjs can
+// flag copies when the exemplar later drifts. Graceful fallback (like the
+// registry above) if the manifest module is unavailable.
+const stampedManifest = await import('../../registry/stamped-manifest.mjs').catch(() => null);
+
 const KINDS = {
   duo: {
     exemplar: 'tafl',
@@ -187,6 +193,10 @@ const rewrite = (text) => {
 };
 
 // ---- clone the exemplar ------------------------------------------------------
+// Glue files from the manifest get their stamped-from header AFTER the
+// identity rewrite (so the header's exemplar path isn't renamed), with the
+// blob sha of the exemplar's raw bytes — what check-stamps.mjs re-computes.
+const glueFiles = stampedManifest?.STAMPED?.[args.kind]?.files ?? {};
 let cloned = 0;
 for (const source of walk(exemplarRoot)) {
   const rel = relative(exemplarRoot, source);
@@ -196,7 +206,12 @@ for (const source of walk(exemplarRoot)) {
   mkdirSync(dirname(dest), { recursive: true });
   const base = rel.split('/').pop() ?? '';
   if (TEXT_EXT.test(base) || base.startsWith('.')) {
-    writeFileSync(dest, rewrite(readFileSync(source, 'utf8')));
+    let content = rewrite(readFileSync(source, 'utf8'));
+    if (rel in glueFiles) {
+      const header = stampedManifest.stampHeader(`${kind.exemplar}/${rel}`, stampedManifest.blobSha(readFileSync(source)));
+      content = `${header}\n${content}`;
+    }
+    writeFileSync(dest, content);
   } else {
     cpSync(source, dest);
   }
