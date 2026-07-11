@@ -53,7 +53,7 @@ do not write it from scratch.
 
 ## 1. Toolchain & workspace targets
 
-- **Two pnpm workspaces**, both independent of `loom/` and `hive/`:
+- **Two pnpm workspaces**, both independent of `hive/`:
   - `parlor/` at the **repo root** — the shared game-platform library
     (DESIGN §4): `packages/core`, `packages/web`, `packages/server`,
     `packages/harness` (`@parlor/*`). Own tsconfig, tests, and CI job.
@@ -75,7 +75,7 @@ do not write it from scratch.
   Testing Library, Playwright pinned ~1.56, firebase 12 / firebase-admin +
   firebase-functions v2, esbuild for the functions bundle). Copy versions from
   `hive/packages/*/package.json` when scaffolding — hive's pins encode fixes.
-- Root scripts (the loom/hive convention):
+- Root scripts (the hive convention):
 
 ```
 pnpm dev              # vite + firebase emulators (auto-seeded, demo-lex project)

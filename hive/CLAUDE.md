@@ -1,8 +1,6 @@
 # CLAUDE.md — hive/
 
-HIVE: a two-player PWA of the board game Hive. Independent pnpm workspace —
-**nothing here relates to `loom/`**; ignore the repo-root CLAUDE.md's loom guidance
-when working in this directory.
+HIVE: a two-player PWA of the board game Hive. Independent pnpm workspace.
 
 ## Read before doing anything
 

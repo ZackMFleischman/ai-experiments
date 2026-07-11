@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "loom": {
-      "command": "node",
-      "args": ["--import", "tsx", "packages/sidecar/src/index.ts"]
-    }
-  }
-}

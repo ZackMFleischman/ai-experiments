@@ -50,7 +50,7 @@ watching.
 
 ## 1. Toolchain & workspace targets
 
-- **pnpm workspace** rooted at `hive/` (independent of `loom/`). Packages:
+- **pnpm workspace** rooted at `hive/`. Packages:
   `packages/engine`, `packages/app`, `packages/functions`, `e2e`.
 - **TypeScript strict** everywhere (`strict`, `noUncheckedIndexedAccess`,
   `exactOptionalPropertyTypes`). Engine has `"sideEffects": false` and **zero
@@ -59,7 +59,7 @@ watching.
   TanStack Query; Vitest + `fast-check` + Testing Library; Playwright;
   `firebase` (app) / `firebase-admin` + `firebase-functions` (functions);
   `firebase-tools` for emulators/deploy. Pin majors in the root README when scaffolding.
-- Root scripts (mirror the loom convention):
+- Root scripts (the house convention):
 
 ```
 pnpm dev              # vite + firebase emulators (auto-seeded)

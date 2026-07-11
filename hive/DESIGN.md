@@ -125,7 +125,7 @@ touches the engine.
 ```
 hive/
 ├── DESIGN.md                  # this document
-├── package.json               # pnpm workspace root (independent of loom/)
+├── package.json               # pnpm workspace root (independent workspace)
 ├── packages/
 │   ├── engine/                # @hive/engine — pure rules kernel (zero deps)
 │   │   └── src/
@@ -395,8 +395,7 @@ PWA), Functions, and Firestore rules/indexes together. CI runs it on every merge
 main; a manual deploy from your laptop works identically.
 
 **Preview environments:** every PR gets a **Firebase Hosting preview channel**
-(`pr-<n>`, auto-expiring, URL posted as a PR comment — same experience as loom's
-Cloudflare preview). Channels preview the *frontend* against the production backend,
+(`pr-<n>`, auto-expiring, URL posted as a PR comment). Channels preview the *frontend* against the production backend,
 which covers the common case of UI-only PRs; backend-touching PRs (functions, rules,
 schema) are instead validated by the emulator-based e2e suite in CI and go live on
 merge. If that ever feels risky, the escape hatch is a second `hive-staging` Firebase
@@ -608,7 +607,7 @@ game three days later.
 This project will be built largely by coding agents, so every milestone must be
 verifiable without a human watching — including the visual/UX half:
 
-- **Machine gates.** Each milestone N ships a `pnpm validate:mN` script (the loom
+- **Machine gates.** Each milestone N ships a `pnpm validate:mN` script (the house
   pattern) that runs its acceptance criteria end-to-end; `pnpm validate` chains them
   all. A milestone is not done while its gate is red.
 - **Fixture gallery.** The app ships a dev-only `/dev/gallery` route rendering a
@@ -690,12 +689,12 @@ Per your instruction, I decided these myself, optimizing for "you two playing AS
    - Reconsider if we ever add HTML-to-HTML drags (e.g. reordering lists) — that's
      dnd-kit's home turf, and it can coexist with the board's pointer handling.
 9. **UHP notation** for the move log (free test vectors now, free AI/engine interop later).
-10. **Separate pnpm workspace** at `hive/` (not merged into `loom/`'s workspace) — the
+10. **Separate pnpm workspace** at `hive/` — the sibling
     projects share nothing and shouldn't share a lockfile.
 11. **Threefold repetition = auto-draw** so async games can't zombie forever.
 12. **Firebase Hosting + PR preview channels** for deploys, production at
     `hive.zackmfleischman.com` (§5.6) — one CLI deploys hosting, functions, and rules
-    together, and previews come free. (Cloudflare Pages, as loom uses, would split the
+    together, and previews come free. (Cloudflare Pages would split the
     deploy across two systems for no gain here.)
 13. **No iframe embed on the zackmfleischman.com apps page** — a themed link-out card
     instead (end of §7): iframing breaks PWA install, push permission prompts, and
