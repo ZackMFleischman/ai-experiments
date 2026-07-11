@@ -8,22 +8,13 @@ import CardActionArea from '@mui/material/CardActionArea';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { AppShell, MoreFromUs, useColorMode } from '@parlor/brand';
+import { AppShell, FAMILY, MoreFromUs, useColorMode } from '@parlor/brand';
 import { dayKey } from '@parlor/solo';
 import { DIFFICULTIES, type Difficulty } from '@sudoku/engine';
 import { useNavigate } from 'react-router-dom';
 import { dailyOptions, randomOptions } from '../game/session';
 import { useSessionState } from '../game/useSession';
 import { useApp } from '../App';
-
-const FAMILY = [
-  { name: 'Hive', tagline: 'The bug board game, online with a friend', url: 'https://hive.zackmfleischman.com', glyph: '🐝' },
-  { name: 'Lex', tagline: 'A crossword tile game for two', glyph: '🅻' },
-  { name: 'Checkers', tagline: 'Draughts, online with a friend', glyph: '⛃' },
-  { name: 'Tafl', tagline: 'The Viking siege game, for two', url: 'https://tafl.pages.dev', glyph: '⚔️' },
-  { name: 'Bricks', tagline: 'The wall, the paddle, the ball', url: 'https://breakout-zmf.pages.dev', glyph: '🧱' },
-  { name: 'Stillness', tagline: 'A quiet meditation timer', url: 'https://stillness-zmf.pages.dev', glyph: '🧘' },
-];
 
 export function Home() {
   const { session, stats } = useApp();
@@ -95,7 +86,7 @@ export function Home() {
       </Stack>
 
       {/* Direct child of the shell's flex column so mt:auto sinks it. */}
-      <MoreFromUs apps={FAMILY} />
+      <MoreFromUs apps={FAMILY.filter((app) => app.name !== 'Sudoku')} />
     </AppShell>
   );
 }

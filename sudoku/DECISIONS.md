@@ -66,3 +66,15 @@
   `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
   (GameHud play header coherent by player count, accent-derived
   palette + board tokens, MoreFromUs demoted to a footer). The play screen's chrome title is now the wordmark ("Sudoku"); puzzle kind + clock moved into the shared `GameHud`. Home's cross-promo renders as the quiet brand footer.
+
+- **2026-07-11 — MoreFromUs consumes the generated family list (PORTFOLIO-HARDENING M5).**
+  Deleted Home's hand-kept `FAMILY` array; Home now imports `FAMILY` from
+  `@parlor/brand` (re-exported from the registry-generated
+  `family.generated.ts`, M1) and filters out its own entry
+  (`.filter((app) => app.name !== 'Sudoku')`). One catalog, one source of
+  truth — no per-app array to drift. Visible set is unchanged: `MoreFromUs`
+  already renders only entries with a `url`, so the url-less duo games (Lex,
+  Checkers) stay hidden exactly as before. Same change landed in breakout +
+  stillness; the `gen-family.mjs --check` transition parity check that policed
+  the three local arrays was retired (arcade-site, a static page that can't
+  import the module, remains the only hand-kept copy it guards).

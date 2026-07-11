@@ -12,7 +12,7 @@ mark it `✅ SHIPPED (date)` here and log deviations in the most-affected
 project's `DECISIONS.md`.
 
 **Status legend:** ✅ shipped · ◐ partially shipped · ○ not started. Progress as
-of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M6 ◐, M4/M5/M7/M8/M9 ○.** The deferred
+of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M5 ◐, M6 ◐, M4/M7/M8/M9 ○.** The deferred
 items share one cause — they need a runnable environment (full `pnpm install`
 per workspace, the Firebase emulator jars, or a GitHub Actions run) or live
 owner action (Firebase data migration, store submission) that this session
@@ -224,18 +224,21 @@ Gate: hive `pnpm validate` (all six m-gates) green on `@parlor/core`; zero
 live code twins between hive and parlor (script-checkable: no file in hive
 duplicating a parlor export); hive CI structurally identical to the template.
 
-## M5 — Kill the copy tax (M) — ○ not started (needs app installs to verify)
+## M5 — Kill the copy tax (M) — ◐ partially shipped (2026-07-11, this PR)
 
-> **Deferred.** The centralization moves (BrandAppProviders / SW template /
-> family-list consumption) delete code from all seven apps and re-route it
-> through `@parlor/brand` — each needs the app's typecheck/build/visual gates
-> run to prove the shell still renders. The one piece that *is* verifiable
-> standalone — the "generation markers + stale-copy lint" — is a good first
-> slice for a follow-up (a repo-root lint comparing each stamped binding file's
-> recorded exemplar sha to the exemplar's current sha; no app install needed).
-> The M1 family generator already did the hardest prerequisite (the registry-
-> driven `family.generated.ts`), so M5's family-consumption step is now just
-> deleting the seven local arrays and importing the generated module.
+> **Family-list consumption shipped; the rest still deferred.** The remaining
+> centralization moves (BrandAppProviders / SW template) delete code from all
+> seven apps and re-route it through `@parlor/brand` — each needs the app's
+> typecheck/build/visual gates run to prove the shell still renders. The one
+> other piece that *is* verifiable standalone — the "generation markers +
+> stale-copy lint" — is a good next slice (a repo-root lint comparing each
+> stamped binding file's recorded exemplar sha to the exemplar's current sha;
+> no app install needed), but note the plan's file list needs pruning first:
+> `functions/src/config.ts` and `firestoreTransport.ts` legitimately diverge
+> per-game (config.ts is in the factory's `core` "morph these" list), so the
+> lint must target only the true glue (`sw.ts`, `functions/src/index.ts`, the
+> shared `sync/*`), not "regenerate, don't hand-sync" files that are meant to
+> diverge.
 
 - [ ] **`@parlor/brand` absorbs the shell plumbing**: `BrandAppProviders`
       (color-mode init/persist/OS-default + `syncStatusBar` + theme +
@@ -246,10 +249,16 @@ duplicating a parlor export); hive CI structurally identical to the template.
       `sw.ts` becomes a parlor-owned template stamped with injected strings
       (same copy-with-parity model as firestore.rules: physical copy +
       parity check, since the SW must live in the app).
-- [ ] **Family list consumption**: apps and `arcade-site` consume the
-      M1-generated registry module (`family.generated.ts` / generated HTML
-      fragment); delete the seven hand-kept `FAMILY` arrays and the M1
-      transition parity check.
+- [x] **Family list consumption**: the three apps that render `<MoreFromUs>`
+      (sudoku/breakout/stillness — the duo games don't) now import the
+      M1-generated `FAMILY` from `@parlor/brand` and filter out their own
+      entry; their hand-kept local arrays and the `gen-family.mjs` transition
+      parity check that policed them are deleted. Visible set is byte-identical
+      (`MoreFromUs` already shows only `url`-bearing entries), so this is a
+      pure dedup — verified via each app's typecheck + build. `arcade-site`
+      (static, can't import the module) stays a hand-kept copy, still guarded
+      by the arcade-parity leg of `gen-family.mjs --check`. *(The plan's "seven
+      arrays" was an overcount — only these three consumers ever existed.)*
 - [ ] **Generation markers + stale-copy lint**: every legitimately per-game
       binding file the factory stamps (`app/src/sync/*`, `sw.ts`,
       `functions/src/{config,index}.ts`, `vite.config.ts`) gets a

@@ -22,3 +22,8 @@ export { AppShell, type AppShellProps } from './AppShell.js';
 export { GameHud, type GameHudProps, type HudSeat } from './GameHud.js';
 
 export { MoreFromUs, type FamilyApp, type MoreFromUsProps } from './MoreFromUs.js';
+
+// The canonical "More from us" catalog, generated from registry/apps.json by
+// registry/gen-family.mjs. Apps import this and filter out their own entry —
+// no more hand-kept per-app FAMILY arrays to drift (PORTFOLIO-HARDENING M5).
+export { FAMILY } from './family.generated.js';
