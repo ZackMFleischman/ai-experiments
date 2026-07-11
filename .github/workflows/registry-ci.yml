@@ -35,5 +35,8 @@ jobs:
       # Shared peerDeps (react/firebase/MUI/emotion) stay within parlor's peer
       # ranges and don't conflict inside a lockfile (cross-game minor drift warns).
       - run: node registry/check-peerdeps.mjs
+      # Stamped glue copies (sw.ts, functions index, shared sync shells) stay
+      # in sync with their exemplar: stale stamped-from shas fail the build.
+      - run: node registry/check-stamps.mjs
       # Repo-root + katmai-bears docs stay inside their closed, budgeted sets.
       - run: node tools/check-root-docs.mjs

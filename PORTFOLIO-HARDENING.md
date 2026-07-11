@@ -226,19 +226,11 @@ duplicating a parlor export); hive CI structurally identical to the template.
 
 ## M5 — Kill the copy tax (M) — ◐ partially shipped (2026-07-11, this PR)
 
-> **Family-list consumption shipped; the rest still deferred.** The remaining
-> centralization moves (BrandAppProviders / SW template) delete code from all
-> seven apps and re-route it through `@parlor/brand` — each needs the app's
-> typecheck/build/visual gates run to prove the shell still renders. The one
-> other piece that *is* verifiable standalone — the "generation markers +
-> stale-copy lint" — is a good next slice (a repo-root lint comparing each
-> stamped binding file's recorded exemplar sha to the exemplar's current sha;
-> no app install needed), but note the plan's file list needs pruning first:
-> `functions/src/config.ts` and `firestoreTransport.ts` legitimately diverge
-> per-game (config.ts is in the factory's `core` "morph these" list), so the
-> lint must target only the true glue (`sw.ts`, `functions/src/index.ts`, the
-> shared `sync/*`), not "regenerate, don't hand-sync" files that are meant to
-> diverge.
+> **Family-list consumption + generation markers shipped; the rest still
+> deferred.** The remaining centralization moves (BrandAppProviders / SW
+> template) delete code from all seven apps and re-route it through
+> `@parlor/brand` — each needs the app's typecheck/build/visual gates run to
+> prove the shell still renders.
 
 - [ ] **`@parlor/brand` absorbs the shell plumbing**: `BrandAppProviders`
       (color-mode init/persist/OS-default + `syncStatusBar` + theme +
@@ -259,13 +251,24 @@ duplicating a parlor export); hive CI structurally identical to the template.
       (static, can't import the module) stays a hand-kept copy, still guarded
       by the arcade-parity leg of `gen-family.mjs --check`. *(The plan's "seven
       arrays" was an overcount — only these three consumers ever existed.)*
-- [ ] **Generation markers + stale-copy lint**: every legitimately per-game
-      binding file the factory stamps (`app/src/sync/*`, `sw.ts`,
-      `functions/src/{config,index}.ts`, `vite.config.ts`) gets a
-      `// stamped-from <exemplar-path>@<git-sha> — regenerate, don't hand-sync`
-      header; a repo-root lint (in `registry-ci.yml`) warns when the exemplar
-      has changed since a copy's recorded sha, replacing silent hand-propagation
-      with a visible diff queue.
+- [x] **Generation markers + stale-copy lint**: every audited true-glue copy
+      carries a `// stamped-from <exemplar-path>@<git-blob-sha> — regenerate,
+      don't hand-sync` header; `registry/check-stamps.mjs` (in `registry-ci.yml`)
+      fails when the exemplar's current blob sha has drifted from a copy's
+      recorded sha (working-tree shas, so an uncommitted exemplar edit already
+      flags), and fails on any `stamped-from` header the manifest doesn't
+      sanction. The factory emits the header on stamp, so new copies are born
+      tracked. *Deviation — the plan's file list was pruned by a per-file audit*
+      (`registry/stamped-manifest.mjs` records it): `functions/src/config.ts`,
+      `firestoreTransport.ts`, `gameApi/lobby/JoinFlow/MultiplayerGame`, and
+      `vite.config.ts` diverge per-game (seat keys, wire move types, manifest
+      identity) and are *banned* from carrying the marker; hive/lex copies of
+      `functions/index.ts` (+ hive's `AppSyncProviders/OnlineGames/NewGameFlow`,
+      lex's `NewGameFlow`) are pre-factory forks excluded until M4 converges
+      them. Tracked today: `sw.ts` ×3, plus checkers' `functions/index.ts` +
+      three sync shells, lex's `AppSyncProviders`/`OnlineGames`. Zero-backend
+      kinds have no copies yet — their manifests are empty until a second
+      family member exists to audit against.
 - [ ] **Re-stamp exemplar parity**: after the above, update the factory
       exemplars and re-run factory-ci so new stamps are born deduplicated.
 

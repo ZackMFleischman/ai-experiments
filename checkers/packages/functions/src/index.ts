@@ -1,3 +1,4 @@
+// stamped-from tafl/packages/functions/src/index.ts@2bdea90742f3cad45e9dc220fa42a4c0f5284182 — regenerate, don't hand-sync (lint: registry/check-stamps.mjs)
 // @checkers/functions — server-authoritative game API: every callable is a
 // @parlor/server shell shaped by checkers's config. createGame / joinGame /
 // cancelGame / challengeUser / respondChallenge / rematch / resign
