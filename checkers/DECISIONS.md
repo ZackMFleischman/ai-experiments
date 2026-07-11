@@ -38,3 +38,8 @@
   shapes fit; property test needed a per-test timeout + an
   allLegalMoves that computes the mandatory-capture gate once.
   Human interventions: 0 in this leg.
+
+- **2026-07-11 — house design language adopted.** Repo-root
+  `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
+  (GameHud play header coherent by player count, accent-derived
+  palette + board tokens, MoreFromUs demoted to a footer). GameScreen now renders the shared `GameHud` (seat plaques, active side carries the accent) with the board centered in the leftover space; Board/MiniBoard read `theme.palette.board` tokens.

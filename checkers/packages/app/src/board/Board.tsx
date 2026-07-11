@@ -110,7 +110,7 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
         borderColor: 'divider',
         borderRadius: 2,
         overflow: 'hidden',
-        bgcolor: theme.palette.mode === 'dark' ? '#1b1b1f' : '#efece3',
+        bgcolor: theme.palette.board.surface,
       }}
     >
       {cells.map((cell) => {
@@ -141,7 +141,7 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
                 : selected === cell
                   ? alpha(theme.palette.primary.main, 0.28)
                   : playable
-                    ? alpha(theme.palette.text.primary, 0.14)
+                    ? theme.palette.board.cell
                     : 'transparent',
               '&:focus-visible': {
                 outline: `2px solid ${theme.palette.primary.main}`,

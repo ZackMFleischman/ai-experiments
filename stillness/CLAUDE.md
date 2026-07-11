@@ -7,6 +7,9 @@ session kit). Read `DESIGN.md` before structural changes; decisions go to
 
 ## Hard rules
 
+- UI follows repo-root `DESIGN-PRINCIPLES.md` — the `@parlor/brand`
+  shell/HUD/theme components ARE the rules; deviations need a
+  `DECISIONS.md` entry.
 - **No firebase, ever** — not a dep, not an import, not a string in the
   bundle. `pnpm build` runs `scripts/check-bundle.mjs` to enforce it; CI
   fails on violation. Stillness has no backend and never will.

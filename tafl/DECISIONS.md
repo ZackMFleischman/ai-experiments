@@ -43,6 +43,11 @@
   positions; lex's check-bundle carried dictionary checks into the port;
   MUI dialogs aria-hide background buttons in tests.
 
+- **2026-07-11 — house design language adopted.** Repo-root
+  `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
+  (GameHud play header coherent by player count, accent-derived
+  palette + board tokens, MoreFromUs demoted to a footer). GameScreen now renders the shared `GameHud` (seat plaques, active side carries the accent) with the board centered in the leftover space; Board/MiniBoard read `theme.palette.board` tokens.
+
 - **2026-07-11 — variant is now 11×11 hnefatafl (supersedes the Brandub
   decision above).** Zack wants the classic set: 24 attackers in four edge
   camps vs 12 defenders + king, throne at 60, corners the escape squares.
@@ -50,8 +55,10 @@
   only geometry and the opening position moved. The 200-game property
   sweep budget now scales with board cost. Copenhagen extras stay post-v1.
 
-- **2026-07-11 — game screen is phone-first full-bleed.** The 11×11 board
-  runs edge to edge (`min(100%, calc(100dvh - 230px))` keeps it on screen
-  with HUD + seats bar); pieces get carved-set depth (gradient + shadow),
-  the mover's glyph sits in the HUD, and the seats bar lights the side to
-  move. Board/MiniBoard share one warm parchment/bone/horn palette.
+- **2026-07-11 — phone-first art pass, inside the house language.** The
+  11×11 board runs edge to edge (`min(100%, calc(100dvh - 230px))` keeps
+  play screens scroll-free per §1); surfaces and grid hairlines read
+  `theme.palette.board` (§3); the shared `GameHud` carries the seat
+  plaques with the board's own piece glyphs. One §3 deviation: piece
+  ink/bone hexes stay fixed across color modes so attackers always read
+  dark and defenders pale — side identity beats mode inversion.

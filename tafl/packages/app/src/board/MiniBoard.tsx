@@ -1,6 +1,8 @@
 // Lobby-card thumbnail + landing hero: a tiny static render of a board
 // string (the game doc's serialized state renders without replaying the
-// log). Pure presentation, no interaction — same warm palette as Board.
+// log). Pure presentation, no interaction — surfaces read the accent-derived
+// board tokens (DESIGN-PRINCIPLES §3); piece ink/bone match Board's fixed
+// side-identity colors.
 import Box from '@mui/material/Box';
 import { alpha, useTheme } from '@mui/material/styles';
 import { BOARD_SIZE, THRONE, CORNERS } from '@tafl/engine';
@@ -11,8 +13,6 @@ export function MiniBoard({ board, size = 72 }: { board: string; size?: number }
   const restricted = new Set<number>([THRONE, ...CORNERS]);
   const ink = dark ? '#2e2528' : '#3b2e31';
   const bone = dark ? '#e8e2d4' : '#f7f3e8';
-  const field = dark ? '#1a181c' : '#f2eddd';
-  const line = alpha(dark ? '#f2eddd' : '#3b2e31', dark ? 0.12 : 0.14);
   return (
     <Box
       aria-hidden
@@ -22,10 +22,10 @@ export function MiniBoard({ board, size = 72 }: { board: string; size?: number }
         width: size,
         height: size,
         border: 1,
-        borderColor: alpha(dark ? '#f2eddd' : '#3b2e31', dark ? 0.4 : 0.6),
+        borderColor: alpha(theme.palette.text.primary, dark ? 0.4 : 0.5),
         borderRadius: 1,
         overflow: 'hidden',
-        bgcolor: field,
+        bgcolor: theme.palette.board.surface,
         flexShrink: 0,
       }}
     >
@@ -38,7 +38,7 @@ export function MiniBoard({ board, size = 72 }: { board: string; size?: number }
               position: 'relative',
               display: 'grid',
               placeItems: 'center',
-              boxShadow: `inset 0 0 0 0.5px ${line}`,
+              boxShadow: `inset 0 0 0 0.5px ${theme.palette.board.cell}`,
               bgcolor: restricted.has(cell)
                 ? alpha(theme.palette.primary.main, dark ? 0.12 : 0.1)
                 : 'transparent',

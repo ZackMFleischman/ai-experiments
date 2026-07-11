@@ -61,3 +61,8 @@
   consoles, $1 tier, questionnaires, screenshots; appId `com.zmfapps.sudoku`
   and the `zmf-apps.pages.dev` support placeholder are final only at first
   upload — rename before then if wanted.
+
+- **2026-07-11 — house design language adopted.** Repo-root
+  `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
+  (GameHud play header coherent by player count, accent-derived
+  palette + board tokens, MoreFromUs demoted to a footer). The play screen's chrome title is now the wordmark ("Sudoku"); puzzle kind + clock moved into the shared `GameHud`. Home's cross-promo renders as the quiet brand footer.

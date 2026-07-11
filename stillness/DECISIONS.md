@@ -24,3 +24,8 @@
 - MoreFromUs populated both directions with sudoku (both have live web
   URLs); the plan's "≥2 brand titles public" read as web-public — revisit
   the store-facing copy when both are store-live.
+
+- **2026-07-11 — house design language adopted.** Repo-root
+  `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
+  (GameHud play header coherent by player count, accent-derived
+  palette + board tokens, MoreFromUs demoted to a footer). The Sit screen's chrome title is now the wordmark; the progress ring strokes `theme.palette.primary` instead of a hardcoded hex. Home's cross-promo renders as the quiet brand footer.

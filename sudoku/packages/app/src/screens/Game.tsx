@@ -10,7 +10,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { AppShell } from '@parlor/brand';
+import { AppShell, GameHud } from '@parlor/brand';
 import {
   hapticNotification,
   hapticSelection,
@@ -123,12 +123,21 @@ export function Game() {
   }
 
   return (
-    <AppShell
-      title={options.daily ? 'Daily puzzle' : capitalize(options.difficulty)}
-      onBack={() => navigate('/')}
-      actions={<Chip label={formatElapsed(elapsed)} size="small" variant="outlined" aria-label="elapsed time" />}
-    >
+    <AppShell title="Sudoku" onBack={() => navigate('/')}>
+      {/* Wordmark stays in the chrome; game state lives in the HUD
+          (DESIGN-PRINCIPLES.md §2). */}
       <Stack spacing={2} sx={{ mt: 1 }}>
+        <GameHud
+          status={options.daily ? 'Daily puzzle' : capitalize(options.difficulty)}
+          meta={
+            <Chip
+              label={formatElapsed(elapsed)}
+              size="small"
+              variant="outlined"
+              aria-label="elapsed time"
+            />
+          }
+        />
         <Board state={state} selected={selected} conflicts={conflicts} onSelect={setSelected} />
         <DigitPad counts={counts} notesMode={notesMode} onDigit={act} />
         <Stack direction="row" spacing={1} justifyContent="center">

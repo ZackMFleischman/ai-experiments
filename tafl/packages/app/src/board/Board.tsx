@@ -43,6 +43,8 @@ export function PieceGlyph({
 }) {
   const theme = useTheme();
   const dark = theme.palette.mode === 'dark';
+  // Deliberate §3 deviation (see DECISIONS.md): piece colors stay fixed
+  // across color modes so attackers always read dark, defenders pale.
   const ink = dark ? '#2e2528' : '#3b2e31'; // warm near-black, like carved horn
   const bone = dark ? '#e8e2d4' : '#f7f3e8'; // pale bone for the defenders
   const accent = theme.palette.primary.main;
@@ -138,9 +140,10 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
   const restricted = new Set<number>([THRONE, ...CORNERS]);
   const lastCells = new Set(lastMove ? [lastMove.from, lastMove.to] : []);
 
-  const field = dark ? '#1a181c' : '#f2eddd'; // parchment / smoke
-  const line = alpha(dark ? '#f2eddd' : '#3b2e31', dark ? 0.14 : 0.18);
-  const frame = alpha(dark ? '#f2eddd' : '#3b2e31', dark ? 0.4 : 0.65);
+  // Surfaces come from the accent-derived board tokens (DESIGN-PRINCIPLES §3);
+  // the cell token doubles as the hairline grid color.
+  const line = theme.palette.board.cell;
+  const frame = alpha(theme.palette.text.primary, dark ? 0.4 : 0.55);
 
   return (
     <Box
@@ -156,10 +159,8 @@ export function Board({ state, onMove, actingSide, lastMove }: BoardProps) {
         borderColor: frame,
         borderRadius: 1.5,
         overflow: 'hidden',
-        bgcolor: field,
-        boxShadow: dark
-          ? `0 4px 24px ${alpha('#000', 0.5)}`
-          : `0 4px 20px ${alpha('#3b2e31', 0.14)}`,
+        bgcolor: theme.palette.board.surface,
+        boxShadow: `0 4px ${dark ? '24px' : '20px'} ${alpha('#000', dark ? 0.5 : 0.14)}`,
         touchAction: 'manipulation',
       }}
     >
