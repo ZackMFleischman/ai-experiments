@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "paths": {
+      "@parlor/arcade": ["../parlor/packages/arcade/src/index.ts"],
+      "@parlor/solo": ["../parlor/packages/solo/src/index.ts"],
+      "@parlor/brand": ["../parlor/packages/brand/src/index.ts"],
+      "@parlor/native": ["../parlor/packages/native/src/index.ts"],
+      "@parlor/native/capacitor-config": ["../parlor/packages/native/src/capacitorConfig.ts"],
+      "@parlor/harness": ["../parlor/packages/harness/src/index.ts"],
+      "@parlor/harness/walk": ["../parlor/packages/harness/src/walkGallery.ts"]
+    }
+  }
+}

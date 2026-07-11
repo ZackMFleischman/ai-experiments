@@ -1,0 +1,115 @@
+# ported from .github/workflows/hive-ci.yml (adapted)
+name: CHECKERS CI
+
+on:
+  pull_request:
+    paths: ['checkers/**', 'parlor/**', '.github/workflows/checkers-ci.yml']
+  push:
+    branches: [main]
+    paths: ['checkers/**', 'parlor/**', '.github/workflows/checkers-ci.yml']
+
+concurrency:
+  group: checkers-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The shared platform workspace gates on its own (no game imports by
+  # construction — checkers/IMPLEMENTATION.md §1).
+  parlor:
+    name: parlor · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: parlor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: parlor/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: parlor/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Fast required gate on every push/PR: typecheck + all unit layers
+  # (engine, app, functions-against-emulator). Parlor installs first —
+  # link: deps don't install the linked package's own deps (§8.11).
+  checks:
+    name: checkers · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: checkers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: checkers/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            checkers/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: cache firebase emulator jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('checkers/pnpm-lock.yaml') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Full milestone acceptance gates (validate:m0..mN, incl. Playwright e2e).
+  validate:
+    name: checkers · validate (milestone gates)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: checkers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: checkers/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            checkers/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: cache firebase emulator jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('checkers/pnpm-lock.yaml') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - name: install playwright chromium
+        working-directory: checkers/e2e
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm validate

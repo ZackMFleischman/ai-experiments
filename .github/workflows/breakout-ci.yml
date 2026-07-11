@@ -1,0 +1,105 @@
+# ported from .github/workflows/lex-ci.yml (adapted — zero-backend solo app:
+# no Java, no firebase emulator, no functions)
+name: BREAKOUT CI
+
+on:
+  pull_request:
+    paths: ['breakout/**', 'parlor/**', '.github/workflows/breakout-ci.yml']
+  push:
+    branches: [main]
+    paths: ['breakout/**', 'parlor/**', '.github/workflows/breakout-ci.yml']
+
+concurrency:
+  group: breakout-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The shared platform workspace gates on its own (no game imports by
+  # construction).
+  parlor:
+    name: parlor · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: parlor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: parlor/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: parlor/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Fast required gate: typecheck + unit (engine + app). Parlor installs
+  # first — link: deps don't install the linked package's own deps.
+  checks:
+    name: breakout · typecheck · unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: breakout
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: breakout/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            breakout/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: determinism acceptance sweep (validate:m1)
+        run: pnpm validate:m1
+
+  # Gallery visual sweep (validate:visual): registry × 3 viewports × 2 themes
+  # against the dev server. Machine checks (console noise, board geometry)
+  # gate here; the screenshots upload for human/agent review.
+  visual:
+    name: breakout · visual gallery
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: breakout
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: breakout/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            breakout/pnpm-lock.yaml
+            parlor/pnpm-lock.yaml
+      - name: install parlor (source-linked sibling — must install first)
+        run: pnpm install --frozen-lockfile
+        working-directory: parlor
+      - run: pnpm install --frozen-lockfile
+      - name: install playwright chromium
+        working-directory: breakout/e2e
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm validate:visual
+      - name: upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-gallery-screens
+          path: breakout/artifacts/screens

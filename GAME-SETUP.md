@@ -289,6 +289,8 @@ and no-op on the web, so the free PWA is unchanged by the wrap existing.
 
 ---
 
-A generator (`create-parlor-game <name>`) that stamps this skeleton is the
-plan's second, more ambitious Phase-4 deliverable; until it exists, this
-checklist is the source of truth (`PARLOR-PLATFORM-HARDENING.md` Phase 4).
+The generator exists: **`tools/create-app/`** (BRAND-IMPLEMENTATION.md
+Phase 4c) stamps this skeleton from the living exemplars (duo = tafl) —
+`node tools/create-app/index.mjs <name> --kind duo` and follow its
+`PLAYBOOK.md`. This checklist remains the reference for what the stamp
+contains and for anything done by hand.

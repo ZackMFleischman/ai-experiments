@@ -1,0 +1,71 @@
+// Online games list container: lazy-loaded by the Lobby in full mode, with
+// the push-permission banner (enable button / iOS coach mark).
+import { Alert, CircularProgress, Stack } from '@mui/material';
+import { useAuth } from '@parlor/web';
+import { NotificationsSetup } from '@parlor/web/NotificationsSetup';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { LobbyView } from '../screens/lobbyView';
+import { actionableCount, useTurnBadge } from '../screens/turnBadge';
+import * as api from './gameApi';
+import { useTaflGames } from './lobby';
+
+export default function OnlineGames() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  if (!user) return null;
+  return (
+    <Stack spacing={2} sx={{ mt: 2 }}>
+      <NotificationsSetup coachMarkKey="tafl.coachmark.dismissed" />
+      <Loaded
+        uid={user.uid}
+        onOpen={(id) => void navigate(`/game/${id}`)}
+        onNewGame={() => void navigate('/new')}
+      />
+    </Stack>
+  );
+}
+
+function Loaded({
+  uid,
+  onOpen,
+  onNewGame,
+}: {
+  uid: string;
+  onOpen: (id: string) => void;
+  onNewGame: () => void;
+}) {
+  const { games, loading } = useTaflGames(uid);
+  const [error, setError] = useState<string | null>(null);
+  useTurnBadge(actionableCount(games));
+  if (loading) {
+    return (
+      <Stack alignItems="center" sx={{ mt: 4 }}>
+        <CircularProgress size={28} />
+      </Stack>
+    );
+  }
+  const respond = (id: string, accept: boolean) => {
+    setError(null);
+    api
+      .respondChallenge({ gameId: id, accept })
+      .then(() => {
+        if (accept) onOpen(id); // straight into the fresh game
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'could not respond to the challenge');
+      });
+  };
+  return (
+    <>
+      {error && <Alert severity="error">{error}</Alert>}
+      <LobbyView
+        games={games}
+        now={Date.now()}
+        onOpen={onOpen}
+        onRespondChallenge={respond}
+        onNewGame={onNewGame}
+      />
+    </>
+  );
+}

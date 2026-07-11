@@ -1,0 +1,58 @@
+name: ARCADE SITE (brand site) deploy
+
+# Phase 5's brand site (BRAND-IMPLEMENTATION.md): the family listing +
+# support/privacy pages, replacing the Phase-3b placeholder AT THE SAME
+# Cloudflare Pages project (zmf-apps) so the store listings' support and
+# privacy URLs never move. Static files, no build; graceful no-op (with a
+# notice) when the secrets are absent.
+
+on:
+  pull_request:
+    paths: ['arcade-site/**', '.github/workflows/arcade-site-deploy.yml']
+  push:
+    branches: [main]
+    paths: ['arcade-site/**', '.github/workflows/arcade-site-deploy.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: arcade-site-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: deploy
+        if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+        run: |
+          npm install -g wrangler@3
+          # Self-provision the Pages project (ignored if it already exists).
+          wrangler pages project create zmf-apps --production-branch main || true
+          branch="${GITHUB_HEAD_REF:-main}"
+          wrangler pages deploy arcade-site --project-name=zmf-apps --branch="$branch"
+      - name: smoke-check the deployment
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          # Production URL only — previews get their own hash hostnames.
+          [ -z "$CF_API_TOKEN" ] && { echo "::notice::no secrets — skipped"; exit 0; }
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://zmf-apps.pages.dev/") && [ "$code" = "200" ] && break
+            sleep 10
+          done
+          [ "$code" = "200" ] || { echo "::error::support site not serving ($code)"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://zmf-apps.pages.dev/privacy.html")
+          [ "$code" = "200" ] || { echo "::error::privacy.html returned $code"; exit 1; }
+      - name: notice when Cloudflare secrets are missing
+        if: env.CF_API_TOKEN == '' || env.CF_ACCOUNT_ID == ''
+        run: echo "::notice::Cloudflare secrets not set — skipped arcade-site deploy."

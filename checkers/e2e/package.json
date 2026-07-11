@@ -1,0 +1,17 @@
+{
+  "name": "checkers-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:hotseat": "playwright test --config playwright.hotseat.config.ts",
+    "test:visual": "playwright test --config playwright.visual.config.ts"
+  },
+  "devDependencies": {
+    "@parlor/harness": "link:../../parlor/packages/harness",
+    "@playwright/test": "~1.56.1",
+    "@types/node": "^22.20.0",
+    "typescript": "^5.6.3"
+  }
+}

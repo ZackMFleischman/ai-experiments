@@ -15,6 +15,7 @@ import { useApp } from '../App';
 
 const FAMILY = [
   { name: 'Sudoku', tagline: 'A calm daily puzzle', url: 'https://sudoku-zmf.pages.dev', glyph: '🔢' },
+  { name: 'Bricks', tagline: 'The wall, the paddle, the ball', url: 'https://breakout-zmf.pages.dev', glyph: '🧱' },
   { name: 'Hive', tagline: 'The bug board game, online with a friend', url: 'https://hive.zackmfleischman.com', glyph: '🐝' },
   { name: 'Lex', tagline: 'A crossword tile game for two', glyph: '🅻' },
 ];

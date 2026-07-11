@@ -32,6 +32,10 @@ Independent pnpm workspace. Packages (TS source, no build step):
   capability, plus the notify machinery.
 - **`@parlor/harness`** — the `/dev/gallery` runtime and `validate:visual` /
   `validate:ux` script cores.
+- **`@parlor/solo` / `@parlor/arcade` / `@parlor/brand` / `@parlor/native`** —
+  the zero-backend brand stack (solo session kit, fixed-timestep arcade kit,
+  brand shell/theme/icons, Capacitor glue) for the minimalist-apps titles;
+  strategy at the repo root (`MINIMALIST-APPS-STRATEGY.md`).
 
 **Building a new game?** A game plugs in at a handful of injection points — a
 `GameServerConfig` (seats, options, initial state, racks) + `SubmitMoveConfig`

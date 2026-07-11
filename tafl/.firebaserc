@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "demo-tafl",
+    "prod": "tafl-zmf"
+  }
+}

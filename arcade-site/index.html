@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- Phase 5's brand site (BRAND-IMPLEMENTATION.md): replaces the Phase-3b
+     support-site/ placeholder AT THE SAME URL (zmf-apps.pages.dev — both
+     store listings point here, so / and /privacy.html must keep serving).
+     Static, zero-backend, zero-script — like the apps. The family list is
+     the web end of every app's MoreFromUs panel. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="ZMF Apps — small, quiet apps, done well. No accounts, no ads, no analytics. A dollar in the stores, free on the web." />
+  <title>ZMF Apps</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #f5f3ee; color: #2b2b33;
+      max-width: 44rem; margin: 0 auto; padding: 3rem 1.5rem; line-height: 1.6;
+    }
+    @media (prefers-color-scheme: dark) { body { background: #121212; color: #eceae4; } }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .tagline { opacity: 0.75; margin-top: 0; }
+    h2 { font-size: 1.1rem; margin-top: 2.5rem; }
+    a { color: #3b5bdb; }
+    ul.family { list-style: none; padding: 0; display: grid; gap: 0.9rem; }
+    ul.family li {
+      border: 1px solid rgba(125,125,125,0.35); border-radius: 12px;
+      padding: 0.9rem 1.1rem;
+    }
+    ul.family .glyph { margin-right: 0.55rem; }
+    ul.family .name { font-weight: 700; }
+    ul.family .how { display: block; font-size: 0.9rem; opacity: 0.75; margin-top: 0.15rem; }
+    footer { margin-top: 3rem; font-size: 0.85rem; opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <h1>ZMF Apps</h1>
+  <p class="tagline">Small, quiet apps, done well.</p>
+  <p>
+    No accounts, no ads, no analytics — and for most of the family, no
+    network at all. The web versions are free. The app-store versions cost
+    exactly one dollar, and that is the entire business model.
+  </p>
+
+  <h2>The family</h2>
+  <ul class="family">
+    <li>
+      <span class="glyph">🔢</span><a class="name" href="https://sudoku-zmf.pages.dev">Sudoku</a> — a calm daily puzzle.
+      <span class="how">Free on the web · $1 in the stores (coming) · fully offline</span>
+    </li>
+    <li>
+      <span class="glyph">🧘</span><a class="name" href="https://stillness-zmf.pages.dev">Stillness</a> — a quiet meditation timer.
+      <span class="how">Free on the web · $1 in the stores (coming) · fully offline</span>
+    </li>
+    <li>
+      <span class="glyph">🧱</span><a class="name" href="https://breakout-zmf.pages.dev">Bricks</a> — the wall, the paddle, the ball.
+      <span class="how">Free on the web · $1 in the stores (coming) · fully offline</span>
+    </li>
+    <li>
+      <span class="glyph">⚔️</span><a class="name" href="https://tafl.pages.dev">Tafl</a> — the Viking siege game, for two.
+      <span class="how">Free hot-seat on the web · online play coming</span>
+    </li>
+    <li>
+      <span class="glyph">🐝</span><a class="name" href="https://hive.zackmfleischman.com">Hive</a> — the bug board game, online with a friend.
+      <span class="how">Free on the web · hot-seat + online</span>
+    </li>
+    <li>
+      <span class="glyph">⛃</span><span class="name">Checkers</span> — draughts, plain and sharp.
+      <span class="how">Coming soon</span>
+    </li>
+    <li>
+      <span class="glyph">🅻</span><span class="name">Lex</span> — a crossword tile game for two.
+      <span class="how">Coming soon</span>
+    </li>
+  </ul>
+
+  <h2>Support</h2>
+  <p>
+    Something broken, or something you wish an app did? Write to
+    <a href="mailto:zfleischman@gmail.com">zfleischman@gmail.com</a> — a human
+    reads it.
+  </p>
+
+  <h2>Privacy</h2>
+  <p>
+    The short version: the solo apps collect nothing at all. The long version
+    is barely longer — <a href="/privacy.html">privacy policy</a>.
+  </p>
+
+  <footer>ZMF Apps</footer>
+</body>
+</html>
