@@ -1,22 +1,22 @@
-name: TAFL deploy
+name: CHECKERS deploy
 
 # ported from hive-deploy.yml (adapted — hot-seat job only; the Firebase
 # multiplayer deploy job arrives with M4 T4.9).
 # Static hot-seat PWA (T3.12): production deploy on merge to main, a preview
-# URL per PR touching tafl/ or parlor/. Same Cloudflare Pages pattern as
-# loom-ci.yml / hive-deploy.yml but its own `tafl` Pages project. Falls back
+# URL per PR touching checkers/ or parlor/. Same Cloudflare Pages pattern as
+# loom-ci.yml / hive-deploy.yml but its own `checkers` Pages project. Falls back
 # gracefully (with a notice) when the Cloudflare secrets are absent.
 
 on:
   pull_request:
-    paths: ['tafl/**', 'parlor/**', '.github/workflows/tafl-deploy.yml']
+    paths: ['checkers/**', 'parlor/**', '.github/workflows/checkers-deploy.yml']
   push:
     branches: [main]
-    paths: ['tafl/**', 'parlor/**', '.github/workflows/tafl-deploy.yml']
+    paths: ['checkers/**', 'parlor/**', '.github/workflows/checkers-deploy.yml']
   workflow_dispatch: # manual redeploy
 
 concurrency:
-  group: tafl-deploy-${{ github.ref }}
+  group: checkers-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -32,18 +32,18 @@ jobs:
       CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
     defaults:
       run:
-        working-directory: tafl
+        working-directory: checkers
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: tafl/package.json
+          package_json_file: checkers/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: |
-            tafl/pnpm-lock.yaml
+            checkers/pnpm-lock.yaml
             parlor/pnpm-lock.yaml
       # link: deps don't install the linked package's own deps — parlor first (§8.11).
       - name: install parlor (source-linked sibling workspace)
@@ -51,9 +51,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - run: pnpm install --frozen-lockfile
       - name: compile the dictionaries (DAWGs are generated, never committed)
-        run: pnpm --filter @tafl/dict build
+        run: pnpm --filter @checkers/dict build
       - name: build the static PWA (icons generated from the tile wordmark)
-        run: pnpm --filter @tafl/app build
+        run: pnpm --filter @checkers/app build
       - name: verify the bundle (no firebase; dictionaries present) (T3.12)
         run: node scripts/check-bundle.mjs
       # npm -g wrangler from the repo root — same isolation reasoning as loom-ci.
@@ -67,11 +67,11 @@ jobs:
         run: |
           npm install -g wrangler@3
           # Self-provision the Pages project (ignored if it already exists).
-          wrangler pages project create tafl --production-branch main || true
+          wrangler pages project create checkers --production-branch main || true
           set +e
           branch="${GITHUB_HEAD_REF:-main}"
-          out=$(wrangler pages deploy tafl/packages/app/dist \
-            --project-name=tafl --branch="$branch" 2>&1)
+          out=$(wrangler pages deploy checkers/packages/app/dist \
+            --project-name=checkers --branch="$branch" 2>&1)
           status=$?
           set -e
           printf '%s\n' "$out"
@@ -104,9 +104,9 @@ jobs:
         if: github.event_name == 'pull_request' && steps.deploy.outcome == 'success'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          header: tafl-preview
+          header: checkers-preview
           message: |
-            ### ⚔️ TAFL preview
+            ### ⛃ CHECKERS preview
 
             **[▶ Open the hot-seat game](${{ steps.deploy.outputs.alias-url || steps.deploy.outputs.deployment-url }}/game/local)**
 
@@ -118,28 +118,28 @@ jobs:
   # Production Firebase deploy (M4 T4.9): the multiplayer app to Hosting, the
   # callables to Functions, rules + indexes to Firestore — main merges only.
   # Ported from hive-deploy.yml; auth via the service-account JSON secret
-  # (DECISIONS 2026-07-04 — tafl-zmf setup complete, secret
-  # FIREBASE_SERVICE_ACCOUNT_TAFL_ZMF).
+  # (DECISIONS 2026-07-04 — checkers-zmf setup complete, secret
+  # FIREBASE_SERVICE_ACCOUNT_CHECKERS_ZMF).
   firebase:
     name: firebase deploy (hosting · functions · firestore)
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
-      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TAFL_ZMF }}
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CHECKERS_ZMF }}
     defaults:
       run:
-        working-directory: tafl
+        working-directory: checkers
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: tafl/package.json
+          package_json_file: checkers/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: |
-            tafl/pnpm-lock.yaml
+            checkers/pnpm-lock.yaml
             parlor/pnpm-lock.yaml
       # link: deps don't install the linked package's own deps — parlor first (§8.11).
       - name: install parlor (source-linked sibling workspace)
@@ -147,11 +147,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - run: pnpm install --frozen-lockfile
       - name: compile the dictionaries (DAWGs are generated, never committed)
-        run: pnpm --filter @tafl/dict build
+        run: pnpm --filter @checkers/dict build
       - name: build the multiplayer app + functions (bundle + dawgs beside it)
         run: |
-          pnpm --filter @tafl/app build:mp
-          pnpm --filter @tafl/functions build
+          pnpm --filter @checkers/app build:mp
+          pnpm --filter @checkers/functions build
       # Cloud Build npm-installs the packed functions dir including
       # devDependencies — the link:/workspace dev-only deps (inlined into
       # lib/ by esbuild) would fail it. The cloud needs runtime deps only.
@@ -166,7 +166,7 @@ jobs:
           # deploying v2 functions but never auto-enables it (it auto-enables
           # the rest). Idempotent, so it just runs every time.
           gcloud auth login --brief --quiet --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
-          gcloud services enable cloudbilling.googleapis.com --project tafl-zmf
+          gcloud services enable cloudbilling.googleapis.com --project checkers-zmf
           pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force
           # Functions first created during a failed deploy never get their
           # invoker IAM binding, and the CLI never retries it on updates — the
@@ -177,23 +177,23 @@ jobs:
           # roles/run.admin on the deploy SA (§8.5).
           repair_failed=0
           for f in creategame joingame cancelgame challengeuser respondchallenge submitmove resign rematch ping; do
-            gcloud run services add-iam-policy-binding "$f" --project tafl-zmf \
+            gcloud run services add-iam-policy-binding "$f" --project checkers-zmf \
               --region us-central1 --member allUsers --role roles/run.invoker --quiet \
               || repair_failed=1
           done
-          gcloud run services add-iam-policy-binding forfeitexpired --project tafl-zmf \
+          gcloud run services add-iam-policy-binding forfeitexpired --project checkers-zmf \
             --region us-central1 --role roles/run.invoker --quiet \
-            --member "serviceAccount:$(gcloud projects describe tafl-zmf --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+            --member "serviceAccount:$(gcloud projects describe checkers-zmf --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
             || repair_failed=1
           rm -f "$RUNNER_TEMP/firebase-sa.json"
           if [ "$repair_failed" = "1" ]; then
-            echo "::error::invoker IAM repair failed — grant roles/run.admin to the tafl-zmf deploy service account and re-run this workflow"
+            echo "::error::invoker IAM repair failed — grant roles/run.admin to the checkers-zmf deploy service account and re-run this workflow"
             exit 1
           fi
       - name: smoke-check hosting
         if: env.FIREBASE_SA != ''
         run: |
-          url="https://tafl-zmf.web.app"
+          url="https://checkers-zmf.web.app"
           for i in $(seq 1 10); do
             code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$url/") && [ "$code" = "200" ] && break
             sleep 5
@@ -207,4 +207,4 @@ jobs:
           echo "hosting serving: index, SPA fallback, dictionary all 200"
       - name: notice when the Firebase service-account secret is missing
         if: env.FIREBASE_SA == ''
-        run: echo "::notice::FIREBASE_SERVICE_ACCOUNT_TAFL_ZMF not set — built but skipped the Firebase deploy."
+        run: echo "::notice::FIREBASE_SERVICE_ACCOUNT_CHECKERS_ZMF not set — built but skipped the Firebase deploy."

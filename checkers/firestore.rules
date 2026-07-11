@@ -1,0 +1,63 @@
+rules_version = '2';
+
+// ported from hive/firestore.rules (adapted)
+// CANONICAL parlor security model — the reference every parlor game's
+// firestore.rules tracks (PARLOR-PLATFORM-HARDENING.md, Phase 1). Perfect-
+// information games (hive, checkers) point their firebase.json straight at this
+// file; a hidden-information game (lex) copies this base and adds the rack/bag
+// override documented at the bottom. Its negative-path rules-unit-tests are the
+// gate — keep them green when this changes (security invariant, not style).
+//
+// Three tiers: every game mutation goes through a callable, so clients get NO
+// write access to games/* or invites/*. Game docs (and their move logs) are
+// readable only by their two players; invites by anyone signed in holding the
+// code; the only client-writable doc is your own users/{uid}. Everything else
+// is denied by default.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /games/{gameId} {
+      allow read: if request.auth != null
+        && request.auth.uid in resource.data.playerIds;
+      allow write: if false;
+
+      match /moves/{n} {
+        allow read: if request.auth != null
+          && request.auth.uid
+            in get(/databases/$(database)/documents/games/$(gameId)).data.playerIds;
+        allow write: if false;
+      }
+    }
+
+    match /invites/{code} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// ── Hidden-information override ────────────────────────────────────────────
+// A game with per-seat secret state (lex's racks, its bag) adds these two
+// matches INSIDE `match /games/{gameId}` (after the `moves` block). Only the
+// server ever writes them; a rack is owner-read only, the bag is server-secret.
+// Copy verbatim into the game's own firestore.rules when it needs them:
+//
+//   // Own rack only: the doc id IS the owner uid. Nobody else — including the
+//   // opponent — can read it; nobody writes but the server.
+//   match /racks/{uid} {
+//     allow read: if request.auth != null && request.auth.uid == uid;
+//     allow write: if false;
+//   }
+//
+//   // Bag order + draw log: server-secret. No client read, no client write.
+//   match /private/{docId} {
+//     allow read, write: if false;
+//   }
