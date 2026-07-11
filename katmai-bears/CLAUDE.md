@@ -2,9 +2,7 @@
 
 **Katmai Bearcam Dashboard** — a React + TypeScript PWA that shows every Katmai / Brooks
 Falls live bear cam in one dashboard (fullscreen, swipe, bear counter, fish-catch clips,
-Bearapalooza alerts). It is an **independent pnpm workspace**. Nothing here relates to
-`loom/`, `hive/`, `lex/`, or `parlor/` — ignore the repo-root `CLAUDE.md`'s loom guidance
-when working in this directory.
+Bearapalooza alerts). It is an **independent pnpm workspace**, unrelated to `hive/`, `lex/`, or `parlor/`.
 
 ## Read before doing anything
 

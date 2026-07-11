@@ -4,7 +4,7 @@ PARLOR: the game-agnostic platform workspace for this repo's turn-based
 two-player PWA games. Read `README.md` here first; the design rationale and
 hive port map live in `lex/DESIGN.md` §4, and **all build tasks live in
 `lex/IMPLEMENTATION.md`** — parlor has no task list of its own and only grows
-in service of a consumer's task. Nothing here relates to `loom/`.
+in service of a consumer's task.
 
 ## Hard rules
 

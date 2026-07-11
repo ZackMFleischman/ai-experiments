@@ -1,7 +1,7 @@
 name: HIVE deploy
 
 # Static hot-seat PWA (T3.12): production deploy on merge to main, a preview
-# URL per PR touching hive/. Same Cloudflare Pages pattern as loom-ci.yml but
+# URL per PR touching hive/. Same Cloudflare Pages pattern as the sibling app deploys but
 # its own `hive` Pages project. Falls back gracefully (with a notice) when the
 # Cloudflare secrets are absent.
 
@@ -51,7 +51,7 @@ jobs:
         run: pnpm --filter @hive/app build
       - name: verify no firebase in the bundle (T3.12)
         run: node scripts/check-bundle.mjs
-      # npm -g wrangler from the repo root — same isolation reasoning as loom-ci.
+      # npm -g wrangler from the repo root — keeps it out of the pnpm workspaces.
       - name: deploy to Cloudflare Pages
         id: deploy
         if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''

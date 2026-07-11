@@ -4,7 +4,7 @@ name: CHECKERS deploy
 # multiplayer deploy job arrives with M4 T4.9).
 # Static hot-seat PWA (T3.12): production deploy on merge to main, a preview
 # URL per PR touching checkers/ or parlor/. Same Cloudflare Pages pattern as
-# loom-ci.yml / hive-deploy.yml but its own `checkers` Pages project. Falls back
+# hive-deploy.yml but its own `checkers` Pages project. Falls back
 # gracefully (with a notice) when the Cloudflare secrets are absent.
 
 on:
@@ -56,7 +56,7 @@ jobs:
         run: pnpm --filter @checkers/app build
       - name: verify the bundle (no firebase; dictionaries present) (T3.12)
         run: node scripts/check-bundle.mjs
-      # npm -g wrangler from the repo root — same isolation reasoning as loom-ci.
+      # npm -g wrangler from the repo root — same isolation reasoning as hive-deploy.
       - name: deploy to Cloudflare Pages
         id: deploy
         if: env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != ''

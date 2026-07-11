@@ -1,8 +1,7 @@
 # CLAUDE.md — lex/
 
 LEX: a two-player crossword-tile-game PWA (Scrabble/Words-with-Friends family).
-Independent pnpm workspace — **nothing here relates to `loom/`**; ignore the
-repo-root CLAUDE.md's loom guidance when working in this directory. LEX shares its
+Independent pnpm workspace. LEX shares its
 architecture with `../hive/` and ports much of hive's code (DESIGN.md §4); when a
 task says **[port: hive path]**, start from that file.
 

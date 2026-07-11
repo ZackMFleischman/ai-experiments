@@ -45,7 +45,7 @@ export function GameScreen({
     controller.setConfirmMove(confirmMove);
   }, [controller, confirmMove]);
 
-  // Debug surface for validators (the loom `window.__loom` convention).
+  // Debug surface for validators.
   useEffect(() => {
     (window as unknown as { __hive?: unknown }).__hive = { controller };
   }, [controller]);

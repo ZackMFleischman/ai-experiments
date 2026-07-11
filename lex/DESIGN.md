@@ -167,7 +167,7 @@ renders the result.
 lex/
 ├── DESIGN.md                   # this document
 ├── IMPLEMENTATION.md           # ordered task list + build protocol
-├── package.json                # pnpm workspace root (independent of loom/ and hive/)
+├── package.json                # pnpm workspace root (independent of hive/)
 ├── packages/
 │   ├── engine/                 # @lex/engine — pure rules kernel (zero deps)
 │   │   └── src/
