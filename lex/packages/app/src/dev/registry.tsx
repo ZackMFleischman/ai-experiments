@@ -12,6 +12,7 @@ import { GameActions } from '../game/GameActions';
 import { NoticeToast } from '../game/NoticeToast';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
+import { WordDefinitionSheet } from '../game/WordDefinitionSheet';
 import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
 import type { TileSkinId } from '../board/skin';
 import { SkinContext } from '../board/skinContext';
@@ -320,9 +321,60 @@ export const GALLERY: GalleryEntry[] = [
       <WithController
         make={() => fixtureController(midGame)}
         render={(c) => (
-          <ScoreSheet open onClose={() => {}} rows={c.getSnapshot().sheet} names={['Player 1', 'Player 2']} />
+          <ScoreSheet
+            open
+            onClose={() => {}}
+            rows={c.getSnapshot().sheet}
+            names={['Player 1', 'Player 2']}
+            onDefine={() => {}}
+          />
         )}
       />
+    ),
+  },
+  // Definitions (T7.2). initialState pins each outcome so the states are
+  // reproducible without a glossary artifact in the gallery build.
+  {
+    id: 'definition-found',
+    render: () => (
+      <Box data-gallery-ready>
+        <WordDefinitionSheet
+          word="QI"
+          onClose={() => {}}
+          initialState={{
+            status: 'found',
+            entry: { word: 'QI', pos: 'n', gloss: 'the vital life force, in Chinese thought' },
+          }}
+        />
+      </Box>
+    ),
+  },
+  {
+    id: 'definition-inflected',
+    render: () => (
+      <Box data-gallery-ready>
+        <WordDefinitionSheet
+          word="QUIZZED"
+          onClose={() => {}}
+          initialState={{
+            status: 'found',
+            entry: {
+              word: 'QUIZZED',
+              pos: 'n',
+              gloss: 'an examination consisting of a few short questions',
+              base: 'QUIZ',
+            },
+          }}
+        />
+      </Box>
+    ),
+  },
+  {
+    id: 'definition-none',
+    render: () => (
+      <Box data-gallery-ready>
+        <WordDefinitionSheet word="ZYZZYVA" onClose={() => {}} initialState={{ status: 'none' }} />
+      </Box>
     ),
   },
   {

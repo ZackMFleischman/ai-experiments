@@ -16,6 +16,7 @@ import { GameActions } from '../game/GameActions';
 import { ResultOverlay } from '../game/ResultOverlay';
 import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
+import { WordDefinitionSheet } from '../game/WordDefinitionSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
 import { PreviewOverlay } from './PreviewOverlay';
 import { rackSlotGeometry } from './rackGeometry';
@@ -82,6 +83,9 @@ export function GameBoard({
   const dragRef = useRef<DragState | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The word whose definition is on screen (T7.2) — set by tapping a live
+  // preview chip or a word in the score sheet, both of which route here.
+  const [defining, setDefining] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
   const trayWrapRef = useRef<HTMLDivElement | null>(null);
@@ -362,6 +366,7 @@ export function GameBoard({
             <PreviewOverlay
               preview={snap.preview}
               anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
+              onDefine={setDefining}
             />
             {lastPlay && lastPlayEnd && (
               <Box
@@ -451,7 +456,9 @@ export function GameBoard({
         onClose={() => setSheetOpen(false)}
         rows={snap.sheet}
         names={seatNames}
+        onDefine={setDefining}
       />
+      <WordDefinitionSheet word={defining} onClose={() => setDefining(null)} />
       {snap.beat && <EndBeat onDone={() => controller.finishBeat()} />}
       {snap.end && (
         <ResultOverlay

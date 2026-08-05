@@ -102,6 +102,19 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - High contrast: hard-outlined tiles on a black/white grid (inverted in dark);
   dark tiles are black-on-yellow; DL/TL/DW/TW labels stay the non-color signal.
 
+## Word definitions (T7.2)
+
+- Definition sheet: the word reads as the heading (uppercase, letter-spaced);
+  part of speech is spelled out ("noun", not "n"); the gloss is body text, not
+  a caption.
+- A gloss found through a reduced form carries the "form of CAT" chip — the
+  player can always see which word was actually defined.
+- The `definition-none` state reads as informative, not as a rejection: the word
+  is stated to be legal, and the Wiktionary link-out is present in every state.
+- Preview chips stay legible as buttons: no focus ring or button chrome at rest,
+  and their grown tap targets (≥44px) don't overlap enough to make the wrong
+  word tappable on a pileup.
+
 ## Accepted deviations
 
 (none — the ~41px rack-slot deviation closed when the tray shed its side

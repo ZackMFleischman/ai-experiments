@@ -264,3 +264,16 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   New `lex.confirmPlay.v1` preference (Context per the skinContext idiom,
   provider in App.tsx, Settings toggle) gates a Play-confirm dialog; default
   **off** so existing one-tap flow and e2e are unchanged. Visual-checklist amended.
+
+- **2026-08-05 — Word definitions: bundled WordNet glossary + curated twos +
+  Wiktionary link-out (M7).** Tap a word where it already is — a preview chip or
+  a score-sheet word. Hybrid data because no free source fits alone: WordNet 3.0
+  (permissive, vendored as a reproducible gloss projection) covers ~65% of a
+  tournament list, all 107 two-letter words are hand-written (WordNet misses a
+  third, and they are what players challenge), the rest link out. Rejected:
+  Wordset (225 words over WordNet for CC BY-SA terms) and NWL2023's own
+  definition column (~100% coverage, but NASPA/Merriam-Webster copyright — the
+  owner's call, not taken unilaterally). Inflections reduce at lookup so the
+  artifact stays lemma-sized, and a reduced hit is labelled, not passed off.
+  Shards persist via the Cache API **in the loader, not `sw.ts`** — registry
+  stamped glue must not carry a lex-only rule.

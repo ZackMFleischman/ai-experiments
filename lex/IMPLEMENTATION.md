@@ -105,6 +105,13 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M6 — shipped, see DECISIONS.md (⚑ production deploy/DNS + PersonalWebsite PR remain with the owner)
 
+### M7 — word definitions (post-v1; FR-57–59, DESIGN §5.5)
+
+| Task | What | Gate |
+|---|---|---|
+| T7.1 | `@lex/dict` glossary: vendored gloss sources (WordNet projection + curated two-letter file), `morphology.ts`, sharded build artifact + manifest, on-demand loader with Cache API persistence | `pnpm --filter @lex/dict build && pnpm --filter @lex/dict test` — two-letter coverage asserted per dictionary |
+| T7.2 | [visual] `WordDefinitionSheet` + tap targets on preview chips and score-sheet words; Wiktionary link-out for uncovered words | `pnpm --filter @lex/app test`, `pnpm validate:visual` (gallery: `definition-found`, `definition-inflected`, `definition-none`) |
+
 ---
 
 ## 3. What the builder must NOT do

@@ -28,4 +28,28 @@
   owner's direction (DESIGN §5.4); redistribution terms are NASPA's, not this
   project's.
 
-These files are data, never hand-edited; tests pin the hashes and counts.
+## Definition sources (glossary, DESIGN §5.5)
+
+- `wordnet-glosses.txt` — derived from **WordNet 3.0** (Princeton University),
+  vendored 2026-08-05 from the `wordnet-db` npm package, which redistributes the
+  `dict/data.*` files verbatim. The WordNet licence is permissive (use, copy,
+  modify and distribute for any purpose without fee, provided the copyright
+  notice and disclaimer travel with it) — its full text ships as `wordnet.txt`.
+  Not vendored pristine: the upstream synset records are ~22 MB and encode far
+  more than a gloss, so this is a **reproducible projection** of them —
+  `word<TAB>pos<TAB>gloss`, one line per single-word lemma some list here can
+  reach, first definition clause only, ≤160 chars, LF, sorted. Regenerate with
+  `pnpm derive:glosses <wordnet-dict-dir>` (`src/derive-glosses.ts` documents
+  each step); it rewrites this file in place and must produce it byte-for-byte.
+  58,002 lemmas.
+  sha256 `31735630c36cc00804bc0287b9cb965335071a88fff2d7a9523eacbe69b214cd`.
+- `curated-glosses.txt` — **hand-authored**, and the one file here that is: it
+  seeds every two-letter word playable in any list above (107 of them, the union
+  of `enable1`/`2of12inf`/`nwl2023`), because WordNet has no entry for a third of
+  them (JO, XU, ZA, QI…) and those are exactly the words players challenge.
+  Same `word<TAB>pos<TAB>gloss` format; curated entries win over WordNet ones.
+  `test/glossary.test.ts` fails if any two-letter word in any registry
+  dictionary loses its definition.
+
+Everything except `curated-glosses.txt` is data, never hand-edited; tests pin the
+hashes and counts.
