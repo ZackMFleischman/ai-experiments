@@ -1,9 +1,9 @@
 # CLAUDE.md — stillness/
 
 Stillness: a zero-backend meditation timer — the first brand **utility**
-(strategy archetype 4: `@parlor/brand` + `@parlor/native`, no engine, no
-session kit). Read `DESIGN.md` before structural changes; decisions go to
-`DECISIONS.md`.
+(strategy archetype 4: `@parlor/brand` + `@parlor/native`, no session kit;
+`@stillness/engine` holds the pure timer). Read `DESIGN.md` before structural
+changes; decisions go to `DECISIONS.md`.
 
 ## Hard rules
 
@@ -15,8 +15,9 @@ session kit). Read `DESIGN.md` before structural changes; decisions go to
   fails on violation. Stillness has no backend and never will.
 - **No accounts, no analytics, no network calls.** Stats live in the
   player's localStorage via injected `KeyValueStorage`.
-- The timer stays a **pure machine** (`src/timer/timer.ts`): remaining time
-  is arithmetic over an injected `now`, never interval-owned state.
+- The timer stays a **pure machine** (`@stillness/engine`, zero-dependency):
+  remaining time is arithmetic over an injected `now`, never interval-owned
+  state; `pnpm validate:m1` property-sweeps it.
 - **App code never imports `@capacitor/*`** — only `@parlor/native`, whose
   wrappers no-op in a plain browser (parlor boundary lint enforces the
   package side). The web build's behavior never depends on the wrap.
@@ -30,7 +31,8 @@ session kit). Read `DESIGN.md` before structural changes; decisions go to
 ## Commands
 
 From `stillness/`: `pnpm install`, `pnpm dev`, `pnpm typecheck`, `pnpm test`,
-`pnpm build` (static PWA + bundle check), `pnpm validate:visual` (gallery ×
+`pnpm build` (static PWA + bundle check), `pnpm validate:m1` (500-run timer
+property sweep), `pnpm validate:visual` (gallery ×
 viewports × themes — read the captures in `artifacts/screens/`).
 Native wrap: `pnpm native:sync` / `pnpm native:assets` (committed
 `native/{ios,android}` shells; runbook `GAME-SETUP.md` §12).

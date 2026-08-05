@@ -22,10 +22,6 @@ import {
   shareContent,
 } from '@parlor/native';
 import { dayKey } from '@parlor/solo';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useApp } from '../App';
-import { ringBell } from '../timer/bell';
 import {
   elapsedMs,
   formatRemaining,
@@ -34,7 +30,11 @@ import {
   remainingMs,
   resumeSit,
   startSit,
-} from '../timer/timer';
+} from '@stillness/engine';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useApp } from '../App';
+import { ringBell } from '../timer/bell';
 
 const BELL_NOTIFICATION_ID = 1;
 

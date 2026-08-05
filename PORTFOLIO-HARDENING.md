@@ -169,9 +169,13 @@ consumers.
 - [ ] **Rules-additions gate** — DEFERRED with the emulator suite (it's a
       rules-test-coverage assertion, only meaningful alongside the running
       rules suite).
-- [ ] **Stillness engine extract** — DEFERRED (needs a stillness install to
-      typecheck/test the extracted `@stillness/engine` and its `validate:m1`
-      property gate; unsafe to land a package extraction unverified).
+- [x] **Stillness engine extract** (2026-08-05): the pure timer machine moved
+      into `@stillness/engine` (zero-dep workspace package) with a fast-check
+      property gate — `validate:m1` (500-run sweep, in stillness-ci) covering
+      clamp/complement/monotonicity/format invariants and pause's
+      wall-time-irrelevance; the WebAudio bell stays app-side (I/O, not
+      engine). Verified: stillness typecheck, unit (engine+app), validate:m1,
+      build + bundle check, validate:visual.
 - [x] **Breakout hygiene**: investigated and recorded in
       `breakout/DECISIONS.md` — `HighScoreStore` (@parlor/arcade) is kept (the
       right arcade abstraction; `StatsStore` models solo daily-puzzle stats, a
