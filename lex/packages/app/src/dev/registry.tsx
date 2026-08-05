@@ -310,6 +310,22 @@ export const GALLERY: GalleryEntry[] = [
         }),
       ),
   },
+  // A play that BRIDGES committed tiles, laid out of reading order: the score
+  // badge has to follow the word, not the last tile dropped (which is what put
+  // it on top of a letter).
+  {
+    id: 'last-play-bridged',
+    render: () =>
+      game(() =>
+        fixtureController(null, (c) => {
+          stageCats(c);
+          c.submitPlay();
+          c.placeAt({ row: 7, col: 11 }, 1);
+          c.placeAt({ row: 7, col: 6 }, 0);
+          c.submitPlay();
+        }),
+      ),
+  },
   {
     id: 'rack-full',
     render: () => (

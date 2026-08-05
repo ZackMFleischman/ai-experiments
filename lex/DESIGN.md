@@ -548,10 +548,14 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      the bingo line, and the play's total. It lives in *screen* space beside the
      viewport — a readable size at every zoom — and auto-parks in the spot
      around the play that hides the fewest letters (falling back to a clear
-     corner of the view on a crowded board), always on screen. The player can
-     drag or arrow-key it anywhere; a parked spot is kept until it would cover a
-     new staged word. Pointing at a word rings its cells (dashed, ≠ pending gold
-     / last-play green). Illegal geometry replaces the list with its reason.
+     corner of the view on a crowded board), always on screen. That spot is the
+     empty space beside the play — where your next tile goes — so the card is
+     **click-through**: only its grip takes pointer events, and the transient
+     geometry hint has no grip at all. Drag the grip (or arrow-key it) to park
+     the card; a parked spot is kept until it would cover a new staged word.
+     A word that fails the dictionary has its cells ringed (dashed red, ≠
+     pending gold / last-play green). Illegal geometry replaces the list with
+     its reason.
      Play is enabled only when `checkPlay` passes and all words are valid —
      pressing it submits optimistically (§6.3).
   5. **Exchange** flips the rack into multi-select (tiles dim/raise on tap) with a
@@ -559,7 +563,8 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      when the bag < 7. **Pass** confirms via dialog.
 - **Remote plays animate in** tile-by-tile along the word; the opponent's last play
   stays highlighted (hive's last-move convention, green edge — distinct from the
-  pending gold) and its score floats alongside. Both step aside while you have
+  pending gold) and its score badge sits in the first empty cell beside the word
+  — the word's full span, bridged letters included, never underneath one. Both step aside while you have
   tiles staged so they never compete with the placement emphasis.
 - Drag is raw pointer events, no dnd library — hive decision §9.8's reasoning
   transfers wholesale (touch first, transform-aware hit-testing, controller-testable

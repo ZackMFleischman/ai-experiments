@@ -143,3 +143,49 @@ export function pickCardSpot(input: SpotInput): Rect {
   }
   return best;
 }
+
+export interface BadgeSpotInput {
+  /** Bounding box of the played cells, board px. NOTE this spans any committed
+   * tiles the word bridged (min..max), which is exactly what the badge has to
+   * clear — the played cells alone would leave it sitting on a bridged letter. */
+  play: Rect;
+  badge: { width: number; height: number };
+  /** Every cell carrying a letter, board px. */
+  occupied: readonly Rect[];
+  /** The board itself — the badge belongs beside its word, so it never leaves. */
+  board: Rect;
+  gap: number;
+}
+
+/** Where the last-play score badge goes: hugging the word it annotates, in the
+ * first spot that covers no letter. Unlike the preview card this one stays in
+ * BOARD space next to specific cells, so the candidates are the four sides of
+ * the play — never a far corner, which would annotate nothing. */
+export function pickBadgeSpot(input: BadgeSpotInput): Rect {
+  const { play, badge, occupied, board, gap } = input;
+  const { width, height } = badge;
+  const midY = play.top + (play.height - height) / 2;
+  const endAligned = rectRight(play) - width;
+  // Reading order first: past the end of the word, then before its start,
+  // then the rows under and over it.
+  const candidates: Rect[] = [
+    { left: rectRight(play) + gap, top: midY, width, height },
+    { left: play.left - gap - width, top: midY, width, height },
+    { left: endAligned, top: rectBottom(play) + gap, width, height },
+    { left: endAligned, top: play.top - gap - height, width, height },
+    { left: play.left, top: rectBottom(play) + gap, width, height },
+    { left: play.left, top: play.top - gap - height, width, height },
+  ];
+
+  let best = clampInto(candidates[0]!, board, 0);
+  let bestCost = Infinity;
+  for (let i = 0; i < candidates.length; i++) {
+    const spot = clampInto(candidates[i]!, board, 0);
+    const cost = spotCost(spot, play, occupied) + i * 0.01;
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = spot;
+    }
+  }
+  return best;
+}

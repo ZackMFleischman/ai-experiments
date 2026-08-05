@@ -55,10 +55,10 @@ export interface BoardGridProps {
   /** Cells of the most recent play, in placement order — highlighted and
    * animated in tile-by-tile (T3.9). */
   lastPlayCells?: readonly CellKey[];
-  /** Cells of the preview word the player is pointing at in the preview card:
-   * a DASHED ring, so it never reads as pending gold or last-play green (both
-   * solid). Transient — it lives only while the row is hovered/pressed. */
-  focusCells?: readonly CellKey[] | null;
+  /** Cells of a staged word the preview card marks ✗ — a DASHED red ring, so
+   * it never reads as pending gold or last-play green (both solid) and points
+   * straight at which of several words failed the dictionary. */
+  flagCells?: readonly CellKey[] | null;
   /** Freeze animations (gallery ?static=1). */
   static?: boolean;
 }
@@ -70,7 +70,7 @@ export function BoardGrid({
   pending,
   hover,
   lastPlayCells,
-  focusCells,
+  flagCells,
   static: isStatic = false,
 }: BoardGridProps) {
   const mode = useTheme().palette.mode;
@@ -79,7 +79,7 @@ export function BoardGrid({
 
   const lastPlayIndex = new Map<CellKey, number>();
   lastPlayCells?.forEach((key, i) => lastPlayIndex.set(key, i));
-  const focused = new Set<CellKey>(focusCells ?? []);
+  const flagged = new Set<CellKey>(flagCells ?? []);
 
   const cells = [];
   for (let row = 0; row < layout.rows; row++) {
@@ -94,7 +94,7 @@ export function BoardGrid({
           key={key}
           data-cell={key}
           data-premium={premium}
-          data-focus={focused.has(key) ? 'true' : undefined}
+          data-flagged={flagged.has(key) ? 'true' : undefined}
           role="gridcell"
           sx={{
             width: 'var(--lex-cell)',
@@ -105,8 +105,8 @@ export function BoardGrid({
             alignItems: 'center',
             justifyContent: 'center',
             boxSizing: 'border-box',
-            ...(focused.has(key) && {
-              outline: (t) => `2px dashed ${t.palette.secondary.main}`,
+            ...(flagged.has(key) && {
+              outline: (t) => `2px dashed ${t.palette.error.main}`,
               outlineOffset: '-1px',
               zIndex: 1,
             }),

@@ -19,6 +19,7 @@ import { ScoreSheet } from '../game/ScoreSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
 import type { ManualSpot } from './PreviewCard';
 import { PreviewCard } from './PreviewCard';
+import { cellRect, cellsBounds, pickBadgeSpot } from './previewCard';
 import { rackSlotGeometry } from './rackGeometry';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
@@ -53,6 +54,12 @@ interface DragState {
 }
 
 const HALF_TILE = CELL_PX / 2; // half the free-riding ghost tile
+
+// Last-play badge box. Sized from the label so its placement math (which is
+// pure geometry) reasons about the box the DOM actually renders.
+const BADGE_H = 20;
+const BADGE_PAD = 10;
+const BADGE_CHAR_PX = 8;
 
 const DEFAULT_NAMES = ['Player 1', 'Player 2'];
 
@@ -91,8 +98,6 @@ export function GameBoard({
   // spot chosen once shouldn't have to be re-chosen every turn — and only
   // overridden when it would sit on top of a NEW staged word (PreviewCard).
   const [cardSpot, setCardSpot] = useState<ManualSpot | null>(null);
-  // Cells of the preview word under the pointer, ringed on the board.
-  const [focusCells, setFocusCells] = useState<readonly CellKey[] | null>(null);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
@@ -303,15 +308,24 @@ export function GameBoard({
   const lastPlay =
     snap.lastPlay?.kind === 'play' && snap.pending.size === 0 ? snap.lastPlay : undefined;
   const lastPlayEnd = lastPlay?.cells[lastPlay.cells.length - 1];
-  // The badge sits just past the word's last tile — unless that would hang off
-  // the right edge, where it flips to just before the word's first tile.
-  const lastPlayBadgePos = (() => {
+  // The badge hugs the word it annotates, in the first spot that covers no
+  // letter. It used to anchor one cell past `cells[last]` — the tile the mover
+  // happened to drop LAST, which is neither the end of the word nor even
+  // necessarily next to an empty cell: a play that bridges committed tiles
+  // (LATELY laid through the L of LOVER) parked the badge right on a letter.
+  const lastPlayBadge = (() => {
     if (!lastPlay || !lastPlayEnd) return null;
-    const { col } = parseCellKey(lastPlayEnd);
-    const firstCol = Math.min(...lastPlay.cells.map((k) => parseCellKey(k).col));
-    return col + 1 < layout.cols
-      ? { left: BOARD_PAD_PX + (col + 1) * CELL_PX + 4 }
-      : { right: BOARD_PAD_PX + (layout.cols - firstCol) * CELL_PX + 4 };
+    const label = `+${lastPlay.total}`;
+    const play = cellsBounds(lastPlay.cells.map(parseCellKey));
+    if (!play) return null;
+    const spot = pickBadgeSpot({
+      play,
+      badge: { width: BADGE_PAD + BADGE_CHAR_PX * label.length, height: BADGE_H },
+      occupied: [...snap.state.board.keys()].map((k) => cellRect(parseCellKey(k))),
+      board: { left: 0, top: 0, width, height },
+      gap: 4,
+    });
+    return { label, spot };
   })();
 
   // What the preview card needs: the staged cells it must not cover, and the
@@ -322,6 +336,17 @@ export function GameBoard({
   );
   const committedCells = useMemo(() => [...snap.state.board.keys()], [snap.state.board]);
   const cardVisible = snap.preview !== null && !snap.preview.needsBlank && playCells.length > 0;
+  // A word the card marks ✗ gets its cells ringed, so "which of these three
+  // words is the bad one" is answered on the board rather than by counting
+  // letters. Derived from the verdict — no pointer events, so the card can
+  // stay click-through.
+  const flaggedCells = useMemo(
+    () =>
+      snap.preview?.check.ok
+        ? snap.preview.words.filter((w) => !w.valid).flatMap((w) => w.cells.map(cellKey))
+        : [],
+    [snap.preview],
+  );
 
   // While a staged tile is in flight its cell renders empty — the ghost IS the tile.
   const visiblePending = useMemo(() => {
@@ -384,27 +409,36 @@ export function GameBoard({
               tiles={snap.state.board}
               pending={visiblePending}
               hover={hover}
-              focusCells={cardVisible ? focusCells : null}
+              flagCells={cardVisible ? flaggedCells : null}
               {...(lastPlay ? { lastPlayCells: lastPlay.cells } : {})}
             />
-            {lastPlay && lastPlayEnd && lastPlayBadgePos && (
+            {lastPlayBadge && (
               <Box
                 data-testid="last-play-score"
+                // Explicit size: the placement math above reasons about this
+                // exact box, so it must not be left to content flow.
+                style={{
+                  left: lastPlayBadge.spot.left,
+                  top: lastPlayBadge.spot.top,
+                  width: lastPlayBadge.spot.width,
+                  height: lastPlayBadge.spot.height,
+                }}
                 sx={{
                   position: 'absolute',
-                  ...lastPlayBadgePos,
-                  top: BOARD_PAD_PX + parseCellKey(lastPlayEnd).row * CELL_PX,
-                  px: 0.75,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   borderRadius: 10,
                   bgcolor: 'secondary.main',
                   color: 'secondary.contrastText',
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: 700,
+                  lineHeight: 1,
                   pointerEvents: 'none',
                   zIndex: 2,
                 }}
               >
-                +{lastPlay.total}
+                {lastPlayBadge.label}
               </Box>
             )}
           </Box>
@@ -424,7 +458,6 @@ export function GameBoard({
             faded={drag !== null}
             manual={cardSpot}
             onManualChange={setCardSpot}
-            onFocusCells={setFocusCells}
           />
         )}
       </Box>

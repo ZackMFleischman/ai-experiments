@@ -47,7 +47,9 @@ const GAP = 8;
 const NUDGE = 16;
 const NUDGE_FAST = 64;
 
-const HEAD_H = 26;
+const HEAD_H = 28;
+/** The drag grip's width — see the note at its sx block. */
+const GRIP_PX = 26;
 const ROW_H = 22;
 const PAD_H = 14;
 
@@ -83,8 +85,6 @@ export interface PreviewCardProps {
   faded: boolean;
   manual: ManualSpot | null;
   onManualChange: (manual: ManualSpot) => void;
-  /** Cells of the word the player is pointing at, for the board's highlight. */
-  onFocusCells: (cells: readonly CellKey[] | null) => void;
 }
 
 export function PreviewCard({
@@ -98,7 +98,6 @@ export function PreviewCard({
   faded,
   manual,
   onManualChange,
-  onFocusCells,
 }: PreviewCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<{ id: number; dx: number; dy: number } | null>(null);
@@ -235,7 +234,6 @@ export function PreviewCard({
   };
   const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (drag.current?.id === e.pointerId) drag.current = null;
-    onFocusCells(null);
   };
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = e.shiftKey ? NUDGE_FAST : NUDGE;
@@ -263,13 +261,6 @@ export function PreviewCard({
       data-manual={manual ? 'true' : undefined}
       role="group"
       aria-label="Play preview"
-      tabIndex={0}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onPointerLeave={() => onFocusCells(null)}
-      onKeyDown={onKeyDown}
       sx={{
         position: 'absolute',
         zIndex: 3,
@@ -282,15 +273,15 @@ export function PreviewCard({
         borderColor: reason ? 'warning.main' : 'divider',
         // Hidden until placed: one frame at a guessed spot reads as a jump.
         visibility: spot ? 'visible' : 'hidden',
-        cursor: 'grab',
-        touchAction: 'none',
         userSelect: 'none',
-        // Dim + click-through while a tile is in flight so a drop can land
-        // under the card. NOT animated: a fading card makes the gallery/ux
+        // Dim while a tile is in flight so you can see the cell you're
+        // dropping onto. NOT animated: a fading card makes the gallery/ux
         // captures nondeterministic (they land mid-transition).
         opacity: faded ? 0.45 : 1,
-        pointerEvents: faded ? 'none' : 'auto',
-        '&:active': { cursor: 'grabbing' },
+        // CLICK-THROUGH. The card parks in the empty space beside the play —
+        // exactly where your next tile goes — so it must never swallow a tap
+        // meant for a cell. Only the grip below opts back into pointer events.
+        pointerEvents: 'none',
       }}
       style={{ left: spot?.left ?? 0, top: spot?.top ?? 0 }}
     >
@@ -311,7 +302,41 @@ export function PreviewCard({
               mb: 0.25,
             }}
           >
-            <Box aria-hidden sx={{ color: 'text.disabled', fontSize: 13, lineHeight: 1, mr: -0.25 }}>
+            {/* The one interactive part of the card, and only on the scored
+                card — a "Must connect to a word" hint is transient, so it
+                stays wholly inert rather than blocking a cell tap. */}
+            <Box
+              data-testid="preview-grip"
+              role="button"
+              aria-label="Move the play preview"
+              tabIndex={0}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onKeyDown={onKeyDown}
+              sx={{
+                // Deliberately compact (GRIP_PX × the header) and NOT expanded
+                // to the usual 44px target: every pixel of it is a board cell
+                // the player can't tap. A missed grab costs nothing — it falls
+                // through to the board. Logged in the visual checklist.
+                width: GRIP_PX,
+                alignSelf: 'stretch',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                ml: -0.5,
+                color: 'text.disabled',
+                fontSize: 13,
+                lineHeight: 1,
+                cursor: 'grab',
+                touchAction: 'none',
+                pointerEvents: faded ? 'none' : 'auto',
+                borderRadius: 0.5,
+                '&:hover, &:focus-visible': { color: 'text.secondary', bgcolor: 'action.hover' },
+                '&:active': { cursor: 'grabbing' },
+              }}
+            >
               ⠿
             </Box>
             <Typography
@@ -333,8 +358,6 @@ export function PreviewCard({
               data-valid={w.valid ? 'true' : 'false'}
               role="listitem"
               aria-label={`${w.word}, ${w.score} points, ${w.valid ? 'valid' : 'not in dictionary'}`}
-              onPointerDown={() => onFocusCells(w.cells.map(cellKey))}
-              onMouseEnter={() => onFocusCells(w.cells.map(cellKey))}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -342,7 +365,6 @@ export function PreviewCard({
                 height: ROW_H,
                 px: 0.25,
                 borderRadius: 0.5,
-                '&:hover': { bgcolor: 'action.hover' },
               }}
             >
               <Typography

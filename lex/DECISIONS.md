@@ -278,3 +278,24 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   zoom doesn't shrink the text, and it is drag/arrow-key movable — a parked spot
   survives until it would cover a *new* staged word. Same pass: the last-play
   `+N` badge flips inside the board when its word ends at the right edge.
+
+- **2026-08-05 — The preview card is click-through; only its grip isn't
+  (Zack, from the PR's mp e2e).** The card parks in the empty space beside the
+  play — which is exactly where the next tile goes — so as a normal pointer
+  target it swallowed taps meant for cells: the multiplayer e2e hung clicking a
+  cell under a "Must connect to a word" hint, and a real player would have hit
+  the same wall. The chips it replaced were `pointerEvents: none` and never
+  could. Now the card body is inert, a small grip carries the drag/arrow-key
+  affordance, and the transient geometry hint has no grip at all. The row
+  hover-to-ring interaction died with it, replaced by something better that
+  needs no pointer events: the cells of any word marked ✗ stay ringed (dashed
+  red) while the card is up.
+
+- **2026-08-05 — Last-play badge follows the WORD, not the last tile dropped
+  (Zack).** It anchored one cell past `cells[last]` — the tile the mover
+  happened to place last, in staging order — so on a play that bridges committed
+  letters (LATELY laid through the L of LOVER) it parked directly on a letter.
+  It now shares the card's geometry module: `pickBadgeSpot` hugs the played
+  word's full span (the placed cells' bbox spans anything bridged) and takes the
+  first side that covers no tile. The badge is explicitly sized so the placement
+  math reasons about the box the DOM renders.

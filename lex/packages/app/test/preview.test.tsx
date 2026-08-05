@@ -116,16 +116,17 @@ describe('preview card (T3.7)', () => {
     expect(screen.queryByTestId('preview-card')).toBeFalsy();
   });
 
-  it('the player can drag the card out of the way, and it stays parked', async () => {
+  it('the player can drag the card by its grip, and it stays parked', async () => {
     const { controller } = await setup();
     stageCats(controller);
     const card = screen.getByTestId('preview-card');
     expect(card.getAttribute('data-manual')).toBeNull();
     const before = { left: card.style.left, top: card.style.top };
 
-    fireEvent.pointerDown(card, { pointerId: 1, clientX: 100, clientY: 100, isPrimary: true });
-    fireEvent.pointerMove(card, { pointerId: 1, clientX: 220, clientY: 300 });
-    fireEvent.pointerUp(card, { pointerId: 1, clientX: 220, clientY: 300 });
+    const grip = screen.getByTestId('preview-grip');
+    fireEvent.pointerDown(grip, { pointerId: 1, clientX: 100, clientY: 100, isPrimary: true });
+    fireEvent.pointerMove(grip, { pointerId: 1, clientX: 220, clientY: 300 });
+    fireEvent.pointerUp(grip, { pointerId: 1, clientX: 220, clientY: 300 });
 
     const moved = screen.getByTestId('preview-card');
     expect(moved.getAttribute('data-manual')).toBe('true');
@@ -138,16 +139,37 @@ describe('preview card (T3.7)', () => {
     expect({ left: after.style.left, top: after.style.top }).toEqual(parked);
   });
 
-  it('pointing at a word rings that word’s cells on the board', async () => {
+  // The card parks in the empty space beside the play — exactly where the next
+  // tile goes — so a tap must reach the cell UNDER it. Only the grip is live.
+  it('is click-through except for its grip', async () => {
     const { controller } = await setup();
     stageCats(controller);
-    const cell = () => document.querySelector('[data-cell="7,7"]');
-    expect(cell()?.getAttribute('data-focus')).toBeNull();
+    expect(getComputedStyle(screen.getByTestId('preview-card')).pointerEvents).toBe('none');
+    expect(getComputedStyle(screen.getByTestId('preview-grip')).pointerEvents).toBe('auto');
+  });
 
-    fireEvent.pointerDown(screen.getByTestId('preview-word'), { pointerId: 2, isPrimary: true });
-    expect(cell()?.getAttribute('data-focus')).toBe('true');
+  it('a transient geometry hint carries no grip at all', async () => {
+    const { controller } = await setup();
+    act(() => {
+      controller.placeAt({ row: 7, col: 7 }, 0);
+      controller.placeAt({ row: 7, col: 9 }, 2); // gap at 7,8
+    });
+    expect(screen.getByTestId('preview-card')).toBeTruthy();
+    expect(screen.queryByTestId('preview-grip')).toBeFalsy();
+  });
 
-    fireEvent.pointerUp(screen.getByTestId('preview-card'), { pointerId: 2 });
-    expect(cell()?.getAttribute('data-focus')).toBeNull();
+  it('rings the cells of a word that failed the dictionary', async () => {
+    const { controller } = await setup(stubDict(['CATS']));
+    const flagged = () =>
+      [...document.querySelectorAll('[data-flagged="true"]')].map((el) => el.getAttribute('data-cell'));
+    expect(flagged()).toEqual([]);
+    stageCats(controller);
+    expect(flagged()).toEqual(['7,7', '7,8', '7,9', '7,10']);
+  });
+
+  it('rings nothing while every word is valid', async () => {
+    const { controller } = await setup();
+    stageCats(controller);
+    expect(document.querySelectorAll('[data-flagged="true"]')).toHaveLength(0);
   });
 });

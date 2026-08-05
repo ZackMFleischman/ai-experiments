@@ -9,6 +9,7 @@ import {
   cellsBounds,
   clampInto,
   intersects,
+  pickBadgeSpot,
   pickCardSpot,
   type Rect,
 } from '../src/board/previewCard';
@@ -83,5 +84,63 @@ describe('preview card placement', () => {
     expect(tall.top).toBe(8);
     const huge = clampInto({ left: 0, top: 0, width: 40, height: 900 }, BOARD, 8);
     expect(huge.top).toBe((544 - 900) / 2);
+  });
+});
+
+describe('last-play badge placement', () => {
+  const BADGE = { width: 34, height: 20 };
+  const spotFor = (play: Rect, occupied: readonly Rect[]) =>
+    pickBadgeSpot({ play, badge: BADGE, occupied, board: BOARD, gap: 4 });
+
+  it('parks just past the end of the word', () => {
+    const play = cellsBounds(cells([7], range(7, 10)))!;
+    const spot = spotFor(play, rects(cells([7], range(7, 10))));
+    expect(spot.left).toBe(play.left + play.width + 4);
+    expect(intersects(spot, play)).toBe(false);
+  });
+
+  it('never lands on a letter the word BRIDGED (the LATELY-through-LOVER case)', () => {
+    // LATELY across row 3, cols 3–8; its 5th letter is the L of LOVER, which
+    // was already on the board running down col 7. The played cells are the
+    // five NEW tiles — the badge must clear the whole word, bridge included.
+    const placed = [
+      { row: 3, col: 3 },
+      { row: 3, col: 4 },
+      { row: 3, col: 5 },
+      { row: 3, col: 6 },
+      { row: 3, col: 8 },
+    ];
+    const lover = [3, 4, 5, 6, 7].map((row) => ({ row, col: 7 }));
+    const occupied = rects([...placed, ...lover]);
+    const spot = spotFor(cellsBounds(placed)!, occupied);
+    expect(occupied.every((r) => !intersects(spot, r))).toBe(true);
+    // Past the Y, not on top of the shared L.
+    expect(spot.left).toBeGreaterThan(cellRect({ row: 3, col: 8 }).left);
+  });
+
+  it('flips to the near side when the word ends at the board edge', () => {
+    const play = cellsBounds(cells([7], range(10, 14)))!;
+    const occupied = rects(cells([7], range(10, 14)));
+    const spot = spotFor(play, occupied);
+    expect(spot.left + spot.width).toBeLessThanOrEqual(BOARD.width);
+    expect(spot.left + spot.width).toBeLessThanOrEqual(play.left);
+    expect(occupied.every((r) => !intersects(spot, r))).toBe(true);
+  });
+
+  it('drops to the row below when both ends of the word are blocked', () => {
+    const play = cellsBounds(cells([7], range(7, 10)))!;
+    // Letters immediately before and after the word on its own row.
+    const occupied = rects([...cells([7], range(0, 14))]);
+    const spot = spotFor(play, occupied);
+    expect(occupied.every((r) => !intersects(spot, r))).toBe(true);
+  });
+
+  it('stays on the board', () => {
+    const play = cellsBounds([{ row: 0, col: 0 }])!;
+    const spot = spotFor(play, rects([{ row: 0, col: 0 }]));
+    expect(spot.left).toBeGreaterThanOrEqual(0);
+    expect(spot.top).toBeGreaterThanOrEqual(0);
+    expect(spot.left + spot.width).toBeLessThanOrEqual(BOARD.width);
+    expect(spot.top + spot.height).toBeLessThanOrEqual(BOARD.height);
   });
 });
