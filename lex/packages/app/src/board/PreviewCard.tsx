@@ -225,6 +225,11 @@ export function PreviewCard({
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!spot) return;
+    // Keep the gesture off the viewport: it captures the pointer on any
+    // pointerdown that reaches it, which would override the capture taken
+    // here and pan the board instead of moving the card. jsdom implements no
+    // pointer capture at all, so only a real browser shows this.
+    e.stopPropagation();
     const rect = hostRef.current?.getBoundingClientRect();
     drag.current = {
       id: e.pointerId,

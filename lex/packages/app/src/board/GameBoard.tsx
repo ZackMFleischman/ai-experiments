@@ -422,6 +422,11 @@ export function GameBoard({
                 role="button"
                 tabIndex={0}
                 aria-label={`${lastPlay!.total} points last play — show the words`}
+                // The viewport captures the pointer on any pointerdown that
+                // reaches it, which retargets the click away from this badge —
+                // so the gesture has to stop here. (jsdom has no pointer
+                // capture, which is why only a real browser catches it.)
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => setBreakdownAnchor(e.currentTarget)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') setBreakdownAnchor(e.currentTarget);
