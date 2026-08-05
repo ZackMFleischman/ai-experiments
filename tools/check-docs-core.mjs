@@ -51,7 +51,7 @@ export function checkDocs({ root, budgets, skipDirs, policyRef, newDocHint }) {
     }
     if (file.endsWith('DECISIONS.md')) {
       for (const line of text.split('\n')) {
-        if (/supersed/i.test(line) && !SUPERSEDED_ANNOTATION.test(line) && !/supersedes/.test(line)) {
+        if (/supersed/i.test(line) && !SUPERSEDED_ANNOTATION.test(line) && !/supersedes/i.test(line)) {
           errors.push(`${file}: non-canonical supersession marker ("${line.trim().slice(0, 60)}…") — append "⊘ superseded YYYY-MM-DD — <pointer>" to the dead entry`);
         }
       }
