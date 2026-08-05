@@ -110,6 +110,49 @@ describe('last-play highlight + animation hooks (T3.9)', () => {
     expect(document.querySelectorAll('[data-last-play]')).toHaveLength(4);
     expect(screen.getByTestId('last-play-score')).toBeTruthy();
   });
+
+  it('tapping the score expands the words that made it', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    expect(screen.queryByTestId('last-play-breakdown')).toBeFalsy();
+
+    fireEvent.click(screen.getByTestId('last-play-score'));
+    const panel = screen.getByTestId('last-play-breakdown');
+    const rows = within(panel).getAllByTestId('breakdown-word');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain('CATS');
+    expect(rows[0]?.textContent).toContain('12');
+    expect(within(panel).getByTestId('breakdown-total').textContent).toBe('+12');
+  });
+
+  it('a bonus the words do not account for gets its own line', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => {
+      for (let i = 0; i < 7; i++) controller.placeAt({ row: 7, col: 7 + i }, i);
+      controller.submitPlay();
+    });
+    fireEvent.click(screen.getByTestId('last-play-score'));
+    const panel = screen.getByTestId('last-play-breakdown');
+    const words = within(panel).getAllByTestId('breakdown-word');
+    const sum = words.length;
+    expect(sum).toBeGreaterThan(0);
+    expect(within(panel).getByTestId('breakdown-bonus').textContent).toContain(
+      `${classic.bingoBonus}`,
+    );
+  });
+
+  // The badge sits in an empty cell — the cell you may be about to tap into.
+  it('goes inert the moment a rack tile is armed for tap-tap placement', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    const badge = screen.getByTestId('last-play-score');
+    expect(getComputedStyle(badge).pointerEvents).toBe('auto');
+    act(() => controller.selectRackSlot(0));
+    expect(getComputedStyle(screen.getByTestId('last-play-score')).pointerEvents).toBe('none');
+  });
 });
 
 describe('score bar + sheet access', () => {

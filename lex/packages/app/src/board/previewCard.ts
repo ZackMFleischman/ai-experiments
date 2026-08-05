@@ -164,18 +164,21 @@ export interface BadgeSpotInput {
 export function pickBadgeSpot(input: BadgeSpotInput): Rect {
   const { play, badge, occupied, board, gap } = input;
   const { width, height } = badge;
-  const midY = play.top + (play.height - height) / 2;
-  const endAligned = rectRight(play) - width;
-  // Reading order first: past the end of the word, then before its start,
-  // then the rows under and over it.
-  const candidates: Rect[] = [
-    { left: rectRight(play) + gap, top: midY, width, height },
-    { left: play.left - gap - width, top: midY, width, height },
-    { left: endAligned, top: rectBottom(play) + gap, width, height },
-    { left: endAligned, top: play.top - gap - height, width, height },
-    { left: play.left, top: rectBottom(play) + gap, width, height },
-    { left: play.left, top: play.top - gap - height, width, height },
-  ];
+  // The badge is WIDER than a cell, so "an empty cell" isn't enough — every
+  // candidate is scored against its whole box, and there are enough of them
+  // (each side × three alignments) that a clear one almost always exists.
+  const xs = [play.left, play.left + (play.width - width) / 2, rectRight(play) - width];
+  const ys = [play.top, play.top + (play.height - height) / 2, rectBottom(play) - height];
+  const rightOf = xs.map((_, i) => ({ left: rectRight(play) + gap, top: ys[i]!, width, height }));
+  const leftOf = xs.map((_, i) => ({ left: play.left - gap - width, top: ys[i]!, width, height }));
+  const below = xs.map((x) => ({ left: x, top: rectBottom(play) + gap, width, height }));
+  const above = xs.map((x) => ({ left: x, top: play.top - gap - height, width, height }));
+  // Follow the word: past the END of a horizontal play is to its right, of a
+  // vertical play below it. Ties break toward the front of the list.
+  const horizontal = play.width >= play.height;
+  const candidates: Rect[] = horizontal
+    ? [...rightOf, ...leftOf, ...below, ...above]
+    : [...below, ...above, ...rightOf, ...leftOf];
 
   let best = clampInto(candidates[0]!, board, 0);
   let bestCost = Infinity;

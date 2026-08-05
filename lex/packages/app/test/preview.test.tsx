@@ -148,6 +148,16 @@ describe('preview card (T3.7)', () => {
     expect(getComputedStyle(screen.getByTestId('preview-grip')).pointerEvents).toBe('auto');
   });
 
+  it('even the grip stops taking taps while a rack tile is armed', async () => {
+    const { controller } = await setup();
+    stageCats(controller);
+    expect(getComputedStyle(screen.getByTestId('preview-grip')).pointerEvents).toBe('auto');
+    // Tap-tap: a tile is armed and the next tap belongs to a cell — which for
+    // a word growing down a column is the cell the grip is sitting on.
+    act(() => controller.selectRackSlot(4));
+    expect(getComputedStyle(screen.getByTestId('preview-grip')).pointerEvents).toBe('none');
+  });
+
   it('a transient geometry hint carries no grip at all', async () => {
     const { controller } = await setup();
     act(() => {

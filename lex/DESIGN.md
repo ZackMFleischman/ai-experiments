@@ -564,7 +564,12 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
 - **Remote plays animate in** tile-by-tile along the word; the opponent's last play
   stays highlighted (hive's last-move convention, green edge — distinct from the
   pending gold) and its score badge sits in the first empty cell beside the word
-  — the word's full span, bridged letters included, never underneath one. Both step aside while you have
+  — the word's full span, bridged letters included, never underneath one.
+  **Tapping the badge expands it** into the words that play formed and what each
+  scored (a popover, dismissed by a tap anywhere — the score sheet has the same
+  facts, but the question is asked while looking at the play). The badge and the
+  card's grip both go inert while a rack tile is armed, so board chrome can
+  never eat the tap that places a tile. Both step aside while you have
   tiles staged so they never compete with the placement emphasis.
 - Drag is raw pointer events, no dnd library — hive decision §9.8's reasoning
   transfers wholesale (touch first, transform-aware hit-testing, controller-testable

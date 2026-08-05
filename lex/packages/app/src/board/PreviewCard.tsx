@@ -83,6 +83,12 @@ export interface PreviewCardProps {
   viewportRef: RefObject<BoardViewportHandle | null>;
   /** A tile is in flight: dim the card and let the drop fall through it. */
   faded: boolean;
+  /** A rack tile is armed for tap-tap placement. The card parks beside the
+   * play — for a word growing down a column, its grip lands on the very next
+   * cell — so while a tile is armed even the grip stops taking pointers and
+   * the tap reaches the board. Nothing is lost: with no tile armed, a tap on
+   * an empty cell does nothing anyway. */
+  placing: boolean;
   manual: ManualSpot | null;
   onManualChange: (manual: ManualSpot) => void;
 }
@@ -96,6 +102,7 @@ export function PreviewCard({
   hostRef,
   viewportRef,
   faded,
+  placing,
   manual,
   onManualChange,
 }: PreviewCardProps) {
@@ -331,7 +338,7 @@ export function PreviewCard({
                 lineHeight: 1,
                 cursor: 'grab',
                 touchAction: 'none',
-                pointerEvents: faded ? 'none' : 'auto',
+                pointerEvents: faded || placing ? 'none' : 'auto',
                 borderRadius: 0.5,
                 '&:hover, &:focus-visible': { color: 'text.secondary', bgcolor: 'action.hover' },
                 '&:active': { cursor: 'grabbing' },

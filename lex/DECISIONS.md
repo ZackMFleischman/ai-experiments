@@ -299,3 +299,21 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   word's full span (the placed cells' bbox spans anything bridged) and takes the
   first side that covers no tile. The badge is explicitly sized so the placement
   math reasons about the box the DOM renders.
+
+- **2026-08-05 — Board chrome goes inert while a tile is armed (Zack).** The
+  preview card's grip and the last-play badge both sit in empty cells beside the
+  play, and for a word growing down a column the grip lands on the very NEXT
+  cell — which is how the mp e2e's vertical bingo stalled even after the card
+  itself went click-through. Both now drop `pointer-events` whenever
+  `selection !== null` (a rack tile armed for tap-tap). Nothing is lost: with no
+  tile armed a tap on an empty cell does nothing anyway, so the only taps the
+  chrome can take are the ones the board had no use for.
+
+- **2026-08-05 — The last-play badge expands into its word breakdown (Zack).**
+  "How did they score 19?" was only answerable from the score-sheet drawer,
+  two taps away and out of sight of the play. Tapping the badge now opens a
+  popover with each word and its score, a ★ Bonus line when the recorded total
+  exceeds the recorded words (stated as the arithmetic gap — the UI doesn't know
+  the ruleset's bonus rules), and the total. A popover, not another board
+  floater: anchored, tap-away-dismissed, edge-flipping. Works in multiplayer —
+  the sync path keeps `words` (word + score) and drops only their cells.

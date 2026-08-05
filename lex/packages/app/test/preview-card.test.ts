@@ -135,6 +135,29 @@ describe('last-play badge placement', () => {
     expect(occupied.every((r) => !intersects(spot, r))).toBe(true);
   });
 
+  it('follows a VERTICAL word downward rather than sitting beside its middle', () => {
+    // JOT laid down col 4 through the O of NOTED across row 4: beside the
+    // play is the crossing word, so the badge belongs past its end.
+    const placed = [
+      { row: 3, col: 4 },
+      { row: 5, col: 4 },
+    ];
+    const noted = [3, 4, 5, 6, 7].map((col) => ({ row: 4, col }));
+    const occupied = rects([...placed, ...noted]);
+    const spot = spotFor(cellsBounds(placed)!, occupied);
+    expect(occupied.every((r) => !intersects(spot, r))).toBe(true);
+    expect(spot.top).toBeGreaterThan(cellRect({ row: 5, col: 4 }).top);
+  });
+
+  it('scores its WHOLE box, not just the cell it starts in', () => {
+    // The badge is wider than a cell: a spot whose first cell is empty but
+    // whose tail lands on a letter must lose to one that is clear throughout.
+    const play = cellsBounds(cells([7], range(7, 10)))!;
+    const occupied = rects([...cells([7], range(7, 10)), { row: 7, col: 12 }]);
+    const spot = spotFor(play, occupied);
+    expect(occupied.every((r) => !intersects(spot, r))).toBe(true);
+  });
+
   it('stays on the board', () => {
     const play = cellsBounds([{ row: 0, col: 0 }])!;
     const spot = spotFor(play, rects([{ row: 0, col: 0 }]));

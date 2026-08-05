@@ -19,7 +19,10 @@ are logged at the bottom with date + reason, and deleted when fixed.
   that failed the dictionary has its cells ringed dashed red. Its parked
   position survives a pan/zoom.
 - Last-play score badge sits in an EMPTY cell beside its word — including a word
-  that bridged committed letters — never on top of a tile.
+  that bridged committed letters — never on top of a tile, and follows the
+  word's axis (right of an across play, below a down play). Tapping it expands
+  the per-word breakdown; the popover is readable in both themes and clears the
+  board on dismiss.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.

@@ -17,6 +17,7 @@ import { ResultOverlay } from '../game/ResultOverlay';
 import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
+import { LastPlayBreakdown } from '../game/LastPlayBreakdown';
 import type { ManualSpot } from './PreviewCard';
 import { PreviewCard } from './PreviewCard';
 import { cellRect, cellsBounds, pickBadgeSpot } from './previewCard';
@@ -98,6 +99,9 @@ export function GameBoard({
   // spot chosen once shouldn't have to be re-chosen every turn — and only
   // overridden when it would sit on top of a NEW staged word (PreviewCard).
   const [cardSpot, setCardSpot] = useState<ManualSpot | null>(null);
+  // The last-play badge expands into its word breakdown (how the opponent got
+  // that number) — anchored to the badge, so it can't hide the board for long.
+  const [breakdownAnchor, setBreakdownAnchor] = useState<HTMLElement | null>(null);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
@@ -415,6 +419,13 @@ export function GameBoard({
             {lastPlayBadge && (
               <Box
                 data-testid="last-play-score"
+                role="button"
+                tabIndex={0}
+                aria-label={`${lastPlay!.total} points last play — show the words`}
+                onClick={(e) => setBreakdownAnchor(e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setBreakdownAnchor(e.currentTarget);
+                }}
                 // Explicit size: the placement math above reasons about this
                 // exact box, so it must not be left to content flow.
                 style={{
@@ -434,7 +445,11 @@ export function GameBoard({
                   fontSize: 13,
                   fontWeight: 700,
                   lineHeight: 1,
-                  pointerEvents: 'none',
+                  cursor: 'pointer',
+                  // Tappable to expand the breakdown — but INERT the moment a
+                  // rack tile is armed, so it can never eat the cell tap that
+                  // places it. (It already disappears once anything is staged.)
+                  pointerEvents: snap.selection === null ? 'auto' : 'none',
                   zIndex: 2,
                 }}
               >
@@ -443,6 +458,12 @@ export function GameBoard({
             )}
           </Box>
         </BoardViewport>
+        <LastPlayBreakdown
+          anchorEl={lastPlayBadge ? breakdownAnchor : null}
+          onClose={() => setBreakdownAnchor(null)}
+          {...(lastPlay ? { play: lastPlay } : {})}
+          by={seatNames[lastPlay?.by ?? 0] ?? `Player ${(lastPlay?.by ?? 0) + 1}`}
+        />
         {/* The preview card lives OUTSIDE the board transform (screen space):
             it stays a readable size at every zoom and can never be panned
             off-screen. */}
@@ -456,6 +477,7 @@ export function GameBoard({
             hostRef={boardAreaRef}
             viewportRef={viewportRef}
             faded={drag !== null}
+            placing={snap.selection !== null}
             manual={cardSpot}
             onManualChange={setCardSpot}
           />
