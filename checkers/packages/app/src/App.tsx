@@ -2,15 +2,9 @@
 // color-mode plumbing replace the hand-rolled theme.ts hive and lex carry.
 // The firebase provider stack loads only in full (multiplayer) mode — the
 // default build stays a firebase-free static hot-seat PWA (check-bundle).
-import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider } from '@mui/material/styles';
-import {
-  ColorModeContext,
-  createBrandTheme,
-  type ThemeMode,
-} from '@parlor/brand';
+import { BrandAppProviders } from '@parlor/brand';
 import { RequireAuth } from '@parlor/web';
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Route, Routes, useParams } from 'react-router-dom';
 import { Game } from './screens/Game';
 import { Join } from './screens/Join';
@@ -31,16 +25,6 @@ const GalleryRoute = import.meta.env.DEV ? lazy(() => import('./dev/GalleryRoute
 // static hot-seat build (no VITE_CHECKERS_MODE) drops this branch at build time.
 const SyncProviders =
   import.meta.env.VITE_CHECKERS_MODE === 'full' ? lazy(() => import('./sync/AppSyncProviders')) : null;
-
-function storedMode(): ThemeMode {
-  try {
-    const stored = window.localStorage.getItem(MODE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch {
-    // fall through to the OS preference
-  }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
 
 /** The hot-seat game stays unguarded (fully local); real games need auth. */
 function GameGate() {
@@ -98,31 +82,10 @@ export function AppRoutes() {
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(storedMode);
-  const colorMode = useMemo(
-    () => ({
-      mode,
-      toggle: () =>
-        setMode((m) => {
-          const next = m === 'light' ? 'dark' : 'light';
-          try {
-            window.localStorage.setItem(MODE_KEY, next);
-          } catch {
-            // preference just won't stick
-          }
-          return next;
-        }),
-    }),
-    [mode],
-  );
-  const theme = useMemo(() => createBrandTheme(mode, ACCENT), [mode]);
   const themed = (
-    <ColorModeContext.Provider value={colorMode}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-      </ThemeProvider>
-    </ColorModeContext.Provider>
+    <BrandAppProviders accent={ACCENT} modeKey={MODE_KEY}>
+      {children}
+    </BrandAppProviders>
   );
   if (!SyncProviders) return themed;
   return (

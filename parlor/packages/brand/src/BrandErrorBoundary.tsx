@@ -1,19 +1,22 @@
-// modeled on lex/packages/app/src/ErrorBoundary.tsx — a render crash shows a
-// reload card instead of a blank page (stored game + log survive untouched).
+// A render crash shows a reload card instead of a blank page. The only
+// per-app difference was ever the reassurance line ("your puzzle is saved…"),
+// so that's the one prop (PORTFOLIO-HARDENING M5).
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { Component, type ReactNode } from 'react';
 
-interface Props {
+export interface BrandErrorBoundaryProps {
   children: ReactNode;
+  /** What the player is told survives the crash (game/stats/streak copy). */
+  reassurance: string;
 }
 
 interface State {
   failed: boolean;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+export class BrandErrorBoundary extends Component<BrandErrorBoundaryProps, State> {
   override state: State = { failed: false };
 
   static getDerivedStateFromError(): State {
@@ -29,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
             Something went wrong
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Your puzzle is saved — reloading picks up where you left off.
+            {this.props.reassurance}
           </Typography>
           <Button variant="contained" onClick={() => window.location.reload()}>
             Reload

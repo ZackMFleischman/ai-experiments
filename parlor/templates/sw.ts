@@ -1,8 +1,18 @@
 /// <reference lib="webworker" />
-// Custom service worker (T5.1/T5.2): precached app shell with SPA navigation
-// fallback, plus Web Push display + tap-to-deep-link (DESIGN §7). Functions
-// send data-only FCM webpush messages ({title, body, link, tag}) so this
-// handler owns the exact rendering.
+// The canonical duo-game service worker (PORTFOLIO-HARDENING M5). Every duo
+// game keeps a physical copy at packages/app/src/sw.ts — the SW must live
+// inside the app for its build — and registry/check-sw-parity.mjs
+// (registry-ci) fails when a copy's CODE drifts from this template; comment
+// lines are ignored, so per-game doc headers are fine. Same copy-with-parity
+// model as parlor/firestore.rules. Edit here, then re-copy to the games.
+//
+// ported from hive/packages/app/src/sw.ts (adapted)
+// Custom service worker: precached app shell with SPA navigation fallback,
+// plus Web Push display + tap-to-deep-link. Functions send data-only FCM
+// webpush messages ({title, body, link, tag, badge}) so this handler owns the
+// exact rendering, and every open client gets a push-sync postMessage — the
+// push proves something changed even when a Firestore stream has silently
+// died.
 import { clientsClaim } from 'workbox-core';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';

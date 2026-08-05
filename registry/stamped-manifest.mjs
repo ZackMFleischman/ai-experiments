@@ -23,7 +23,10 @@ export const STAMPED = {
   duo: {
     exemplar: 'tafl',
     files: {
-      'packages/app/src/sw.ts': {},
+      // sw.ts left this manifest for the copy-with-parity model (M5):
+      // parlor/templates/sw.ts is canonical, registry/check-sw-parity.mjs
+      // polices the duo copies (comment-insensitive, so hive's doc header
+      // divergence is fine).
       'packages/functions/src/index.ts': {
         exclude: {
           hive: 'pre-parlor forfeit/notify fork (own forfeit.ts) — converges in M4',

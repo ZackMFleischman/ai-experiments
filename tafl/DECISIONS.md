@@ -62,3 +62,13 @@
   plaques with the board's own piece glyphs. One §3 deviation: piece
   ink/bone hexes stay fixed across color modes so attackers always read
   dark and defenders pale — side identity beats mode inversion.
+
+- **2026-08-05 — shell plumbing is @parlor/brand's (PORTFOLIO-HARDENING M5).**
+  `BrandAppProviders` owns color-mode init/persist/OS-default + the family
+  theme stack (`onModeChange` seam carries `syncStatusBar` where native shells
+  exist); `BrandErrorBoundary` takes the reassurance line as its one prop. The
+  five brand titles' App.tsx shrank to game state + routes; the five identical
+  ErrorBoundary.tsx copies are gone. hive/lex keep their pre-brand theme forks
+  until M4. The duo `sw.ts` (zero identity strings) is now copy-with-parity
+  against `parlor/templates/sw.ts` (`registry/check-sw-parity.mjs`, comment-
+  insensitive) instead of sha-stamped — parity checks content, shas didn't.

@@ -3,19 +3,19 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AppProviders, AppRoutes } from './App';
-import { ErrorBoundary } from './ErrorBoundary';
+import { BrandErrorBoundary } from '@parlor/brand';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('missing #root');
 
 createRoot(root).render(
   <StrictMode>
-    <ErrorBoundary>
+    <BrandErrorBoundary reassurance="Your streak is safe — reload and settle back in.">
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AppProviders>
           <AppRoutes />
         </AppProviders>
       </BrowserRouter>
-    </ErrorBoundary>
+    </BrandErrorBoundary>
   </StrictMode>,
 );
