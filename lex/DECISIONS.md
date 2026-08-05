@@ -264,3 +264,17 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   New `lex.confirmPlay.v1` preference (Context per the skinContext idiom,
   provider in App.tsx, Settings toggle) gates a Play-confirm dialog; default
   **off** so existing one-tap flow and e2e are unchanged. Visual-checklist amended.
+
+- **2026-08-05 — Preview chips → one draggable preview card (Zack).** Per-word
+  chips anchored a row above each word's first cell covered the letters they
+  annotated, and cross words (whose first cells sit a cell apart) piled their
+  chips onto each other. Replaced by a single card: one row per word, a bingo
+  line, and the play's total — which **reverses the 2026-07-05 "no total badge"
+  call**, since the reason that badge was redundant (one chip = one word) dies
+  with the chips, and a multi-word play had nowhere to show its value. Placement
+  is `previewCard.pickCardSpot` (pure board-space geometry, unit-tested): score
+  the spots around the play by what they'd hide, fall back to a clear corner of
+  the visible slice, clamp on screen. It renders OUTSIDE the board transform so
+  zoom doesn't shrink the text, and it is drag/arrow-key movable — a parked spot
+  survives until it would cover a *new* staged word. Same pass: the last-play
+  `+N` badge flips inside the board when its word ends at the right edge.

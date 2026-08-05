@@ -37,6 +37,34 @@ test('gallery: every entry renders clean at every viewport and theme', async ({ 
           found.push(`${label}: board overflows viewport: ${JSON.stringify(box)}`);
         }
       }
+
+      // The preview card is the whole point of T3.7's rework: it must stay ON
+      // SCREEN and OFF the staged word (the chips it replaced did neither).
+      const card = p.locator('[data-testid="preview-card"]').first();
+      if ((await card.count()) > 0) {
+        const box = await card.boundingBox();
+        if (!box) {
+          found.push(`${label}: preview card has no box`);
+        } else {
+          if (box.x < -1 || box.y < -1 || box.x + box.width > vp.width + 1 || box.y + box.height > vp.height + 1) {
+            found.push(`${label}: preview card off screen: ${JSON.stringify(box)}`);
+          }
+          const staged = await p.locator('[data-cell] [data-pending="true"]').all();
+          for (const tile of staged) {
+            const t = await tile.boundingBox();
+            if (!t) continue;
+            const overlap =
+              box.x < t.x + t.width &&
+              box.x + box.width > t.x &&
+              box.y < t.y + t.height &&
+              box.y + box.height > t.y;
+            if (overlap) {
+              found.push(`${label}: preview card covers a staged tile at ${JSON.stringify(t)}`);
+              break;
+            }
+          }
+        }
+      }
       return found;
     },
   });

@@ -12,13 +12,15 @@ are logged at the bottom with date + reason, and deleted when fixed.
   DL/TL/DW/TW text labels present so color is never the only signal.
 - **Pending vs committed tiles** unmistakable in both themes (lift + gold edge);
   pending tiles never look submitted.
-- Preview chips (word + score + ✓/✗) readable, and never occlude the pending word
-  or the rack; no other score floater competes with them.
+- Preview card (one row per word + score + ✓/✗, bingo line, total) readable at
+  every zoom, never occluding the pending word or the rack, and fully on screen
+  — including the eight-row bingo case; no other score floater competes with it.
+  Its parked position survives a pan/zoom.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.
 - Pass-device interstitial fully hides both racks (no tile leakage in the frame).
-- Player bars, rack, preview chips, and board never overlap; safe-area respected
+- Player bars, rack, preview card, and board never overlap; safe-area respected
   at 390×844.
 - Player bar: names show as first names (long full names shortened, never
   wrapping to a second line so the big score number sits centered, not

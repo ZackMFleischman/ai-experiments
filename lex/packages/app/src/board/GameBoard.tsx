@@ -17,7 +17,8 @@ import { ResultOverlay } from '../game/ResultOverlay';
 import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
-import { PreviewOverlay } from './PreviewOverlay';
+import type { ManualSpot } from './PreviewCard';
+import { PreviewCard } from './PreviewCard';
 import { rackSlotGeometry } from './rackGeometry';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
@@ -85,6 +86,13 @@ export function GameBoard({
   const [infoOpen, setInfoOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
   const trayWrapRef = useRef<HTMLDivElement | null>(null);
+  const boardAreaRef = useRef<HTMLDivElement | null>(null);
+  // Where the player parked the preview card. Kept for the whole session — a
+  // spot chosen once shouldn't have to be re-chosen every turn — and only
+  // overridden when it would sit on top of a NEW staged word (PreviewCard).
+  const [cardSpot, setCardSpot] = useState<ManualSpot | null>(null);
+  // Cells of the preview word under the pointer, ringed on the board.
+  const [focusCells, setFocusCells] = useState<readonly CellKey[] | null>(null);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
@@ -295,6 +303,25 @@ export function GameBoard({
   const lastPlay =
     snap.lastPlay?.kind === 'play' && snap.pending.size === 0 ? snap.lastPlay : undefined;
   const lastPlayEnd = lastPlay?.cells[lastPlay.cells.length - 1];
+  // The badge sits just past the word's last tile — unless that would hang off
+  // the right edge, where it flips to just before the word's first tile.
+  const lastPlayBadgePos = (() => {
+    if (!lastPlay || !lastPlayEnd) return null;
+    const { col } = parseCellKey(lastPlayEnd);
+    const firstCol = Math.min(...lastPlay.cells.map((k) => parseCellKey(k).col));
+    return col + 1 < layout.cols
+      ? { left: BOARD_PAD_PX + (col + 1) * CELL_PX + 4 }
+      : { right: BOARD_PAD_PX + (layout.cols - firstCol) * CELL_PX + 4 };
+  })();
+
+  // What the preview card needs: the staged cells it must not cover, and the
+  // committed letters it would rather not cover either.
+  const playCells = useMemo(
+    () => [...snap.pending.keys()].map(parseCellKey),
+    [snap.pending],
+  );
+  const committedCells = useMemo(() => [...snap.state.board.keys()], [snap.state.board]);
+  const cardVisible = snap.preview !== null && !snap.preview.needsBlank && playCells.length > 0;
 
   // While a staged tile is in flight its cell renders empty — the ghost IS the tile.
   const visiblePending = useMemo(() => {
@@ -341,7 +368,7 @@ export function GameBoard({
         dictionaryId={snap.options.dictionaryId}
         {...(timeControl !== undefined ? { timeControl } : {})}
       />
-      <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
+      <Box ref={boardAreaRef} sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardViewport
           boardWidth={width}
           boardHeight={height}
@@ -357,19 +384,16 @@ export function GameBoard({
               tiles={snap.state.board}
               pending={visiblePending}
               hover={hover}
+              focusCells={cardVisible ? focusCells : null}
               {...(lastPlay ? { lastPlayCells: lastPlay.cells } : {})}
             />
-            <PreviewOverlay
-              preview={snap.preview}
-              anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
-            />
-            {lastPlay && lastPlayEnd && (
+            {lastPlay && lastPlayEnd && lastPlayBadgePos && (
               <Box
                 data-testid="last-play-score"
                 sx={{
                   position: 'absolute',
-                  left: 2 + (parseCellKey(lastPlayEnd).col + 1) * 36 + 4,
-                  top: 2 + parseCellKey(lastPlayEnd).row * 36,
+                  ...lastPlayBadgePos,
+                  top: BOARD_PAD_PX + parseCellKey(lastPlayEnd).row * CELL_PX,
                   px: 0.75,
                   borderRadius: 10,
                   bgcolor: 'secondary.main',
@@ -385,6 +409,24 @@ export function GameBoard({
             )}
           </Box>
         </BoardViewport>
+        {/* The preview card lives OUTSIDE the board transform (screen space):
+            it stays a readable size at every zoom and can never be panned
+            off-screen. */}
+        {cardVisible && snap.preview && (
+          <PreviewCard
+            preview={snap.preview}
+            bingoBonus={snap.ruleset.bingoBonus}
+            playCells={playCells}
+            occupiedCells={committedCells}
+            boardSize={{ width, height }}
+            hostRef={boardAreaRef}
+            viewportRef={viewportRef}
+            faded={drag !== null}
+            manual={cardSpot}
+            onManualChange={setCardSpot}
+            onFocusCells={setFocusCells}
+          />
+        )}
       </Box>
       {snap.exchange ? (
         <ExchangeBar
