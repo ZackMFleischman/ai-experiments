@@ -1,10 +1,10 @@
 # CLAUDE.md — parlor/
 
 PARLOR: the game-agnostic platform workspace for this repo's turn-based
-two-player PWA games. Read `README.md` here first; the design rationale and
-hive port map live in `lex/DESIGN.md` §4, and **all build tasks live in
-`lex/IMPLEMENTATION.md`** — parlor has no task list of its own and only grows
-in service of a consumer's task.
+two-player PWA games. Read `README.md` here first; the design rationale, hive
+port map, and boundaries live in `DESIGN.md` here, and **all build tasks live
+in `lex/IMPLEMENTATION.md`** — parlor has no task list of its own and only
+grows in service of a consumer's task.
 
 ## Hard rules
 
@@ -20,12 +20,14 @@ in service of a consumer's task.
 - Every file ported from hive keeps its `// ported from hive/<path> (adapted)`
   header; when fixing a bug here, grep hive for the twin and flag it in the PR.
 - Breaking a `@parlor/*` public interface requires updating the consumers and
-  `lex/DESIGN.md` §4 in the same PR.
+  `DESIGN.md` in the same PR.
 - `brand/` components encode repo-root `DESIGN-PRINCIPLES.md` (game-first
   real estate, GameHud by player count, accent-derived palette, footer
   cross-promo) — read it before changing them.
-- Never weaken tests to pass a gate. Docs: this file + README only, ≤55 lines
-  each, current-state only; decisions go to the consumer's DECISIONS.md.
+- Never weaken tests to pass a gate. Docs: closed set — this file + README
+  (≤55 each) + DESIGN (≤120, the platform canon) + append-only DECISIONS
+  (a dead decision gets `⊘ superseded YYYY-MM-DD — <pointer>` appended — the
+  only in-place edit, lint-checked); current-state only.
 
 ## Commands
 

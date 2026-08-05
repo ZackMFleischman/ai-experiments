@@ -20,7 +20,9 @@ checked, `tools/create-app/PLAYBOOK.md` is the build runbook.
 - Parlor packages are consumed as source-linked siblings (`link:` +
   tsconfig paths + vite dedupe). Install `parlor/` before `checkers/`.
 - Docs are a closed, line-budgeted set (`scripts/check-docs.mjs`, wired
-  into typecheck), including `DONE.md`.
+  into typecheck), including `DONE.md`. DECISIONS is append-only (a dead
+  decision gets `⊘ superseded YYYY-MM-DD — <pointer>` appended — the only
+  in-place edit, lint-checked).
 
 ## Commands
 

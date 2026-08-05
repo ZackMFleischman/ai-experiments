@@ -239,7 +239,7 @@ if (existsSync(checkDocsPath)) {
   if (checkDocs.includes("'DONE.md'")) {
     // already present (idempotent re-stamp / exemplar carries it) — leave it
   } else if (marker.test(checkDocs)) {
-    writeFileSync(checkDocsPath, checkDocs.replace(marker, "  ['DONE.md', 120],"));
+    writeFileSync(checkDocsPath, checkDocs.replace(marker, "    ['DONE.md', 120],"));
   } else {
     fail(`${kind.exemplar}/scripts/check-docs.mjs lost its "create-app:done-budget" marker — the stamp can't register DONE.md`);
   }

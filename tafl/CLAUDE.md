@@ -23,7 +23,9 @@ changes; decisions go to `DECISIONS.md`.
   into `pnpm typecheck`.
 - The platform is the sibling `../parlor/` workspace (source-linked;
   install parlor first). It never imports game packages.
-- Docs are a closed, line-budgeted set (`scripts/check-docs.mjs`). Never
+- Docs are a closed, line-budgeted set (`scripts/check-docs.mjs`).
+  DECISIONS is append-only (a dead decision gets `⊘ superseded YYYY-MM-DD —
+  <pointer>` appended — the only in-place edit, lint-checked). Never
   weaken a test to pass a gate; never commit `artifacts/`.
 - ⚑ tasks need Zack (Firebase console, store ops, real devices) — do the
   code side, then list what's needed in the PR.

@@ -25,7 +25,9 @@ session kit). Read `DESIGN.md` before structural changes; decisions go to
 - Parlor packages are consumed as source-linked siblings (`link:` +
   tsconfig paths + vite dedupe). Install `parlor/` before `stillness/`.
 - Docs are a closed, line-budgeted set (`scripts/check-docs.mjs`, wired
-  into typecheck). Never weaken a test to pass a gate.
+  into typecheck). DECISIONS is append-only (a dead decision gets
+  `⊘ superseded YYYY-MM-DD — <pointer>` appended — the only in-place
+  edit, lint-checked). Never weaken a test to pass a gate.
 
 ## Commands
 

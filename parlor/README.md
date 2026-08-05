@@ -49,5 +49,6 @@ Consumed by sibling workspaces via `link:` dependencies + TS path mapping —
 wiring documented in `lex/IMPLEMENTATION.md` §1 (run `pnpm install` here first).
 
 Hard rule: **no game imports** (`@lex/*`, `@hive/*`) — machine-checked. Design
-rationale and the port map live in `lex/DESIGN.md` §4; build tasks live in
-`lex/IMPLEMENTATION.md` (parlor grows only in service of a consumer's task).
+rationale and the port map live in `DESIGN.md`; decisions in `DECISIONS.md`;
+build tasks live in `lex/IMPLEMENTATION.md` (parlor grows only in service of a
+consumer's task).

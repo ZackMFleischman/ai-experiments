@@ -42,8 +42,9 @@ task says **[port: hive path]**, start from that file.
   without a DECISIONS.md entry. `scripts/check-docs.mjs` fails typecheck otherwise.
 - Docs state the **current** system only: amend the owning section in place, in the
   same PR as the change. Decisions/judgment calls → append to `DECISIONS.md`
-  (≤8 lines). When a milestone ships, collapse its IMPLEMENTATION.md task table to
-  a SHIPPED entry there.
+  (≤8 lines); a dead decision gets `⊘ superseded YYYY-MM-DD — <pointer>` appended
+  (the only in-place edit, lint-checked). When a milestone ships, collapse its
+  IMPLEMENTATION.md task table to a SHIPPED entry there.
 
 ## Commands
 

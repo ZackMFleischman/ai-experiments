@@ -12,12 +12,14 @@ mark it `✅ SHIPPED (date)` here and log deviations in the most-affected
 project's `DECISIONS.md`.
 
 **Status legend:** ✅ shipped · ◐ partially shipped · ○ not started. Progress as
-of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M5 ◐, M6 ◐, M4/M7/M8/M9 ○.** The deferred
-items share one cause — they need a runnable environment (full `pnpm install`
-per workspace, the Firebase emulator jars, or a GitHub Actions run) or live
-owner action (Firebase data migration, store submission) that this session
-can't provide. They are annotated in place with what's required to land them
-safely; nothing was shipped that couldn't be run and observed green here.
+of 2026-07-11: **M0 ✅, M1 ✅, M6 ✅, M2 ◐, M3 ◐, M5 ◐, M4/M7/M8/M9 ○.** Most
+earlier deferral notes cited a non-runnable environment; the current session
+re-probed and CAN run full installs, the Firebase emulators (Java 21 + jar
+download verified), Playwright visual gates, and can observe GitHub Actions on
+PR branches — so those items are being landed slice by slice. Still genuinely
+deferred: live owner action (Firebase console, data migration, store
+submission) and deploy-workflow swaps that only fire on main. Nothing ships
+that isn't run and observed green here.
 
 ---
 
@@ -276,7 +278,7 @@ Gate: `App.tsx` diff across sudoku/breakout/stillness is game-content only;
 a deliberate edit to an exemplar binding file makes the stale-copy lint flag
 every game copy; factory-ci still green.
 
-## M6 — Docs, decisions & platform ownership (S–M) — ◐ partially shipped
+## M6 — Docs, decisions & platform ownership (S–M) — ✅ SHIPPED (2026-07-11)
 
 - [x] **GAME-SETUP demotion**: header now declares `tools/create-app` +
       `PLAYBOOK.md` the live path and this file the wiring reference; the
@@ -284,19 +286,26 @@ every game copy; factory-ci still green.
       stillness, not hive/lex); the deploy tribal knowledge is folded into the
       executable **ship-game** skill (shipped in M2). *(Listed out of order —
       it was the self-contained item and it leans on the M2 skill.)*
-- [ ] **Parlor owns its canon** — DEFERRED (moves `lex/DESIGN.md §4`, a frozen
-      surface, into a new budgeted `parlor/DESIGN.md` + `DECISIONS.md` and
-      rewires `parlor/scripts/check-docs.mjs`; wants a parlor typecheck run to
-      confirm the new closed set).
-- [ ] **DECISIONS supersession convention** — DEFERRED (edits every game's
-      CLAUDE.md + all eight `check-docs.mjs` copies; batch with the shared-core
-      move below).
-- [ ] **Budget alignment / shared check-docs core to `tools/`** — DEFERRED
-      (consolidating eight drifting copies is the right end state but needs
-      each workspace's typecheck run to prove parity).
+- [x] **Parlor owns its canon**: the platform half of `lex/DESIGN.md` §4 moved
+      into a budgeted `parlor/DESIGN.md` (≤120 — origin/port map,
+      copy-with-parity model, consumption mechanics, boundaries) and
+      `parlor/DECISIONS.md` opened; parlor's check-docs / CLAUDE / README
+      rewired to the four-doc closed set (CLAUDE+README ≤55, DESIGN ≤120,
+      DECISIONS uncapped); lex §4 keeps only lex's consumer stance;
+      GAME-SETUP's canonical-surfaces pointer now names `parlor/DESIGN.md`.
+- [x] **DECISIONS supersession convention**: a dead decision gets
+      `⊘ superseded YYYY-MM-DD — <pointer>` appended to its entry — the only
+      in-place DECISIONS.md edit. Stated in every game's CLAUDE.md + DECISIONS
+      preamble and lint-enforced in the shared core (canonical-form check;
+      forward "supersedes …" references allowed); the two pre-existing ad-hoc
+      markers (lex's platform entry, tafl's Brandub entry) normalized.
+- [x] **Budget alignment / shared check-docs core**: eight drifted copies →
+      `tools/check-docs-core.mjs` + thin per-workspace wrappers owning only
+      budgets/skip-list/policy-ref (semantics preserved per app — budgets
+      deliberately NOT equalized, incl. the factory's `create-app:done-budget`
+      marker). Parity proven by every workspace's typecheck.
 Gate: parlor typecheck enforces its new doc set; every project's check-docs
-green; a platform-design question is answerable from `parlor/` alone. (Only the
-GAME-SETUP-demotion leg is shipped; the rest are deferred as noted.)
+green; a platform-design question is answerable from `parlor/` alone.
 
 ## M7 — Deploy & identity (L) — ○ not started (owner + live-migration)
 
