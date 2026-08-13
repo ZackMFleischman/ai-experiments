@@ -1,0 +1,71 @@
+# Plate template: what each well on the plate IS.
+#
+# A 96-well layout can't live on the command line, so roles are declared here and
+# joined to the raw signal file by well position. Wells not listed here are ignored.
+#
+# 'wells' accepts single wells (A1), inclusive rectangular ranges (A5-D6 / A5:D6),
+# or any mix of the two in a list.
+
+plate:
+  id: PLATE-A                 # default --plate-id; the CLI flag overrides it
+  format: 96                  # 6 / 24 / 96 / 384
+  assay: Synthetic ELISA (demo)
+  units: ng/mL
+  blank_handling: subtract_mean   # subtract_mean | none
+
+standards:
+  - level: STD1
+    nominal: 200.0
+    wells: [A1, A2]
+  - level: STD2
+    nominal: 100.0
+    wells: [B1, B2]
+  - level: STD3
+    nominal: 50.0
+    wells: [C1, C2]
+  - level: STD4
+    nominal: 25.0
+    wells: [D1, D2]
+  - level: STD5
+    nominal: 12.5
+    wells: [E1, E2]
+  - level: STD6
+    nominal: 6.25
+    wells: [F1, F2]
+  - level: STD7
+    nominal: 3.125
+    wells: [G1, G2]
+  - level: STD8
+    nominal: 1.5625
+    wells: [H1, H2]
+
+samples:
+  # QC levels carry a nominal concentration, so they get a % recovery.
+  - group: QC-HIGH
+    nominal: 150.0
+    wells: [A3, B3, C3]
+  - group: QC-MID
+    nominal: 30.0
+    wells: [D3, E3, F3]
+  - group: QC-LOW
+    nominal: 3.0
+    wells: [G3, H3]
+  # Deliberately outside the calibrated range, to exercise out-of-range flagging.
+  - group: QC-ABOVE
+    nominal: 800.0
+    wells: [A4, B4]
+  - group: QC-BELOW
+    nominal: 0.3
+    wells: [C4, D4]
+  # Unknowns have no nominal: they get %CV but no % recovery.
+  - group: UNK-001
+    wells: [A5, A6]
+  - group: UNK-002
+    wells: [B5, B6]
+  - group: UNK-003
+    wells: [C5, C6]
+  - group: UNK-004
+    wells: [D5, D6]
+
+blanks:
+  wells: [H11, H12]

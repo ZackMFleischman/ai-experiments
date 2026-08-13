@@ -1,0 +1,54 @@
+name: PLATEFIT CI
+
+# platefit is the one Python workspace in the portfolio: no pnpm, no parlor.
+# The suite pins the statistics against values worked out by hand, so a CI
+# failure here means a number moved -- treat it as a numerical regression, not
+# a flaky test.
+on:
+  pull_request:
+    paths: ['platefit/**', '.github/workflows/platefit-ci.yml']
+  push:
+    branches: [main]
+    paths: ['platefit/**', '.github/workflows/platefit-ci.yml']
+
+concurrency:
+  group: platefit-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: platefit · pytest · synthetic pipeline
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platefit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+      # The committed synthetic plates must stay reproducible from their seed:
+      # they are the fixture every end-to-end test and every README example
+      # reads, so a silent drift would rot both.
+      - name: synthetic data is reproducible from its seed
+        run: |
+          python examples/make_synthetic.py
+          git diff --exit-code -- examples/
+
+      - name: pipeline runs end to end
+        run: |
+          for plate in a b c; do
+            platefit run --data "examples/plate_${plate}.csv" \
+                         --template examples/template_96.yaml \
+                         --output /tmp/platefit-ci \
+                         --plate-id "PLATE-${plate^^}" --quiet
+          done
+          platefit compare /tmp/platefit-ci \
+                   --reference examples/reference_qc.csv \
+                   --output /tmp/platefit-ci-compare
