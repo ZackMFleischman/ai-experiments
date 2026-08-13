@@ -243,6 +243,13 @@ def fit_summary(fit) -> dict:
         "n_standards": fit.n_standards,
         "conc_range": list(fit.conc_range),
         "signal_range": list(fit.signal_range),
+        "fitted_signal_range": list(fit.fitted_signal_range),
+        "r_squared_weighted": fit.r_squared_weighted,
+        "rmse": fit.rmse,
+        "weighted_sse": fit.weighted_sse,
+        "weight_floor": fit.weight_floor,
+        "excluded_standards": fit.excluded_standards,
+        "notes": fit.notes,
         "residuals": list(fit.residuals),
         "standards": fit.standards_table,
     }

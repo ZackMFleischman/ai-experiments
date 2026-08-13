@@ -21,20 +21,20 @@ HERE = Path(__file__).parent
 TEMPLATE = HERE / "template_96.yaml"
 
 # 4PL truth: signal = d + (a - d) / (1 + (conc / c) ** b)
-TRUTH = {"a": 0.040, "d": 3.10, "c": 42.0, "b": 1.10}
+TRUTH = {"a": 0.040, "d": 3.10, "c": 25.0, "b": 1.20}
 BLANK_OFFSET = 0.045
-PROPORTIONAL_CV = 0.025
-ADDITIVE_SD = 0.008
+PROPORTIONAL_CV = 0.008
+ADDITIVE_SD = 0.004
 
 # Per-plate multipliers on top asymptote and EC50 (the run-to-run effect).
 PLATES = {
     "PLATE-A": {"d": 1.000, "c": 1.00},
-    "PLATE-B": {"d": 1.030, "c": 0.94},
-    "PLATE-C": {"d": 0.970, "c": 1.08},
+    "PLATE-B": {"d": 1.025, "c": 0.94},
+    "PLATE-C": {"d": 0.975, "c": 1.07},
 }
 
 # True concentrations behind the unknown groups.
-UNKNOWN_TRUTH = {"UNK-001": 420.0, "UNK-002": 58.0, "UNK-003": 6.2, "UNK-004": 130.0}
+UNKNOWN_TRUTH = {"UNK-001": 120.0, "UNK-002": 22.0, "UNK-003": 4.5, "UNK-004": 60.0}
 
 ROWS = "ABCDEFGH"
 COLS = range(1, 13)

@@ -15,47 +15,47 @@ plate:
 
 standards:
   - level: STD1
-    nominal: 1000.0
+    nominal: 200.0
     wells: [A1, A2]
   - level: STD2
-    nominal: 300.0
+    nominal: 100.0
     wells: [B1, B2]
   - level: STD3
-    nominal: 100.0
+    nominal: 50.0
     wells: [C1, C2]
   - level: STD4
-    nominal: 30.0
+    nominal: 25.0
     wells: [D1, D2]
   - level: STD5
-    nominal: 10.0
+    nominal: 12.5
     wells: [E1, E2]
   - level: STD6
-    nominal: 3.0
+    nominal: 6.25
     wells: [F1, F2]
   - level: STD7
-    nominal: 1.0
+    nominal: 3.125
     wells: [G1, G2]
   - level: STD8
-    nominal: 0.3
+    nominal: 1.5625
     wells: [H1, H2]
 
 samples:
   # QC levels carry a nominal concentration, so they get a % recovery.
   - group: QC-HIGH
-    nominal: 750.0
+    nominal: 150.0
     wells: [A3, B3, C3]
   - group: QC-MID
-    nominal: 75.0
+    nominal: 30.0
     wells: [D3, E3, F3]
   - group: QC-LOW
-    nominal: 2.5
+    nominal: 3.0
     wells: [G3, H3]
   # Deliberately outside the calibrated range, to exercise out-of-range flagging.
   - group: QC-ABOVE
-    nominal: 5000.0
+    nominal: 800.0
     wells: [A4, B4]
   - group: QC-BELOW
-    nominal: 0.05
+    nominal: 0.3
     wells: [C4, D4]
   # Unknowns have no nominal: they get %CV but no % recovery.
   - group: UNK-001
