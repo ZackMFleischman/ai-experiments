@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repository
 
 `ai-experiments` is an umbrella repo of **independent pnpm workspaces** — there is
-no root workspace; each project installs and gates on its own. (LOOM was forked
-to its own repo and no longer lives here.) The portfolio:
+no root workspace; each project installs and gates on its own. (LOOM and
+platefit were forked to their own repos and no longer live here — platefit is
+now at https://github.com/ZackMFleischman/platefit.) The portfolio:
 
 - **`parlor/`** — the shared platform workspace every game consumes:
   `core`/`web`/`server`/`harness` for two-player Firebase games,
