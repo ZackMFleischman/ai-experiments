@@ -64,20 +64,16 @@ describe('preview card (T3.7)', () => {
     expect(row.textContent).toContain('✗');
   });
 
-  // A ✗ beside a row is a footnote; the play being impossible is the headline.
-  it('an invalid word turns the whole card: named, struck total, Play explained', async () => {
+  // A ✗ beside a row is a footnote; the play being impossible is the headline —
+  // said in color and weight, not in a sentence.
+  it('an invalid word turns the whole card, and strikes the total it can’t score', async () => {
     const { controller } = await setup(stubDict(['CATS']));
     stageCats(controller);
     expect(screen.getByTestId('preview-card').getAttribute('data-blocked')).toBe('true');
-    // The total is shown as what it is — a score that will not happen.
     expect(getComputedStyle(screen.getByTestId('preview-total')).textDecoration).toContain(
       'line-through',
     );
-    const band = screen.getByTestId('preview-invalid');
-    expect(band.textContent).toContain('CATS');
-    expect(band.textContent).toMatch(/dictionary/i);
-    expect(band.textContent).toMatch(/play is off/i);
-    // And the same sentence reaches the disabled Play button.
+    // The words live on the disabled Play button, not on the card.
     expect(screen.getByTestId('play-blocked-reason').textContent).toMatch(/CATS.*dictionary/i);
     expect(screen.getByRole('button', { name: /^play$/i })).toHaveProperty('disabled', true);
   });
@@ -91,17 +87,18 @@ describe('preview card (T3.7)', () => {
       controller.placeAt({ row: 8, col: 7 }, 0);
       controller.placeAt({ row: 8, col: 8 }, 1);
     });
-    expect(screen.getByTestId('preview-invalid').textContent).toContain(
+    expect(screen.getByTestId('play-blocked-reason').textContent).toContain(
       '2 words aren’t in the dictionary',
     );
-    expect(screen.getByTestId('play-blocked-reason').textContent).toContain('2 words');
   });
 
-  it('says nothing about the dictionary while every word is valid', async () => {
+  it('stays calm while every word is valid', async () => {
     const { controller } = await setup();
     stageCats(controller);
     expect(screen.getByTestId('preview-card').getAttribute('data-blocked')).toBeNull();
-    expect(screen.queryByTestId('preview-invalid')).toBeFalsy();
+    expect(getComputedStyle(screen.getByTestId('preview-total')).textDecoration).not.toContain(
+      'line-through',
+    );
     expect(screen.queryByTestId('play-blocked-reason')).toBeFalsy();
   });
 

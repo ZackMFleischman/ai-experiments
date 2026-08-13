@@ -19,8 +19,8 @@ are logged at the bottom with date + reason, and deleted when fixed.
   parked position survives a pan/zoom.
 - A word that failed the dictionary reads as a blocked play from across the
   board in both themes: red card border, struck-through total, that row filled
-  red, its cells ringed dashed red, and the band naming the word — and the
-  valid card next to it stays calm (no red anywhere).
+  red, its cells ringed dashed red — and the valid card next to it stays calm
+  (no red anywhere). The card says it in color, never in a sentence.
 - Last-play score badge sits in an EMPTY cell beside its word — including a word
   that bridged committed letters — never on top of a tile, and follows the
   word's axis (right of an across play, below a down play). Tapping it expands

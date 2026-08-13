@@ -556,8 +556,9 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      A word that fails the dictionary is the card's loudest state, not a
      footnote: red border, the doomed total struck through, that word's row
      filled red, its cells ringed on the board (dashed red, ≠ pending gold /
-     last-play green), and a band naming the word and saying Play is off (the
-     same sentence titles the disabled Play button). Illegal geometry replaces
+     last-play green). Color and weight only — the sentence naming the word
+     rides the disabled Play button (title + a11y tree), not the card, which
+     has no room to narrate what it already shows. Illegal geometry replaces
      the list with its reason.
      Play is enabled only when `checkPlay` passes and all words are valid —
      pressing it submits optimistically (§6.3).

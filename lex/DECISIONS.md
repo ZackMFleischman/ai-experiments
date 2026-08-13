@@ -322,10 +322,11 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   A small red ✗ on one row, beside a big black total, next to a Play button
   whose only tell is being grey, read as decoration — players kept pressing a
   disabled button. The card now turns whole: red border, total struck through,
-  the offending row filled red, a thicker dashed ring on its cells, and a band
-  naming the word and stating Play is off (the same sentence titles the Play
-  button and lands in the a11y tree). Still pure verdict rendering — the UI
-  decides nothing new, it just stops whispering.
+  the offending row filled red, a thicker dashed ring on its cells. The first
+  build also carried a band spelling out "CATS isn't in the dictionary"; Zack
+  cut it as clutter — the state is legible without narrating itself, and the
+  words still reach hover and the a11y tree as the Play button's title. Still
+  pure verdict rendering — the UI decides nothing new, it just stops whispering.
 
 - **2026-08-13 — A board tap tucks the last-play badge away (Zack).** The badge
   parks in an empty cell, which is not the same as out of the way: beside a

@@ -12,12 +12,12 @@
 // readable size at every zoom instead of shrinking with the board.
 //
 // A word the dictionary rejects is the card's LOUDEST state, not a footnote: a
-// small red ✗ beside a row read as decoration next to a big black total, and
-// the only other signal — a greyed-out Play — is off in the corner and says
-// nothing about why. So the whole card turns: red border, the doomed total
-// struck through, the offending row filled red, and a band naming the word and
-// stating that Play is off. Still verdict data — the UI decides nothing here,
-// it only stops whispering it.
+// small red ✗ beside a row read as decoration next to a big black total. So the
+// whole card turns — red border, the doomed total struck through, the offending
+// row filled red — and the board rings that word's cells to match. Color and
+// weight only: the sentence explaining it lived here for one build and was cut
+// as clutter (the state is legible without being narrated; the disabled Play
+// button still carries the words for hover and screen readers).
 //
 // Everything shown is a controller verdict; only the position is computed here.
 import { Box, Paper, Typography } from '@mui/material';
@@ -61,19 +61,13 @@ const HEAD_H = 28;
 const GRIP_PX = 26;
 const ROW_H = 22;
 const PAD_H = 14;
-/** The "not in the dictionary" band: two lines plus its own padding. */
-const BAND_H = 38;
 
 /** Good-enough size for the first frame; the real one is measured on layout
  * (jsdom reports 0×0, so the estimate stands in tests). */
-function estimateSize(
-  rows: number,
-  longestWord: number,
-  band = false,
-): { width: number; height: number } {
+function estimateSize(rows: number, longestWord: number): { width: number; height: number } {
   return {
     width: Math.min(260, Math.max(136, 78 + longestWord * 9)),
-    height: PAD_H + HEAD_H + rows * ROW_H + (band ? BAND_H : 0),
+    height: PAD_H + HEAD_H + rows * ROW_H,
   };
 }
 
@@ -131,7 +125,7 @@ export function PreviewCard({
   const longest = words.reduce((n, w) => Math.max(n, w.word.length), 4);
   // The words the dictionary rejected — what turns the card red.
   const rejected = words.filter((w) => !w.valid);
-  const [size, setSize] = useState(() => estimateSize(rows, longest, rejected.length > 0));
+  const [size, setSize] = useState(() => estimateSize(rows, longest));
   const signature = playSignature(playCells);
 
   // Measure the rendered card so placement uses its real footprint.
@@ -477,40 +471,6 @@ export function PreviewCard({
                 sx={{ fontSize: 13, fontWeight: 700, color: 'secondary.main' }}
               >
                 +{bingoBonus}
-              </Typography>
-            </Box>
-          )}
-          {/* Names the problem and answers "why is Play greyed out?" here, at
-              the play, instead of leaving the disabled button to imply it. */}
-          {rejected.length > 0 && (
-            <Box
-              data-testid="preview-invalid"
-              sx={{
-                mt: 0.5,
-                mx: -1,
-                mb: -0.5,
-                px: 1,
-                py: 0.5,
-                borderTop: 1,
-                borderColor: 'error.main',
-                bgcolor: (t) => alpha(t.palette.error.main, 0.16),
-                borderBottomLeftRadius: 4,
-                borderBottomRightRadius: 4,
-              }}
-            >
-              <Typography
-                component="p"
-                sx={{ fontSize: 12, fontWeight: 700, color: 'error.main', lineHeight: 1.25 }}
-              >
-                {rejected.length === 1
-                  ? `${rejected[0]!.word} isn’t in the dictionary`
-                  : `${rejected.length} words aren’t in the dictionary`}
-              </Typography>
-              <Typography
-                component="p"
-                sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.25 }}
-              >
-                Play is off until every word is valid.
               </Typography>
             </Box>
           )}
