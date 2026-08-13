@@ -15,14 +15,18 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Preview card (one row per word + score + ✓/✗, bingo line, total) readable at
   every zoom, never occluding the pending word or the rack, and fully on screen
   — including the eight-row bingo case. It is click-through apart from its grip
-  (a tap lands on the cell beneath it); the geometry hint has no grip. A word
-  that failed the dictionary has its cells ringed dashed red. Its parked
-  position survives a pan/zoom.
+  (a tap lands on the cell beneath it); the geometry hint has no grip. Its
+  parked position survives a pan/zoom.
+- A word that failed the dictionary reads as a blocked play from across the
+  board in both themes: red card border, struck-through total, that row filled
+  red, its cells ringed dashed red — and the valid card next to it stays calm
+  (no red anywhere). The card says it in color, never in a sentence.
 - Last-play score badge sits in an EMPTY cell beside its word — including a word
   that bridged committed letters — never on top of a tile, and follows the
   word's axis (right of an across play, below a down play). Tapping it expands
   the per-word breakdown; the popover is readable in both themes and clears the
-  board on dismiss.
+  board on dismiss. A tap on the board tucks the badge away (the green
+  highlight stays put); another tap brings it back.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.

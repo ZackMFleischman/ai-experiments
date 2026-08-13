@@ -255,6 +255,47 @@ test('the last-play score expands into the words that made it', async ({ page })
   await expect(panel).toContainText('12');
 });
 
+// The badge parks in an EMPTY cell, which is not the same as out of the way —
+// beside a tight word it can still sit over the square you want to read, and
+// staging a tile used to be its only exit. Only a real browser can show that
+// the badge's own tap is not also a board tap (it stops the gesture there).
+test('a board tap tucks the last-play score away; another brings it back', async ({ page }) => {
+  const place = async (slot: number, cell: string) => {
+    await page.locator(`[data-rack-slot="${slot}"]`).click();
+    await page.locator(`[data-cell="${cell}"]`).click();
+    await page.waitForTimeout(400); // stay out of the double-tap window
+  };
+  await place(0, '7,7');
+  await place(1, '7,8');
+  await place(2, '7,9');
+  await place(3, '7,10');
+  await page.getByRole('button', { name: /^play$/i }).click();
+  await page.getByTestId('pass-device').click();
+
+  const badge = page.getByTestId('last-play-score');
+  await expect(badge).toBeVisible();
+  await page.waitForTimeout(500); // let the tile animate-in settle
+
+  // Tapping the badge opens its breakdown — that gesture must never also
+  // count as the board tap that hides it.
+  await badge.click();
+  await expect(page.getByTestId('last-play-breakdown')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('last-play-breakdown')).toBeHidden();
+  await expect(badge).toBeVisible();
+
+  await page.waitForTimeout(400);
+  await page.locator('[data-cell="0,0"]').click();
+  await expect(badge).toBeHidden();
+  // Only the number steps aside: the play stays highlighted.
+  expect(await page.locator('[data-last-play]').count()).toBe(4);
+  await shot(page, 'last-play-tucked');
+
+  await page.waitForTimeout(400);
+  await page.locator('[data-cell="14,14"]').click();
+  await expect(badge).toBeVisible();
+});
+
 test('the preview card can be dragged by its grip (real pointer capture)', async ({ page }) => {
   // TWO tiles: one is "Two tiles minimum", a transient hint, and hints carry
   // no grip on purpose.

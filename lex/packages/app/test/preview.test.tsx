@@ -64,6 +64,44 @@ describe('preview card (T3.7)', () => {
     expect(row.textContent).toContain('✗');
   });
 
+  // A ✗ beside a row is a footnote; the play being impossible is the headline —
+  // said in color and weight, not in a sentence.
+  it('an invalid word turns the whole card, and strikes the total it can’t score', async () => {
+    const { controller } = await setup(stubDict(['CATS']));
+    stageCats(controller);
+    expect(screen.getByTestId('preview-card').getAttribute('data-blocked')).toBe('true');
+    expect(getComputedStyle(screen.getByTestId('preview-total')).textDecoration).toContain(
+      'line-through',
+    );
+    // The words live on the disabled Play button, not on the card.
+    expect(screen.getByTestId('play-blocked-reason').textContent).toMatch(/CATS.*dictionary/i);
+    expect(screen.getByRole('button', { name: /^play$/i })).toHaveProperty('disabled', true);
+  });
+
+  it('counts the bad words when a play makes more than one', async () => {
+    const { controller } = await setup(stubDict(['CD', 'AO']));
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    // DO under CA: DO is a word, the cross words CD and AO are not.
+    act(() => {
+      controller.placeAt({ row: 8, col: 7 }, 0);
+      controller.placeAt({ row: 8, col: 8 }, 1);
+    });
+    expect(screen.getByTestId('play-blocked-reason').textContent).toContain(
+      '2 words aren’t in the dictionary',
+    );
+  });
+
+  it('stays calm while every word is valid', async () => {
+    const { controller } = await setup();
+    stageCats(controller);
+    expect(screen.getByTestId('preview-card').getAttribute('data-blocked')).toBeNull();
+    expect(getComputedStyle(screen.getByTestId('preview-total')).textDecoration).not.toContain(
+      'line-through',
+    );
+    expect(screen.queryByTestId('play-blocked-reason')).toBeFalsy();
+  });
+
   it('illegal geometry shows the reason in the card instead of words', async () => {
     const { controller } = await setup();
     act(() => {

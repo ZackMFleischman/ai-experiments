@@ -102,6 +102,11 @@ export function GameBoard({
   // The last-play badge expands into its word breakdown (how the opponent got
   // that number) — anchored to the badge, so it can't hide the board for long.
   const [breakdownAnchor, setBreakdownAnchor] = useState<HTMLElement | null>(null);
+  // The badge parks in an empty cell, but "empty" is not the same as "not in
+  // the way" — beside a tight word it can still sit over the square you are
+  // trying to read. Its only exit used to be staging a tile, so a tap on the
+  // board tucks it away, and another tap brings it back.
+  const [scoreTucked, setScoreTucked] = useState(false);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
@@ -203,6 +208,26 @@ export function GameBoard({
     [controller, snapCell, landSlot, overRack, rackIndexAt, updateDrag],
   );
 
+  /** Toggle the last-play badge — but only when a badge is actually on the
+   * board, so taps taken while tiles are staged (when it is hidden anyway)
+   * can't leave it tucked away for the recall that follows. */
+  const toggleLastPlayScore = useCallback(() => {
+    const s = controller.getSnapshot();
+    if (s.lastPlay?.kind !== 'play' || s.pending.size > 0) return;
+    setBreakdownAnchor(null);
+    setScoreTucked((tucked) => !tucked);
+  }, [controller]);
+
+  // A play of their own is news: it brings the badge back whatever the player
+  // did with the previous one.
+  const lastPlayKey = snap.lastPlay
+    ? `${snap.lastPlay.by}:${snap.lastPlay.kind}:${snap.lastPlay.total}:${snap.lastPlay.cells.join('|')}`
+    : '';
+  useEffect(() => {
+    setScoreTucked(false);
+    setBreakdownAnchor(null);
+  }, [lastPlayKey]);
+
   // Staged-tile drags arrive through the viewport; the drag layer works in
   // client coordinates from here on.
   const interaction: BoardInteraction = useMemo(
@@ -255,10 +280,21 @@ export function GameBoard({
         }
         finishDrag(client);
       },
-      onCellTap: (cell) => controller.tapCell(cell),
-      onBackgroundTap: () => controller.cancelSelection(),
+      // A tap that PLACES or bounces a tile is doing its own job — only a tap
+      // that would otherwise do nothing gets to toggle the badge.
+      onCellTap: (cell) => {
+        const s = controller.getSnapshot();
+        const moves = s.selection !== null || s.pending.has(cellKey(cell));
+        controller.tapCell(cell);
+        if (!moves) toggleLastPlayScore();
+      },
+      onBackgroundTap: () => {
+        const armed = controller.getSnapshot().selection !== null;
+        controller.cancelSelection();
+        if (!armed) toggleLastPlayScore();
+      },
     }),
-    [controller, finishDrag, snapCell, overRack, updateDrag],
+    [controller, finishDrag, snapCell, overRack, updateDrag, toggleLastPlayScore],
   );
 
   // Rack drags: the tray hands the pointer over; window listeners take it.
@@ -318,7 +354,7 @@ export function GameBoard({
   // necessarily next to an empty cell: a play that bridges committed tiles
   // (LATELY laid through the L of LOVER) parked the badge right on a letter.
   const lastPlayBadge = (() => {
-    if (!lastPlay || !lastPlayEnd) return null;
+    if (!lastPlay || !lastPlayEnd || scoreTucked) return null;
     const label = `+${lastPlay.total}`;
     const play = cellsBounds(lastPlay.cells.map(parseCellKey));
     if (!play) return null;
@@ -344,13 +380,22 @@ export function GameBoard({
   // words is the bad one" is answered on the board rather than by counting
   // letters. Derived from the verdict — no pointer events, so the card can
   // stay click-through.
-  const flaggedCells = useMemo(
-    () =>
-      snap.preview?.check.ok
-        ? snap.preview.words.filter((w) => !w.valid).flatMap((w) => w.cells.map(cellKey))
-        : [],
+  const rejectedWords = useMemo(
+    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => !w.valid) : []),
     [snap.preview],
   );
+  const flaggedCells = useMemo(
+    () => rejectedWords.flatMap((w) => w.cells.map(cellKey)),
+    [rejectedWords],
+  );
+  // The same sentence the card's red band carries, for the Play button (whose
+  // greyed-out state is otherwise the least legible signal on the screen).
+  const blockedReason =
+    cardVisible && rejectedWords.length > 0
+      ? rejectedWords.length === 1
+        ? `${rejectedWords[0]!.word} isn’t in the dictionary`
+        : `${rejectedWords.length} words aren’t in the dictionary`
+      : undefined;
 
   // While a staged tile is in flight its cell renders empty — the ghost IS the tile.
   const visiblePending = useMemo(() => {
@@ -505,6 +550,7 @@ export function GameBoard({
           bagCount={snap.bagCount}
           confirmBeforePlay={confirmPlay}
           playScore={snap.preview?.total}
+          {...(blockedReason ? { blockedReason } : {})}
           onPlay={() => controller.submitPlay()}
           onRecall={() => controller.recallAll()}
           onExchange={() => controller.beginExchange()}

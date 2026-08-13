@@ -553,9 +553,13 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      **click-through**: only its grip takes pointer events, and the transient
      geometry hint has no grip at all. Drag the grip (or arrow-key it) to park
      the card; a parked spot is kept until it would cover a new staged word.
-     A word that fails the dictionary has its cells ringed (dashed red, ≠
-     pending gold / last-play green). Illegal geometry replaces the list with
-     its reason.
+     A word that fails the dictionary is the card's loudest state, not a
+     footnote: red border, the doomed total struck through, that word's row
+     filled red, its cells ringed on the board (dashed red, ≠ pending gold /
+     last-play green). Color and weight only — the sentence naming the word
+     rides the disabled Play button (title + a11y tree), not the card, which
+     has no room to narrate what it already shows. Illegal geometry replaces
+     the list with its reason.
      Play is enabled only when `checkPlay` passes and all words are valid —
      pressing it submits optimistically (§6.3).
   5. **Exchange** flips the rack into multi-select (tiles dim/raise on tap) with a
@@ -571,6 +575,11 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
   card's grip both go inert while a rack tile is armed, so board chrome can
   never eat the tap that places a tile. Both step aside while you have
   tiles staged so they never compete with the placement emphasis.
+  **A tap on the board tucks the badge away and another tap brings it back**
+  (the highlight stays): an empty cell beside the word can still be the square
+  you want to read, and staging a tile shouldn't be the only way out. A new
+  play always restores it; taps taken while tiles are staged don't count, so
+  a recall never comes back to a missing badge.
 - Drag is raw pointer events, no dnd library — hive decision §9.8's reasoning
   transfers wholesale (touch first, transform-aware hit-testing, controller-testable
   without synthetic events).

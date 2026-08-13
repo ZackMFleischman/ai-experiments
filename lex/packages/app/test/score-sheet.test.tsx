@@ -28,6 +28,14 @@ async function makeController() {
   return controller;
 }
 
+/** A motionless press on the board background — the viewport's "tap" (taps
+ * >12px apart so two in a row can't read as the double-tap zoom). */
+function tapBoard(x: number, y: number) {
+  const viewport = screen.getByTestId('board-viewport');
+  fireEvent.pointerDown(viewport, { pointerId: 1, clientX: x, clientY: y, isPrimary: true });
+  fireEvent.pointerUp(viewport, { pointerId: 1, clientX: x, clientY: y });
+}
+
 function playCats(controller: GameController) {
   controller.placeAt({ row: 7, col: 7 }, 0);
   controller.placeAt({ row: 7, col: 8 }, 1);
@@ -108,6 +116,51 @@ describe('last-play highlight + animation hooks (T3.9)', () => {
     expect(screen.queryByTestId('last-play-score')).toBeFalsy();
     act(() => controller.recallAll());
     expect(document.querySelectorAll('[data-last-play]')).toHaveLength(4);
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
+
+  // The badge sits in an empty cell beside the word, which can still be the
+  // square you want to look at — and staging a tile used to be its only exit.
+  it('a board tap tucks the score away; another tap brings it back', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+
+    tapBoard(30, 30);
+    expect(screen.queryByTestId('last-play-score')).toBeFalsy();
+    // Only the number steps aside: the play itself stays highlighted.
+    expect(document.querySelectorAll('[data-last-play]')).toHaveLength(4);
+
+    tapBoard(300, 200);
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
+
+  it('taps taken while tiles are staged leave the score alone for the recall', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    act(() => controller.placeAt({ row: 8, col: 7 }, 0));
+    expect(screen.queryByTestId('last-play-score')).toBeFalsy();
+
+    tapBoard(30, 30);
+    tapBoard(300, 200);
+    act(() => controller.recallAll());
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
+
+  it('the next play brings the score back however the last one was left', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    tapBoard(30, 30);
+    expect(screen.queryByTestId('last-play-score')).toBeFalsy();
+
+    act(() => {
+      controller.placeAt({ row: 8, col: 7 }, 0);
+      controller.placeAt({ row: 9, col: 7 }, 1);
+      controller.submitPlay();
+    });
     expect(screen.getByTestId('last-play-score')).toBeTruthy();
   });
 
