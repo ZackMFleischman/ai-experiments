@@ -12,13 +12,22 @@ are logged at the bottom with date + reason, and deleted when fixed.
   DL/TL/DW/TW text labels present so color is never the only signal.
 - **Pending vs committed tiles** unmistakable in both themes (lift + gold edge);
   pending tiles never look submitted.
-- Preview chips (word + score + ✓/✗) readable, and never occlude the pending word
-  or the rack; no other score floater competes with them.
+- Preview card (one row per word + score + ✓/✗, bingo line, total) readable at
+  every zoom, never occluding the pending word or the rack, and fully on screen
+  — including the eight-row bingo case. It is click-through apart from its grip
+  (a tap lands on the cell beneath it); the geometry hint has no grip. A word
+  that failed the dictionary has its cells ringed dashed red. Its parked
+  position survives a pan/zoom.
+- Last-play score badge sits in an EMPTY cell beside its word — including a word
+  that bridged committed letters — never on top of a tile, and follows the
+  word's axis (right of an across play, below a down play). Tapping it expands
+  the per-word breakdown; the popover is readable in both themes and clears the
+  board on dismiss.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.
 - Pass-device interstitial fully hides both racks (no tile leakage in the frame).
-- Player bars, rack, preview chips, and board never overlap; safe-area respected
+- Player bars, rack, preview card, and board never overlap; safe-area respected
   at 390×844.
 - Player bar: names show as first names (long full names shortened, never
   wrapping to a second line so the big score number sits centered, not
@@ -104,5 +113,12 @@ are logged at the bottom with date + reason, and deleted when fixed.
 
 ## Accepted deviations
 
-(none — the ~41px rack-slot deviation closed when the tray shed its side
-column reserve: slots now hit ~45px at 390px and cap at 52px.)
+- **2026-08-05 — the preview card's drag grip is 26×28, not 44×44.** Every
+  pixel of the grip is a board cell the player cannot tap (the rest of the card
+  is click-through precisely so taps reach the board), so the usual target size
+  would trade the bug we just fixed for a smaller version of itself. A missed
+  grab is harmless — it falls through to the board. Revisit if real-device use
+  shows grabs failing.
+
+(The ~41px rack-slot deviation closed when the tray shed its side column
+reserve: slots now hit ~45px at 390px and cap at 52px.)

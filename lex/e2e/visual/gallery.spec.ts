@@ -37,6 +37,34 @@ test('gallery: every entry renders clean at every viewport and theme', async ({ 
           found.push(`${label}: board overflows viewport: ${JSON.stringify(box)}`);
         }
       }
+
+      // No score floater may sit on a letter — the whole point of T3.7's
+      // rework. The preview card must additionally stay fully on screen (its
+      // per-word chip ancestors managed neither). One evaluate, not a
+      // boundingBox round-trip per tile: this runs on all 264 captures.
+      const floaters = await p.evaluate(() => {
+        const box = (el: Element) => el.getBoundingClientRect();
+        const hits = (a: DOMRect, b: DOMRect) =>
+          a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        const covers = (el: Element | null, selector: string): boolean =>
+          el !== null &&
+          [...document.querySelectorAll(selector)].some((t) => hits(box(el), box(t)));
+        const card = document.querySelector('[data-testid="preview-card"]');
+        return {
+          badgeCoversTile: covers(
+            document.querySelector('[data-testid="last-play-score"]'),
+            '[data-cell] [data-tile]',
+          ),
+          cardCoversStaged: covers(card, '[data-cell] [data-pending="true"]'),
+          cardBox: card ? { ...box(card).toJSON() } : null,
+        };
+      });
+      if (floaters.badgeCoversTile) found.push(`${label}: last-play badge covers a tile`);
+      if (floaters.cardCoversStaged) found.push(`${label}: preview card covers a staged tile`);
+      const cb = floaters.cardBox;
+      if (cb && (cb.x < -1 || cb.y < -1 || cb.x + cb.width > vp.width + 1 || cb.y + cb.height > vp.height + 1)) {
+        found.push(`${label}: preview card off screen: ${JSON.stringify(cb)}`);
+      }
       return found;
     },
   });
