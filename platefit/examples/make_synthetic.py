@@ -26,11 +26,15 @@ BLANK_OFFSET = 0.045
 PROPORTIONAL_CV = 0.008
 ADDITIVE_SD = 0.004
 
-# Per-plate multipliers on top asymptote and EC50 (the run-to-run effect).
+# Per-plate effects. 'd' and 'c' shift the plate's whole signal response -- but
+# because the standards shift with it, each plate's own curve calibrates that
+# away, which is the point of running a calibrator per plate. Real between-run
+# variance in the reported concentrations comes from handling that the standards
+# never see, so 'sample_bias' scales the sample/QC wells only.
 PLATES = {
-    "PLATE-A": {"d": 1.000, "c": 1.00},
-    "PLATE-B": {"d": 1.025, "c": 0.94},
-    "PLATE-C": {"d": 0.975, "c": 1.07},
+    "PLATE-A": {"d": 1.000, "c": 1.00, "sample_bias": 1.000},
+    "PLATE-B": {"d": 1.025, "c": 0.94, "sample_bias": 1.042},
+    "PLATE-C": {"d": 0.975, "c": 1.07, "sample_bias": 0.963},
 }
 
 # True concentrations behind the unknown groups.
@@ -45,9 +49,13 @@ def four_pl(conc: np.ndarray, a: float, d: float, c: float, b: float) -> np.ndar
     return d + (a - d) / (1.0 + np.power(np.divide(conc, c, out=np.zeros_like(conc), where=conc > 0), b))
 
 
-def well_truth(template: dict) -> dict[str, float]:
-    """Map every assigned well to the concentration it really holds."""
+def well_truth(template: dict) -> tuple[dict[str, float], set[str]]:
+    """Map every assigned well to the concentration it really holds.
+
+    Also returns the set of sample wells, which carry the per-run handling bias.
+    """
     truth: dict[str, float] = {}
+    sample_wells: set[str] = set()
     for level in template["standards"]:
         for well in level["wells"]:
             truth[well] = float(level["nominal"])
@@ -58,10 +66,13 @@ def well_truth(template: dict) -> dict[str, float]:
             raise SystemExit(f"no truth concentration for sample group {group['group']}")
         for well in group["wells"]:
             truth[well] = float(value)
-    return truth
+            sample_wells.add(well)
+    return truth, sample_wells
 
 
-def simulate(plate_id: str, truth: dict[str, float], rng: np.random.Generator) -> dict[str, float]:
+def simulate(
+    plate_id: str, truth: dict[str, float], sample_wells: set[str], rng: np.random.Generator
+) -> dict[str, float]:
     shift = PLATES[plate_id]
     params = {**TRUTH, "d": TRUTH["d"] * shift["d"], "c": TRUTH["c"] * shift["c"]}
     values: dict[str, float] = {}
@@ -69,6 +80,8 @@ def simulate(plate_id: str, truth: dict[str, float], rng: np.random.Generator) -
         for col in COLS:
             well = f"{row}{col}"
             conc = truth.get(well, 0.0)  # unassigned + blank wells sit at zero
+            if well in sample_wells:
+                conc *= shift["sample_bias"]
             signal = BLANK_OFFSET + four_pl(np.array([conc]), **params)[0]
             noisy = signal * (1.0 + rng.normal(0.0, PROPORTIONAL_CV)) + rng.normal(0.0, ADDITIVE_SD)
             values[well] = round(float(max(noisy, 0.0)), 4)
@@ -90,11 +103,11 @@ def write_long(path: Path, values: dict[str, float]) -> None:
 def main() -> None:
     template = yaml.safe_load(TEMPLATE.read_text())
     # Ranges aren't used in the demo template, so the raw lists are already wells.
-    truth = well_truth(template)
+    truth, sample_wells = well_truth(template)
     rng = np.random.default_rng(20260813)
 
     for plate_id in PLATES:
-        values = simulate(plate_id, truth, rng)
+        values = simulate(plate_id, truth, sample_wells, rng)
         stem = plate_id.lower().replace("-", "_")
         if plate_id == "PLATE-C":
             write_long(HERE / f"{stem}.csv", values)

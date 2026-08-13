@@ -171,7 +171,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             print("  params         : " + ", ".join(f"{k}={_fmt(v)}" for k, v in fit.params.items()))
         print(f"  calibrated range: {_fmt(fit.conc_range[0])} - {_fmt(fit.conc_range[1])}")
         _print_frame("\nStandards (back-calculated)", standard_results, STANDARD_VIEW)
-        _print_frame("\nLevels", levels, None)
+        _print_frame("\nLevels", levels, LEVEL_VIEW)
         _print_status_counts(sample_results)
         _print_written(written)
     return 0
@@ -181,23 +181,29 @@ def cmd_compare(args: argparse.Namespace) -> int:
     wells = plate_io.read_results_frames(args.plates)
     if "role" in wells.columns:
         wells = wells[wells["role"] == "sample"]
-    usable = wells.copy()
-    if not args.include_out_of_range and "status" in usable.columns:
-        usable = usable[usable["status"] == "in_range"]
-    usable = usable[usable["concentration"].notna()] if "concentration" in usable.columns else usable
-    usable = usable.reset_index(drop=True)
+    wells = wells.reset_index(drop=True)
+    if "plate_id" not in wells.columns:
+        raise PlateError("plate results have no 'plate_id' column; re-run 'platefit run' to regenerate them")
 
+    include = args.include_out_of_range
     reference = plate_io.load_reference(args.reference) if args.reference else None
 
-    ip = stats.intermediate_precision(usable)
-    accuracy = stats.accuracy_vs_reference(usable, reference)
-    per_plate = pd.concat(
-        [
-            stats.precision_recovery(frame).assign(plate_id=plate_id)
-            for plate_id, frame in usable.groupby("plate_id", sort=True)
-        ],
-        ignore_index=True,
-    ) if not usable.empty else pd.DataFrame()
+    # The status/finiteness filter lives in stats, so every summary applies it
+    # identically; here we only count what it will drop, for the summary line.
+    usable = stats.usable_wells(wells, include)
+    ip = stats.intermediate_precision(wells, include_out_of_range=include)
+    accuracy = stats.accuracy_vs_reference(wells, reference, include_out_of_range=include)
+    per_plate = (
+        pd.concat(
+            [
+                stats.precision_recovery(frame, include_out_of_range=include).assign(plate_id=plate_id)
+                for plate_id, frame in wells.groupby("plate_id", sort=True)
+            ],
+            ignore_index=True,
+        )
+        if not wells.empty
+        else pd.DataFrame()
+    )
     if not per_plate.empty:
         per_plate = per_plate[["plate_id"] + [c for c in per_plate.columns if c != "plate_id"]]
 
@@ -205,9 +211,11 @@ def cmd_compare(args: argparse.Namespace) -> int:
         "platefit_version": __version__,
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "inputs": sorted(set(wells["source_file"])) if "source_file" in wells.columns else [],
-        "plates": sorted(set(usable["plate_id"].astype(str))) if not usable.empty else [],
+        "plates": sorted(set(wells["plate_id"].astype(str))) if not wells.empty else [],
         "reference_file": str(args.reference) if args.reference else None,
-        "excluded_out_of_range": int(len(wells) - len(usable)),
+        "include_out_of_range": include,
+        "sample_wells": int(len(wells)),
+        "excluded_wells": int(len(wells) - len(usable)),
         "intermediate_precision": ip,
         "accuracy": accuracy,
         "per_plate_levels": per_plate,
@@ -222,15 +230,39 @@ def cmd_compare(args: argparse.Namespace) -> int:
     if not args.quiet:
         plates = payload["plates"]
         print(f"compared {len(plates)} plate(s): {', '.join(plates) if plates else '-'}")
-        if payload["excluded_out_of_range"]:
-            print(f"  excluded {payload['excluded_out_of_range']} out-of-range / non-numeric sample well(s)")
-        _print_frame("\nIntermediate precision", ip, None)
-        _print_frame("\nAccuracy", accuracy, None)
+        print(f"  sample wells   : {payload['sample_wells']} ({payload['excluded_wells']} excluded"
+              + (" -- none, --include-out-of-range is set" if include else " as out-of-range or missing")
+              + ")")
+        _print_frame("\nIntermediate precision (%CV of the grand mean)", ip, INTERMEDIATE_VIEW)
+        _print_frame("\nAccuracy vs reference", accuracy, ACCURACY_VIEW)
         _print_written(written)
     return 0
 
 
 STANDARD_VIEW = ["well", "group", "nominal", "signal", "concentration", "recovery_percent", "status"]
+LEVEL_VIEW = ["group", "nominal", "n", "n_wells", "mean", "sd", "cv_percent", "recovery_percent"]
+INTERMEDIATE_VIEW = [
+    "group",
+    "nominal",
+    "n_plates",
+    "n_total",
+    "n_effective",
+    "grand_mean",
+    "recovery_percent",
+    "repeatability_cv_percent",
+    "between_run_cv_percent",
+    "intermediate_precision_cv_percent",
+]
+ACCURACY_VIEW = [
+    "group",
+    "reference_value",
+    "reference_source",
+    "n_total",
+    "grand_mean",
+    "cv_percent",
+    "recovery_percent",
+    "bias_percent",
+]
 
 
 def fit_summary(fit) -> dict:
