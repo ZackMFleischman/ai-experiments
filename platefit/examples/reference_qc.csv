@@ -1,0 +1,6 @@
+group,nominal
+QC-HIGH,750.0
+QC-MID,75.0
+QC-LOW,2.5
+QC-ABOVE,5000.0
+QC-BELOW,0.05
