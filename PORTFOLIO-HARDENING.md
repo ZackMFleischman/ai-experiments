@@ -12,7 +12,7 @@ mark it `✅ SHIPPED (date)` here and log deviations in the most-affected
 project's `DECISIONS.md`.
 
 **Status legend:** ✅ shipped · ◐ partially shipped · ○ not started. Progress as
-of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M5 ◐, M6 ◐, M4/M7/M8/M9 ○.** The deferred
+of 2026-08-05: **M0 ✅, M1 ✅, M5 ✅, M2 ◐, M3 ◐, M6 ◐, M4/M7/M8/M9 ○.** The deferred
 items share one cause — they need a runnable environment (full `pnpm install`
 per workspace, the Firebase emulator jars, or a GitHub Actions run) or live
 owner action (Firebase data migration, store submission) that this session
@@ -224,23 +224,29 @@ Gate: hive `pnpm validate` (all six m-gates) green on `@parlor/core`; zero
 live code twins between hive and parlor (script-checkable: no file in hive
 duplicating a parlor export); hive CI structurally identical to the template.
 
-## M5 — Kill the copy tax (M) — ◐ partially shipped (2026-07-11, this PR)
+## M5 — Kill the copy tax (M) — ✅ SHIPPED (2026-08-05)
 
-> **Family-list consumption + generation markers shipped; the rest still
-> deferred.** The remaining centralization moves (BrandAppProviders / SW
-> template) delete code from all seven apps and re-route it through
-> `@parlor/brand` — each needs the app's typecheck/build/visual gates run to
-> prove the shell still renders.
-
-- [ ] **`@parlor/brand` absorbs the shell plumbing**: `BrandAppProviders`
-      (color-mode init/persist/OS-default + `syncStatusBar` + theme +
-      `ColorModeContext`) and a configurable `BrandErrorBoundary`
-      (reassurance copy injected). All seven apps' `App.tsx`/`ErrorBoundary`
-      shrink to game content + one provider import.
-- [ ] **Service-worker template**: the duo games' byte-identical-modulo-name
-      `sw.ts` becomes a parlor-owned template stamped with injected strings
-      (same copy-with-parity model as firestore.rules: physical copy +
-      parity check, since the SW must live in the app).
+- [x] **`@parlor/brand` absorbs the shell plumbing** (2026-08-05):
+      `BrandAppProviders` (color-mode init/persist/OS-default, family theme,
+      `ColorModeContext`/`ThemeProvider`/`CssBaseline`, an `onModeChange`
+      seam the native shells feed `syncStatusBar` through — brand stays
+      native-free) and `BrandErrorBoundary` (reassurance copy is the one
+      prop). The five brand titles' `App.tsx` shrink to game state + routes
+      and their five copy-identical `ErrorBoundary.tsx` are deleted.
+      *Deviation: "all seven" was written before brand existed — hive/lex run
+      pre-brand hand-rolled themes (hive doesn't even persist mode), so
+      migrating them is M4 convergence work, not dedup; they keep their
+      forks.* Verified: parlor + all five apps typecheck/test/build +
+      validate:visual green.
+- [x] **Service-worker template** (2026-08-05): the duo `sw.ts` turned out to
+      carry *zero* identity strings, so no stamping is needed —
+      `parlor/templates/sw.ts` is the canonical copy and
+      `registry/check-sw-parity.mjs` (registry-ci, negative-tested) fails any
+      duo copy whose *code* drifts (comment lines ignored, so per-game doc
+      headers are fine — which also lets hive's comment-only drift pass
+      untouched). sw.ts left `registry/stamped-manifest.mjs` for this model:
+      the sha header only ever proved which exemplar version a copy came
+      from, not that the copy itself hadn't drifted — parity checks content.
 - [x] **Family list consumption**: the three apps that render `<MoreFromUs>`
       (sudoku/breakout/stillness — the duo games don't) now import the
       M1-generated `FAMILY` from `@parlor/brand` and filter out their own
@@ -265,12 +271,16 @@ duplicating a parlor export); hive CI structurally identical to the template.
       identity) and are *banned* from carrying the marker; hive/lex copies of
       `functions/index.ts` (+ hive's `AppSyncProviders/OnlineGames/NewGameFlow`,
       lex's `NewGameFlow`) are pre-factory forks excluded until M4 converges
-      them. Tracked today: `sw.ts` ×3, plus checkers' `functions/index.ts` +
-      three sync shells, lex's `AppSyncProviders`/`OnlineGames`. Zero-backend
-      kinds have no copies yet — their manifests are empty until a second
-      family member exists to audit against.
-- [ ] **Re-stamp exemplar parity**: after the above, update the factory
-      exemplars and re-run factory-ci so new stamps are born deduplicated.
+      them. Tracked today: checkers' `functions/index.ts` + three sync
+      shells, lex's `AppSyncProviders`/`OnlineGames` (`sw.ts` moved to the
+      parity model above). Zero-backend kinds have no copies yet — their
+      manifests are empty until a second family member exists to audit
+      against.
+- [x] **Re-stamp exemplar parity** (2026-08-05): the exemplars themselves are
+      the migrated apps, so stamps are born on `BrandAppProviders` and a
+      parity-clean `sw.ts` (no stamp header — verified by a local duo stamp
+      probe passing check-sw-parity + check-stamps); factory-ci re-proves it
+      per archetype on this PR.
 
 Gate: `App.tsx` diff across sudoku/breakout/stillness is game-content only;
 a deliberate edit to an exemplar binding file makes the stale-copy lint flag

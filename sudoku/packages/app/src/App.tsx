@@ -1,15 +1,10 @@
 // Providers + routes. The session/stats singletons hang off a context so
-// tests inject fake storage; color mode persists and defaults to the OS.
-import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider } from '@mui/material/styles';
-import {
-  ColorModeContext,
-  createBrandTheme,
-  type ThemeMode,
-} from '@parlor/brand';
+// tests inject fake storage; the shell plumbing (color mode, theme, status
+// bar) is @parlor/brand's BrandAppProviders.
+import { BrandAppProviders } from '@parlor/brand';
 import { syncStatusBar } from '@parlor/native';
 import type { KeyValueStorage } from '@parlor/solo';
-import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, lazy, Suspense, useContext, useMemo, type ReactNode } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { createSession, createStats, type Session } from './game/session';
 import type { StatsStore } from '@parlor/solo';
@@ -39,18 +34,6 @@ export function useApp(): AppContextValue {
 
 const MODE_KEY = 'sudoku:mode';
 
-function initialMode(storage: KeyValueStorage): ThemeMode {
-  try {
-    const stored = storage.getItem(MODE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch {
-    // fall through to the OS preference
-  }
-  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
-}
-
 /** Session/stats/storage context alone — no theme. The gallery uses this to
  * put fixture state under its own ThemeProvider (dev/registry.tsx). */
 export function AppStateProvider({
@@ -70,43 +53,17 @@ export function AppProviders({
   children: ReactNode;
   storage?: KeyValueStorage;
 }) {
-  const [mode, setMode] = useState<ThemeMode>(() => initialMode(storage));
   const value = useMemo<AppContextValue>(
     () => ({ session: createSession(storage), stats: createStats(storage), storage }),
     [storage],
   );
-  const colorMode = useMemo(
-    () => ({
-      mode,
-      toggle: () =>
-        setMode((m) => {
-          const next = m === 'light' ? 'dark' : 'light';
-          try {
-            storage.setItem(MODE_KEY, next);
-          } catch {
-            // preference just won't stick
-          }
-          return next;
-        }),
-    }),
-    [mode, storage],
-  );
-  const theme = useMemo(() => createBrandTheme(mode, ACCENT), [mode]);
-
-  // Native shells: keep the status bar readable across mode flips (no-op on
-  // web — the Phase-3a bridge discipline).
-  useEffect(() => {
-    void syncStatusBar(mode, theme.palette.background.default);
-  }, [mode, theme]);
-
   return (
     <AppStateProvider value={value}>
-      <ColorModeContext.Provider value={colorMode}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          {children}
-        </ThemeProvider>
-      </ColorModeContext.Provider>
+      {/* syncStatusBar keeps native status bars readable across mode flips
+          (no-op on web — the Phase-3a bridge discipline). */}
+      <BrandAppProviders accent={ACCENT} modeKey={MODE_KEY} storage={storage} onModeChange={syncStatusBar}>
+        {children}
+      </BrandAppProviders>
     </AppStateProvider>
   );
 }
