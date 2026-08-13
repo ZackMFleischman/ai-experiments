@@ -317,3 +317,21 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   the ruleset's bonus rules), and the total. A popover, not another board
   floater: anchored, tap-away-dismissed, edge-flipping. Works in multiplayer —
   the sync path keeps `words` (word + score) and drops only their cells.
+
+- **2026-08-13 — A rejected word is the preview card's loudest state (Zack).**
+  A small red ✗ on one row, beside a big black total, next to a Play button
+  whose only tell is being grey, read as decoration — players kept pressing a
+  disabled button. The card now turns whole: red border, total struck through,
+  the offending row filled red, a thicker dashed ring on its cells, and a band
+  naming the word and stating Play is off (the same sentence titles the Play
+  button and lands in the a11y tree). Still pure verdict rendering — the UI
+  decides nothing new, it just stops whispering.
+
+- **2026-08-13 — A board tap tucks the last-play badge away (Zack).** The badge
+  parks in an empty cell, which is not the same as out of the way: beside a
+  tight word it still sits over the square you want to read, and its only exit
+  was staging a tile. A tap on the board now toggles it (the green highlight
+  stays — only the number steps aside). Taps that place or bounce a tile are
+  doing their own job and don't toggle; nor do taps taken while tiles are
+  staged, so a recall never returns to a missing badge; a new play always
+  restores it.

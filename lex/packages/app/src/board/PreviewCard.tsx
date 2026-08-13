@@ -11,8 +11,17 @@
 // sibling of the viewport, not a child of the board transform — so it stays a
 // readable size at every zoom instead of shrinking with the board.
 //
+// A word the dictionary rejects is the card's LOUDEST state, not a footnote: a
+// small red ✗ beside a row read as decoration next to a big black total, and
+// the only other signal — a greyed-out Play — is off in the corner and says
+// nothing about why. So the whole card turns: red border, the doomed total
+// struck through, the offending row filled red, and a band naming the word and
+// stating that Play is off. Still verdict data — the UI decides nothing here,
+// it only stops whispering it.
+//
 // Everything shown is a controller verdict; only the position is computed here.
 import { Box, Paper, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import type { Cell, CellKey } from '@lex/engine';
 import { cellKey, parseCellKey } from '@lex/engine';
 import type { PointerEvent as ReactPointerEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
@@ -52,13 +61,19 @@ const HEAD_H = 28;
 const GRIP_PX = 26;
 const ROW_H = 22;
 const PAD_H = 14;
+/** The "not in the dictionary" band: two lines plus its own padding. */
+const BAND_H = 38;
 
 /** Good-enough size for the first frame; the real one is measured on layout
  * (jsdom reports 0×0, so the estimate stands in tests). */
-function estimateSize(rows: number, longestWord: number): { width: number; height: number } {
+function estimateSize(
+  rows: number,
+  longestWord: number,
+  band = false,
+): { width: number; height: number } {
   return {
     width: Math.min(260, Math.max(136, 78 + longestWord * 9)),
-    height: PAD_H + HEAD_H + rows * ROW_H,
+    height: PAD_H + HEAD_H + rows * ROW_H + (band ? BAND_H : 0),
   };
 }
 
@@ -114,7 +129,9 @@ export function PreviewCard({
   const words = preview.check.ok ? preview.words : [];
   const rows = preview.check.ok ? words.length + (preview.bingo ? 1 : 0) : 1;
   const longest = words.reduce((n, w) => Math.max(n, w.word.length), 4);
-  const [size, setSize] = useState(() => estimateSize(rows, longest));
+  // The words the dictionary rejected — what turns the card red.
+  const rejected = words.filter((w) => !w.valid);
+  const [size, setSize] = useState(() => estimateSize(rows, longest, rejected.length > 0));
   const signature = playSignature(playCells);
 
   // Measure the rendered card so placement uses its real footprint.
@@ -271,6 +288,7 @@ export function PreviewCard({
       elevation={8}
       data-testid="preview-card"
       data-manual={manual ? 'true' : undefined}
+      data-blocked={rejected.length > 0 ? 'true' : undefined}
       role="group"
       aria-label="Play preview"
       sx={{
@@ -281,8 +299,10 @@ export function PreviewCard({
         minWidth: 124,
         maxWidth: 260,
         borderRadius: 1.5,
-        border: 1,
-        borderColor: reason ? 'warning.main' : 'divider',
+        // A rejected word thickens the border AND recolors it: at a glance,
+        // across the board, the card itself is the error state.
+        border: rejected.length > 0 ? 2 : 1,
+        borderColor: reason ? 'warning.main' : rejected.length > 0 ? 'error.main' : 'divider',
         // Hidden until placed: one frame at a guessed spot reads as a jump.
         visibility: spot ? 'visible' : 'hidden',
         userSelect: 'none',
@@ -351,10 +371,20 @@ export function PreviewCard({
             >
               ⠿
             </Box>
+            {/* A total that can't be scored is struck through rather than
+                shown as if it were on its way to the score bar. */}
             <Typography
               data-testid="preview-total"
               component="span"
-              sx={{ fontSize: 18, fontWeight: 800, lineHeight: 1 }}
+              sx={{
+                fontSize: 18,
+                fontWeight: 800,
+                lineHeight: 1,
+                ...(rejected.length > 0 && {
+                  color: 'text.disabled',
+                  textDecoration: 'line-through',
+                }),
+              }}
             >
               +{preview.total}
             </Typography>
@@ -377,6 +407,13 @@ export function PreviewCard({
                 height: ROW_H,
                 px: 0.25,
                 borderRadius: 0.5,
+                // The bad row is FILLED, not merely annotated — with three
+                // words stacked, "which one is wrong" has to be answerable
+                // without reading the marks.
+                ...(!w.valid && {
+                  bgcolor: (t) => alpha(t.palette.error.main, 0.16),
+                  color: 'error.main',
+                }),
               }}
             >
               <Typography
@@ -387,6 +424,7 @@ export function PreviewCard({
                   fontSize: 13,
                   fontWeight: 700,
                   letterSpacing: '0.04em',
+                  color: 'inherit',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -394,13 +432,29 @@ export function PreviewCard({
               >
                 {w.word}
               </Typography>
-              <Typography component="span" sx={{ fontSize: 13, fontWeight: 700 }}>
+              <Typography component="span" sx={{ fontSize: 13, fontWeight: 700, color: 'inherit' }}>
                 {w.score}
               </Typography>
               <Box
                 component="span"
                 aria-hidden
-                sx={{ fontSize: 13, lineHeight: 1, color: w.valid ? 'success.main' : 'error.main' }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 16,
+                  height: 16,
+                  lineHeight: 1,
+                  fontWeight: 800,
+                  ...(w.valid
+                    ? { fontSize: 13, color: 'success.main' }
+                    : {
+                        fontSize: 11,
+                        borderRadius: '50%',
+                        bgcolor: 'error.main',
+                        color: 'error.contrastText',
+                      }),
+                }}
               >
                 {w.valid ? '✓' : '✗'}
               </Box>
@@ -423,6 +477,40 @@ export function PreviewCard({
                 sx={{ fontSize: 13, fontWeight: 700, color: 'secondary.main' }}
               >
                 +{bingoBonus}
+              </Typography>
+            </Box>
+          )}
+          {/* Names the problem and answers "why is Play greyed out?" here, at
+              the play, instead of leaving the disabled button to imply it. */}
+          {rejected.length > 0 && (
+            <Box
+              data-testid="preview-invalid"
+              sx={{
+                mt: 0.5,
+                mx: -1,
+                mb: -0.5,
+                px: 1,
+                py: 0.5,
+                borderTop: 1,
+                borderColor: 'error.main',
+                bgcolor: (t) => alpha(t.palette.error.main, 0.16),
+                borderBottomLeftRadius: 4,
+                borderBottomRightRadius: 4,
+              }}
+            >
+              <Typography
+                component="p"
+                sx={{ fontSize: 12, fontWeight: 700, color: 'error.main', lineHeight: 1.25 }}
+              >
+                {rejected.length === 1
+                  ? `${rejected[0]!.word} isn’t in the dictionary`
+                  : `${rejected.length} words aren’t in the dictionary`}
+              </Typography>
+              <Typography
+                component="p"
+                sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.25 }}
+              >
+                Play is off until every word is valid.
               </Typography>
             </Box>
           )}

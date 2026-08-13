@@ -106,7 +106,10 @@ export function BoardGrid({
             justifyContent: 'center',
             boxSizing: 'border-box',
             ...(flagged.has(key) && {
-              outline: (t) => `2px dashed ${t.palette.error.main}`,
+              // Thicker than the hover ring: this is the board half of the
+              // preview card's "this word isn't a word" and has to carry from
+              // across the board, not reward a squint.
+              outline: (t) => `3px dashed ${t.palette.error.main}`,
               outlineOffset: '-1px',
               zIndex: 1,
             }),
