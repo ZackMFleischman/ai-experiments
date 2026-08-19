@@ -275,33 +275,27 @@ verbatim), server-authoritative callables, the emulator-first dev loop, the PWA/
 approach, async time controls, the milestone-gate + `/dev/gallery` + screenshot-review
 validation harness, and the CI-enforced documentation policy.
 
-**Share — port into the repo-level `parlor/` workspace, genericized (game-agnostic
-by construction):**
-
-| Hive source | Becomes | Notes |
-|---|---|---|
-| `app/src/controller/transport.ts`, `localStorageTransport.ts` | `@parlor/core` | `GameTransport` with a generic entry type instead of hive's `LogEntry` |
-| `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `@parlor/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
-| `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config. `firestoreTransport.ts` keeps its class game-side but its shared shell — `seatIndexOf`, `watchGameMeta` (incl. the permission-denied **delete-detection**), and the log-replay reads `fetchOrderedMoves`/`watchAddedMoves` — is `@parlor/web/transport`. The **sync strategy** is game-owned: hive/perfect-info games replay the log (those two reads); lex keeps its hidden-info **coherent-adoption** strategy (re-read game+rack+log per signal, coherence + monotonic gates) — the plan's allowed "leave it game-provided". |
-| the lobby/landing **presentation**: `screens/lobbyView` (grouped list + cards), `turnBadge`, `waitingView` (invite/waiting/challenge), `Landing`+`LandingLayout` shell, `Join` card + `JoinByCode`, `newGameView`'s `friendsFrom`/`InviteLinkView` | `@parlor/web` (`./lobby-ui`) | game injects the slots — board thumbnail, card caption, empty-state motif, landing hero, join-detail chips; the lobby summary EXTENDS a generic `LobbySummary` (seat-index meta). Each `screens/*` file is now a thin wrapper binding lex's slots. |
-| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out |
-| `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
-| `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `@parlor/harness` (+ thin `scripts/` wrappers in lex) | near-verbatim |
-| `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `@parlor/web` | theme tokens re-skinned per game |
-| `firestore.rules` (base tiers) + `firestore.indexes.json` | `parlor/firestore.rules` + `parlor/firestore.indexes.json` (canonical declarative reference, not TS) | Firebase requires these files inside each game's own project dir (a `../parlor/...` path is rejected), so each game keeps a copy; `scripts/check-rules-parity.mjs` (in `pnpm typecheck`) fails if the copy drifts from/weakens the base or its indexes differ. Perfect-info games track the base verbatim; lex adds the **racks/private** override (owner-read rack, server-secret bag), which the reference documents — parity allows added tiers, forbids weakened base ones. Negative-path rules tests stay the behavioral gate. |
-
-`@parlor/*` **must not import any game package** (`@lex/*`, `@hive/*` —
-machine-checked, IMPLEMENTATION §3) — that's what keeps it honestly generic.
+**Share — the repo-level `parlor/` workspace.** The platform canon — what was
+ported from hive into `@parlor/core|web|server|harness`, the boundaries, the
+copy-with-parity rules model, and the `link:` consumption mechanics — lives in
+**`parlor/DESIGN.md`** (parlor owns it; lex was the first consumer forcing
+genericity, and hive now consumes the `@parlor/web` platform layer too — only
+its backend migration remains). What stays lex-side of each parlor seam: the
+**coherent-adoption sync strategy** (hidden information: re-read game+rack+log
+per signal, coherence + monotonic gates — perfect-info games replay the log
+instead), the doc→summary / doc→meta mappings, typed callables, the lobby
+render slots, and the **racks/private** rules override (owner-read rack,
+server-secret bag) layered on parlor's canonical base tiers.
 
 **Copy-adapt — start from the hive file, edit meaningfully (screens are ~layout-
 identical but content-different; infra files differ in names/fields):** the
-game-specific screen shells + slots that wrap the shared `./lobby-ui` above —
+game-specific screen shells + slots that wrap `@parlor/web/lobby-ui` —
 `Lobby`/`NewGame` route shells, `newGameView`'s `NewGameForm` (board/dictionary/
 turn/time controls — too game-shaped to share, so it stays here), `Settings`,
 Game chrome — plus `game/*`
 (PlayerBar, GameMenu, MoveList → score sheet, ResultOverlay), `board/BoardViewport`
 (pan/zoom/pinch math — keep; SVG specifics → CSS transform), `firestore.rules`
-(only the rack/bag override; base tiers are the shared parlor reference above),
+(only the rack/bag override; base tiers are parlor's canonical reference),
 `firebase.json` + emulator seed, CI workflows + deploy job
 (incl. the invoker-repair step), the e2e `test-harness` module, `e2e/visual-checklist.md`
 skeleton, and the doc set itself (CLAUDE/DESIGN/IMPLEMENTATION/DECISIONS structure).
@@ -311,22 +305,6 @@ skeleton, and the doc set itself (CLAUDE/DESIGN/IMPLEMENTATION/DECISIONS structu
 components, pending-placement UX (the preview card, recall, blank picker, exchange
 mode), the hot-seat **pass-device** privacy interstitial, sprite/art assets
 (lex tiles are typography — far lighter art burden than hive's 16 glyphs).
-
-**The shared library is repo-level from day one (owner decision): `parlor/`** —
-named for what it is, a parlor-games platform: the game-agnostic layer for
-turn-based, two-player, invite-a-friend PWA games on Firebase. It is its own pnpm
-workspace at the repo root with four packages (`@parlor/core`, `@parlor/web`,
-`@parlor/server`, `@parlor/harness`), its own tests and CI, and **no game
-imports** — lex was its first consumer; hive now consumes the `@parlor/web`
-platform layer and shares its lobby UI too (only the backend migration remains).
-Consumption mechanics — pnpm workspaces don't span repo roots, so lex consumes
-parlor as **source-linked sibling packages** (`link:` dependencies + TS path
-mapping; exact wiring in IMPLEMENTATION §1). Peer dependencies (react, firebase,
-MUI) are declared by parlor and provided by the consuming game, so parlor never
-pins a second copy of a framework. Divergence risk against hive's originals (a bug
-fixed in hive but not in the port) is contained by provenance headers — every
-ported file names its hive source path, so fixes are greppable to their twin —
-and shrinks to zero when hive migrates.
 
 ---
 

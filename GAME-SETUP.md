@@ -16,9 +16,9 @@ is otherwise scattered across a game's `DECISIONS.md`. Scope is **2-player**
 (N-player is a parked epic).
 
 > Placement: this lives at the repo root, not under `parlor/`, because parlor
-> keeps a closed, line-budgeted doc set (`CLAUDE.md` + `README.md` only —
-> `parlor/scripts/check-docs.mjs`). Same reason `PARLOR-PLATFORM-HARDENING.md`
-> is here. The **canonical surfaces** are the parlor source + `lex/DESIGN.md §4`;
+> keeps a closed, line-budgeted doc set (`parlor/scripts/check-docs.mjs`).
+> Same reason `PARLOR-PLATFORM-HARDENING.md` is here. The **canonical
+> surfaces** are the parlor source + `parlor/DESIGN.md` (the platform canon);
 > this file is the how-to that points at them.
 
 Replace `GAME` with your game's short name (lowercase, e.g. `checkers`)

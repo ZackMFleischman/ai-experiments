@@ -3,7 +3,8 @@
 > Append-only. New entries at the bottom: date, decision, one-line why.
 > ≤8 lines each. Milestone SHIPPED entries follow the same format (date,
 > gates run, deviations, stumbles). Post-v1 ideas go here as one-liners
-> tagged `post-v1`.
+> tagged `post-v1`. The only in-place edit: when a later entry supersedes an
+> old one, append `⊘ superseded YYYY-MM-DD — <pointer>` to the dead entry (lint-checked).
 
 ---
 

@@ -1,5 +1,8 @@
 # DECISIONS — Stillness (append-only)
 
+> The only in-place edit: when a later entry supersedes an old one, append
+> `⊘ superseded YYYY-MM-DD — <pointer>` to the dead entry (lint-checked).
+
 ## 2026-07-10 — M0 agent side SHIPPED: the whole utility (strategy Phase 3c)
 
 - Gates run: typecheck+docs lint, 19 tests (timer machine, app flows,

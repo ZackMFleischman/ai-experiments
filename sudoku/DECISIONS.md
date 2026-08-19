@@ -1,5 +1,8 @@
 # DECISIONS — Sudoku (append-only)
 
+> The only in-place edit: when a later entry supersedes an old one, append
+> `⊘ superseded YYYY-MM-DD — <pointer>` to the dead entry (lint-checked).
+
 ## 2026-07-10 — M0 SHIPPED: engine, app, CI (first brand solo title)
 
 - Gates run: parlor typecheck+test (incl. new solo/brand packages), sudoku

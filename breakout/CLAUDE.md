@@ -26,7 +26,9 @@ The store name is **Bricks** (Breakout is Atari's trademark).
   tsconfig paths + vite dedupe). Install `parlor/` before `breakout/`.
 - Docs are a closed, line-budgeted set (`scripts/check-docs.mjs`, wired
   into typecheck): README/CLAUDE/REQUIREMENTS/DESIGN/IMPLEMENTATION +
-  append-only DECISIONS. Never weaken a test to pass a gate.
+  append-only DECISIONS (a dead decision gets `⊘ superseded YYYY-MM-DD —
+  <pointer>` appended — the only in-place edit, lint-checked). Never
+  weaken a test to pass a gate.
 
 ## Commands
 

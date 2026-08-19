@@ -3,7 +3,8 @@
 > Append-only. New entries at the bottom: date, decision, one-line why.
 > ≤8 lines each. Milestone SHIPPED entries follow the same format (date,
 > gates run, deviations, stumbles). Post-v1 ideas go here as one-liners
-> tagged `post-v1`.
+> tagged `post-v1`. The only in-place edit: when a later entry supersedes an
+> old one, append `⊘ superseded YYYY-MM-DD — <pointer>` to the dead entry (lint-checked).
 
 ---
 
@@ -11,6 +12,7 @@
   well-attested tafl: 13 pieces, armed king captured two-sided, corner
   escape. Copenhagen (shieldwalls, edge forts) and Tablut are `post-v1`
   variants behind the same engine surface if ever wanted.
+  ⊘ superseded 2026-07-11 — variant is 11×11 hnefatafl; entry below.
 
 - **2026-07-11 — seats ARE sides.** `seatKeys = ['attackers','defenders']`
   and engine `toMove` share the strings, so parlor's defaults (toMove

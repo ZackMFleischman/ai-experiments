@@ -3,7 +3,9 @@
 Append-only. New entries at the bottom: date, decision, one-line why. ≤8 lines each.
 Milestone SHIPPED entries follow the same format (date, gates run, deviations,
 stumbles). Pre-build design decisions 1–12 live in DESIGN.md §9 — this log starts
-at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
+at build time. Post-v1 ideas go here as one-liners tagged `post-v1`. The only
+in-place edit: when a later entry supersedes an old one, append
+`⊘ superseded YYYY-MM-DD — <pointer>` to the dead entry (lint-checked).
 
 ---
 
@@ -17,8 +19,9 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   without a second stable consumer. Platform is generic by construction (machine
   check: no `@lex/engine` imports); promotion to a repo-root shared workspace and
   hive's migration onto it is tagged `post-v1`.
+  ⊘ superseded 2026-07-04 — platform went repo-level (`parlor/`); next entry.
 
-- **2026-07-04 — SUPERSEDED ↑: platform is repo-level `parlor/` from day one**
+- **2026-07-04 — Platform is repo-level `parlor/` from day one (supersedes ↑)**
   (owner decision). Own workspace at the repo root (`@parlor/core|web|server|
   harness`), lex consumes via `link:` + TS paths (IMPLEMENTATION §1); lex-only
   to start, hive migration stays `post-v1`. Named for what it hosts: parlor games.

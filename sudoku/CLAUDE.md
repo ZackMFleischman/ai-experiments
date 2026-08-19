@@ -20,7 +20,9 @@ Read `DESIGN.md` before structural changes; decisions go to `DECISIONS.md`.
   tsconfig paths + vite dedupe). Install `parlor/` before `sudoku/`.
 - Docs are a closed, line-budgeted set (`scripts/check-docs.mjs`, wired
   into typecheck): README/CLAUDE/REQUIREMENTS/DESIGN/IMPLEMENTATION +
-  append-only DECISIONS. Never weaken a test to pass a gate.
+  append-only DECISIONS (a dead decision gets `⊘ superseded YYYY-MM-DD —
+  <pointer>` appended — the only in-place edit, lint-checked). Never
+  weaken a test to pass a gate.
 
 ## Commands
 

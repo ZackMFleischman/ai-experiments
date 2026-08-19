@@ -34,7 +34,8 @@ HIVE: a two-player PWA of the board game Hive. Independent pnpm workspace.
   has a home elsewhere — link it. Change narration goes in the PR description.
 - Decisions and judgment calls → append to `DECISIONS.md` (≤8 lines). When a
   milestone ships, collapse its IMPLEMENTATION.md task table to a SHIPPED entry
-  there.
+  there. A dead decision gets `⊘ superseded YYYY-MM-DD — <pointer>` appended to
+  its entry — the only in-place DECISIONS.md edit (lint-checked).
 
 ## Commands
 
