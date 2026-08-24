@@ -33,12 +33,15 @@ Functions: validation, notifications, forfeits).
   labeled with word counts. Registry-driven, same as layouts.
 - **FR-8** Choose an async time control: none, or 1 / 3 / 7 days per move.
 - **FR-9** Choose turn order: me / them / random (default random).
-- **FR-9b** **Choose hard mode** at creation (default off): the app withholds
-  every dictionary verdict until the play is committed, and a play whose words
-  aren't all in the dictionary costs the turn instead of being rejected (FR-33b).
+- **FR-9b** **Choose what invalid words do** at creation — a named setting with
+  two values, picked like the dictionary and the clock: *Can't be played*
+  (default) or *Cost your turn*. Under the latter the app withholds every
+  dictionary verdict until the play is committed (FR-24b) and a play whose words
+  aren't all in the dictionary costs the turn (FR-33b).
 - **FR-10** All chosen options are visible to the invitee **before accepting**
-  (join screen + challenge card) and to both players in-game (game menu) —
-  hard mode is called out, since it changes what a turn can cost.
+  (join screen + challenge card) and to both players in-game (game menu) — the
+  invalid-words rule is highlighted when set away from its default, since it is
+  the only option that changes what a turn can cost.
 - **FR-11** Options are immutable once the game is created.
 
 ### Invites, challenges & rematches (DESIGN §6.3)
@@ -74,11 +77,12 @@ Functions: validation, notifications, forfeits).
 - **FR-24** Live preview while staging: every formed word gets a chip with its
   points and a ✓/✗ dictionary verdict; a total-score badge (including bingo)
   anchors to the main word; Play is enabled only when the play is fully legal.
-- **FR-24b** In **hard mode** the preview shows the same words, scores and
-  total but **no dictionary verdict** (a "—" in the mark's place), no rejected
-  word is flagged on the card or the board, and Play stays enabled for any
-  legally-placed play. Committing a phoney raises a dismissible beat naming the
-  refused word(s) — the only surface that ever shows them.
+- **FR-24b** When invalid words **cost the turn**, the preview shows the same
+  words, scores and total but **no dictionary verdict** (a "—" in the mark's
+  place, and a "not checked" tag so the blank column reads as deliberate), no
+  rejected word is flagged on the card or the board, and Play stays enabled for
+  any legally-placed play. Committing a phoney raises a dismissible beat naming
+  the refused word(s) — the only surface that ever shows them.
 - **FR-25** Playing a blank prompts for its letter; the designation is permanent
   and visually distinct (no point index) thereafter.
 - **FR-26** Exchange tiles: multi-select on the rack + confirm ("costs your
@@ -101,11 +105,12 @@ Functions: validation, notifications, forfeits).
 - **FR-33** Every word formed (main + cross-words) must be in the game's chosen
   dictionary or the play is rejected naming the offending word(s) — strict
   dictionary, no challenge mechanic in v1.
-- **FR-33b** Under **hard mode** the same verdict has a different consequence:
-  the play is a **phoney** — it places nothing, scores nothing, and costs the
-  turn (counting toward the scoreless run, FR-35). Geometry and rack legality
-  are unaffected; those plays are still rejected outright. The public move log
-  records that a turn was spent, never on which letters (FR-38).
+- **FR-33b** When the game's invalid-words rule is **Cost your turn**, the same
+  verdict has a different consequence: the play is a **phoney** — it places
+  nothing, scores nothing, and costs the turn (counting toward the scoreless
+  run, FR-35). Geometry and rack legality are unaffected; those plays are still
+  rejected outright. The public move log records that a turn was spent, never on
+  which letters (FR-38).
 - **FR-34** Scoring: letter premiums on newly placed tiles only; word premiums
   stack multiplicatively; premiums never re-count; cross-words score; placing
   all 7 tiles is a bingo (+50).
@@ -202,8 +207,8 @@ Functions: validation, notifications, forfeits).
 
 ## 3. Out of scope for v1 (post-v1 candidates)
 
-Opponent-initiated challenges (hard mode ships the phoney; nobody adjudicates
-another player's word) · real-time chess clocks · 3–4 players ·
+Opponent-initiated challenges (the invalid-words setting ships the phoney;
+nobody adjudicates another player's word) · real-time chess clocks · 3–4 players ·
 offline move queueing · keyboard tile entry · chat/emotes · AI opponent ·
 analysis/best-play review · `.gcg` export · additional rulesets (e.g. an 11×11
 quick board with a reduced tile set) · additional word lists (NWL/SOWPODS if

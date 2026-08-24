@@ -30,6 +30,7 @@ export {
   result,
   type Dictionary,
   type GameResult,
+  type InvalidWordRule,
   type Move,
   type MoveOptions,
 } from './engine.js';

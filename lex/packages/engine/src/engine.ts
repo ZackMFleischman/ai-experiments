@@ -4,11 +4,12 @@
 // the bag END (after the refill draw) — re-randomizing the remainder is the
 // transport/server's job, recorded as a re-shuffle event (DESIGN §3.3).
 //
-// Stage 3 (the dictionary) is where the two house rules diverge (§2.2): under
-// the strict default an invalid word is not a move at all and applyMove throws;
-// under `hardMode` it IS a move — a **phoney** — that scores nothing and costs
-// the turn. Same pipeline, same verdict; only the consequence differs, so the
-// hard-mode branch adds no new rule, just a second thing to do with `invalid`.
+// Stage 3 (the dictionary) is where a game's `invalidWords` setting bites
+// (§2.2). Under 'blocked' (the default) an invalid word is not a move at all and
+// applyMove throws; under 'costs-turn' it IS a move — a **phoney** — that scores
+// nothing and spends the turn. Same pipeline, same verdict; only the consequence
+// differs, so the second setting adds no new rule, just a second thing to do
+// with `invalid`.
 import { extractWords, type Placement } from './board.js';
 import { RULESETS, type Ruleset, type Seat, type TileFace } from './ruleset.js';
 import { draw, freezeState, type GameState } from './state.js';
@@ -25,19 +26,27 @@ export type Move =
   | { type: 'exchange'; tiles: readonly TileFace[] }
   | { type: 'pass' };
 
-/** Per-game house rules that change what a move MEANS rather than what the
- * board is — pinned in GameOptions, not the Ruleset, so any board pairs with
- * any of them (DESIGN §2.2). Absent ⇒ the strict-dictionary default. */
+/** What a game does with a play whose words aren't all in the dictionary
+ * (DESIGN §2.3) — a per-game setting, picked at creation like the dictionary
+ * itself:
+ * - `'blocked'` — it is not a move at all: applyMove throws, naming the words.
+ * - `'costs-turn'` — it is a **phoney**: the tiles come back, nothing scores,
+ *   and the turn is spent.
+ */
+export type InvalidWordRule = 'blocked' | 'costs-turn';
+
+/** Per-game settings that change what a move MEANS rather than what the board
+ * is — pinned in GameOptions, not the Ruleset, so any board pairs with any of
+ * them (DESIGN §2.2). Absent ⇒ the defaults. */
 export interface MoveOptions {
-  /** Hard mode: a play whose words aren't all in the dictionary is a phoney —
-   * it costs the turn instead of being rejected (DESIGN §2.3). */
-  hardMode?: boolean;
+  /** Default `'blocked'`. */
+  invalidWords?: InvalidWordRule;
 }
 
 /** Stage 3 of the verdict pipeline (§5.2) on its own: which of a candidate
  * play's words the dictionary rejects, in the order the play forms them.
- * Empty ⇒ the play scores. Exported because hard mode needs this verdict
- * AFTER the commit (to record the phoney) as well as before it. */
+ * Empty ⇒ the play scores. Exported because 'costs-turn' games need this
+ * verdict AFTER the commit (to record the phoney) as well as before it. */
 export function rejectedWords(words: readonly WordScore[], dict: Dictionary): readonly string[] {
   return words.filter((w) => !dict.has(w.word)).map((w) => w.word);
 }
@@ -138,20 +147,20 @@ function applyPlay(
   placements: readonly Placement[],
   dict: Dictionary,
   ruleset: Ruleset,
-  hardMode: boolean,
+  invalidWords: InvalidWordRule,
 ): GameState {
   const seat = state.toMove;
   const rack = state.racks[seat]!;
 
-  // Geometry and rack legality are NOT relaxed by hard mode: a play that isn't
-  // a play (off-board, not your tiles, disconnected) is still no move at all.
-  // Only the dictionary verdict below changes meaning.
+  // Geometry and rack legality are NOT affected by the setting: a play that
+  // isn't a play (off-board, not your tiles, disconnected) is still no move at
+  // all. Only the dictionary verdict below changes meaning.
   const check = checkPlay(state.board, rack, placements, ruleset);
   if (!check.ok) throw new IllegalMoveError(check.reason);
 
   const invalid = rejectedWords(check.words, dict);
   if (invalid.length > 0) {
-    if (!hardMode) {
+    if (invalidWords === 'blocked') {
       throw new IllegalMoveError('invalid-word', `not in dictionary '${dict.id}': ${invalid.join(', ')}`, invalid);
     }
     // Phoney: the tiles come straight back. Nothing about the board, the rack
@@ -212,7 +221,7 @@ export function applyMove(
   let next: GameState;
   switch (move.type) {
     case 'play':
-      next = applyPlay(state, move.placements, dict, ruleset, options.hardMode === true);
+      next = applyPlay(state, move.placements, dict, ruleset, options.invalidWords ?? 'blocked');
       break;
     case 'exchange':
       next = applyExchange(state, move.tiles, ruleset);

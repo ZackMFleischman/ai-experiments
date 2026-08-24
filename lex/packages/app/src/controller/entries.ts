@@ -8,14 +8,14 @@
 // entries instead: adoptions of the server's public snapshot plus the own-rack
 // doc, with the sheet/lastPlay source rows carried from the move log. The
 // client's OWN moves still apply optimistically through the engine.
-import type { CellKey, Placement, Seat, TileFace } from '@lex/engine';
+import type { CellKey, InvalidWordRule, Placement, Seat, TileFace } from '@lex/engine';
 
 export interface GameOptions {
   rulesetId: string;
   dictionaryId: string;
-  /** Hard mode (DESIGN §2.3) — absent/false = the strict-dictionary default.
-   * Optional so a game stored before hard mode existed still parses. */
-  hardMode?: boolean;
+  /** What invalid words do (DESIGN §2.3). Optional so a game stored before the
+   * setting existed still parses; absent ⇒ 'blocked'. */
+  invalidWords?: InvalidWordRule;
   /** Pre-shuffled full bag order — shuffled at the edge on game creation.
    * Multiplayer uses a canonical placeholder order: the first sync entry
    * replaces the state before it is ever shown. */
@@ -31,9 +31,9 @@ export type HotSeatOptions = GameOptions;
 export interface SyncRow {
   n: number;
   by: Seat;
-  /** 'phoney' = a hard-mode play the dictionary refused: the turn was spent,
-   * nothing was placed, and — the privacy invariant — the server records no
-   * letters for it, so the row carries no word and no cells. */
+  /** 'phoney' = a play the dictionary refused in a 'costs-turn' game: the turn
+   * was spent, nothing was placed, and — the privacy invariant — the server
+   * records no letters for it, so the row carries no word and no cells. */
   kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
   word: string | null;
   words: ReadonlyArray<{ word: string; score: number }>;

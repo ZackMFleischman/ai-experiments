@@ -179,7 +179,7 @@ export const GALLERY: GalleryEntry[] = [
                 rulesetId: 'classic',
                 dictionaryId: '2of12inf',
                 timeControl: { days: 3 },
-                hardMode: true,
+                invalidWords: 'costs-turn',
               },
             }}
             onAccept={() => {}}
@@ -274,14 +274,14 @@ export const GALLERY: GalleryEntry[] = [
         }),
       ),
   },
-  // Hard mode (§2.3): the same staged play as `pending-valid`, with the
-  // dictionary column withheld — every row's mark is a "—" and nothing on the
-  // card or the board can be red, however bad the word is.
+  // invalidWords: 'costs-turn' (§2.3): the same staged play as `pending-valid`,
+  // with the dictionary column withheld — every row's mark is a "—" and nothing
+  // on the card or the board can be red, however bad the word is.
   {
-    id: 'pending-hard-mode',
-    render: () => game(() => fixtureController(null, stageCats, ['CATS'], [], true)),
+    id: 'pending-words-unchecked',
+    render: () => game(() => fixtureController(null, stageCats, ['CATS'], [], 'costs-turn')),
   },
-  // The moment hard mode exists for: the verdict comes due after the commit.
+  // The moment that setting exists for: the verdict comes due after the commit.
   {
     id: 'phoney-beat',
     render: () =>
@@ -294,7 +294,7 @@ export const GALLERY: GalleryEntry[] = [
           },
           ['CATS'],
           [],
-          true,
+          'costs-turn',
         ),
       ),
   },

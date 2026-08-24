@@ -4,13 +4,13 @@
 // factory directly. The client twin of the backend's LexGameOptions —
 // structurally identical; the e2e exercises compatibility.
 import { callable, createGameApi } from '@parlor/web/gameApi';
-import type { Placement, TileFace } from '@lex/engine';
+import type { InvalidWordRule, Placement, TileFace } from '@lex/engine';
 
 export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
-  hardMode: boolean;
+  invalidWords: InvalidWordRule;
 }
 
 export type SeatChoice = 'me' | 'them' | 'random';

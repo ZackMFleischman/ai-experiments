@@ -3,9 +3,10 @@
 // the optimistic-concurrency guard, exchange privacy (count-only public log,
 // private re-shuffle event), tile conservation ACROSS the three storage
 // tiers, and the §3.3 replay guarantee (order + public log + private events
-// reproduce the server snapshot exactly). Plus the hard-mode (§2.3) fork: the
-// same invalid word that is REJECTED under the default is ACCEPTED as a spent
-// turn, and recorded without letters.
+// reproduce the server snapshot exactly). Plus the invalidWords (§2.3) fork:
+// the same invalid word that is REJECTED under the default is ACCEPTED as a
+// spent turn when the game says invalid words cost the turn, and is recorded
+// without letters.
 import {
   RULESETS,
   applyMove,
@@ -78,9 +79,9 @@ async function riggedGame(): Promise<JoinedGame> {
   return game;
 }
 
-/** The same rig under hard mode (§2.3). */
-async function riggedHardGame(): Promise<JoinedGame> {
-  const game = await createJoinedGame({ ...OPTIONS, hardMode: true });
+/** The same rig in a game where invalid words cost the turn (§2.3). */
+async function riggedCostsTurnGame(): Promise<JoinedGame> {
+  const game = await createJoinedGame({ ...OPTIONS, invalidWords: 'costs-turn' });
   await rigGame(game);
   return game;
 }
@@ -410,9 +411,9 @@ describe('submitMove — cross-tier invariants', () => {
 });
 
 
-describe('submitMove — hard mode (§2.3)', () => {
+describe("submitMove — invalidWords: 'costs-turn' (§2.3)", () => {
   it('accepts a phoney as a SPENT TURN: nothing placed, nothing scored, turn passes', async () => {
-    const { gameId, p0 } = await riggedHardGame();
+    const { gameId, p0 } = await riggedCostsTurnGame();
     const res = await call('submitMove', { gameId, expectedMoveCount: 0, move: PHONEY_PLAY }, p0);
     expect(res.status).toBe(200);
 
@@ -432,7 +433,7 @@ describe('submitMove — hard mode (§2.3)', () => {
   });
 
   it('records the phoney with NO letters — the privacy invariant holds', async () => {
-    const { gameId, p0 } = await riggedHardGame();
+    const { gameId, p0 } = await riggedCostsTurnGame();
     await call('submitMove', { gameId, expectedMoveCount: 0, move: PHONEY_PLAY }, p0);
 
     const moves = await adminListDocs(`games/${gameId}/moves`);
@@ -445,8 +446,8 @@ describe('submitMove — hard mode (§2.3)', () => {
     expect(Object.keys(moves[0] ?? {}).sort()).toEqual(['at', 'by', 'kind', 'n']);
   });
 
-  it('still rejects illegal geometry under hard mode', async () => {
-    const { gameId, p0 } = await riggedHardGame();
+  it('still rejects illegal geometry — only the dictionary verdict changes', async () => {
+    const { gameId, p0 } = await riggedCostsTurnGame();
     const res = await call(
       'submitMove',
       {
@@ -466,8 +467,8 @@ describe('submitMove — hard mode (§2.3)', () => {
     expect(await adminListDocs(`games/${gameId}/moves`)).toHaveLength(0);
   });
 
-  it('a good play under hard mode is an ordinary scoring play', async () => {
-    const { gameId, p0 } = await riggedHardGame();
+  it('a good play is an ordinary scoring play', async () => {
+    const { gameId, p0 } = await riggedCostsTurnGame();
     const res = await call('submitMove', { gameId, expectedMoveCount: 0, move: CATS_PLAY }, p0);
     expect(res.status).toBe(200);
     const game = await adminGetDoc(`games/${gameId}`);
@@ -477,12 +478,12 @@ describe('submitMove — hard mode (§2.3)', () => {
     expect(moves[0]?.['kind']).toBe('play');
   });
 
-  it('defaults OFF: options without the flag keep rejecting invalid words', async () => {
-    // Games created before hard mode existed carry no `hardMode` field at all.
+  it("defaults to 'blocked': options without the field keep rejecting", async () => {
+    // Games created before the setting existed carry no `invalidWords` at all.
     const game = await createJoinedGame({ ...OPTIONS });
     await rigGame(game);
     expect((await adminGetDoc(`games/${game.gameId}`))?.['options']).toMatchObject({
-      hardMode: false,
+      invalidWords: 'blocked',
     });
     const res = await call(
       'submitMove',
@@ -491,5 +492,18 @@ describe('submitMove — hard mode (§2.3)', () => {
     );
     expect(res.errorStatus).toBe('INVALID_ARGUMENT');
     expect(res.errorMessage).toContain('CQ');
+  });
+
+  it('refuses an unknown invalidWords rather than silently defaulting it', async () => {
+    // A malformed setting must never be quietly read as one of the two real
+    // ones — that would change how a game plays behind the host's back.
+    const ada = await signUp('Ada');
+    const res = await call(
+      'createGame',
+      { options: { ...OPTIONS, invalidWords: 'freebie' }, seat: 'me' },
+      ada,
+    );
+    expect(res.errorStatus).toBe('INVALID_ARGUMENT');
+    expect(res.errorMessage).toContain('invalidWords');
   });
 });

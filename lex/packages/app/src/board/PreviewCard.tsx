@@ -19,11 +19,12 @@
 // as clutter (the state is legible without being narrated; the disabled Play
 // button still carries the words for hover and screen readers).
 //
-// HARD MODE (§2.3) removes exactly that column and nothing else: every verdict
-// is null, so no row can be red, no total struck through, no cell ringed. The
-// ✓/✗ slot becomes a "—" rather than collapsing, so the card keeps its shape
-// as you stage tiles and the missing answer reads as WITHHELD rather than as a
-// card that forgot to check. The header says so once, quietly.
+// A game whose invalid words cost the turn (§2.3) removes exactly that column
+// and nothing else: every verdict is null, so no row can be red, no total
+// struck through, no cell ringed. The ✓/✗ slot becomes a "—" rather than
+// collapsing, so the card keeps its shape as you stage tiles and the missing
+// answer reads as WITHHELD rather than as a card that forgot to check. The
+// header says which it is, once and quietly.
 //
 // Everything shown is a controller verdict; only the position is computed here.
 import { Box, Paper, Typography } from '@mui/material';
@@ -398,7 +399,7 @@ export function PreviewCard({
                 component="span"
                 sx={{ fontSize: 11, fontStyle: 'italic', color: 'text.disabled', ml: 'auto' }}
               >
-                hard mode
+                not checked
               </Typography>
             )}
           </Box>

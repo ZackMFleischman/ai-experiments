@@ -1,9 +1,9 @@
-// Hard mode (DESIGN §2.2/§2.3): a play whose words aren't all in the
-// dictionary is a PHONEY — it costs the turn instead of being rejected.
-// Everything else about the pipeline is unchanged, which is what most of
-// these assertions are really pinning: geometry still throws, legal plays
-// still score, and the phoney's only footprints are toMove/moveCount and the
-// scoreless run.
+// The `invalidWords: 'costs-turn'` setting (DESIGN §2.2/§2.3): a play whose
+// words aren't all in the dictionary is a PHONEY — it spends the turn instead
+// of being rejected. Everything else about the pipeline is unchanged, which is
+// what most of these assertions are really pinning: geometry still throws,
+// legal plays still score, and the phoney's only footprints are
+// toMove/moveCount and the scoreless run.
 import { describe, expect, it } from 'vitest';
 import {
   IllegalMoveError,
@@ -17,7 +17,7 @@ import {
 import { riggedBagOrder, stubDict } from './helpers.js';
 
 const classic = RULESETS.classic!;
-const hard = { hardMode: true } as const;
+const costsTurn = { invalidWords: 'costs-turn' } as const;
 
 function place(row: number, col: number, letter: string, isBlank = false): Placement {
   return { cell: { row, col }, letter, isBlank };
@@ -53,10 +53,10 @@ describe('rejectedWords', () => {
   });
 });
 
-describe('applyMove: hard mode', () => {
+describe("applyMove: invalidWords 'costs-turn'", () => {
   it('a phoney costs the turn: board, racks, bag and scores all stand still', () => {
     const state = startState();
-    const next = applyMove(state, TAC, stubDict(['TAC']), hard);
+    const next = applyMove(state, TAC, stubDict(['TAC']), costsTurn);
 
     expect(next.board.size).toBe(0);
     expect([...next.racks[0]!]).toEqual([...state.racks[0]!]);
@@ -67,7 +67,7 @@ describe('applyMove: hard mode', () => {
     expect(next.scorelessRun).toBe(1);
   });
 
-  it('rejects the same play under the strict default', () => {
+  it("rejects the same play under the 'blocked' default", () => {
     const state = startState();
     expect(() => applyMove(state, TAC, stubDict(['TAC']))).toThrow(IllegalMoveError);
     try {
@@ -78,22 +78,22 @@ describe('applyMove: hard mode', () => {
     }
   });
 
-  it('leaves a good play alone: hard mode changes nothing when the words are real', () => {
+  it('leaves a good play alone: the setting changes nothing when the words are real', () => {
     const state = startState();
     const strict = applyMove(state, CAT, stubDict());
-    const relaxed = applyMove(state, CAT, stubDict(), hard);
+    const relaxed = applyMove(state, CAT, stubDict(), costsTurn);
     expect(relaxed.scores).toEqual(strict.scores);
     expect([...relaxed.racks[0]!]).toEqual([...strict.racks[0]!]);
     expect([...relaxed.board.keys()]).toEqual([...strict.board.keys()]);
     expect(relaxed.scorelessRun).toBe(0);
   });
 
-  it('still throws on geometry and rack illegality — only the dictionary relaxes', () => {
+  it('still throws on geometry and rack illegality — only the dictionary verdict changes', () => {
     const state = startState();
     const offBoard: Move = { type: 'play', placements: [place(7, 7, 'C'), place(7, 99, 'A')] };
     const notMine: Move = { type: 'play', placements: [place(7, 7, 'Z'), place(7, 8, 'Z')] };
-    expect(() => applyMove(state, offBoard, stubDict(), hard)).toThrow(IllegalMoveError);
-    expect(() => applyMove(state, notMine, stubDict(), hard)).toThrow(IllegalMoveError);
+    expect(() => applyMove(state, offBoard, stubDict(), costsTurn)).toThrow(IllegalMoveError);
+    expect(() => applyMove(state, notMine, stubDict(), costsTurn)).toThrow(IllegalMoveError);
   });
 
   it('a cross-word phoney is a phoney: one bad word sinks the whole play', () => {
@@ -101,7 +101,7 @@ describe('applyMove: hard mode', () => {
     // Seat 1 hangs D off the C, forming DC downward as well as its main word.
     const play: Move = { type: 'play', placements: [place(6, 7, 'D')] };
     const before = state.scores[1];
-    const next = applyMove(state, play, stubDict(['DC']), hard);
+    const next = applyMove(state, play, stubDict(['DC']), costsTurn);
     expect(next.board.has('6,7')).toBe(false);
     expect(next.scores[1]).toBe(before);
     expect(next.scorelessRun).toBe(1);
@@ -113,20 +113,20 @@ describe('applyMove: hard mode', () => {
     for (let i = 0; i < classic.scorelessLimit; i++) {
       // Alternates seats, each playing a phoney off its own rack; the board
       // never changes, so both stay legal-but-phoney first plays throughout.
-      state = applyMove(state, state.toMove === 0 ? TAC : GOD, bad, hard);
+      state = applyMove(state, state.toMove === 0 ? TAC : GOD, bad, costsTurn);
     }
     expect(state.scorelessRun).toBe(classic.scorelessLimit);
     // The terminal move applied the §2.1 scoreless adjustment: each seat has
     // deducted its own rack.
     expect(state.scores[0]).toBeLessThan(0);
     expect(state.scores[1]).toBeLessThan(0);
-    expect(() => applyMove(state, CAT, stubDict(), hard)).toThrow(/game-over/);
+    expect(() => applyMove(state, CAT, stubDict(), costsTurn)).toThrow(/game-over/);
   });
 
   it('replays deterministically — the same log yields the same state', () => {
     const bad = stubDict(['TAC']);
     // A phoney (seat 0) followed by a real play (seat 1) off the untouched board.
-    const run = () => applyMove(applyMove(startState(), TAC, bad, hard), GOD, bad, hard);
+    const run = () => applyMove(applyMove(startState(), TAC, bad, costsTurn), GOD, bad, costsTurn);
     const once = run();
     const twice = run();
     expect([...once.board.keys()]).toEqual([...twice.board.keys()]);

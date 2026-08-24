@@ -1,6 +1,7 @@
-// Hard mode end-to-end through the app layer (DESIGN §2.3): the preview
-// withholds every dictionary verdict, Play stays live for any legal geometry,
-// and committing a phoney spends the turn behind a beat that names the words.
+// The `invalidWords: 'costs-turn'` setting end-to-end through the app layer
+// (DESIGN §2.3): the preview withholds every dictionary verdict, Play stays
+// live for any legal geometry, and committing a phoney spends the turn behind
+// a beat that names the words.
 //
 // The negative assertions carry most of the weight here — the feature is
 // defined by what the screen must NOT reveal, so each one pins a specific
@@ -9,7 +10,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { RULESETS } from '@lex/engine';
-import type { TileFace } from '@lex/engine';
+import type { InvalidWordRule, TileFace } from '@lex/engine';
 import { LocalTransport } from '@parlor/core';
 import { describe, expect, it } from 'vitest';
 import { riggedBagOrder, stubDict } from '../../engine/test/helpers';
@@ -22,11 +23,17 @@ const classic = RULESETS['classic']!;
 const P0_RACK: TileFace[] = ['C', 'A', 'T', 'S', 'E', 'R', 'N'];
 const P1_RACK: TileFace[] = ['D', 'O', 'G', 'L', 'I', 'P', 'U'];
 
-async function setup({ hardMode, rejects = [] }: { hardMode: boolean; rejects?: string[] }) {
+async function setup({
+  invalidWords,
+  rejects = [],
+}: {
+  invalidWords: InvalidWordRule;
+  rejects?: string[];
+}) {
   const opts: HotSeatOptions = {
     rulesetId: 'classic',
     dictionaryId: 'stub',
-    hardMode,
+    invalidWords,
     bagOrder: riggedBagOrder(classic, [P0_RACK, P1_RACK]),
     seats: 2,
   };
@@ -50,9 +57,9 @@ function stageCats(controller: GameController) {
   });
 }
 
-describe('hard mode: the preview withholds the verdict', () => {
+describe("invalidWords 'costs-turn': the preview withholds the verdict", () => {
   it('shows the word and its score but no ✓/✗ — even when the word is fine', async () => {
-    const { controller } = await setup({ hardMode: true });
+    const { controller } = await setup({ invalidWords: 'costs-turn' });
     stageCats(controller);
     const row = screen.getAllByTestId('preview-word')[0]!;
     expect(row.textContent).toContain('CATS');
@@ -64,7 +71,7 @@ describe('hard mode: the preview withholds the verdict', () => {
   });
 
   it('looks IDENTICAL for a word the dictionary would reject', async () => {
-    const { controller } = await setup({ hardMode: true, rejects: ['CATS'] });
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
     stageCats(controller);
     const card = screen.getByTestId('preview-card');
     const row = screen.getAllByTestId('preview-word')[0]!;
@@ -77,14 +84,14 @@ describe('hard mode: the preview withholds the verdict', () => {
   });
 
   it('leaves Play enabled on a phoney — committing is the gamble', async () => {
-    const { controller } = await setup({ hardMode: true, rejects: ['CATS'] });
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
     stageCats(controller);
     expect(controller.getSnapshot().preview?.playable).toBe(true);
     expect(screen.getByRole('button', { name: 'Play' }).hasAttribute('disabled')).toBe(false);
   });
 
-  it('still refuses illegal GEOMETRY — only the dictionary is relaxed', async () => {
-    const { controller } = await setup({ hardMode: true });
+  it('still refuses illegal GEOMETRY — only the dictionary verdict changes', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn' });
     act(() => {
       controller.placeAt({ row: 7, col: 7 }, 0);
       controller.placeAt({ row: 7, col: 9 }, 2); // gap
@@ -93,8 +100,8 @@ describe('hard mode: the preview withholds the verdict', () => {
     expect(screen.getByTestId('preview-reason').textContent).toMatch(/gap/i);
   });
 
-  it('the strict default is untouched: ✗, a blocked card, and Play off', async () => {
-    const { controller } = await setup({ hardMode: false, rejects: ['CATS'] });
+  it("the 'blocked' default is untouched: ✗, a blocked card, and Play off", async () => {
+    const { controller } = await setup({ invalidWords: 'blocked', rejects: ['CATS'] });
     stageCats(controller);
     const row = screen.getAllByTestId('preview-word')[0]!;
     expect(row.getAttribute('data-valid')).toBe('false');
@@ -104,9 +111,9 @@ describe('hard mode: the preview withholds the verdict', () => {
   });
 });
 
-describe('hard mode: committing a phoney costs the turn', () => {
+describe("invalidWords 'costs-turn': committing a phoney costs the turn", () => {
   it('raises the beat naming the refused word, and spends the turn', async () => {
-    const { controller } = await setup({ hardMode: true, rejects: ['CATS'] });
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
     stageCats(controller);
     act(() => controller.submitPlay());
 
@@ -123,7 +130,7 @@ describe('hard mode: committing a phoney costs the turn', () => {
   });
 
   it('the beat is dismissible and does not come back', async () => {
-    const { controller } = await setup({ hardMode: true, rejects: ['CATS'] });
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
     stageCats(controller);
     act(() => controller.submitPlay());
     fireEvent.click(screen.getByTestId('phoney-dismiss'));
@@ -132,7 +139,7 @@ describe('hard mode: committing a phoney costs the turn', () => {
   });
 
   it('records the lost turn in the score sheet WITHOUT the word (privacy)', async () => {
-    const { controller } = await setup({ hardMode: true, rejects: ['CATS'] });
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
     stageCats(controller);
     act(() => controller.submitPlay());
 
@@ -146,8 +153,8 @@ describe('hard mode: committing a phoney costs the turn', () => {
     expect(JSON.stringify(controller.getSnapshot().sheet)).not.toContain('CATS');
   });
 
-  it('a good play in hard mode scores and raises no beat', async () => {
-    const { controller } = await setup({ hardMode: true });
+  it('a good play scores normally and raises no beat', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn' });
     stageCats(controller);
     act(() => controller.submitPlay());
     expect(screen.queryByTestId('phoney-beat')).toBeNull();
@@ -160,12 +167,12 @@ describe('hard mode: committing a phoney costs the turn', () => {
 
 // The beat is the one thing that appears while the device is mid-handoff, so
 // it is also the one thing that could pry the privacy screen open (§7.3).
-describe('hard mode in hot-seat: the beat never opens the rack', () => {
+describe('the phoney beat in hot-seat never opens the rack', () => {
   async function hotSeat() {
     const opts: HotSeatOptions = {
       rulesetId: 'classic',
       dictionaryId: 'stub',
-      hardMode: true,
+      invalidWords: 'costs-turn',
       bagOrder: riggedBagOrder(classic, [P0_RACK, P1_RACK]),
       seats: 2,
     };

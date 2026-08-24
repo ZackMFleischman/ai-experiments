@@ -23,12 +23,12 @@ export function HotSeatGame({
   const snap = useGameController(controller);
   const navigate = useNavigate();
   const [acknowledged, setAcknowledged] = useState<number | null>(null);
-  // NOT suppressed while the hard-mode phoney beat is up: the interstitial is
-  // the thing hiding the incoming player's rack (§7.3), and a phoney spends the
-  // turn, so by the time the beat appears the rack behind it is already someone
-  // else's. The beat renders ABOVE the interstitial instead (PhoneyBeat's
-  // z-index), which makes the opaque handoff screen its backdrop — the mover
-  // reads their lost turn, taps OK, and hands the device over.
+  // NOT suppressed while the phoney beat is up: the interstitial is the thing
+  // hiding the incoming player's rack (§7.3), and a phoney spends the turn, so
+  // by the time the beat appears the rack behind it is already someone else's.
+  // The beat renders ABOVE the interstitial instead (PhoneyBeat's z-index),
+  // which makes the opaque handoff screen its backdrop — the mover reads their
+  // lost turn, taps OK, and hands the device over.
   const needsHandoff = !snap.end && acknowledged !== snap.state.moveCount;
 
   return (

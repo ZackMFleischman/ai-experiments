@@ -381,8 +381,9 @@ export function GameBoard({
   // words is the bad one" is answered on the board rather than by counting
   // letters. Derived from the verdict — no pointer events, so the card can
   // stay click-through.
-  // Only an EXPLICIT rejection rings cells. In hard mode every verdict is
-  // null (withheld), so this stays empty and the board gives nothing away.
+  // Only an EXPLICIT rejection rings cells. Where invalid words cost the turn
+  // every verdict is null (withheld), so this stays empty and the board gives
+  // nothing away.
   const rejectedWords = useMemo(
     () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => w.valid === false) : []),
     [snap.preview],
@@ -443,7 +444,7 @@ export function GameBoard({
         onClose={() => setInfoOpen(false)}
         rulesetId={snap.options.rulesetId}
         dictionaryId={snap.options.dictionaryId}
-        hardMode={snap.options.hardMode === true}
+        invalidWords={snap.options.invalidWords ?? 'blocked'}
         {...(timeControl !== undefined ? { timeControl } : {})}
       />
       <Box ref={boardAreaRef} sx={{ flex: 1, minHeight: 0, position: 'relative' }}>

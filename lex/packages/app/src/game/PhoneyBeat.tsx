@@ -1,8 +1,8 @@
-// Hard-mode phoney beat (DESIGN §2.3): the moment the withheld verdict comes
-// due. In hard mode the preview card never says whether a word counts, so the
-// player commits on a guess — and when the guess is wrong the turn is simply
-// gone. That has to be TOLD, not inferred from a board that didn't change:
-// without this beat, a lost turn looks exactly like a bug.
+// The phoney beat (DESIGN §2.3): the moment the withheld verdict comes due. In
+// a game whose invalid words cost the turn, the preview card never says whether
+// a word counts, so the player commits on a guess — and when the guess is wrong
+// the turn is simply gone. That has to be TOLD, not inferred from a board that
+// didn't change: without this beat, a lost turn looks exactly like a bug.
 //
 // So it is a blocking, explicitly-dismissed dialog rather than a toast: it
 // names the word(s) the dictionary refused (the mover's own tiles — nothing
@@ -70,8 +70,8 @@ export function PhoneyBeat({ words, onDismiss }: PhoneyBeatProps) {
             ))}
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            {many ? "aren’t" : "isn’t"} in this game’s dictionary. Your tiles came back and your
-            turn is over — that’s hard mode.
+            {many ? "aren’t" : "isn’t"} in this game’s dictionary. Your tiles came back — and in
+            this game, that costs your turn.
           </Typography>
         </Stack>
       </DialogContent>

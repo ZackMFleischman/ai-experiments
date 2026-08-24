@@ -2,13 +2,17 @@
 // LexGameOptions (structurally identical; the e2e exercises compatibility).
 // Firebase-free on purpose: screens and pickers import from here, only the
 // sync layer touches the wire.
+import type { InvalidWordRule } from '@lex/engine';
+
+export type { InvalidWordRule };
+
 export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
-  /** Hard mode (DESIGN §2.3): the app withholds every dictionary verdict until
-   * you commit, and a word the dictionary refuses costs the turn. */
-  hardMode: boolean;
+  /** What happens to a play whose words aren't all in the dictionary
+   * (DESIGN §2.3) — picked at creation like the board and the word list. */
+  invalidWords: InvalidWordRule;
 }
 
 /** Turn-order choice (DESIGN §2.3): p0 moves first; 'me' seats the creator
@@ -31,14 +35,28 @@ export function timeControlLabel(timeControl: { days: number } | null): string {
   return timeControl ? `${timeControl.days} day${timeControl.days === 1 ? '' : 's'} per move` : 'No clock';
 }
 
-/** The house-rule label everywhere a game's options are restated (new-game
- * form, join card, in-game info) — one string so the three never drift. */
-export const HARD_MODE_NAME = 'Hard mode';
+// ── invalid words (DESIGN §2.3) ──────────────────────────────────────────────
+// One copy source for the setting, so the new-game picker, the join card and
+// the in-game info dialog can never describe the same game differently.
 
-/** What hard mode actually does, in one sentence, for the pickers. */
-export const HARD_MODE_BLURB =
-  'No spell-check: you find out whether a word counts only after you play it, and a word that isn’t in the dictionary costs your turn.';
+/** The setting's name, as the pickers title it. */
+export const INVALID_WORDS_NAME = 'Invalid words';
 
-export function houseRulesLabel(hardMode: boolean): string {
-  return hardMode ? HARD_MODE_NAME : 'Standard rules';
+/** The choice, in the fewest words that still say what happens on your turn. */
+export const INVALID_WORDS_LABELS: Readonly<Record<InvalidWordRule, string>> = {
+  blocked: 'Can’t be played',
+  'costs-turn': 'Cost your turn',
+};
+
+/** The rule in a sentence — shown under the picker and in the game info, so
+ * nobody picks (or accepts) it without knowing what it does to a turn. */
+export const INVALID_WORDS_BLURBS: Readonly<Record<InvalidWordRule, string>> = {
+  blocked:
+    'Every word is checked as you place it: a word that isn’t in the dictionary is flagged and can’t be played.',
+  'costs-turn':
+    'No checking as you place: you find out whether a word counts only after you play it, and one that isn’t in the dictionary costs your turn.',
+};
+
+export function invalidWordsLabel(rule: InvalidWordRule): string {
+  return INVALID_WORDS_LABELS[rule] ?? rule;
 }

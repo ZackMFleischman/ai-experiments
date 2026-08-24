@@ -10,6 +10,7 @@ import type {
   GameResult,
   GameState,
   Letter,
+  MoveOptions,
   PlayCheck,
   Ruleset,
   Seat,
@@ -41,10 +42,11 @@ export interface PendingTile {
 export interface PreviewWord {
   word: string;
   score: number;
-  /** The dictionary verdict — or `null` when the game WITHHOLDS it. Hard mode
-   * (DESIGN §2.3) is exactly that withholding: the verdict still exists, the
-   * player just doesn't get it until they commit. Deliberately not `false`,
-   * so no surface can mistake "not told" for "rejected". */
+  /** The dictionary verdict — or `null` when the game WITHHOLDS it. A game
+   * whose invalid words cost the turn (DESIGN §2.3) is exactly that
+   * withholding: the verdict still exists, the player just doesn't get it
+   * until they commit. Deliberately not `false`, so no surface can mistake
+   * "not told" for "rejected". */
   valid: boolean | null;
   cells: readonly Cell[];
 }
@@ -58,8 +60,8 @@ export interface Preview {
   needsBlank: CellKey | null;
   playable: boolean;
   /** This game withholds dictionary verdicts (every `word.valid` is null) —
-   * the flag the card reads to explain the missing ✓/✗ rather than just
-   * dropping it silently. */
+   * the flag the card reads to say WHY the ✓/✗ column is blank rather than
+   * just dropping it silently. */
   verdictsWithheld: boolean;
 }
 
@@ -76,8 +78,9 @@ export type GameEnd =
 
 export interface LastPlay {
   by: Seat;
-  /** 'phoney' = a hard-mode play the dictionary refused (§2.3): the turn is
-   * spent, nothing reached the board, so `cells`/`words` stay empty. */
+  /** 'phoney' = a play the dictionary refused where that costs the turn
+   * (§2.3): the turn is spent, nothing reached the board, so `cells`/`words`
+   * stay empty. */
   kind: 'play' | 'phoney' | 'exchange' | 'pass';
   cells: readonly CellKey[];
   words: readonly WordScore[];
@@ -132,9 +135,9 @@ export interface Snapshot {
   beat?: { cells: readonly CellKey[] };
   overlayOpen: boolean;
   notice?: { id: number; text: string };
-  /** Hard mode (§2.3): the play just committed was a phoney. Raised for the
-   * MOVER at the moment they commit (never on replay or resume), so the turn
-   * they just lost is told to them once, in full, before the device moves on. */
+  /** The play just committed was a phoney (§2.3). Raised for the MOVER at the
+   * moment they commit (never on replay or resume), so the turn they just lost
+   * is told to them once, in full, before the device moves on. */
   phoney?: { id: number; words: readonly string[] };
 }
 
@@ -282,15 +285,16 @@ export class GameController {
     return ruleset;
   }
 
-  /** Is this game played under hard mode (§2.3)? Read from the SESSION's
-   * options, not the defaults — a resumed or synced game brings its own. */
-  private hardMode(): boolean {
-    return this.currentOptions().hardMode === true;
+  /** Does an invalid word cost the turn in this game (§2.3)? Read from the
+   * SESSION's options, not the defaults — a resumed or synced game brings its
+   * own. */
+  private invalidWordsCostTurn(): boolean {
+    return this.currentOptions().invalidWords === 'costs-turn';
   }
 
-  /** The house rules every applyMove in this class must be handed. */
-  private moveOptions(): { hardMode: boolean } {
-    return { hardMode: this.hardMode() };
+  /** The per-game settings every applyMove in this class must be handed. */
+  private moveOptions(): MoveOptions {
+    return { invalidWords: this.currentOptions().invalidWords ?? 'blocked' };
   }
 
   private applyEntry(state: SessionState, entry: LexEntry): SessionState {
@@ -336,11 +340,11 @@ export class GameController {
           this.dict,
           this.moveOptions(),
         );
-        // Hard mode: the engine turned this play into a phoney rather than
+        // 'costs-turn': the engine turned this play into a phoney rather than
         // throwing. Re-asking the dictionary is how we learn which — the same
         // verdict applyMove just reached, over the same words, so replay of the
         // same log always classifies the row the same way.
-        const bad = this.hardMode() ? rejectedWords(score.words, this.dict) : [];
+        const bad = this.invalidWordsCostTurn() ? rejectedWords(score.words, this.dict) : [];
         if (bad.length > 0) {
           // The tiles never left the rack, so nextMyRack consumes nothing.
           return {
@@ -619,11 +623,11 @@ export class GameController {
     // opponent, but the staged tiles — and the rack to check them against — are
     // mine. On-turn actingSeat === game.toMove, so behavior is unchanged.
     const rack = game.racks[this.actingSeat()] ?? [];
-    // Hard mode's whole point: stage 3 of the pipeline is NOT run for the
-    // preview, so nothing downstream can leak a verdict the player is supposed
-    // to be guessing at. Geometry and scoring are still shown — you always
-    // knew where the tiles go and what they'd be worth.
-    const withheld = this.hardMode();
+    // The whole point of 'costs-turn': stage 3 of the pipeline is NOT run for
+    // the preview, so nothing downstream can leak a verdict the player is
+    // supposed to be guessing at. Geometry and scoring are still shown — you
+    // always knew where the tiles go and what they'd be worth.
+    const withheld = this.invalidWordsCostTurn();
     const check = checkPlay(game.board, rack, placements, ruleset);
     if (!check.ok) {
       return {
@@ -803,11 +807,11 @@ export class GameController {
         isBlank: p.isBlank,
       };
     });
-    // Hard mode: the verdict the preview withheld is due NOW. Raised here — the
-    // one place that is a deliberate commit by this player — rather than in
-    // applyEntry, so resuming a stored game or adopting a server snapshot never
+    // The verdict the preview withheld is due NOW. Raised here — the one place
+    // that is a deliberate commit by this player — rather than in applyEntry,
+    // so resuming a stored game or adopting a server snapshot never
     // re-announces a turn lost long ago.
-    if (this.hardMode()) {
+    if (this.invalidWordsCostTurn()) {
       const bad = snap.preview.words.filter((w) => !this.dict.has(w.word)).map((w) => w.word);
       if (bad.length > 0) this.phoney = { id: ++this.noticeSeq, words: bad };
     }

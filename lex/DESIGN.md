@@ -33,9 +33,10 @@ those requirements and cross-references them where useful.
   validity, the total; recall, shuffle, blank designation.
 - **Dictionary-enforced plays** (Words-with-Friends style): an invalid word can't be
   played — the app tells you which word failed. No challenge mechanic (§2.3).
-- **…or hard mode, per game.** The same dictionary, the opposite bargain: the app
-  says nothing until you commit, and a word it won't take costs you the turn
-  (§2.3). Chosen at creation alongside the board and the word list.
+- **…or invalid words cost the turn, per game.** Same dictionary, opposite
+  bargain: the app says nothing until you commit, and a word it won't take costs
+  you the turn (§2.3). A setting picked at creation alongside the board, the word
+  list and the clock — not a difficulty tier.
 - **Swappable board layout, tileset, and dictionary** — first-class architectural
   requirement, not a nice-to-have (§2.2) — and the **board layout and dictionary
   are chosen per game at creation** (v1 ships two of each).
@@ -52,7 +53,7 @@ those requirements and cross-references them where useful.
   DAWG-based move generator is a natural `@lex/ai` package later).
 - No 3–4 player games (engine models N players from day one — arrays, seat indexes —
   but lobby/invite/notification flows assume 2 seats in v1).
-- No opponent-adjudicated challenges (hard mode settles phoneys itself, §2.3), no
+- No opponent-adjudicated challenges (the dictionary settles phoneys itself, §2.3), no
   ratings, no public matchmaking, no chat, no analysis.
 - No native app store builds — PWA only.
 - No monetization; no hardening beyond "players can't cheat."
@@ -78,8 +79,9 @@ among them (§2.3); everything below holds under both settings:
   the placed tiles plus existing tiles form one contiguous main word; the first play
   covers the center square and uses ≥2 tiles; every later play connects to at least
   one existing tile. Every word formed (main + cross-words) must be in the
-  dictionary; under the strict default the whole play is otherwise rejected,
-  naming the offending words, and under hard mode it costs the turn (§2.3).
+  dictionary; the game's `invalidWords` setting decides what happens otherwise —
+  the whole play is rejected naming the offending words, or it costs the turn
+  (§2.3).
 - **Scoring:** letter premiums apply to newly placed tiles only; word premiums
   multiply (two DWs under one word ⇒ ×4) and also count only when newly covered;
   cross-words score too; placing all `rackSize` (7) tiles in one play is a **bingo**
@@ -91,8 +93,7 @@ among them (§2.3); everything below holds under both settings:
   1. The bag is empty and one player plays out their last tile ⇒ that player adds
      the sum of the opponent's remaining tile points; the opponent deducts their own.
   2. **Six consecutive scoreless turns** (pass, exchange, a 0-point play, or a
-     hard-mode phoney) ⇒ game ends; each player deducts their own remaining
-     tile points.
+     phoney) ⇒ game ends; each player deducts their own remaining tile points.
   3. Resignation, or timeout under an async time control (§6.4).
 - Higher adjusted score wins; equal ⇒ **draw** (no first-player tiebreak).
 
@@ -108,7 +109,7 @@ Ruleset = {
   tiles:   TileSet          // per-letter count + points, blank count
   rackSize, bingoBonus, exchangeMinBag, scorelessLimit
 }
-GameOptions = { rulesetId, dictionaryId, timeControl, hardMode }  // pinned at creation (FR-6..11)
+GameOptions = { rulesetId, dictionaryId, timeControl, invalidWords }  // pinned at creation (FR-6..11)
 ```
 
 - The engine computes **everything** — geometry, scoring, end conditions — from the
@@ -124,13 +125,15 @@ GameOptions = { rulesetId, dictionaryId, timeControl, hardMode }  // pinned at c
   ~82k — the 12dicts common-vocabulary list, friendlier for casual play).
 - **Both are picked in the New Game flow** (FR-6/FR-7), shown to the invitee
   before accepting, and immutable afterwards (§7.1).
-- **`hardMode` is a `GameOptions` flag, not a `Ruleset` field** (FR-9b). It is
-  orthogonal to both the board and the word list — any of the four combinations
-  is a sensible game — so putting it in the `Ruleset` would mean a registry
-  entry per board × mode, and would falsely imply that finished games' *boards*
-  differ. The engine takes it per call instead (`applyMove`'s `MoveOptions`,
-  §5.2), which also keeps the `Ruleset` what it says it is: the shape of the
-  board and the tiles.
+- **`invalidWords` is a `GameOptions` setting, not a `Ruleset` field** (FR-9b).
+  It is orthogonal to both the board and the word list — every combination is a
+  sensible game — so putting it in the `Ruleset` would mean a registry entry per
+  board × rule, and would falsely imply that finished games' *boards* differ. The
+  engine takes it per call instead (`applyMove`'s `MoveOptions`, §5.2), which
+  also keeps the `Ruleset` what it says it is: the shape of the board and the
+  tiles. It sits beside `dictionaryId` for the same reason the dictionary sits
+  outside the `Ruleset`: it is a choice about the word list's *authority*, not
+  about the board.
 - Board size is *not* assumed 15×15 by the UI: the grid renders `rows × cols` from
   the layout, and the viewport auto-fits (§7.2). An 11×11 quick-play board (with a
   reduced tile set) is a post-v1 registry entry.
@@ -143,24 +146,26 @@ GameOptions = { rulesetId, dictionaryId, timeControl, hardMode }  // pinned at c
   loss — identical semantics and machinery to hive (§6.4). Real-time clocks post-v1.
 - **Turn order:** chosen at creation (me / them / random, default random); rematch
   swaps who starts.
-- **Dictionary strictness is a per-game choice** — the one house rule that
-  changes what a turn can cost:
-  - **Strict** (default): a play whose words aren't all in the dictionary is not
-    a move at all. The preview marks the offending word ✗ before you commit and
-    Play stays disabled; the server rejects it if a client tries anyway.
-  - **Hard mode** (`hardMode: true`): the app **withholds** the verdict —
-    the preview shows words, scores and the total but no ✓/✗ — and a play the
+- **Invalid words:** what happens to a play whose words aren't all in the
+  dictionary is **chosen per game** (`invalidWords`, FR-9b) — a setting picked at
+  creation like the board, the word list and the clock, and deliberately named
+  for the rule rather than for a difficulty:
+  - **`'blocked'`** — "Can't be played", the default. Such a play is not a move
+    at all. The preview marks the offending word ✗ before you commit and Play
+    stays disabled; the server rejects it if a client tries anyway.
+  - **`'costs-turn'`** — "Cost your turn". The app **withholds** the verdict (the
+    preview shows words, scores and the total but no ✓/✗) and a play the
     dictionary refuses is a **phoney**: it places nothing, scores nothing, and
-    **costs the turn** (feeding the scoreless run, §2.1). Geometry and rack
-    legality are NOT relaxed; those plays are still refused outright.
-  This is exactly why the engine's geometry check and dictionary check were
-  always separate calls (§5.2) — hard mode is a second consequence for stage 3,
-  not a second pipeline.
-- Hard mode deliberately stops short of a **challenge** mechanic (opponent
-  adjudicates): the dictionary is the arbiter either way, so a phoney is caught
-  the moment it is played rather than being left standing until someone doubts
-  it. Nothing is hidden from the opponent that isn't already hidden — see the
-  privacy note in §3.3.
+    spends the turn (feeding the scoreless run, §2.1).
+
+  Geometry and rack legality are identical under both — those plays are still
+  refused outright. This is exactly why the engine's geometry check and
+  dictionary check were always separate calls (§5.2): the second setting is a
+  second consequence for stage 3, not a second pipeline.
+- Neither setting is a **challenge** mechanic (where the opponent adjudicates):
+  the dictionary is the arbiter either way, so a phoney is caught the moment it
+  is played rather than left standing until someone doubts it. Nothing is hidden
+  from the opponent that isn't already hidden — see the privacy note in §3.3.
 
 ### 2.4 Notation & the move log
 
@@ -272,7 +277,7 @@ Firestore**. Consequences, designed once here and referenced everywhere:
   "log is the source of truth" property, split across a public and a private half.
 - **Exchanges are private.** The public move entry records only *how many* tiles
   were exchanged; which letters went back is server-private.
-- **Phoneys are private too** (hard mode, §2.3), for exactly the same reason:
+- **Phoneys are private too** (§2.3), for exactly the same reason:
   the letters of a refused play never reached the board — they are still sitting
   in the mover's rack. So the public move entry records `kind: 'phoney'` and
   nothing else: no placements, no words, no score, and the opponent's push says
@@ -385,8 +390,8 @@ and shrinks to zero when hive migrates.
 ### 5.2 Verdict pipeline (what replaces hive's `legalMoves`)
 
 A candidate play flows through three pure, separately callable stages — separate so
-the UI can give precise live feedback and so hard mode (§2.3) can hold stage 3
-back from the player without holding it back from the engine:
+the UI can give precise live feedback and so a `'costs-turn'` game (§2.3) can
+hold stage 3 back from the player without holding it back from the engine:
 
 1. **`checkPlay(board, rack, placements, ruleset)`** — geometry + rack legality:
    tiles come from the rack (blank designations legal), single line, contiguity
@@ -397,8 +402,8 @@ back from the player without holding it back from the engine:
 3. **Dictionary verdicts** — `dict.has(word)` per formed word; all must pass.
    Callable on its own as `rejectedWords(words, dict)`, which names the refused
    words in play order (empty ⇒ the play scores). It exists as an export because
-   hard mode needs this verdict *after* the commit — to record the phoney — as
-   well as before it, and one definition beats three.
+   a `'costs-turn'` game needs this verdict *after* the commit — to record the
+   phoney — as well as before it, and one definition beats three.
 
 `applyMove(state, move, dict, options?)` runs the full pipeline (for `play`),
 enforces exchange/pass legality, draws refills from the bag, updates
@@ -407,14 +412,16 @@ reset), and — when the move ends the game — applies the end adjustments of �
 `state.scores` is final. `result(state)` then just reads. Illegal input throws
 `IllegalMoveError`, same contract as hive.
 
-`options: MoveOptions = { hardMode? }` carries the per-game house rules of §2.2.
-It changes **one** branch: a play whose stage-3 verdict fails. Strict (default) ⇒
-`IllegalMoveError('invalid-word')` naming the words, as before. Hard mode ⇒ the
-move is applied as a **phoney**: board, racks, bag and scores are untouched, only
-`toMove`, `moveCount` and `scorelessRun` advance. Stages 1 and 2 are unaffected in
-both settings, so hard mode can never make an illegal placement legal. It needs no
-marker in the log: replaying the same entries against the same dictionary reaches
-the same verdict, so a phoney is re-derived, not remembered.
+`options: MoveOptions = { invalidWords? }` carries the per-game settings of §2.2
+(`InvalidWordRule = 'blocked' | 'costs-turn'`, exported so the client and server
+option twins share one vocabulary). It changes **one** branch: a play whose
+stage-3 verdict fails. `'blocked'` (the default) ⇒ `IllegalMoveError('invalid-word')`
+naming the words, as before. `'costs-turn'` ⇒ the move is applied as a **phoney**:
+board, racks, bag and scores are untouched, only `toMove`, `moveCount` and
+`scorelessRun` advance. Stages 1 and 2 are unaffected either way, so the setting
+can never make an illegal placement legal. It needs no marker in the log:
+replaying the same entries against the same dictionary reaches the same verdict,
+so a phoney is re-derived, not remembered.
 
 ### 5.3 Algorithms (the interesting parts)
 
@@ -474,7 +481,7 @@ service account, and preview-channel strategy).
 users/{uid}:              { displayName, photoURL, fcmTokens: string[], settings }   // = hive
 games/{gameId}:           { players: {p0: uid, p1: uid|null},        // p0 moves first
                             playerNames: {p0, p1}, playerIds: uid[],
-                            options: { rulesetId, dictionaryId, timeControl, hardMode },
+                            options: { rulesetId, dictionaryId, timeControl, invalidWords },
                             status: 'open'|'active'|'finished',
                             inviteCode?, challenge?,                  // = hive semantics
                             result?: 'p0'|'p1'|'draw',
@@ -491,7 +498,7 @@ games/{gameId}/moves/{n}: { n, kind: 'play'|'phoney'|'exchange'|'pass'|'resign'|
                             play?: { placements: [{row, col, letter, isBlank}],
                                      words: [{word, score}], score, bingo },
                             exchanged?: number,                       // count ONLY — letters are private
-                            by: uid, at }                             // 'phoney' (hard mode, §2.3) carries
+                            by: uid, at }                             // 'phoney' (§2.3) carries
                                                                       // NO play payload: the refused letters
                                                                       // are still in the mover's rack (§3.3)
 games/{gameId}/racks/{uid}: { tiles: string, n: number }              // e.g. "AEINRT?" — owner-read only;
@@ -520,7 +527,7 @@ invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expi
 |---|---|
 | `createGame(options, seat)` | seat = `me / them / random` (turn order, not color); shuffles + persists the bag, deals both racks |
 | `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + swaps who starts) |
-| `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary) **under the game's own `hardMode`**, draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent. A hard-mode phoney takes the same path: it is a legal move, so it commits, but writes `kind:'phoney'` with no play payload, clears `lastPlay`, and pushes copy that names no word |
+| `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary) **under the game's own `invalidWords`**, draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent. A phoney takes the same path: it is a legal move, so it commits, but writes `kind:'phoney'` with no play payload, clears `lastPlay`, and pushes copy that names no word |
 | `resign(gameId)` | = hive |
 | `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull) |
 
@@ -551,13 +558,16 @@ move-clock chip on both your-turn and waiting cards — the side-to-move's
 deadline, so the opponent's clock is visible too), New game
 (opponent chip or invite link; **board picker** — classic/modern with a mini
 premium-map preview; **dictionary picker** — labeled with name + word count;
-**hard-mode switch** with the rule spelled out beside it, default off so nobody
-turns it on unread; turn order; time control; FR-6..9b), Join (the game-summary
-card lists board, dictionary, time control, and your seat — plus a hard-mode chip
-when the host chose it, since it is the one option that changes what a turn can
-cost — the invitee sees the rules before accepting, FR-10), Settings
-(notifications, theme, tile skin), and Game (the game menu restates the chosen
-options mid-game, house rules included).
+**invalid-words picker** — "Can't be played" / "Cost your turn", the same
+two-value toggle shape as turn order and time control, with the rule stated
+under whichever is selected; turn order; time control; FR-6..9b), Join (the
+game-summary card lists board, dictionary, time control, and your seat — plus a
+highlighted chip when invalid words cost the turn, the one setting here that
+changes what a turn can cost — the invitee sees the rules before accepting,
+FR-10), Settings (notifications, theme, tile skin), and Game (the game menu
+restates the chosen options mid-game, the invalid-words rule spelled out in
+full — it is where a player goes mid-game to ask what happens if they're
+wrong).
 
 Game-screen deltas: player bars carry **scores** (players shown by first name —
 falling back to first + last initial, then full name, only as far as needed to
@@ -618,13 +628,14 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      the list with its reason.
      Play is enabled only when `checkPlay` passes and all words are valid —
      pressing it submits optimistically (§6.3).
-     **In hard mode (§2.3) that whole verdict column goes dark and nothing else
-     changes:** each row's mark becomes a "—", no row is filled, no total is
-     struck through, no cell is ringed, and Play is live for any legal
-     placement. (The controller models this as `valid: null` — *withheld*, a
-     third state deliberately distinct from `false`, so no surface can render
-     "not told" as "rejected".) The card says "hard mode" once in its header,
-     because a permanently blank column would otherwise read as a broken check.
+     **Where invalid words cost the turn (§2.3) that whole verdict column goes
+     dark and nothing else changes:** each row's mark becomes a "—", no row is
+     filled, no total is struck through, no cell is ringed, and Play is live for
+     any legal placement. (The controller models this as `valid: null` —
+     *withheld*, a third state deliberately distinct from `false`, so no surface
+     can render "not told" as "rejected".) The card tags itself "not checked"
+     once in its header, because a permanently blank column would otherwise read
+     as a broken check.
      The verdict then arrives *after* the commit, as a **phoney beat**: a small
      dismissible dialog naming the refused word(s) and stating the cost. It is
      blocking rather than a toast because a lost turn that leaves the board

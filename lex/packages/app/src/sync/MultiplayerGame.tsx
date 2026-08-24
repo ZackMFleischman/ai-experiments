@@ -63,7 +63,7 @@ export default function MultiplayerGame({ gameId }: { gameId: string }) {
           {
             rulesetId: info.options.rulesetId,
             dictionaryId: info.options.dictionaryId,
-            hardMode: info.options.hardMode === true,
+            invalidWords: info.options.invalidWords ?? 'blocked',
             bagOrder: canonicalBagOrder(info.options.rulesetId),
             seats: 2,
           },

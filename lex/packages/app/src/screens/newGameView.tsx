@@ -9,9 +9,7 @@ import {
   Card,
   CardActionArea,
   Chip,
-  FormControlLabel,
   Stack,
-  Switch,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -23,8 +21,10 @@ import { useState } from 'react';
 import { MiniBoard } from '../board/MiniBoard';
 import {
   boardName,
-  HARD_MODE_BLURB,
-  HARD_MODE_NAME,
+  INVALID_WORDS_BLURBS,
+  INVALID_WORDS_LABELS,
+  INVALID_WORDS_NAME,
+  type InvalidWordRule,
   type LexGameOptions,
   type SeatChoice,
   type TimeControlDays,
@@ -43,9 +43,9 @@ export interface NewGameChoices {
 const DEFAULT_BOARD = 'classic';
 const DEFAULT_DICTIONARY = 'nwl2023'; // the official North American tournament list
 const DEFAULT_DAYS: TimeControlDays = 3;
-// Off by default: hard mode is the opt-in house rule, never a surprise the
-// invitee discovers by losing a turn.
-const DEFAULT_HARD_MODE = false;
+// The checked-as-you-place rule is the default: losing a turn is the surprising
+// outcome, so it is the one a host has to choose on purpose.
+const DEFAULT_INVALID_WORDS: InvalidWordRule = 'blocked';
 
 export function NewGameForm({
   onCreate,
@@ -62,7 +62,7 @@ export function NewGameForm({
   const [seat, setSeat] = useState<SeatChoice>('random');
   const [days, setDays] = useState<TimeControlDays>(DEFAULT_DAYS);
   const [opponent, setOpponent] = useState<Friend | null>(null);
-  const [hardMode, setHardMode] = useState(DEFAULT_HARD_MODE);
+  const [invalidWords, setInvalidWords] = useState<InvalidWordRule>(DEFAULT_INVALID_WORDS);
   return (
     <Stack spacing={3} sx={{ maxWidth: 480 }}>
       {friends.length > 0 && (
@@ -162,32 +162,29 @@ export function NewGameForm({
           ))}
         </Stack>
       </Stack>
+      {/* Same shape as the turn-order and time-control pickers: a setting with
+          two named values, not a difficulty switch. The blurb tracks the
+          selection, so the rule is stated for whichever one is highlighted. */}
       <Stack spacing={1}>
         <Typography variant="overline" color="text.secondary">
-          House rules
+          {INVALID_WORDS_NAME}
         </Typography>
-        <Card variant="outlined" sx={{ p: 1.25 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={hardMode}
-                onChange={(_, checked) => setHardMode(checked)}
-                data-testid="hard-mode"
-                inputProps={{ 'aria-describedby': 'hard-mode-blurb' }}
-              />
-            }
-            label={<Typography fontWeight={600}>{HARD_MODE_NAME}</Typography>}
-            sx={{ ml: 0, mr: 0 }}
-          />
-          <Typography
-            id="hard-mode-blurb"
-            variant="body2"
-            color="text.secondary"
-            sx={{ mt: 0.5 }}
-          >
-            {HARD_MODE_BLURB}
-          </Typography>
-        </Card>
+        <ToggleButtonGroup
+          exclusive
+          value={invalidWords}
+          onChange={(_, v: InvalidWordRule | null) => v && setInvalidWords(v)}
+          fullWidth
+        >
+          <ToggleButton value="blocked" data-testid="invalid-words-blocked">
+            {INVALID_WORDS_LABELS.blocked}
+          </ToggleButton>
+          <ToggleButton value="costs-turn" data-testid="invalid-words-costs-turn">
+            {INVALID_WORDS_LABELS['costs-turn']}
+          </ToggleButton>
+        </ToggleButtonGroup>
+        <Typography variant="body2" color="text.secondary">
+          {INVALID_WORDS_BLURBS[invalidWords]}
+        </Typography>
       </Stack>
       <Stack spacing={1}>
         <Typography variant="overline" color="text.secondary">
@@ -247,7 +244,7 @@ export function NewGameForm({
               rulesetId,
               dictionaryId,
               timeControl: days === null ? null : { days },
-              hardMode,
+              invalidWords,
             },
             seat,
             opponent,

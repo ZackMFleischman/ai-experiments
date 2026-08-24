@@ -10,11 +10,11 @@
 // public doc — the log entry carries a count only, and the re-shuffled remainder
 // is recorded as a private replay event (§3.3).
 //
-// Hard mode (§2.3) adds a fourth kind of outcome: a play the dictionary refuses
-// is no longer an error, it is a PHONEY — a spent turn. It gets the same privacy
-// treatment as an exchange: the public log records that the turn was burned and
-// nothing else, because the letters that were attempted are still sitting in the
-// mover's rack.
+// A game whose `invalidWords` setting is 'costs-turn' (§2.3) adds a fourth kind
+// of outcome: a play the dictionary refuses is no longer an error, it is a
+// PHONEY — a spent turn. It gets the same privacy treatment as an exchange: the
+// public log records that the turn was burned and nothing else, because the
+// letters that were attempted are still sitting in the mover's rack.
 import { randomInt } from 'node:crypto';
 import { join } from 'node:path';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -137,19 +137,20 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
 
     // Score the play BEFORE applying (the log entry wants words + total);
     // applyMove reruns the full verdict pipeline and throws on any illegality.
-    const hardMode = d.options.hardMode === true;
+    const invalidWords = d.options.invalidWords ?? 'blocked';
     let next: GameState;
     let playRecord: { placements: unknown[]; words: unknown[]; score: number; bingo: boolean } | null =
       null;
-    // Hard mode only: the play was legal geometry but a phoney. applyMove has
-    // already spent the turn for it; this flag decides what gets WRITTEN.
+    // 'costs-turn' games only: the play was legal geometry but a phoney.
+    // applyMove has already spent the turn for it; this flag decides what gets
+    // WRITTEN.
     let phoney = false;
     try {
       if (move.type === 'play') {
         const scored = scorePlay(state.board, move.placements, ruleset);
         // The same stage-3 verdict applyMove is about to reach, asked here
         // because only the pre-move board can still be scored.
-        phoney = hardMode && rejectedWords(scored.words, dict).length > 0;
+        phoney = invalidWords === 'costs-turn' && rejectedWords(scored.words, dict).length > 0;
         if (!phoney) {
           playRecord = {
             placements: move.placements.map((p) => ({
@@ -164,7 +165,7 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
           };
         }
       }
-      next = applyMove(state, move, dict, { hardMode });
+      next = applyMove(state, move, dict, { invalidWords });
     } catch (err) {
       if (err instanceof IllegalMoveError) {
         const words = err.words?.length ? ` (${err.words.join(', ')})` : '';

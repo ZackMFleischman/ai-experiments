@@ -10,7 +10,14 @@ import {
   ListItemText,
 } from '@mui/material';
 import { DICTIONARIES } from '@lex/dict';
-import { boardName, houseRulesLabel, HARD_MODE_BLURB, timeControlLabel } from '../gameOptions';
+import {
+  boardName,
+  INVALID_WORDS_BLURBS,
+  INVALID_WORDS_NAME,
+  invalidWordsLabel,
+  timeControlLabel,
+  type InvalidWordRule,
+} from '../gameOptions';
 
 export function GameInfoDialog({
   open,
@@ -18,7 +25,7 @@ export function GameInfoDialog({
   rulesetId,
   dictionaryId,
   timeControl,
-  hardMode = false,
+  invalidWords = 'blocked',
 }: {
   open: boolean;
   onClose: () => void;
@@ -26,8 +33,8 @@ export function GameInfoDialog({
   dictionaryId: string;
   /** Omit entirely for hot-seat (no clock concept on one device). */
   timeControl?: { days: 1 | 3 | 7 } | null;
-  /** Hard mode (§2.3) — pinned at creation like everything else here. */
-  hardMode?: boolean;
+  /** What invalid words do (§2.3) — pinned at creation like everything here. */
+  invalidWords?: InvalidWordRule;
 }) {
   const dict = DICTIONARIES.find((d) => d.id === dictionaryId);
   return (
@@ -51,12 +58,12 @@ export function GameInfoDialog({
               <ListItemText primary="Time control" secondary={timeControlLabel(timeControl)} />
             </ListItem>
           )}
-          <ListItem disableGutters data-testid="info-house-rules">
+          <ListItem disableGutters data-testid="info-invalid-words">
             <ListItemText
-              primary="House rules"
-              secondary={
-                hardMode ? `${houseRulesLabel(true)} — ${HARD_MODE_BLURB}` : houseRulesLabel(false)
-              }
+              primary={INVALID_WORDS_NAME}
+              // The rule in full, not just its label: this dialog is where a
+              // player mid-game goes to ask "wait, what happens if I'm wrong?"
+              secondary={`${invalidWordsLabel(invalidWords)} — ${INVALID_WORDS_BLURBS[invalidWords]}`}
             />
           </ListItem>
         </List>

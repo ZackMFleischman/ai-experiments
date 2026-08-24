@@ -337,24 +337,29 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   staged, so a recall never returns to a missing badge; a new play always
   restores it.
 
-- **2026-08-24 — Hard mode is a GameOptions flag, and a phoney is private
+- **2026-08-24 — "Invalid words" is a per-game setting, and a phoney is private
   (Zack).** Requested as "you don't know if the word is valid until you play,
-  and if it isn't you lose your turn". Three calls. (1) It lives in
-  `GameOptions`, not the `Ruleset` (DESIGN §2.2) — it is orthogonal to board and
-  word list, and a `Ruleset` field would mean a registry entry per board × mode
-  and would imply finished games' boards differ. The engine takes it per call
-  (`applyMove`'s `MoveOptions`); only the stage-3 branch changes, so hard mode
-  can never make illegal geometry legal. (2) The withheld verdict is
-  `valid: null`, not `false` — a third state, so no surface can render "not
-  told" as "rejected". (3) The refused words are **not** recorded publicly: they
-  are still in the mover's rack, and `moves/*` is read by both players, so a
-  phoney writes `kind:'phoney'` and nothing else and the push names no word
-  (§3.3). That is the deliberate difference from over-the-board challenge play,
-  where a phoney is revealed before it is withdrawn; the rack-privacy invariant
-  wins. The mover sees their own words once, client-side, in a blocking beat —
-  blocking because a lost turn that leaves the board unchanged is otherwise
-  indistinguishable from a bug. In hot-seat it layers *above* the pass-device
-  interstitial rather than suppressing it — the first build suppressed it, and
-  the gallery capture showed the incoming player's rack behind the dialog, since
-  a phoney has already passed the turn. No log marker is needed: replay
-  re-derives the verdict.
+  and if it isn't you lose your turn". Four calls. (1) **Named for the rule, not
+  a difficulty.** It shipped for a day as a "Hard mode" switch; Zack asked for a
+  setting you pick like the dictionary or the time limit instead. So it is
+  `invalidWords: 'blocked' | 'costs-turn'`, titled "Invalid words" with the
+  values "Can't be played" / "Cost your turn", in the same two-value toggle shape
+  as turn order and time control, with the rule stated under whichever is
+  selected. A value, not a flag — which also leaves room for a third rule later.
+  (2) It lives in `GameOptions`, not the `Ruleset` (DESIGN §2.2) — orthogonal to
+  board and word list, and a `Ruleset` field would mean a registry entry per
+  board × rule and would imply finished games' boards differ. The engine takes it
+  per call (`applyMove`'s `MoveOptions`); only the stage-3 branch changes, so it
+  can never make illegal geometry legal. (3) The withheld verdict is
+  `valid: null`, not `false` — a third state, so no surface can render "not told"
+  as "rejected". (4) The refused words are **not** recorded publicly: they are
+  still in the mover's rack, and `moves/*` is read by both players, so a phoney
+  writes `kind:'phoney'` and nothing else and the push names no word (§3.3). That
+  is the deliberate difference from over-the-board challenge play, where a phoney
+  is revealed before it is withdrawn; the rack-privacy invariant wins. The mover
+  sees their own words once, client-side, in a blocking beat — blocking because a
+  lost turn that leaves the board unchanged is otherwise indistinguishable from a
+  bug. In hot-seat it layers *above* the pass-device interstitial rather than
+  suppressing it — the first build suppressed it, and the gallery capture showed
+  the incoming player's rack behind the dialog, since a phoney has already passed
+  the turn. No log marker is needed: replay re-derives the verdict.

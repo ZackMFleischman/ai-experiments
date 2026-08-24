@@ -7,7 +7,13 @@ import { DICTIONARIES } from '@lex/dict';
 import { JoinCard as ParlorJoinCard } from '@parlor/web/lobby-ui';
 import { lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
-import { boardName, HARD_MODE_NAME, timeControlLabel, type LexGameOptions } from '../gameOptions';
+import {
+  boardName,
+  INVALID_WORDS_NAME,
+  invalidWordsLabel,
+  timeControlLabel,
+  type LexGameOptions,
+} from '../gameOptions';
 import { LandingLayout } from './LandingLayout';
 
 export type JoinState =
@@ -33,15 +39,16 @@ export function JoinCard({ state, onAccept }: { state: JoinState; onAccept: () =
             <Chip label={`${boardName(state.options.rulesetId)} board`} size="small" />
             <Chip label={dictionaryLabel(state.options.dictionaryId)} size="small" />
             <Chip label={timeControlLabel(state.options.timeControl)} size="small" />
-            {/* Hard mode changes how the game PLAYS, so the invitee is told
-                before accepting (FR-10) — and told loudly: it is the one
-                option here that can cost them a turn. */}
-            {state.options.hardMode && (
+            {/* The invitee sees every chosen option before accepting (FR-10).
+                This one is highlighted rather than stated flatly like the rest,
+                because it is the only setting here that can cost them a turn —
+                and only when it is set away from the default. */}
+            {state.options.invalidWords === 'costs-turn' && (
               <Chip
-                label={HARD_MODE_NAME}
+                label={`${INVALID_WORDS_NAME.toLowerCase()} ${invalidWordsLabel('costs-turn').toLowerCase()}`}
                 size="small"
                 color="warning"
-                data-testid="join-hard-mode"
+                data-testid="join-invalid-words"
               />
             )}
           </>

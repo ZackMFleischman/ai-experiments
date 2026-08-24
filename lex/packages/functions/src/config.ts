@@ -11,6 +11,7 @@ import {
   initialState,
   serializePublic,
   serializeState,
+  type InvalidWordRule,
   type Ruleset,
   type TileFace,
 } from '@lex/engine';
@@ -31,10 +32,9 @@ export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
-  /** Hard mode (§2.3): the dictionary verdict costs the turn instead of
-   * rejecting the move. Optional on the wire — games created before hard mode
-   * existed carry no field and must keep playing under the strict default. */
-  hardMode: boolean;
+  /** What invalid words do (§2.3). Optional on the wire — games created before
+   * the setting existed carry no field and must keep playing as 'blocked'. */
+  invalidWords: InvalidWordRule;
 }
 
 export function requireRuleset(rulesetId: string): Ruleset {
@@ -61,11 +61,15 @@ function parseOptions(raw: unknown): LexGameOptions {
     }
     timeControl = { days };
   }
-  // Absent (old clients, older games) ⇒ the strict default. Anything other
-  // than an explicit `true` is off: a malformed flag must never silently
-  // change the rules of a game.
-  const hardMode = o.hardMode === true;
-  return { rulesetId: ruleset.id, dictionaryId: o.dictionaryId, timeControl, hardMode };
+  // Absent (old clients, older games) ⇒ 'blocked'. Only the exact opt-in value
+  // selects the other rule: a malformed setting must never silently change how
+  // a game plays, and an unknown one is a client bug worth surfacing.
+  const iw = o.invalidWords;
+  if (iw !== undefined && iw !== 'blocked' && iw !== 'costs-turn') {
+    throw new HttpsError('invalid-argument', "invalidWords must be 'blocked' or 'costs-turn'");
+  }
+  const invalidWords: InvalidWordRule = iw === 'costs-turn' ? 'costs-turn' : 'blocked';
+  return { rulesetId: ruleset.id, dictionaryId: o.dictionaryId, timeControl, invalidWords };
 }
 
 /** Crypto-shuffled full-tileset permutation (§3.3: randomness at the edge). */
@@ -139,9 +143,9 @@ export function playedCopy(name: string, word: string, score: number): string {
   return `${name} played ${word} for ${score} — your move.`;
 }
 
-/** Hard mode (§2.3): the opponent burned a turn on a phoney. The word is NOT
- * in the copy — those letters are still in their rack, and a push is as public
- * as any other doc (privacy invariant). */
+/** 'costs-turn' games (§2.3): the opponent burned a turn on a phoney. The word
+ * is NOT in the copy — those letters are still in their rack, and a push is as
+ * public as any other doc (privacy invariant). */
 export function phoneyCopy(name: string): string {
   return `${name} played a word that isn’t in the dictionary and lost the turn — your move.`;
 }

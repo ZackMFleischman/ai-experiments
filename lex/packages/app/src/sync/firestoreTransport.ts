@@ -41,9 +41,10 @@ interface GameDocData {
 
 interface MoveDocData {
   n: number;
-  /** 'phoney' = a hard-mode play the dictionary refused (§2.3). It carries NO
-   * `play` payload: the attempted letters are the mover's rack, and the
-   * privacy invariant keeps rack letters out of every doc both players read. */
+  /** 'phoney' = a play the dictionary refused in a 'costs-turn' game (§2.3).
+   * It carries NO `play` payload: the attempted letters are the mover's rack,
+   * and the privacy invariant keeps rack letters out of every doc both players
+   * read. */
   kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
   play?: {
     placements: Array<{ row: number; col: number; letter: string; isBlank: boolean }>;
@@ -236,10 +237,10 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       options: {
         rulesetId: game.options.rulesetId,
         dictionaryId: game.options.dictionaryId,
-        // The house rules travel with every adoption: the controller replays
-        // the client's OWN moves through the engine, so it must apply them
-        // under the same rules the server did (§2.3).
-        hardMode: game.options.hardMode === true,
+        // The per-game settings travel with every adoption: the controller
+        // replays the client's OWN moves through the engine, so it must apply
+        // them under the same rules the server did (§2.3).
+        invalidWords: game.options.invalidWords ?? 'blocked',
         bagOrder: canonicalBagOrder(game.options.rulesetId),
         seats: 2,
       },
