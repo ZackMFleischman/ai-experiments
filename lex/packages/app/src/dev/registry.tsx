@@ -175,7 +175,12 @@ export const GALLERY: GalleryEntry[] = [
               kind: 'ready',
               hostName: 'Ada',
               hostSeat: 'p0',
-              options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: { days: 3 } },
+              options: {
+                rulesetId: 'classic',
+                dictionaryId: '2of12inf',
+                timeControl: { days: 3 },
+                hardMode: true,
+              },
             }}
             onAccept={() => {}}
           />
@@ -267,6 +272,30 @@ export const GALLERY: GalleryEntry[] = [
         fixtureController(midGame, (c) => {
           for (let i = 0; i < 7; i++) c.placeAt({ row: 8, col: 1 + i }, i);
         }),
+      ),
+  },
+  // Hard mode (§2.3): the same staged play as `pending-valid`, with the
+  // dictionary column withheld — every row's mark is a "—" and nothing on the
+  // card or the board can be red, however bad the word is.
+  {
+    id: 'pending-hard-mode',
+    render: () => game(() => fixtureController(null, stageCats, ['CATS'], [], true)),
+  },
+  // The moment hard mode exists for: the verdict comes due after the commit.
+  {
+    id: 'phoney-beat',
+    render: () =>
+      game(() =>
+        fixtureController(
+          null,
+          (c) => {
+            stageCats(c);
+            c.submitPlay();
+          },
+          ['CATS'],
+          [],
+          true,
+        ),
       ),
   },
   {

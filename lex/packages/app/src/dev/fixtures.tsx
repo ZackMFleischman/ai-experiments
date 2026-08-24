@@ -21,12 +21,13 @@ export interface GameFixture {
 export const P0_RACK: TileFace[] = ['C', 'A', 'T', 'S', '?', 'E', 'R'];
 export const P1_RACK: TileFace[] = ['D', 'O', 'G', 'L', 'I', 'P', 'U'];
 
-export function freshOptions(rulesetId = 'classic'): HotSeatOptions {
+export function freshOptions(rulesetId = 'classic', hardMode = false): HotSeatOptions {
   const ruleset = RULESETS[rulesetId];
   if (!ruleset) throw new Error(`unknown ruleset '${rulesetId}'`);
   return {
     rulesetId,
     dictionaryId: 'stub',
+    hardMode,
     bagOrder: riggedBagOrder(ruleset, [P0_RACK, P1_RACK]),
     seats: 2,
   };
@@ -69,8 +70,13 @@ export async function fixtureController(
   setup?: (controller: GameController) => void | Promise<void>,
   rejectWords: readonly string[] = [],
   extraEntries: readonly LexEntry[] = [],
+  /** Hard mode (§2.3): the preview withholds every dictionary verdict, and a
+   * committed phoney raises the beat instead of being refused. */
+  hardMode = false,
 ): Promise<GameController> {
-  const { options, log } = fixture ? storedLog(fixture) : { options: freshOptions(), log: [] };
+  const base = fixture ? storedLog(fixture) : { options: freshOptions(), log: [] };
+  const { log } = base;
+  const options: HotSeatOptions = { ...base.options, hardMode };
   log.push(...extraEntries);
   const transport = new LocalTransport<HotSeatOptions, LexEntry>(options);
   for (let i = 0; i < log.length; i++) await transport.submit(log[i]!, i);

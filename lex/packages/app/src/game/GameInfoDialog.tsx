@@ -10,7 +10,7 @@ import {
   ListItemText,
 } from '@mui/material';
 import { DICTIONARIES } from '@lex/dict';
-import { boardName, timeControlLabel } from '../gameOptions';
+import { boardName, houseRulesLabel, HARD_MODE_BLURB, timeControlLabel } from '../gameOptions';
 
 export function GameInfoDialog({
   open,
@@ -18,6 +18,7 @@ export function GameInfoDialog({
   rulesetId,
   dictionaryId,
   timeControl,
+  hardMode = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +26,8 @@ export function GameInfoDialog({
   dictionaryId: string;
   /** Omit entirely for hot-seat (no clock concept on one device). */
   timeControl?: { days: 1 | 3 | 7 } | null;
+  /** Hard mode (§2.3) — pinned at creation like everything else here. */
+  hardMode?: boolean;
 }) {
   const dict = DICTIONARIES.find((d) => d.id === dictionaryId);
   return (
@@ -48,6 +51,14 @@ export function GameInfoDialog({
               <ListItemText primary="Time control" secondary={timeControlLabel(timeControl)} />
             </ListItem>
           )}
+          <ListItem disableGutters data-testid="info-house-rules">
+            <ListItemText
+              primary="House rules"
+              secondary={
+                hardMode ? `${houseRulesLabel(true)} — ${HARD_MODE_BLURB}` : houseRulesLabel(false)
+              }
+            />
+          </ListItem>
         </List>
       </DialogContent>
     </Dialog>

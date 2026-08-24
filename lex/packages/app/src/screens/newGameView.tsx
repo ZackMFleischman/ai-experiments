@@ -9,7 +9,9 @@ import {
   Card,
   CardActionArea,
   Chip,
+  FormControlLabel,
   Stack,
+  Switch,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -21,6 +23,8 @@ import { useState } from 'react';
 import { MiniBoard } from '../board/MiniBoard';
 import {
   boardName,
+  HARD_MODE_BLURB,
+  HARD_MODE_NAME,
   type LexGameOptions,
   type SeatChoice,
   type TimeControlDays,
@@ -39,6 +43,9 @@ export interface NewGameChoices {
 const DEFAULT_BOARD = 'classic';
 const DEFAULT_DICTIONARY = 'nwl2023'; // the official North American tournament list
 const DEFAULT_DAYS: TimeControlDays = 3;
+// Off by default: hard mode is the opt-in house rule, never a surprise the
+// invitee discovers by losing a turn.
+const DEFAULT_HARD_MODE = false;
 
 export function NewGameForm({
   onCreate,
@@ -55,6 +62,7 @@ export function NewGameForm({
   const [seat, setSeat] = useState<SeatChoice>('random');
   const [days, setDays] = useState<TimeControlDays>(DEFAULT_DAYS);
   const [opponent, setOpponent] = useState<Friend | null>(null);
+  const [hardMode, setHardMode] = useState(DEFAULT_HARD_MODE);
   return (
     <Stack spacing={3} sx={{ maxWidth: 480 }}>
       {friends.length > 0 && (
@@ -156,6 +164,33 @@ export function NewGameForm({
       </Stack>
       <Stack spacing={1}>
         <Typography variant="overline" color="text.secondary">
+          House rules
+        </Typography>
+        <Card variant="outlined" sx={{ p: 1.25 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={hardMode}
+                onChange={(_, checked) => setHardMode(checked)}
+                data-testid="hard-mode"
+                inputProps={{ 'aria-describedby': 'hard-mode-blurb' }}
+              />
+            }
+            label={<Typography fontWeight={600}>{HARD_MODE_NAME}</Typography>}
+            sx={{ ml: 0, mr: 0 }}
+          />
+          <Typography
+            id="hard-mode-blurb"
+            variant="body2"
+            color="text.secondary"
+            sx={{ mt: 0.5 }}
+          >
+            {HARD_MODE_BLURB}
+          </Typography>
+        </Card>
+      </Stack>
+      <Stack spacing={1}>
+        <Typography variant="overline" color="text.secondary">
           Who goes first
         </Typography>
         <ToggleButtonGroup
@@ -208,7 +243,12 @@ export function NewGameForm({
         disabled={busy}
         onClick={() =>
           onCreate({
-            options: { rulesetId, dictionaryId, timeControl: days === null ? null : { days } },
+            options: {
+              rulesetId,
+              dictionaryId,
+              timeControl: days === null ? null : { days },
+              hardMode,
+            },
             seat,
             opponent,
           })

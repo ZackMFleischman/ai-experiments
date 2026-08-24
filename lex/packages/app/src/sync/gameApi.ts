@@ -10,6 +10,7 @@ export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
+  hardMode: boolean;
 }
 
 export type SeatChoice = 'me' | 'them' | 'random';

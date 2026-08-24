@@ -31,6 +31,10 @@ export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
+  /** Hard mode (§2.3): the dictionary verdict costs the turn instead of
+   * rejecting the move. Optional on the wire — games created before hard mode
+   * existed carry no field and must keep playing under the strict default. */
+  hardMode: boolean;
 }
 
 export function requireRuleset(rulesetId: string): Ruleset {
@@ -57,7 +61,11 @@ function parseOptions(raw: unknown): LexGameOptions {
     }
     timeControl = { days };
   }
-  return { rulesetId: ruleset.id, dictionaryId: o.dictionaryId, timeControl };
+  // Absent (old clients, older games) ⇒ the strict default. Anything other
+  // than an explicit `true` is off: a malformed flag must never silently
+  // change the rules of a game.
+  const hardMode = o.hardMode === true;
+  return { rulesetId: ruleset.id, dictionaryId: o.dictionaryId, timeControl, hardMode };
 }
 
 /** Crypto-shuffled full-tileset permutation (§3.3: randomness at the edge). */
@@ -129,6 +137,13 @@ async function seatRackDoc(
 /** The opponent-moved push copy: word + score in the body (DESIGN §8). */
 export function playedCopy(name: string, word: string, score: number): string {
   return `${name} played ${word} for ${score} — your move.`;
+}
+
+/** Hard mode (§2.3): the opponent burned a turn on a phoney. The word is NOT
+ * in the copy — those letters are still in their rack, and a push is as public
+ * as any other doc (privacy invariant). */
+export function phoneyCopy(name: string): string {
+  return `${name} played a word that isn’t in the dictionary and lost the turn — your move.`;
 }
 
 export function buildPayload(trigger: SharedTrigger, args: TriggerArgs): PushPayload {

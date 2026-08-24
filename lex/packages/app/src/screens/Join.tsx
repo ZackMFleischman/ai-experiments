@@ -7,7 +7,7 @@ import { DICTIONARIES } from '@lex/dict';
 import { JoinCard as ParlorJoinCard } from '@parlor/web/lobby-ui';
 import { lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
-import { boardName, timeControlLabel, type LexGameOptions } from '../gameOptions';
+import { boardName, HARD_MODE_NAME, timeControlLabel, type LexGameOptions } from '../gameOptions';
 import { LandingLayout } from './LandingLayout';
 
 export type JoinState =
@@ -33,6 +33,17 @@ export function JoinCard({ state, onAccept }: { state: JoinState; onAccept: () =
             <Chip label={`${boardName(state.options.rulesetId)} board`} size="small" />
             <Chip label={dictionaryLabel(state.options.dictionaryId)} size="small" />
             <Chip label={timeControlLabel(state.options.timeControl)} size="small" />
+            {/* Hard mode changes how the game PLAYS, so the invitee is told
+                before accepting (FR-10) — and told loudly: it is the one
+                option here that can cost them a turn. */}
+            {state.options.hardMode && (
+              <Chip
+                label={HARD_MODE_NAME}
+                size="small"
+                color="warning"
+                data-testid="join-hard-mode"
+              />
+            )}
           </>
         ),
       }}

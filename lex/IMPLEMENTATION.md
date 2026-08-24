@@ -136,8 +136,8 @@ Ported from hive (IMPLEMENTATION §4 there) — same runtime, same rules. Deltas
 
 By end of M3: empty board (each skin); early/mid/late boards replayed from GCG
 fixtures; every premium type covered + labeled; pending placement with the
-preview card (valid, invalid-word, illegal-geometry, cross-words, bingo states);
-blank picker open; exchange
+preview card (valid, invalid-word, illegal-geometry, cross-words, bingo, and
+hard-mode-withheld states); the hard-mode phoney beat; blank picker open; exchange
 mode with selection; rack full/low/empty; pass-device interstitial; score sheet
 open; last-play highlight; every ending overlay (played-out win/loss, scoreless,
 tie/draw, resign, timeout) with adjustment line items; confirm dialogs.
@@ -195,6 +195,7 @@ export type Move =
   | { type: 'play'; placements: readonly Placement[] }
   | { type: 'exchange'; tiles: readonly TileFace[] }
   | { type: 'pass' };
+export interface MoveOptions { hardMode?: boolean }  // per-game house rules (DESIGN §2.2)
 
 export interface WordScore { word: string; score: number; cells: readonly Cell[] }
 export type PlayCheck =
@@ -234,8 +235,12 @@ export function checkPlay(board: GameState['board'], rack: readonly TileFace[],
                           placements: readonly Placement[], ruleset: Ruleset): PlayCheck;
 export function scorePlay(board: GameState['board'],
                           placements: readonly Placement[], ruleset: Ruleset): PlayScore;
-export function applyMove(state: GameState, move: Move,
-                          dict: Dictionary): GameState;   // throws IllegalMoveError; terminal move finalizes scores
+export function rejectedWords(words: readonly WordScore[],
+                              dict: Dictionary): readonly string[];  // stage 3 alone (DESIGN §5.2)
+export function applyMove(state: GameState, move: Move, dict: Dictionary,
+                          options?: MoveOptions): GameState;  // throws IllegalMoveError; terminal move finalizes
+                                                              // scores; hardMode turns an invalid word into a
+                                                              // phoney (turn spent, board untouched)
 export function result(state: GameState): GameResult;     // board outcomes only (resign/timeout live in the game doc)
 export function playerView(state: GameState, seat: Seat): PlayerView;
 export function toGcg(move: Move, state: GameState): string;

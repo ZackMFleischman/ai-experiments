@@ -13,6 +13,9 @@ import type { CellKey, Placement, Seat, TileFace } from '@lex/engine';
 export interface GameOptions {
   rulesetId: string;
   dictionaryId: string;
+  /** Hard mode (DESIGN §2.3) — absent/false = the strict-dictionary default.
+   * Optional so a game stored before hard mode existed still parses. */
+  hardMode?: boolean;
   /** Pre-shuffled full bag order — shuffled at the edge on game creation.
    * Multiplayer uses a canonical placeholder order: the first sync entry
    * replaces the state before it is ever shown. */
@@ -28,7 +31,10 @@ export type HotSeatOptions = GameOptions;
 export interface SyncRow {
   n: number;
   by: Seat;
-  kind: 'play' | 'exchange' | 'pass' | 'resign' | 'timeout';
+  /** 'phoney' = a hard-mode play the dictionary refused: the turn was spent,
+   * nothing was placed, and — the privacy invariant — the server records no
+   * letters for it, so the row carries no word and no cells. */
+  kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
   word: string | null;
   words: ReadonlyArray<{ word: string; score: number }>;
   score: number;

@@ -31,6 +31,7 @@ import { useSkinId } from './skinContext';
 import { useConfirmPlay } from '../game/confirmPlayContext';
 import { GameInfoDialog } from '../game/GameInfoDialog';
 import { NoticeToast } from '../game/NoticeToast';
+import { PhoneyBeat } from '../game/PhoneyBeat';
 import { Tile } from './Tile';
 
 /** ONE drag layer for every tile in flight, rack- or board-origin: a fixed-
@@ -380,8 +381,10 @@ export function GameBoard({
   // words is the bad one" is answered on the board rather than by counting
   // letters. Derived from the verdict — no pointer events, so the card can
   // stay click-through.
+  // Only an EXPLICIT rejection rings cells. In hard mode every verdict is
+  // null (withheld), so this stays empty and the board gives nothing away.
   const rejectedWords = useMemo(
-    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => !w.valid) : []),
+    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => w.valid === false) : []),
     [snap.preview],
   );
   const flaggedCells = useMemo(
@@ -440,6 +443,7 @@ export function GameBoard({
         onClose={() => setInfoOpen(false)}
         rulesetId={snap.options.rulesetId}
         dictionaryId={snap.options.dictionaryId}
+        hardMode={snap.options.hardMode === true}
         {...(timeControl !== undefined ? { timeControl } : {})}
       />
       <Box ref={boardAreaRef} sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
@@ -635,6 +639,9 @@ export function GameBoard({
             View result
           </Box>
         </Box>
+      )}
+      {snap.phoney && (
+        <PhoneyBeat words={snap.phoney.words} onDismiss={() => controller.dismissPhoney()} />
       )}
       <BlankPicker
         open={snap.preview?.needsBlank != null}

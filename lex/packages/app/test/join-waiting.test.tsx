@@ -14,7 +14,12 @@ describe('JoinCard (FR-10)', () => {
           kind: 'ready',
           hostName: 'Ada',
           hostSeat: 'p0',
-          options: { rulesetId: 'modern', dictionaryId: 'enable1', timeControl: { days: 7 } },
+          options: {
+            rulesetId: 'modern',
+            dictionaryId: 'enable1',
+            timeControl: { days: 7 },
+            hardMode: false,
+          },
         }}
         onAccept={() => {}}
       />,
@@ -24,6 +29,28 @@ describe('JoinCard (FR-10)', () => {
     expect(screen.getByText(/Modern board/)).toBeTruthy();
     expect(screen.getByText(/Tournament-style · 173k words/)).toBeTruthy();
     expect(screen.getByText(/7 days per move/)).toBeTruthy();
+    // Standard rules: the hard-mode chip is absent, not present-and-off.
+    expect(screen.queryByTestId('join-hard-mode')).toBeNull();
+  });
+
+  it('warns the invitee when the host chose hard mode (FR-10)', () => {
+    render(
+      <JoinCard
+        state={{
+          kind: 'ready',
+          hostName: 'Ada',
+          hostSeat: 'p0',
+          options: {
+            rulesetId: 'classic',
+            dictionaryId: 'enable1',
+            timeControl: null,
+            hardMode: true,
+          },
+        }}
+        onAccept={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('join-hard-mode').textContent).toMatch(/Hard mode/);
   });
 
   it('accepts through the callback; invalid invites say so', () => {
@@ -34,7 +61,12 @@ describe('JoinCard (FR-10)', () => {
           kind: 'ready',
           hostName: 'Ada',
           hostSeat: 'p1',
-          options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: null },
+          options: {
+            rulesetId: 'classic',
+            dictionaryId: '2of12inf',
+            timeControl: null,
+            hardMode: false,
+          },
         }}
         onAccept={onAccept}
       />,

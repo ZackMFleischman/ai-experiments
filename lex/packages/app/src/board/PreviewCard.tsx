@@ -19,6 +19,12 @@
 // as clutter (the state is legible without being narrated; the disabled Play
 // button still carries the words for hover and screen readers).
 //
+// HARD MODE (§2.3) removes exactly that column and nothing else: every verdict
+// is null, so no row can be red, no total struck through, no cell ringed. The
+// ✓/✗ slot becomes a "—" rather than collapsing, so the card keeps its shape
+// as you stage tiles and the missing answer reads as WITHHELD rather than as a
+// card that forgot to check. The header says so once, quietly.
+//
 // Everything shown is a controller verdict; only the position is computed here.
 import { Box, Paper, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -123,8 +129,9 @@ export function PreviewCard({
   const words = preview.check.ok ? preview.words : [];
   const rows = preview.check.ok ? words.length + (preview.bingo ? 1 : 0) : 1;
   const longest = words.reduce((n, w) => Math.max(n, w.word.length), 4);
-  // The words the dictionary rejected — what turns the card red.
-  const rejected = words.filter((w) => !w.valid);
+  // The words the dictionary rejected — what turns the card red. `null` is
+  // "withheld", not "bad": only an explicit false counts.
+  const rejected = words.filter((w) => w.valid === false);
   const [size, setSize] = useState(() => estimateSize(rows, longest));
   const signature = playSignature(playCells);
 
@@ -385,15 +392,26 @@ export function PreviewCard({
             <Typography component="span" sx={{ fontSize: 11, color: 'text.secondary' }}>
               {words.length === 1 ? '1 word' : `${words.length} words`}
             </Typography>
+            {preview.verdictsWithheld && (
+              <Typography
+                data-testid="preview-withheld"
+                component="span"
+                sx={{ fontSize: 11, fontStyle: 'italic', color: 'text.disabled', ml: 'auto' }}
+              >
+                hard mode
+              </Typography>
+            )}
           </Box>
           <Box role="list">
             {words.map((w, i) => (
             <Box
               key={`${w.word}-${i}`}
               data-testid="preview-word"
-              data-valid={w.valid ? 'true' : 'false'}
+              data-valid={w.valid === null ? 'unknown' : w.valid ? 'true' : 'false'}
               role="listitem"
-              aria-label={`${w.word}, ${w.score} points, ${w.valid ? 'valid' : 'not in dictionary'}`}
+              aria-label={`${w.word}, ${w.score} points, ${
+                w.valid === null ? 'validity hidden until you play' : w.valid ? 'valid' : 'not in dictionary'
+              }`}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -404,7 +422,7 @@ export function PreviewCard({
                 // The bad row is FILLED, not merely annotated — with three
                 // words stacked, "which one is wrong" has to be answerable
                 // without reading the marks.
-                ...(!w.valid && {
+                ...(w.valid === false && {
                   bgcolor: (t) => alpha(t.palette.error.main, 0.16),
                   color: 'error.main',
                 }),
@@ -440,17 +458,19 @@ export function PreviewCard({
                   height: 16,
                   lineHeight: 1,
                   fontWeight: 800,
-                  ...(w.valid
-                    ? { fontSize: 13, color: 'success.main' }
-                    : {
-                        fontSize: 11,
-                        borderRadius: '50%',
-                        bgcolor: 'error.main',
-                        color: 'error.contrastText',
-                      }),
+                  ...(w.valid === null
+                    ? { fontSize: 13, color: 'text.disabled' }
+                    : w.valid
+                      ? { fontSize: 13, color: 'success.main' }
+                      : {
+                          fontSize: 11,
+                          borderRadius: '50%',
+                          bgcolor: 'error.main',
+                          color: 'error.contrastText',
+                        }),
                 }}
               >
-                {w.valid ? '✓' : '✗'}
+                {w.valid === null ? '—' : w.valid ? '✓' : '✗'}
               </Box>
             </Box>
             ))}

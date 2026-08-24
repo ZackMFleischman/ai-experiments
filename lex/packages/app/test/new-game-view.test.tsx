@@ -21,13 +21,27 @@ function create(overrides?: { friends?: Array<{ uid: string; name: string }> }):
 }
 
 describe('NewGameForm', () => {
-  it('defaults: classic board, NWL2023 dictionary, random first, 3 days', () => {
+  it('defaults: classic board, NWL2023 dictionary, random first, 3 days, standard rules', () => {
     const { submit } = create();
     expect(submit()).toEqual({
-      options: { rulesetId: 'classic', dictionaryId: 'nwl2023', timeControl: { days: 3 } },
+      options: {
+        rulesetId: 'classic',
+        dictionaryId: 'nwl2023',
+        timeControl: { days: 3 },
+        hardMode: false,
+      },
       seat: 'random',
       opponent: null,
     });
+  });
+
+  it('offers hard mode as an explained opt-in (DESIGN §2.3)', () => {
+    const { submit } = create();
+    // The rule is spelled out at the switch — a host must not be able to turn
+    // it on without reading what it costs their opponent.
+    expect(screen.getByText(/costs your turn/i)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('hard-mode').querySelector('input')!);
+    expect(submit().options.hardMode).toBe(true);
   });
 
   it('offers both boards with a mini premium-map preview (FR-6)', () => {
