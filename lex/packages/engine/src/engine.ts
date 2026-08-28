@@ -5,7 +5,7 @@
 // transport/server's job, recorded as a re-shuffle event (DESIGN §3.3).
 import { extractWords, type Placement } from './board.js';
 import { RULESETS, type Ruleset, type Seat, type TileFace } from './ruleset.js';
-import { draw, freezeState, type GameState } from './state.js';
+import { activeSeats, draw, freezeState, isWithdrawn, nextActiveSeat, type GameState } from './state.js';
 import { checkPlay } from './validate.js';
 import { scorePlay } from './score.js';
 
@@ -51,7 +51,10 @@ function rackSum(rack: readonly TileFace[], ruleset: Ruleset): number {
 
 /** Which board ending, if any, does this state sit in? Played-out wins. */
 function endedBy(state: GameState, ruleset: Ruleset): 'played-out' | 'scoreless' | null {
-  if (state.bag.length === 0 && state.racks.some((rack) => rack.length === 0)) return 'played-out';
+  // A withdrawn seat's rack is empty by construction (it went back to the
+  // bag), so the played-out test looks at ACTIVE seats only — otherwise any
+  // withdrawal would end the game on the spot.
+  if (state.bag.length === 0 && activeSeats(state).some((seat) => state.racks[seat]!.length === 0)) return 'played-out';
   if (state.scorelessRun >= ruleset.scorelessLimit) return 'scoreless';
   return null;
 }
@@ -71,11 +74,11 @@ export function result(state: GameState): GameResult {
 function finalizeIfEnded(state: GameState, ruleset: Ruleset): GameState {
   const by = endedBy(state, ruleset);
   if (by === 'played-out') {
-    const finisher = state.racks.findIndex((rack) => rack.length === 0);
+    const finisher = activeSeats(state).find((seat) => state.racks[seat]!.length === 0)!;
     const scores = [...state.scores];
     let gained = 0;
     state.racks.forEach((rack, seat) => {
-      if (seat === finisher) return;
+      if (seat === finisher || isWithdrawn(state, seat)) return;
       const stranded = rackSum(rack, ruleset);
       scores[seat]! -= stranded;
       gained += stranded;
@@ -102,12 +105,37 @@ function removeFromRack(rack: readonly TileFace[], faces: readonly TileFace[]): 
 }
 
 function advance(state: GameState, changes: Partial<GameState>): GameState {
-  return freezeState({
+  const next: GameState = { ...state, ...changes, moveCount: state.moveCount + 1 };
+  return freezeState({ ...next, toMove: nextActiveSeat(next, state.toMove) });
+}
+
+/**
+ * A seat leaves the game — resign or timeout at 3+ seats (DESIGN §2.1). Their
+ * score freezes and their rack returns to the bag END, exactly as an exchange
+ * does, for the server to re-shuffle (DESIGN §3.3); the turn passes on if it
+ * was theirs. Withdrawal is not a move, but it does advance `moveCount`: it
+ * writes a log entry and must move the optimistic-concurrency cursor with it.
+ */
+export function withdraw(state: GameState, seat: Seat): GameState {
+  const rack = state.racks[seat];
+  if (!Number.isInteger(seat) || rack === undefined) {
+    throw new IllegalMoveError('no-such-seat', `seat ${seat} out of range (game has ${state.racks.length} seats)`);
+  }
+  if (isWithdrawn(state, seat)) {
+    throw new IllegalMoveError('already-withdrawn', `seat ${seat} has already withdrawn`);
+  }
+  const ruleset = rulesetOf(state);
+  if (endedBy(state, ruleset)) {
+    throw new IllegalMoveError('game-over', 'game-over: no withdrawal from a finished game');
+  }
+  const next: GameState = {
     ...state,
-    ...changes,
-    toMove: (state.toMove + 1) % state.racks.length,
+    racks: state.racks.map((r, i) => (i === seat ? [] : r)),
+    bag: [...state.bag, ...rack], // server re-shuffles, as after an exchange (§3.3)
+    withdrawn: [...state.withdrawn, seat].sort((a, b) => a - b),
     moveCount: state.moveCount + 1,
-  });
+  };
+  return freezeState({ ...next, toMove: state.toMove === seat ? nextActiveSeat(next, seat) : state.toMove });
 }
 
 function applyPlay(state: GameState, placements: readonly Placement[], dict: Dictionary, ruleset: Ruleset): GameState {

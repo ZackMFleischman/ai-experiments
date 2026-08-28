@@ -412,3 +412,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   unedited; 3+ coverage lands in a new `room.spec.ts`. The one accepted 2-player
   change is the **winner-first result overlay** (today it lists seats in seat order;
   a victory screen should read winner-first, and `ResultOverlay` is not shared).
+
+- **2026-08-28 — `withdraw` advances `moveCount`, and a withdrawal adjusts no
+  score** (T7.1). Withdrawal is not a move, but it writes a log entry and passes
+  the turn, so counting it keeps the entry index, the turn cursor and
+  `submitMove`'s `expectedMoveCount` guard in step — a withdrawal racing a move is
+  then a conflict rather than a silent overwrite. The leaving player's score
+  freezes exactly as it stands: their rack is already back in the bag, so there is
+  nothing to deduct, and deducting anything would price quitting differently from
+  the §2.1 endings, which all settle against tiles a player still holds.

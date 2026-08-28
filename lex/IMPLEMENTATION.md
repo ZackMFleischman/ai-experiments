@@ -250,6 +250,7 @@ export interface GameState {                       // FULL state — server/hot-
   readonly toMove: Seat;
   readonly moveCount: number;
   readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[];             // seats that left, ascending
 }
 export interface PlayerView {
   readonly rulesetId: string;
@@ -259,6 +260,7 @@ export interface PlayerView {
   readonly bagCount: number;
   readonly rackCounts: readonly number[];
   readonly toMove: Seat; readonly moveCount: number; readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[];             // public: who left
 }
 
 export type GameResult =
@@ -274,6 +276,8 @@ export function scorePlay(board: GameState['board'],
                           placements: readonly Placement[], ruleset: Ruleset): PlayScore;
 export function applyMove(state: GameState, move: Move,
                           dict: Dictionary): GameState;   // throws IllegalMoveError; terminal move finalizes scores
+export function withdraw(state: GameState, seat: Seat): GameState;
+                             // resign/timeout at 3+: rack → bag end, turn skips the seat
 export function result(state: GameState): GameResult;     // board outcomes only (resign/timeout live in the game doc)
 export function playerView(state: GameState, seat: Seat): PlayerView;
 export function toGcg(move: Move, state: GameState): string;

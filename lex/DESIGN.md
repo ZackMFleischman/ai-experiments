@@ -86,7 +86,10 @@ Standard crossword-game rules, played to the **strict-dictionary** house rule:
      the sum of the opponent's remaining tile points; the opponent deducts their own.
   2. **Six consecutive scoreless turns** (pass, exchange, or a 0-point play) ⇒ game
      ends; each player deducts their own remaining tile points.
-  3. Resignation, or timeout under an async time control (§6.4).
+  3. Resignation, or timeout under an async time control (§6.4). At two seats
+     that ends the game; at three or four it is a **withdrawal** — that player
+     is out, their score freezes, their rack goes back to the bag, and the turn
+     order skips them (DECISIONS 2026-08-28).
 - Higher adjusted score wins; equal ⇒ **draw** (no first-player tiebreak).
 
 ### 2.2 Configurable surfaces (the "easily changeable" requirement)
@@ -139,6 +142,9 @@ The move log is a collection of **typed entries** (`play` with explicit placemen
 blanks, words, and score; `exchange` with a tile *count* publicly; `pass`; plus meta
 `resign`/`timeout`) — JSON, not a string format, because placements with blank
 designations are unambiguous that way and the wire format equals the storage format.
+A `resign`/`timeout` entry at three or four seats records a **withdrawal**, not an
+ending, and advances the move count like any other entry so the turn cursor and the
+`expectedMoveCount` guard stay in step with the log.
 
 For fixtures, human-auditable records, and interop, the engine also speaks
 **GCG-style notation** (the community-standard crossword game format): coordinates
@@ -342,8 +348,9 @@ and shrinks to zero when hive migrates.
 - Racks and bag hold `TileFace = 'A'…'Z' | '?'`. The bag is an ordered array;
   the **front is the next draw** — order is the injected randomness (§3.3).
 - Full `GameState`: ruleset id, board, per-seat racks, bag, per-seat scores,
-  `toMove` seat, `moveCount`, `scorelessRun`. `PlayerView`: same minus other racks
-  and bag contents (counts only).
+  `toMove` seat, `moveCount`, `scorelessRun`, and `withdrawn` (the seats that have
+  left, ascending). `PlayerView`: same minus other racks and bag contents (counts
+  only) — who withdrew is public, so `withdrawn` projects through unchanged.
 
 ### 5.2 Verdict pipeline (what replaces hive's `legalMoves`)
 
@@ -364,6 +371,13 @@ exchange/pass legality, draws refills from the bag, updates `scorelessRun`
 move ends the game — applies the end adjustments of §2.1 so `state.scores` is final.
 `result(state)` then just reads. Illegal input throws `IllegalMoveError`, same
 contract as hive.
+
+`withdraw(state, seat)` is the one transition that is not a move: it empties that
+seat's rack into the **bag end** for the server to re-shuffle (the machinery
+exchange already uses, §3.3), records the seat in `withdrawn`, advances
+`moveCount`, and passes the turn on if it was theirs. Every seat scan in the
+engine — turn advance, the played-out test, the end adjustments — runs over
+**active** seats only, so a withdrawal never ends the game by itself.
 
 ### 5.3 Algorithms (the interesting parts)
 

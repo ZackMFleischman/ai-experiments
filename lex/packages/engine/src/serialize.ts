@@ -3,7 +3,7 @@
 // letter record with lowercase = blank. serializeState is byte-deterministic
 // (sorted keys) so identical states serialize identically.
 import type { Board, PlacedTile } from './board.js';
-import type { CellKey, TileFace } from './ruleset.js';
+import type { CellKey, Seat, TileFace } from './ruleset.js';
 import { freezeState, type GameState, type PlayerView } from './state.js';
 
 function boardToRecord(board: Board): Record<CellKey, string> {
@@ -29,6 +29,16 @@ function expectType(condition: boolean, what: string): asserts condition {
   if (!condition) throw new Error(`bad serialized state: ${what}`);
 }
 
+/**
+ * `withdrawn` post-dates the first games (M7). It is optional on the wire and
+ * reads back as [] when absent, so pre-M7 documents still parse.
+ */
+function withdrawnFrom(value: unknown): Seat[] {
+  if (value === undefined) return [];
+  expectType(Array.isArray(value) && value.every((seat) => typeof seat === 'number'), 'withdrawn');
+  return [...(value as number[])].sort((a, b) => a - b);
+}
+
 export function serializeState(state: GameState): string {
   return JSON.stringify({
     rulesetId: state.rulesetId,
@@ -39,6 +49,7 @@ export function serializeState(state: GameState): string {
     toMove: state.toMove,
     moveCount: state.moveCount,
     scorelessRun: state.scorelessRun,
+    withdrawn: [...state.withdrawn],
   });
 }
 
@@ -63,6 +74,7 @@ export function deserializeState(text: string): GameState {
     toMove: data.toMove,
     moveCount: data.moveCount,
     scorelessRun: data.scorelessRun,
+    withdrawn: withdrawnFrom(data.withdrawn),
   });
 }
 
@@ -77,6 +89,7 @@ export function serializePublic(state: GameState): string {
     toMove: state.toMove,
     moveCount: state.moveCount,
     scorelessRun: state.scorelessRun,
+    withdrawn: [...state.withdrawn],
   });
 }
 
@@ -101,5 +114,6 @@ export function parsePublic(text: string): Omit<PlayerView, 'rack'> {
     toMove: data.toMove,
     moveCount: data.moveCount,
     scorelessRun: data.scorelessRun,
+    withdrawn: withdrawnFrom(data.withdrawn),
   };
 }

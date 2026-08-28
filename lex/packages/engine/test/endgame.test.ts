@@ -38,6 +38,7 @@ function endgameState(overrides: Partial<GameState> = {}): GameState {
     toMove: 0,
     moveCount: 10,
     scorelessRun: 0,
+    withdrawn: [],
     ...overrides,
   };
 }

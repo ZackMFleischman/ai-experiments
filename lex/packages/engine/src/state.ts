@@ -14,6 +14,7 @@ export interface GameState {
   readonly toMove: Seat;
   readonly moveCount: number;
   readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[]; // seats that left the game, ascending
 }
 
 export interface PlayerView {
@@ -26,6 +27,7 @@ export interface PlayerView {
   readonly toMove: Seat;
   readonly moveCount: number;
   readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[]; // public: which seats have left
 }
 
 /**
@@ -48,7 +50,32 @@ export function playerView(state: GameState, seat: Seat): PlayerView {
     toMove: state.toMove,
     moveCount: state.moveCount,
     scorelessRun: state.scorelessRun,
+    withdrawn: state.withdrawn,
   };
+}
+
+/** Has `seat` left the game (DESIGN §2.1 withdrawal)? */
+export function isWithdrawn(state: GameState, seat: Seat): boolean {
+  return state.withdrawn.includes(seat);
+}
+
+/** Seats still in the game, in seat order. */
+export function activeSeats(state: GameState): Seat[] {
+  return state.racks.map((_rack, seat) => seat).filter((seat) => !isWithdrawn(state, seat));
+}
+
+/**
+ * The next seat after `from` that has not withdrawn, wrapping. Returns `from`
+ * itself when it is the only seat left — the caller (T7.2 `endedBy`) ends the
+ * game rather than looping.
+ */
+export function nextActiveSeat(state: GameState, from: Seat): Seat {
+  const seats = state.racks.length;
+  for (let step = 1; step <= seats; step++) {
+    const seat = (from + step) % seats;
+    if (!isWithdrawn(state, seat)) return seat;
+  }
+  return from;
 }
 
 /** Draw `n` tiles off the bag front (or all that remain). Pure. */
@@ -61,6 +88,7 @@ export function freezeState(state: GameState): GameState {
   Object.freeze(state.racks);
   Object.freeze(state.bag);
   Object.freeze(state.scores);
+  Object.freeze(state.withdrawn);
   return Object.freeze(state);
 }
 
@@ -107,5 +135,6 @@ export function initialState(ruleset: Ruleset, bagOrder: readonly TileFace[], se
     toMove: 0,
     moveCount: 0,
     scorelessRun: 0,
+    withdrawn: [],
   });
 }
