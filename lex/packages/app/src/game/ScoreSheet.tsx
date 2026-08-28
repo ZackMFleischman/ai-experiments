@@ -19,6 +19,10 @@ function describe(row: SheetRow): string {
   switch (row.kind) {
     case 'play':
       return row.words.map((w) => w.word).join(' / ') || '—';
+    // The words are the mover's own tiles, so the sheet — which BOTH players
+    // read — records that a turn was burned, never on what.
+    case 'phoney':
+      return 'Not a word — turn lost';
     case 'exchange':
       return `Exchanged ${row.count ?? 0}`;
     case 'pass':

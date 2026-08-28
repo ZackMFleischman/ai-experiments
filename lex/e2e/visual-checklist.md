@@ -21,12 +21,30 @@ are logged at the bottom with date + reason, and deleted when fixed.
   board in both themes: red card border, struck-through total, that row filled
   red, its cells ringed dashed red — and the valid card next to it stays calm
   (no red anywhere). The card says it in color, never in a sentence.
+- **A "Cost your turn" game gives NOTHING away** (`pending-words-unchecked`,
+  which stages a word the dictionary refuses): no ✓, no ✗, nothing standing in
+  for a mark, no red anywhere on the card or the board, the total not struck
+  through, Play plainly enabled. Each row is just the word and its score. Its
+  capture must be indistinguishable from the same staging with a valid word
+  except for the missing mark — if a reviewer can tell which word is bad, the
+  feature is broken — and no row offers a definition, which would leak the same.
+- **Phoney beat** (`phoney-beat`): the refused word is the biggest thing on the
+  dialog, the cost is stated in a sentence, and the board behind it is visibly
+  unchanged (no tiles placed), and no mode name is used — the copy states the
+  rule. Readable in both themes at 390×844. In hot-seat the beat sits ON TOP of
+  the pass-device interstitial — no rack is readable in the frame, before or
+  after it is dismissed.
 - Last-play score badge sits in an EMPTY cell beside its word — including a word
   that bridged committed letters — never on top of a tile, and follows the
   word's axis (right of an across play, below a down play). Tapping it expands
   the per-word breakdown; the popover is readable in both themes and clears the
   board on dismiss. A tap on the board tucks the badge away (the green
   highlight stays put); another tap brings it back.
+- The two creation forms (`new-game`, `hotseat-setup`) render the shared option
+  pickers identically — same section rhythm, same board previews, same
+  invalid-words toggle and blurb. Hot-seat shows no turn-order or clock section
+  (one device honours neither); differences beyond that mean the pickers have
+  drifted apart.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.
@@ -94,6 +112,9 @@ are logged at the bottom with date + reason, and deleted when fixed.
   legible over the board in both themes; dismiss target present.
 - Lobby empty state: tile motif + headline + invite copy centered; tiles render
   in the active skin/theme.
+- Definition sheet (`definition-found`/`-inflected`/`-none`/`-none-illegal`): word
+  as heading, part of speech spelled out, "form of CAT" chip on a reduced-form
+  gloss; empty state informs, never rejects; Wiktionary offered in every state.
 - Negative scores everywhere (score bar, result overlay) use the typographic
   minus (−), never hyphen-minus.
 - Action row fits one line at 390×844: Recall/Exchange/Pass are a compact
@@ -114,22 +135,6 @@ are logged at the bottom with date + reason, and deleted when fixed.
   clearly separate from cell background.
 - High contrast: hard-outlined tiles on a black/white grid (inverted in dark);
   dark tiles are black-on-yellow; DL/TL/DW/TW labels stay the non-color signal.
-
-## Word definitions (T8.2)
-
-- Definition sheet: the word reads as the heading (uppercase, letter-spaced);
-  part of speech is spelled out ("noun", not "n"); the gloss is body text, not
-  a caption.
-- A gloss found through a reduced form carries the "form of CAT" chip — the
-  player can always see which word was actually defined.
-- The `definition-none` state reads as informative, not as a rejection: a legal
-  word is stated to be legal (`definition-none`), while a word the dictionary
-  rejected says so instead of being called legal (`definition-none-illegal`).
-  The Wiktionary link-out is present in every state.
-- Preview-card word rows read as rows, not buttons: no button chrome at rest,
-  the rejected row keeps its red fill, and a hover/focus tint is the only hint
-  they can be tapped. They stay click-through while a tile is armed or in
-  flight, exactly like the grip.
 
 ## Accepted deviations
 

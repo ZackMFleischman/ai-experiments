@@ -337,6 +337,51 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   staged, so a recall never returns to a missing badge; a new play always
   restores it.
 
+- **2026-08-24 — "Invalid words" is a per-game setting, and a phoney is private
+  (Zack).** Requested as "you don't know if the word is valid until you play,
+  and if it isn't you lose your turn". Four calls. (1) **Named for the rule, not
+  a difficulty.** It shipped for a day as a "Hard mode" switch; Zack asked for a
+  setting you pick like the dictionary or the time limit instead. So it is
+  `invalidWords: 'blocked' | 'costs-turn'`, titled "Invalid words" with the
+  values "Can't be played" / "Cost your turn", in the same two-value toggle shape
+  as turn order and time control, with the rule stated under whichever is
+  selected. A value, not a flag — which also leaves room for a third rule later.
+  (2) It lives in `GameOptions`, not the `Ruleset` (DESIGN §2.2) — orthogonal to
+  board and word list, and a `Ruleset` field would mean a registry entry per
+  board × rule and would imply finished games' boards differ. The engine takes it
+  per call (`applyMove`'s `MoveOptions`); only the stage-3 branch changes, so it
+  can never make illegal geometry legal. (3) The withheld verdict is
+  `valid: null`, not `false` — a third state, so no surface can render "not told"
+  as "rejected". (4) The refused words are **not** recorded publicly: they are
+  still in the mover's rack, and `moves/*` is read by both players, so a phoney
+  writes `kind:'phoney'` and nothing else and the push names no word (§3.3). That
+  is the deliberate difference from over-the-board challenge play, where a phoney
+  is revealed before it is withdrawn; the rack-privacy invariant wins. The mover
+  sees their own words once, client-side, in a blocking beat — blocking because a
+  lost turn that leaves the board unchanged is otherwise indistinguishable from a
+  bug. In hot-seat it layers *above* the pass-device interstitial rather than
+  suppressing it — the first build suppressed it, and the gallery capture showed
+  the incoming player's rack behind the dialog, since a phoney has already passed
+  the turn. No log marker is needed: replay re-derives the verdict.
+
+- **2026-08-24 — Hot-seat gets its own setup screen (Zack).** Zack couldn't test
+  the invalid-words setting in the PR preview: a preview deploys the static
+  build, the static build is hot-seat only, and hot-seat had no creation form at
+  all — every game was classic/NWL2023 under the default rules. So `/game/local`
+  now shows a setup form when nothing is stored (a stored game still resumes
+  straight onto the board, since options are immutable once a game is under
+  way), `/game/local/new` reaches it any time, and the in-game info dialog —
+  where you go to read how this game is set up — offers starting another one.
+  It shows the three settings one device can honour; turn order and the clock
+  are meaningless with no second device. The pickers are extracted to
+  `optionPickers` and shared with the multiplayer form so the two can't describe
+  a rule differently. Two hazards found while building it: `createHotSeatOptions`
+  took positional args, so the rematch path silently reset any setting it forgot
+  to pass (it now takes an object and rematch spreads the finished game's own
+  options); and switching dictionary needs a NEW controller with reset-before-
+  reload ordering, or the previous log replays through the new dictionary and
+  throws on a word the narrower list refuses. Both are pinned by tests.
+
 - **2026-08-28 — N players (2–4) adopted; the platform generalizes, lex is the
   acceptance vehicle** (owner decision). Option B of the exploration: `../parlor/`
   grows an N-seat model rather than lex forking its own callables. Sequenced ahead
@@ -425,3 +470,14 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   artifact stays lemma-sized, and a reduced hit is labelled, not passed off.
   Shards persist via the Cache API **in the loader, not `sw.ts`** — registry
   stamped glue must not carry a lex-only rule.
+
+- **2026-08-28 — A game that withholds the dictionary verdict withholds the
+  definition too.** "Invalid words → Cost your turn" is defined by not knowing
+  whether your word is real until you commit it; a definition lookup on a staged
+  word answers that outright, since finding a gloss all but confirms the word.
+  So the staged lookup is withdrawn entirely in those games — no tap, no hover
+  hint — rather than shown-and-disabled, which would itself hint. Guarded twice:
+  `GameBoard` withholds the callback, and `PreviewCard` refuses any row whose
+  verdict is `null`, so a later caller can't reopen the leak by wiring the prop.
+  The score sheet keeps its lookup at every setting: a word on the board was
+  played successfully and is already public (a phoney records no words at all).

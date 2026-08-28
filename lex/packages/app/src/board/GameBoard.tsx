@@ -32,6 +32,7 @@ import { useSkinId } from './skinContext';
 import { useConfirmPlay } from '../game/confirmPlayContext';
 import { GameInfoDialog } from '../game/GameInfoDialog';
 import { NoticeToast } from '../game/NoticeToast';
+import { PhoneyBeat } from '../game/PhoneyBeat';
 import { Tile } from './Tile';
 
 /** ONE drag layer for every tile in flight, rack- or board-origin: a fixed-
@@ -70,6 +71,7 @@ export function GameBoard({
   seatNames = DEFAULT_NAMES,
   onRematch,
   onBackToLobby,
+  onNewGame,
   timeControl,
   deadlineAtMs,
 }: {
@@ -77,6 +79,9 @@ export function GameBoard({
   seatNames?: readonly string[];
   onRematch?: () => void;
   onBackToLobby?: () => void;
+  /** Hot-seat only: start over with different options. Multiplayer omits it —
+   * those options are server-pinned and immutable (§2.2). */
+  onNewGame?: () => void;
   /** Multiplayer: the game's async clock, restated in the info menu (T4.7). */
   timeControl?: { days: 1 | 3 | 7 } | null;
   /** Multiplayer: the side-to-move's move deadline (ms) — drives the live
@@ -382,12 +387,19 @@ export function GameBoard({
   );
   const committedCells = useMemo(() => [...snap.state.board.keys()], [snap.state.board]);
   const cardVisible = snap.preview !== null && !snap.preview.needsBlank && playCells.length > 0;
+  // Whether this game tells you a staged word's dictionary verdict at all
+  // (DESIGN §2.2 `invalidWords`) — which is what gates the staged definition
+  // lookup below.
+  const verdictsShown = (snap.options.invalidWords ?? 'blocked') === 'blocked';
   // A word the card marks ✗ gets its cells ringed, so "which of these three
   // words is the bad one" is answered on the board rather than by counting
   // letters. Derived from the verdict — no pointer events, so the card can
   // stay click-through.
+  // Only an EXPLICIT rejection rings cells. Where invalid words cost the turn
+  // every verdict is null (withheld), so this stays empty and the board gives
+  // nothing away.
   const rejectedWords = useMemo(
-    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => !w.valid) : []),
+    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => w.valid === false) : []),
     [snap.preview],
   );
   const flaggedCells = useMemo(
@@ -446,7 +458,16 @@ export function GameBoard({
         onClose={() => setInfoOpen(false)}
         rulesetId={snap.options.rulesetId}
         dictionaryId={snap.options.dictionaryId}
+        invalidWords={snap.options.invalidWords ?? 'blocked'}
         {...(timeControl !== undefined ? { timeControl } : {})}
+        {...(onNewGame
+          ? {
+              onNewGame: () => {
+                setInfoOpen(false);
+                onNewGame();
+              },
+            }
+          : {})}
       />
       <Box ref={boardAreaRef} sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardViewport
@@ -536,7 +557,13 @@ export function GameBoard({
             placing={snap.selection !== null}
             manual={cardSpot}
             onManualChange={setCardSpot}
-            onDefine={(word, valid) => setDefining({ word, legal: valid })}
+            // Staged words are only lookup-able when the game tells you their
+            // verdict anyway. Under "Cost your turn" a definition would answer
+            // exactly what the setting withholds — finding a gloss all but
+            // confirms the word — so the card offers no lookup at all, not even
+            // a hover hint. The score sheet stays live: a word on the board was
+            // played successfully, so it is public knowledge already.
+            {...(verdictsShown ? { onDefine: (word: string, valid: boolean) => setDefining({ word, legal: valid }) } : {})}
           />
         )}
       </Box>
@@ -648,6 +675,9 @@ export function GameBoard({
             View result
           </Box>
         </Box>
+      )}
+      {snap.phoney && (
+        <PhoneyBeat words={snap.phoney.words} onDismiss={() => controller.dismissPhoney()} />
       )}
       <BlankPicker
         open={snap.preview?.needsBlank != null}

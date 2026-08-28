@@ -41,7 +41,11 @@ interface GameDocData {
 
 interface MoveDocData {
   n: number;
-  kind: 'play' | 'exchange' | 'pass' | 'resign' | 'timeout';
+  /** 'phoney' = a play the dictionary refused in a 'costs-turn' game (§2.3).
+   * It carries NO `play` payload: the attempted letters are the mover's rack,
+   * and the privacy invariant keeps rack letters out of every doc both players
+   * read. */
+  kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
   play?: {
     placements: Array<{ row: number; col: number; letter: string; isBlank: boolean }>;
     words: Array<{ word: string; score: number }>;
@@ -166,7 +170,11 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
     if (moves.length !== game.moveCount) return null;
     const lastMine = [...moves]
       .reverse()
-      .find((m) => m.by === this.uid && (m.kind === 'play' || m.kind === 'exchange' || m.kind === 'pass'));
+      .find(
+        (m) =>
+          m.by === this.uid &&
+          (m.kind === 'play' || m.kind === 'phoney' || m.kind === 'exchange' || m.kind === 'pass'),
+      );
     const expectedRackN = lastMine ? lastMine.n + 1 : 0;
     if (rack.n !== expectedRackN) return null;
 
@@ -229,6 +237,10 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       options: {
         rulesetId: game.options.rulesetId,
         dictionaryId: game.options.dictionaryId,
+        // The per-game settings travel with every adoption: the controller
+        // replays the client's OWN moves through the engine, so it must apply
+        // them under the same rules the server did (§2.3).
+        invalidWords: game.options.invalidWords ?? 'blocked',
         bagOrder: canonicalBagOrder(game.options.rulesetId),
         seats: 2,
       },

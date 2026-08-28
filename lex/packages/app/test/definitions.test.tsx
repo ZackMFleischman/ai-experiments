@@ -28,12 +28,13 @@ beforeEach(() => {
   lookupGloss.mockReset();
 });
 
-async function setup(dict = stubDict()) {
+async function setup(dict = stubDict(), invalidWords: 'blocked' | 'costs-turn' = 'blocked') {
   const opts: HotSeatOptions = {
     rulesetId: 'classic',
     dictionaryId: 'stub',
     bagOrder: riggedBagOrder(classic, [P0_RACK, P1_RACK]),
     seats: 2,
+    invalidWords,
   };
   const transport = new LocalTransport<HotSeatOptions, LexEntry>(opts);
   const controller = new GameController(transport, opts, { dict, rng: () => 0.5 });
@@ -218,5 +219,50 @@ describe('definition from a locked-in word (score sheet)', () => {
     fireEvent.click(screen.getByLabelText('score sheet'));
     expect(await screen.findByText('Pass')).toBeTruthy();
     expect(screen.queryAllByTestId('sheet-word')).toHaveLength(0);
+  });
+});
+
+// The whole point of "Cost your turn" is that you don't know whether your word
+// is real until you commit it. A definition would answer that — finding a gloss
+// all but confirms the word — so the staged lookup is off entirely, while a
+// word already on the board stays lookup-able: playing it successfully made it
+// public knowledge.
+describe('a game that withholds the verdict withholds the definition', () => {
+  it('offers no lookup on a staged word', async () => {
+    lookupGloss.mockResolvedValue({ word: 'CATS', pos: 'n', gloss: 'more than one cat' });
+    const { controller } = await setup(stubDict(), 'costs-turn');
+    stageCats(controller);
+
+    const row = screen.getByTestId('preview-word');
+    expect(row.getAttribute('data-valid')).toBe('unknown');
+    fireEvent.click(row);
+
+    expect(screen.queryByTestId('word-definition')).toBeFalsy();
+    expect(lookupGloss).not.toHaveBeenCalled();
+  });
+
+  it('gives the row no affordance either — not even a hover hint', async () => {
+    const { controller } = await setup(stubDict(), 'costs-turn');
+    stageCats(controller);
+
+    const row = screen.getByTestId('preview-word');
+    expect(row.getAttribute('tabindex')).toBeNull();
+    expect(row.getAttribute('aria-description')).toBeNull();
+    expect(getComputedStyle(row).cursor).not.toBe('pointer');
+  });
+
+  it('still defines a word once it is on the board', async () => {
+    lookupGloss.mockResolvedValue({ word: 'CATS', pos: 'n', gloss: 'more than one cat' });
+    const { controller } = await setup(stubDict(), 'costs-turn');
+    stageCats(controller);
+    act(() => {
+      controller.submitPlay();
+    });
+
+    fireEvent.click(screen.getByLabelText('score sheet'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Define CATS' }));
+
+    await waitFor(() => expect(screen.getByTestId('definition-gloss')).toBeTruthy());
+    expect(lookupGloss).toHaveBeenCalledWith('CATS');
   });
 });

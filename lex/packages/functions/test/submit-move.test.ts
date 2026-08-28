@@ -3,7 +3,10 @@
 // the optimistic-concurrency guard, exchange privacy (count-only public log,
 // private re-shuffle event), tile conservation ACROSS the three storage
 // tiers, and the §3.3 replay guarantee (order + public log + private events
-// reproduce the server snapshot exactly).
+// reproduce the server snapshot exactly). Plus the invalidWords (§2.3) fork:
+// the same invalid word that is REJECTED under the default is ACCEPTED as a
+// spent turn when the game says invalid words cost the turn, and is recorded
+// without letters.
 import {
   RULESETS,
   applyMove,
@@ -18,6 +21,7 @@ import {
 import { loadDictionarySync } from '@lex/dict/node';
 import { describe, expect, it } from 'vitest';
 import {
+  OPTIONS,
   adminGetDoc,
   adminListDocs,
   adminSetDoc,
@@ -74,6 +78,22 @@ async function riggedGame(): Promise<JoinedGame> {
   await rigGame(game);
   return game;
 }
+
+/** The same rig in a game where invalid words cost the turn (§2.3). */
+async function riggedCostsTurnGame(): Promise<JoinedGame> {
+  const game = await createJoinedGame({ ...OPTIONS, invalidWords: 'costs-turn' });
+  await rigGame(game);
+  return game;
+}
+
+/** CQ across the center — legal geometry, not a word in enable1. */
+const PHONEY_PLAY = {
+  type: 'play',
+  placements: [
+    { row: 7, col: 7, letter: 'C', isBlank: false },
+    { row: 7, col: 8, letter: 'Q', isBlank: false },
+  ],
+};
 
 /** CATS across the center: C(7,7) A T S — 6 doubled by the center DW = 12. */
 const CATS_PLAY = {
@@ -387,5 +407,103 @@ describe('submitMove — cross-tier invariants', () => {
       }
     }
     expect(serializeState(replayed)).toBe(bag?.['state']);
+  });
+});
+
+
+describe("submitMove — invalidWords: 'costs-turn' (§2.3)", () => {
+  it('accepts a phoney as a SPENT TURN: nothing placed, nothing scored, turn passes', async () => {
+    const { gameId, p0 } = await riggedCostsTurnGame();
+    const res = await call('submitMove', { gameId, expectedMoveCount: 0, move: PHONEY_PLAY }, p0);
+    expect(res.status).toBe(200);
+
+    const game = await adminGetDoc(`games/${gameId}`);
+    expect(game?.['moveCount']).toBe(1);
+    expect(game?.['toMove']).toBe('p1'); // the turn is gone
+    expect(game?.['scores']).toEqual({ p0: 0, p1: 0 });
+    // Nothing reached the board, and the tiles are still in hand.
+    const pub = parsePublic(game?.['public'] as string);
+    expect(pub.board.size).toBe(0);
+    expect(pub.scorelessRun).toBe(1);
+    expect(game?.['rackCounts']).toEqual({ p0: 7, p1: 7 });
+    expect(game?.['lastPlay']).toBeUndefined(); // no word to advertise
+
+    const rack = await adminGetDoc(`games/${gameId}/racks/${p0.uid}`);
+    expect(rack?.['tiles']).toBe(RIGGED.racks[0]!.join(''));
+  });
+
+  it('records the phoney with NO letters — the privacy invariant holds', async () => {
+    const { gameId, p0 } = await riggedCostsTurnGame();
+    await call('submitMove', { gameId, expectedMoveCount: 0, move: PHONEY_PLAY }, p0);
+
+    const moves = await adminListDocs(`games/${gameId}/moves`);
+    expect(moves).toHaveLength(1);
+    expect(moves[0]?.['kind']).toBe('phoney');
+    // No play payload at all: placements, words and the attempted letters are
+    // the mover's rack, and moves/* is readable by BOTH players. Asserted as
+    // the doc's whole key set, so a future field carrying letters can't slip
+    // past (a substring scan would false-positive on the random uid).
+    expect(Object.keys(moves[0] ?? {}).sort()).toEqual(['at', 'by', 'kind', 'n']);
+  });
+
+  it('still rejects illegal geometry — only the dictionary verdict changes', async () => {
+    const { gameId, p0 } = await riggedCostsTurnGame();
+    const res = await call(
+      'submitMove',
+      {
+        gameId,
+        expectedMoveCount: 0,
+        move: {
+          type: 'play',
+          placements: [
+            { row: 7, col: 7, letter: 'C', isBlank: false },
+            { row: 7, col: 9, letter: 'T', isBlank: false }, // gap
+          ],
+        },
+      },
+      p0,
+    );
+    expect(res.errorStatus).toBe('INVALID_ARGUMENT');
+    expect(await adminListDocs(`games/${gameId}/moves`)).toHaveLength(0);
+  });
+
+  it('a good play is an ordinary scoring play', async () => {
+    const { gameId, p0 } = await riggedCostsTurnGame();
+    const res = await call('submitMove', { gameId, expectedMoveCount: 0, move: CATS_PLAY }, p0);
+    expect(res.status).toBe(200);
+    const game = await adminGetDoc(`games/${gameId}`);
+    expect(game?.['scores']).toEqual({ p0: 12, p1: 0 });
+    expect(game?.['lastPlay']).toEqual({ by: p0.uid, word: 'CATS', score: 12 });
+    const moves = await adminListDocs(`games/${gameId}/moves`);
+    expect(moves[0]?.['kind']).toBe('play');
+  });
+
+  it("defaults to 'blocked': options without the field keep rejecting", async () => {
+    // Games created before the setting existed carry no `invalidWords` at all.
+    const game = await createJoinedGame({ ...OPTIONS });
+    await rigGame(game);
+    expect((await adminGetDoc(`games/${game.gameId}`))?.['options']).toMatchObject({
+      invalidWords: 'blocked',
+    });
+    const res = await call(
+      'submitMove',
+      { gameId: game.gameId, expectedMoveCount: 0, move: PHONEY_PLAY },
+      game.p0,
+    );
+    expect(res.errorStatus).toBe('INVALID_ARGUMENT');
+    expect(res.errorMessage).toContain('CQ');
+  });
+
+  it('refuses an unknown invalidWords rather than silently defaulting it', async () => {
+    // A malformed setting must never be quietly read as one of the two real
+    // ones — that would change how a game plays behind the host's back.
+    const ada = await signUp('Ada');
+    const res = await call(
+      'createGame',
+      { options: { ...OPTIONS, invalidWords: 'freebie' }, seat: 'me' },
+      ada,
+    );
+    expect(res.errorStatus).toBe('INVALID_ARGUMENT');
+    expect(res.errorMessage).toContain('invalidWords');
   });
 });

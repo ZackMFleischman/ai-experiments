@@ -3,10 +3,17 @@
 // draw deterministically from the bag front. Exchanged tiles are appended to
 // the bag END (after the refill draw) — re-randomizing the remainder is the
 // transport/server's job, recorded as a re-shuffle event (DESIGN §3.3).
+//
+// Stage 3 (the dictionary) is where a game's `invalidWords` setting bites
+// (§2.2). Under 'blocked' (the default) an invalid word is not a move at all and
+// applyMove throws; under 'costs-turn' it IS a move — a **phoney** — that scores
+// nothing and spends the turn. Same pipeline, same verdict; only the consequence
+// differs, so the second setting adds no new rule, just a second thing to do
+// with `invalid`.
 import { extractWords, type Placement } from './board.js';
 import { RULESETS, type Ruleset, type Seat, type TileFace } from './ruleset.js';
 import { draw, freezeState, type GameState } from './state.js';
-import { checkPlay } from './validate.js';
+import { checkPlay, type WordScore } from './validate.js';
 import { scorePlay } from './score.js';
 
 export interface Dictionary {
@@ -18,6 +25,31 @@ export type Move =
   | { type: 'play'; placements: readonly Placement[] }
   | { type: 'exchange'; tiles: readonly TileFace[] }
   | { type: 'pass' };
+
+/** What a game does with a play whose words aren't all in the dictionary
+ * (DESIGN §2.3) — a per-game setting, picked at creation like the dictionary
+ * itself:
+ * - `'blocked'` — it is not a move at all: applyMove throws, naming the words.
+ * - `'costs-turn'` — it is a **phoney**: the tiles come back, nothing scores,
+ *   and the turn is spent.
+ */
+export type InvalidWordRule = 'blocked' | 'costs-turn';
+
+/** Per-game settings that change what a move MEANS rather than what the board
+ * is — pinned in GameOptions, not the Ruleset, so any board pairs with any of
+ * them (DESIGN §2.2). Absent ⇒ the defaults. */
+export interface MoveOptions {
+  /** Default `'blocked'`. */
+  invalidWords?: InvalidWordRule;
+}
+
+/** Stage 3 of the verdict pipeline (§5.2) on its own: which of a candidate
+ * play's words the dictionary rejects, in the order the play forms them.
+ * Empty ⇒ the play scores. Exported because 'costs-turn' games need this
+ * verdict AFTER the commit (to record the phoney) as well as before it. */
+export function rejectedWords(words: readonly WordScore[], dict: Dictionary): readonly string[] {
+  return words.filter((w) => !dict.has(w.word)).map((w) => w.word);
+}
 
 export class IllegalMoveError extends Error {
   readonly reason: string;
@@ -110,16 +142,33 @@ function advance(state: GameState, changes: Partial<GameState>): GameState {
   });
 }
 
-function applyPlay(state: GameState, placements: readonly Placement[], dict: Dictionary, ruleset: Ruleset): GameState {
+function applyPlay(
+  state: GameState,
+  placements: readonly Placement[],
+  dict: Dictionary,
+  ruleset: Ruleset,
+  invalidWords: InvalidWordRule,
+): GameState {
   const seat = state.toMove;
   const rack = state.racks[seat]!;
 
+  // Geometry and rack legality are NOT affected by the setting: a play that
+  // isn't a play (off-board, not your tiles, disconnected) is still no move at
+  // all. Only the dictionary verdict below changes meaning.
   const check = checkPlay(state.board, rack, placements, ruleset);
   if (!check.ok) throw new IllegalMoveError(check.reason);
 
-  const invalid = check.words.filter((w) => !dict.has(w.word)).map((w) => w.word);
+  const invalid = rejectedWords(check.words, dict);
   if (invalid.length > 0) {
-    throw new IllegalMoveError('invalid-word', `not in dictionary '${dict.id}': ${invalid.join(', ')}`, invalid);
+    if (invalidWords === 'blocked') {
+      throw new IllegalMoveError('invalid-word', `not in dictionary '${dict.id}': ${invalid.join(', ')}`, invalid);
+    }
+    // Phoney: the tiles come straight back. Nothing about the board, the rack
+    // or the bag moves — the ONLY effects are the turn passing and the
+    // scoreless run advancing, so six phoneys in a row end the game exactly as
+    // six passes would (§2.1). Deterministic on replay: same board, same rack,
+    // same dictionary ⇒ same verdict, so no phoney marker has to be logged.
+    return advance(state, { scorelessRun: state.scorelessRun + 1 });
   }
 
   const { total } = scorePlay(state.board, placements, ruleset);
@@ -159,7 +208,12 @@ function applyExchange(state: GameState, tiles: readonly TileFace[], ruleset: Ru
   });
 }
 
-export function applyMove(state: GameState, move: Move, dict: Dictionary): GameState {
+export function applyMove(
+  state: GameState,
+  move: Move,
+  dict: Dictionary,
+  options: MoveOptions = {},
+): GameState {
   const ruleset = rulesetOf(state);
   if (endedBy(state, ruleset)) {
     throw new IllegalMoveError('game-over', 'game-over: no further moves on a finished game');
@@ -167,7 +221,7 @@ export function applyMove(state: GameState, move: Move, dict: Dictionary): GameS
   let next: GameState;
   switch (move.type) {
     case 'play':
-      next = applyPlay(state, move.placements, dict, ruleset);
+      next = applyPlay(state, move.placements, dict, ruleset, options.invalidWords ?? 'blocked');
       break;
     case 'exchange':
       next = applyExchange(state, move.tiles, ruleset);
