@@ -32,7 +32,11 @@ those requirements and cross-references them where useful.
   with live feedback: a preview card of the words it forms, their scores and
   validity, the total; recall, shuffle, blank designation.
 - **Dictionary-enforced plays** (Words-with-Friends style): an invalid word can't be
-  played — the app tells you which word failed. No challenge mechanic in v1 (§2.3).
+  played — the app tells you which word failed. No challenge mechanic (§2.3).
+- **…or invalid words cost the turn, per game.** Same dictionary, opposite
+  bargain: the app says nothing until you commit, and a word it won't take costs
+  you the turn (§2.3). A setting picked at creation alongside the board, the word
+  list and the clock — not a difficulty tier.
 - **Swappable board layout, tileset, and dictionary** — first-class architectural
   requirement, not a nice-to-have (§2.2) — and the **board layout and dictionary
   are chosen per game at creation** (v1 ships two of each).
@@ -49,7 +53,8 @@ those requirements and cross-references them where useful.
   DAWG-based move generator is a natural `@lex/ai` package later).
 - No 3–4 player games (engine models N players from day one — arrays, seat indexes —
   but lobby/invite/notification flows assume 2 seats in v1).
-- No challenge/phoney rules, no ratings, no public matchmaking, no chat, no analysis.
+- No opponent-adjudicated challenges (the dictionary settles phoneys itself, §2.3), no
+  ratings, no public matchmaking, no chat, no analysis.
 - No native app store builds — PWA only.
 - No monetization; no hardening beyond "players can't cheat."
 
@@ -59,7 +64,8 @@ those requirements and cross-references them where useful.
 
 ### 2.1 Core rules (pinned)
 
-Standard crossword-game rules, played to the **strict-dictionary** house rule:
+Standard crossword-game rules. Dictionary strictness is the one per-game choice
+among them (§2.3); everything below holds under both settings:
 
 - **Board:** 15×15 grid with premium squares (double/triple letter, double/triple
   word); the center square starts play and is a double-word square. Layout is data
@@ -73,7 +79,9 @@ Standard crossword-game rules, played to the **strict-dictionary** house rule:
   the placed tiles plus existing tiles form one contiguous main word; the first play
   covers the center square and uses ≥2 tiles; every later play connects to at least
   one existing tile. Every word formed (main + cross-words) must be in the
-  dictionary or the whole play is rejected, naming the offending words.
+  dictionary; the game's `invalidWords` setting decides what happens otherwise —
+  the whole play is rejected naming the offending words, or it costs the turn
+  (§2.3).
 - **Scoring:** letter premiums apply to newly placed tiles only; word premiums
   multiply (two DWs under one word ⇒ ×4) and also count only when newly covered;
   cross-words score too; placing all `rackSize` (7) tiles in one play is a **bingo**
@@ -84,8 +92,8 @@ Standard crossword-game rules, played to the **strict-dictionary** house rule:
 - **Game end:**
   1. The bag is empty and one player plays out their last tile ⇒ that player adds
      the sum of the opponent's remaining tile points; the opponent deducts their own.
-  2. **Six consecutive scoreless turns** (pass, exchange, or a 0-point play) ⇒ game
-     ends; each player deducts their own remaining tile points.
+  2. **Six consecutive scoreless turns** (pass, exchange, a 0-point play, or a
+     phoney) ⇒ game ends; each player deducts their own remaining tile points.
   3. Resignation, or timeout under an async time control (§6.4).
 - Higher adjusted score wins; equal ⇒ **draw** (no first-player tiebreak).
 
@@ -101,7 +109,7 @@ Ruleset = {
   tiles:   TileSet          // per-letter count + points, blank count
   rackSize, bingoBonus, exchangeMinBag, scorelessLimit
 }
-GameOptions = { rulesetId, dictionaryId, timeControl }   // pinned at creation (FR-6..11)
+GameOptions = { rulesetId, dictionaryId, timeControl, invalidWords }  // pinned at creation (FR-6..11)
 ```
 
 - The engine computes **everything** — geometry, scoring, end conditions — from the
@@ -117,6 +125,15 @@ GameOptions = { rulesetId, dictionaryId, timeControl }   // pinned at creation (
   ~82k — the 12dicts common-vocabulary list, friendlier for casual play).
 - **Both are picked in the New Game flow** (FR-6/FR-7), shown to the invitee
   before accepting, and immutable afterwards (§7.1).
+- **`invalidWords` is a `GameOptions` setting, not a `Ruleset` field** (FR-9b).
+  It is orthogonal to both the board and the word list — every combination is a
+  sensible game — so putting it in the `Ruleset` would mean a registry entry per
+  board × rule, and would falsely imply that finished games' *boards* differ. The
+  engine takes it per call instead (`applyMove`'s `MoveOptions`, §5.2), which
+  also keeps the `Ruleset` what it says it is: the shape of the board and the
+  tiles. It sits beside `dictionaryId` for the same reason the dictionary sits
+  outside the `Ruleset`: it is a choice about the word list's *authority*, not
+  about the board.
 - Board size is *not* assumed 15×15 by the UI: the grid renders `rows × cols` from
   the layout, and the viewport auto-fits (§7.2). An 11×11 quick-play board (with a
   reduced tile set) is a post-v1 registry entry.
@@ -129,9 +146,26 @@ GameOptions = { rulesetId, dictionaryId, timeControl }   // pinned at creation (
   loss — identical semantics and machinery to hive (§6.4). Real-time clocks post-v1.
 - **Turn order:** chosen at creation (me / them / random, default random); rematch
   swaps who starts.
-- v1 plays **strict dictionary** only: no phoneys, no challenges. Challenge-mode
-  (play anything, opponent may challenge) is a post-v1 ruleset flag, and is why the
-  engine's geometry check and dictionary check are separate calls (§5.2).
+- **Invalid words:** what happens to a play whose words aren't all in the
+  dictionary is **chosen per game** (`invalidWords`, FR-9b) — a setting picked at
+  creation like the board, the word list and the clock, and deliberately named
+  for the rule rather than for a difficulty:
+  - **`'blocked'`** — "Can't be played", the default. Such a play is not a move
+    at all. The preview marks the offending word ✗ before you commit and Play
+    stays disabled; the server rejects it if a client tries anyway.
+  - **`'costs-turn'`** — "Cost your turn". The app **withholds** the verdict (the
+    preview shows words, scores and the total but no ✓/✗) and a play the
+    dictionary refuses is a **phoney**: it places nothing, scores nothing, and
+    spends the turn (feeding the scoreless run, §2.1).
+
+  Geometry and rack legality are identical under both — those plays are still
+  refused outright. This is exactly why the engine's geometry check and
+  dictionary check were always separate calls (§5.2): the second setting is a
+  second consequence for stage 3, not a second pipeline.
+- Neither setting is a **challenge** mechanic (where the opponent adjudicates):
+  the dictionary is the arbiter either way, so a phoney is caught the moment it
+  is played rather than left standing until someone doubts it. Nothing is hidden
+  from the opponent that isn't already hidden — see the privacy note in §3.3.
 
 ### 2.4 Notation & the move log
 
@@ -243,6 +277,14 @@ Firestore**. Consequences, designed once here and referenced everywhere:
   "log is the source of truth" property, split across a public and a private half.
 - **Exchanges are private.** The public move entry records only *how many* tiles
   were exchanged; which letters went back is server-private.
+- **Phoneys are private too** (§2.3), for exactly the same reason:
+  the letters of a refused play never reached the board — they are still sitting
+  in the mover's rack. So the public move entry records `kind: 'phoney'` and
+  nothing else: no placements, no words, no score, and the opponent's push says
+  a turn was lost without naming the word. The mover sees their own words once,
+  client-side, in the beat that follows the commit (§7.2). Recording the attempt
+  in full — as an over-the-board challenge would — would leak rack contents on a
+  doc both players read, breaking the invariant this whole section exists for.
 - **Optimistic play still works** because play legality and scoring depend only on
   public board + own rack: the client fully validates and scores locally, applies
   optimistically, and the only thing it must wait for is its **refill** — which
@@ -348,7 +390,8 @@ and shrinks to zero when hive migrates.
 ### 5.2 Verdict pipeline (what replaces hive's `legalMoves`)
 
 A candidate play flows through three pure, separately callable stages — separate so
-the UI can give precise live feedback and so challenge-mode can later skip stage 3:
+the UI can give precise live feedback and so a `'costs-turn'` game (§2.3) can
+hold stage 3 back from the player without holding it back from the engine:
 
 1. **`checkPlay(board, rack, placements, ruleset)`** — geometry + rack legality:
    tiles come from the rack (blank designations legal), single line, contiguity
@@ -357,13 +400,28 @@ the UI can give precise live feedback and so challenge-mode can later skip stage
 2. **`scorePlay(board, placements, ruleset)`** — per-word scores (letter premiums on
    new tiles only; word multipliers stack; premiums spent once), bingo flag, total.
 3. **Dictionary verdicts** — `dict.has(word)` per formed word; all must pass.
+   Callable on its own as `rejectedWords(words, dict)`, which names the refused
+   words in play order (empty ⇒ the play scores). It exists as an export because
+   a `'costs-turn'` game needs this verdict *after* the commit — to record the
+   phoney — as well as before it, and one definition beats three.
 
-`applyMove(state, move, dict)` runs the full pipeline (for `play`), enforces
-exchange/pass legality, draws refills from the bag, updates `scorelessRun`
-(pass, exchange, and 0-point plays increment; scoring plays reset), and — when the
-move ends the game — applies the end adjustments of §2.1 so `state.scores` is final.
-`result(state)` then just reads. Illegal input throws `IllegalMoveError`, same
-contract as hive.
+`applyMove(state, move, dict, options?)` runs the full pipeline (for `play`),
+enforces exchange/pass legality, draws refills from the bag, updates
+`scorelessRun` (pass, exchange, 0-point plays and phoneys increment; scoring plays
+reset), and — when the move ends the game — applies the end adjustments of §2.1 so
+`state.scores` is final. `result(state)` then just reads. Illegal input throws
+`IllegalMoveError`, same contract as hive.
+
+`options: MoveOptions = { invalidWords? }` carries the per-game settings of §2.2
+(`InvalidWordRule = 'blocked' | 'costs-turn'`, exported so the client and server
+option twins share one vocabulary). It changes **one** branch: a play whose
+stage-3 verdict fails. `'blocked'` (the default) ⇒ `IllegalMoveError('invalid-word')`
+naming the words, as before. `'costs-turn'` ⇒ the move is applied as a **phoney**:
+board, racks, bag and scores are untouched, only `toMove`, `moveCount` and
+`scorelessRun` advance. Stages 1 and 2 are unaffected either way, so the setting
+can never make an illegal placement legal. It needs no marker in the log:
+replaying the same entries against the same dictionary reaches the same verdict,
+so a phoney is re-derived, not remembered.
 
 ### 5.3 Algorithms (the interesting parts)
 
@@ -423,7 +481,7 @@ service account, and preview-channel strategy).
 users/{uid}:              { displayName, photoURL, fcmTokens: string[], settings }   // = hive
 games/{gameId}:           { players: {p0: uid, p1: uid|null},        // p0 moves first
                             playerNames: {p0, p1}, playerIds: uid[],
-                            options: { rulesetId, dictionaryId, timeControl },
+                            options: { rulesetId, dictionaryId, timeControl, invalidWords },
                             status: 'open'|'active'|'finished',
                             inviteCode?, challenge?,                  // = hive semantics
                             result?: 'p0'|'p1'|'draw',
@@ -436,11 +494,13 @@ games/{gameId}:           { players: {p0: uid, p1: uid|null},        // p0 moves
                             deadlineAt?, deadlineWarnedAt?,
                             updatedAt, createdAt,
                             public: string }                          // serialized public state (fast load)
-games/{gameId}/moves/{n}: { n, kind: 'play'|'exchange'|'pass'|'resign'|'timeout',
+games/{gameId}/moves/{n}: { n, kind: 'play'|'phoney'|'exchange'|'pass'|'resign'|'timeout',
                             play?: { placements: [{row, col, letter, isBlank}],
                                      words: [{word, score}], score, bingo },
                             exchanged?: number,                       // count ONLY — letters are private
-                            by: uid, at }
+                            by: uid, at }                             // 'phoney' (§2.3) carries
+                                                                      // NO play payload: the refused letters
+                                                                      // are still in the mover's rack (§3.3)
 games/{gameId}/racks/{uid}: { tiles: string, n: number }              // e.g. "AEINRT?" — owner-read only;
                                                                       // n = move count this rack is current for
                                                                       // (client refill reconciliation)
@@ -467,7 +527,7 @@ invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expi
 |---|---|
 | `createGame(options, seat)` | seat = `me / them / random` (turn order, not color); shuffles + persists the bag, deals both racks |
 | `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + swaps who starts) |
-| `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary), draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent |
+| `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary) **under the game's own `invalidWords`**, draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent. A phoney takes the same path: it is a legal move, so it commits, but writes `kind:'phoney'` with no play payload, clears `lastPlay`, and pushes copy that names no word |
 | `resign(gameId)` | = hive |
 | `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull) |
 
@@ -498,10 +558,26 @@ move-clock chip on both your-turn and waiting cards — the side-to-move's
 deadline, so the opponent's clock is visible too), New game
 (opponent chip or invite link; **board picker** — classic/modern with a mini
 premium-map preview; **dictionary picker** — labeled with name + word count;
-turn order; time control; FR-6..9), Join (the game-summary card lists board,
-dictionary, time control, and your seat — the invitee sees the rules before
-accepting, FR-10), Settings (notifications, theme, tile skin), and Game (the
-game menu restates the chosen options mid-game).
+**invalid-words picker** — "Can't be played" / "Cost your turn", the same
+two-value toggle shape as turn order and time control, with the rule stated
+under whichever is selected; turn order; time control; FR-6..9b), Join (the
+game-summary card lists board, dictionary, time control, and your seat — plus a
+highlighted chip when invalid words cost the turn, the one setting here that
+changes what a turn can cost — the invitee sees the rules before accepting,
+FR-10), Settings (notifications, theme, tile skin), and Game (the game menu
+restates the chosen options mid-game, the invalid-words rule spelled out in
+full — it is where a player goes mid-game to ask what happens if they're
+wrong, and so also where "start one set up differently" is offered).
+
+**Hot-seat setup** (`/game/local/new`) is the one-device twin of the New game
+screen: the same board / dictionary / invalid-words pickers (literally the same
+components — `optionPickers`, so the two forms cannot describe a rule
+differently), minus the two settings one device cannot honour (turn order — p0
+always starts; the async clock — there is nobody to wait for). `/game/local`
+resumes a stored game if there is one and shows this form if there isn't, so
+the very first hot-seat game is configured rather than assumed. This is also
+what makes the options exercisable in a PR preview, which deploys the static
+hot-seat build alone.
 
 Game-screen deltas: player bars carry **scores** (players shown by first name —
 falling back to first + last initial, then full name, only as far as needed to
@@ -562,6 +638,27 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      the list with its reason.
      Play is enabled only when `checkPlay` passes and all words are valid —
      pressing it submits optimistically (§6.3).
+     **Where invalid words cost the turn (§2.3) the verdict column is simply
+     gone:** no mark on any row, no row filled, no total struck through, no cell
+     ringed, and Play is live for any legal placement. The row is the word and
+     its score, full stop. (The controller models this as `valid: null` —
+     *withheld*, a third state deliberately distinct from `false`, so no surface
+     can render "not told" as "rejected"; it survives in the DOM as
+     `data-valid="unknown"` for the tests, but is not drawn.) An earlier build
+     kept a "—" in the mark's slot and a "not checked" tag in the header, on the
+     theory that a blank column reads as a broken check; in play it read as
+     clutter restating the setting the player had just chosen, so both were cut.
+     The verdict then arrives *after* the commit, as a **phoney beat**: a small
+     dismissible dialog naming the refused word(s) and stating the cost. It is
+     blocking rather than a toast because a lost turn that leaves the board
+     unchanged is indistinguishable from a bug if it isn't stated. In hot-seat
+     it renders *above* the pass-device interstitial (§7.3) rather than
+     deferring to it or replacing it: deferring loses the news behind an opaque
+     screen a frame after it appears, and replacing it would expose the
+     INCOMING player's rack behind the dialog — the phoney has already spent
+     the turn. On top, the interstitial stays the thing hiding the rack and
+     doubles as the beat's backdrop. It is raised only on the mover's own
+     commit, never on replay, resume, or a synced remote move.
   5. **Exchange** flips the rack into multi-select (tiles dim/raise on tap) with a
      confirm bar ("Exchange 3 tiles — costs your turn"); disabled with a reason
      when the bag < 7. **Pass** confirms via dialog.

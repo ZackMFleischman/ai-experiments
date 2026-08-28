@@ -10,6 +10,7 @@ import { GameBoard } from '../board/GameBoard';
 import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
 import { NoticeToast } from '../game/NoticeToast';
+import { HotSeatSetup } from '../game/HotSeatSetup';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
@@ -151,6 +152,16 @@ export const GALLERY: GalleryEntry[] = [
       </Box>
     ),
   },
+  // The hot-seat creation form: the same option pickers as `new-game`, minus
+  // the settings one device can't honour (turn order, the clock).
+  {
+    id: 'hotseat-setup',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2 }}>
+        <HotSeatSetup onStart={() => {}} />
+      </Box>
+    ),
+  },
   {
     id: 'new-game',
     render: () => (
@@ -175,7 +186,12 @@ export const GALLERY: GalleryEntry[] = [
               kind: 'ready',
               hostName: 'Ada',
               hostSeat: 'p0',
-              options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: { days: 3 } },
+              options: {
+                rulesetId: 'classic',
+                dictionaryId: '2of12inf',
+                timeControl: { days: 3 },
+                invalidWords: 'costs-turn',
+              },
             }}
             onAccept={() => {}}
           />
@@ -267,6 +283,30 @@ export const GALLERY: GalleryEntry[] = [
         fixtureController(midGame, (c) => {
           for (let i = 0; i < 7; i++) c.placeAt({ row: 8, col: 1 + i }, i);
         }),
+      ),
+  },
+  // invalidWords: 'costs-turn' (§2.3): the same staged play as `pending-valid`,
+  // with the dictionary column withheld — every row's mark is a "—" and nothing
+  // on the card or the board can be red, however bad the word is.
+  {
+    id: 'pending-words-unchecked',
+    render: () => game(() => fixtureController(null, stageCats, ['CATS'], [], 'costs-turn')),
+  },
+  // The moment that setting exists for: the verdict comes due after the commit.
+  {
+    id: 'phoney-beat',
+    render: () =>
+      game(() =>
+        fixtureController(
+          null,
+          (c) => {
+            stageCats(c);
+            c.submitPlay();
+          },
+          ['CATS'],
+          [],
+          'costs-turn',
+        ),
       ),
   },
   {

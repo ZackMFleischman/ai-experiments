@@ -23,7 +23,17 @@ export { checkPlay, type PlayCheck, type WordScore } from './validate.js';
 
 export { scorePlay, type PlayScore } from './score.js';
 
-export { IllegalMoveError, applyMove, result, type Dictionary, type GameResult, type Move } from './engine.js';
+export {
+  IllegalMoveError,
+  applyMove,
+  rejectedWords,
+  result,
+  type Dictionary,
+  type GameResult,
+  type InvalidWordRule,
+  type Move,
+  type MoveOptions,
+} from './engine.js';
 
 export { parseGcg, toGcg } from './gcg.js';
 

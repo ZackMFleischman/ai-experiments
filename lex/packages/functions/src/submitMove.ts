@@ -9,6 +9,12 @@
 // sub-writes, the terminal outcome, and the push. Exchange letters never reach a
 // public doc — the log entry carries a count only, and the re-shuffled remainder
 // is recorded as a private replay event (§3.3).
+//
+// A game whose `invalidWords` setting is 'costs-turn' (§2.3) adds a fourth kind
+// of outcome: a play the dictionary refuses is no longer an error, it is a
+// PHONEY — a spent turn. It gets the same privacy treatment as an exchange: the
+// public log records that the turn was burned and nothing else, because the
+// letters that were attempted are still sitting in the mover's rack.
 import { randomInt } from 'node:crypto';
 import { join } from 'node:path';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -19,6 +25,7 @@ import {
   applyMove,
   deserializeState,
   result as gameResult,
+  rejectedWords,
   scorePlay,
   serializePublic,
   serializeState,
@@ -29,7 +36,7 @@ import {
   type TileFace,
 } from '@lex/engine';
 import { loadDictionarySync } from '@lex/dict/node';
-import { lexServerConfig, playedCopy, requireRuleset, type LexGameOptions } from './config';
+import { lexServerConfig, phoneyCopy, playedCopy, requireRuleset, type LexGameOptions } from './config';
 
 // The compiled DAWGs ship next to the bundle (lib/dict, scripts/dawgs.mjs).
 const DICT_DIR = join(__dirname, 'dict');
@@ -130,25 +137,35 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
 
     // Score the play BEFORE applying (the log entry wants words + total);
     // applyMove reruns the full verdict pipeline and throws on any illegality.
+    const invalidWords = d.options.invalidWords ?? 'blocked';
     let next: GameState;
     let playRecord: { placements: unknown[]; words: unknown[]; score: number; bingo: boolean } | null =
       null;
+    // 'costs-turn' games only: the play was legal geometry but a phoney.
+    // applyMove has already spent the turn for it; this flag decides what gets
+    // WRITTEN.
+    let phoney = false;
     try {
       if (move.type === 'play') {
         const scored = scorePlay(state.board, move.placements, ruleset);
-        playRecord = {
-          placements: move.placements.map((p) => ({
-            row: p.cell.row,
-            col: p.cell.col,
-            letter: p.letter,
-            isBlank: p.isBlank,
-          })),
-          words: scored.words.map((w) => ({ word: w.word, score: w.score })),
-          score: scored.total,
-          bingo: scored.bingo,
-        };
+        // The same stage-3 verdict applyMove is about to reach, asked here
+        // because only the pre-move board can still be scored.
+        phoney = invalidWords === 'costs-turn' && rejectedWords(scored.words, dict).length > 0;
+        if (!phoney) {
+          playRecord = {
+            placements: move.placements.map((p) => ({
+              row: p.cell.row,
+              col: p.cell.col,
+              letter: p.letter,
+              isBlank: p.isBlank,
+            })),
+            words: scored.words.map((w) => ({ word: w.word, score: w.score })),
+            score: scored.total,
+            bingo: scored.bingo,
+          };
+        }
       }
-      next = applyMove(state, move, dict);
+      next = applyMove(state, move, dict, { invalidWords });
     } catch (err) {
       if (err instanceof IllegalMoveError) {
         const words = err.words?.length ? ` (${err.words.join(', ')})` : '';
@@ -196,11 +213,17 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
     if (move.type === 'play' && playRecord) {
       const main = (playRecord.words[0] as { word?: string } | undefined)?.word ?? '';
       movedCopy = playedCopy(caller.name, main, playRecord.score);
+    } else if (phoney) {
+      // No word in the copy: a push notification is a public surface too.
+      movedCopy = phoneyCopy(caller.name);
     }
 
     return {
       moveDoc: {
-        kind: move.type,
+        // A phoney is its own kind, not a play with a zero — the sheet has to
+        // say "turn lost", and there is deliberately no `play` payload to
+        // reconstruct one from.
+        kind: phoney ? 'phoney' : move.type,
         ...(playRecord ? { play: playRecord } : {}),
         // Privacy invariant (§3.3): the public log records HOW MANY tiles were
         // exchanged, never which.
