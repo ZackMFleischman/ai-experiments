@@ -182,6 +182,22 @@ Functions: validation, notifications, forfeits).
 - **FR-56** Finished games stay openable: final board, score sheet, and
   re-openable result overlay.
 
+### Word definitions (DESIGN §5.5)
+
+- **FR-57** Any word a play forms can be looked up from where it already
+  appears: a row of the live preview card while the play is staged, or the word
+  in a score-sheet row once it is locked in. Invalid staged words included —
+  that is when a player most wants to know. **Except when invalid words cost the
+  turn (FR-9b): there the staged lookup is withdrawn entirely**, since a
+  definition would answer the very question that setting withholds. Words
+  already on the board stay lookup-able — playing one made it public.
+- **FR-58** Definitions come from a bundled glossary, sharded and fetched on
+  demand, so a lookup is fast and works offline once that shard is cached.
+  Every two-letter word playable in any registry dictionary has one.
+- **FR-59** A word with no bundled definition offers a Wiktionary link-out and
+  says the word is still legal — a missing definition never reads as an
+  invalid word, and never gates a play.
+
 ## 2. Non-functional requirements
 
 - **NFR-1 No cheating.** All legality server-enforced; hidden info per FR-37–39;

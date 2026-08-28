@@ -461,6 +461,51 @@ not performance:
 - Same list version on client and server, pinned by dictionary id + a content hash
   the tests assert, so client and server can never disagree on a word.
 
+### 5.5 Glossary — word definitions (`@lex/dict`)
+
+A word list answers "is this playable"; it says nothing about what the word
+*means*, and a dictionary-enforced game (§2.1) constantly plays words nobody
+recognizes. The glossary is that second surface — deliberately separate from the
+DAWG, because the two have opposite invariants: legality must be identical on
+client and server (§5.4), while a definition is **cosmetic and may be absent**.
+Nothing here ever gates a play.
+
+- **Sources**, vendored under `packages/dict/words/` (provenance + licences in
+  its README): `wordnet-glosses.txt`, a reproducible one-gloss-per-lemma
+  projection of **WordNet 3.0** (permissive licence; `src/derive-glosses.ts`
+  regenerates it byte-for-byte), and `curated-glosses.txt`, hand-authored and
+  merged last so it wins. WordNet defines base forms only, so coverage is ~65%
+  of a tournament list and ~92% of the everyday list.
+- **The two-letter guarantee.** Every two-letter word playable in any registry
+  dictionary has a definition — WordNet misses a third of them (JO, XU, ZA, QI),
+  and they are the words players actually challenge. `curated-glosses.txt` seeds
+  all 107; a test fails if a re-vendor drops one.
+- **Inflections resolve at lookup, not at build:** `morphology.ts` reduces CATS
+  to CAT with a Morphy-style suffix table, which keeps the artifact to lemmas
+  instead of duplicating a gloss across every inflected form. It is a spelling
+  heuristic, so a gloss reached that way is labelled ("form of CAT") rather than
+  presented as the word's own.
+- **Artifact:** one glossary for all dictionaries — a definition is a property of
+  a word, not of a word list — built to `generated/gloss/` as 64 line-oriented
+  text shards under a **content-addressed path** plus a small manifest. A lookup
+  fetches one ~20 KB shard, never the 3.5 MB whole; the loader memoizes in
+  memory and persists in the **Cache API** (not the service worker: `sw.ts` is
+  stamped glue shared across the duo games). Content-addressing makes cache-first
+  correct for shards and lets a redeploy move the path; the manifest is
+  network-first with a cache fallback so a cold offline start still answers.
+- **Two failure shapes, rendered differently** (FR-59): `null` means no entry for
+  that word — the UI offers Wiktionary and says the word is still legal — while a
+  rejection means the artifact didn't load. Conflating them would tell a player
+  their legal word isn't one.
+- **A game that withholds the verdict withholds the definition** (§2.2
+  `invalidWords: 'costs-turn'`, FR-57). Looking a staged word up would answer
+  exactly what that setting hides — a gloss all but confirms the word is real —
+  so the preview card offers no lookup there at all, not even a hover hint. The
+  guard sits in two places on purpose: `GameBoard` withholds the callback, and
+  `PreviewCard` refuses any row whose verdict is `null`, so a future caller
+  can't reopen the leak by wiring the prop. The score sheet is unaffected: a word
+  on the board was played successfully, which is already public.
+
 ---
 
 ## 6. Backend

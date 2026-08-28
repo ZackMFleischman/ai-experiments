@@ -16,6 +16,7 @@ import { GameActions } from '../game/GameActions';
 import { ResultOverlay } from '../game/ResultOverlay';
 import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
+import { WordDefinitionSheet } from '../game/WordDefinitionSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
 import { LastPlayBreakdown } from '../game/LastPlayBreakdown';
 import type { ManualSpot } from './PreviewCard';
@@ -96,6 +97,11 @@ export function GameBoard({
   const dragRef = useRef<DragState | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The word whose definition is on screen (T8.2) — set by tapping a live
+  // preview-card row or a word in the score sheet, both of which route here.
+  // `legal` rides along from the chip's verdict; score-sheet words are locked
+  // in, so the dictionary already accepted them.
+  const [defining, setDefining] = useState<{ word: string; legal: boolean } | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
   const trayWrapRef = useRef<HTMLDivElement | null>(null);
@@ -381,6 +387,10 @@ export function GameBoard({
   );
   const committedCells = useMemo(() => [...snap.state.board.keys()], [snap.state.board]);
   const cardVisible = snap.preview !== null && !snap.preview.needsBlank && playCells.length > 0;
+  // Whether this game tells you a staged word's dictionary verdict at all
+  // (DESIGN §2.2 `invalidWords`) — which is what gates the staged definition
+  // lookup below.
+  const verdictsShown = (snap.options.invalidWords ?? 'blocked') === 'blocked';
   // A word the card marks ✗ gets its cells ringed, so "which of these three
   // words is the bad one" is answered on the board rather than by counting
   // letters. Derived from the verdict — no pointer events, so the card can
@@ -547,6 +557,13 @@ export function GameBoard({
             placing={snap.selection !== null}
             manual={cardSpot}
             onManualChange={setCardSpot}
+            // Staged words are only lookup-able when the game tells you their
+            // verdict anyway. Under "Cost your turn" a definition would answer
+            // exactly what the setting withholds — finding a gloss all but
+            // confirms the word — so the card offers no lookup at all, not even
+            // a hover hint. The score sheet stays live: a word on the board was
+            // played successfully, so it is public knowledge already.
+            {...(verdictsShown ? { onDefine: (word: string, valid: boolean) => setDefining({ word, legal: valid }) } : {})}
           />
         )}
       </Box>
@@ -616,6 +633,12 @@ export function GameBoard({
         onClose={() => setSheetOpen(false)}
         rows={snap.sheet}
         names={seatNames}
+        onDefine={(word) => setDefining({ word, legal: true })}
+      />
+      <WordDefinitionSheet
+        word={defining?.word ?? null}
+        legal={defining?.legal ?? true}
+        onClose={() => setDefining(null)}
       />
       {snap.beat && <EndBeat onDone={() => controller.finishBeat()} />}
       {snap.end && (

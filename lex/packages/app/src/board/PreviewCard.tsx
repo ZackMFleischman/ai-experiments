@@ -109,6 +109,14 @@ export interface PreviewCardProps {
   placing: boolean;
   manual: ManualSpot | null;
   onManualChange: (manual: ManualSpot) => void;
+  /**
+   * Ask for a word's definition (T8.2). Like the grip, a word row opts back
+   * into pointer events — and under the same conditions, `faded || placing`,
+   * so the card still never swallows a tap meant for a cell while a tile is in
+   * hand. With nothing armed, a tap on an empty cell does nothing anyway.
+   * Omitted = rows stay inert, which is what the gallery's static states want.
+   */
+  onDefine?: (word: string, valid: boolean) => void;
 }
 
 export function PreviewCard({
@@ -123,6 +131,7 @@ export function PreviewCard({
   placing,
   manual,
   onManualChange,
+  onDefine,
 }: PreviewCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<{ id: number; dx: number; dy: number } | null>(null);
@@ -411,6 +420,24 @@ export function PreviewCard({
                   ? `${w.word}, ${w.score} points`
                   : `${w.word}, ${w.score} points, ${w.valid ? 'valid' : 'not in dictionary'}`
               }
+              // A definition would answer the very question this game is
+              // withholding, so a row with no verdict is never a lookup — a
+              // guard here as well as at the caller, because the leak matters
+              // more than the duplication (DESIGN §5.5).
+              {...(onDefine &&
+                w.valid !== null && {
+                  // A nested button would be invalid inside a listitem; the row
+                  // itself takes the interaction and announces what it does.
+                  tabIndex: 0,
+                  'aria-description': `Define ${w.word}`,
+                  onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => e.stopPropagation(),
+                  onClick: () => onDefine(w.word, w.valid === true),
+                  onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    onDefine(w.word, w.valid === true);
+                  },
+                })}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -418,6 +445,12 @@ export function PreviewCard({
                 height: ROW_H,
                 px: 0.25,
                 borderRadius: 0.5,
+                ...(onDefine && w.valid !== null && {
+                  pointerEvents: faded || placing ? 'none' : 'auto',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&:focus-visible': { outline: '2px solid', outlineOffset: -2 },
+                }),
                 // The bad row is FILLED, not merely annotated — with three
                 // words stacked, "which one is wrong" has to be answerable
                 // without reading the marks.

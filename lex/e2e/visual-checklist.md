@@ -27,7 +27,7 @@ are logged at the bottom with date + reason, and deleted when fixed.
   through, Play plainly enabled. Each row is just the word and its score. Its
   capture must be indistinguishable from the same staging with a valid word
   except for the missing mark — if a reviewer can tell which word is bad, the
-  feature is broken.
+  feature is broken — and no row offers a definition, which would leak the same.
 - **Phoney beat** (`phoney-beat`): the refused word is the biggest thing on the
   dialog, the cost is stated in a sentence, and the board behind it is visibly
   unchanged (no tiles placed), and no mode name is used — the copy states the
@@ -112,6 +112,9 @@ are logged at the bottom with date + reason, and deleted when fixed.
   legible over the board in both themes; dismiss target present.
 - Lobby empty state: tile motif + headline + invite copy centered; tiles render
   in the active skin/theme.
+- Definition sheet (`definition-found`/`-inflected`/`-none`/`-none-illegal`): word
+  as heading, part of speech spelled out, "form of CAT" chip on a reduced-form
+  gloss; empty state informs, never rejects; Wiktionary offered in every state.
 - Negative scores everywhere (score bar, result overlay) use the typographic
   minus (−), never hyphen-minus.
 - Action row fits one line at 390×844: Recall/Exchange/Pass are a compact

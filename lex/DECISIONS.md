@@ -457,3 +457,27 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   unedited; 3+ coverage lands in a new `room.spec.ts`. The one accepted 2-player
   change is the **winner-first result overlay** (today it lists seats in seat order;
   a victory screen should read winner-first, and `ResultOverlay` is not shared).
+
+- **2026-08-28 — Word definitions: bundled WordNet glossary + curated twos +
+  Wiktionary link-out (M7).** Tap a word where it already is — a preview-card row or
+  a score-sheet word. Hybrid data because no free source fits alone: WordNet 3.0
+  (permissive, vendored as a reproducible gloss projection) covers ~65% of a
+  tournament list, all 107 two-letter words are hand-written (WordNet misses a
+  third, and they are what players challenge), the rest link out. Rejected:
+  Wordset (225 words over WordNet for CC BY-SA terms) and NWL2023's own
+  definition column (~100% coverage, but NASPA/Merriam-Webster copyright — the
+  owner's call, not taken unilaterally). Inflections reduce at lookup so the
+  artifact stays lemma-sized, and a reduced hit is labelled, not passed off.
+  Shards persist via the Cache API **in the loader, not `sw.ts`** — registry
+  stamped glue must not carry a lex-only rule.
+
+- **2026-08-28 — A game that withholds the dictionary verdict withholds the
+  definition too.** "Invalid words → Cost your turn" is defined by not knowing
+  whether your word is real until you commit it; a definition lookup on a staged
+  word answers that outright, since finding a gloss all but confirms the word.
+  So the staged lookup is withdrawn entirely in those games — no tap, no hover
+  hint — rather than shown-and-disabled, which would itself hint. Guarded twice:
+  `GameBoard` withholds the callback, and `PreviewCard` refuses any row whose
+  verdict is `null`, so a later caller can't reopen the leak by wiring the prop.
+  The score sheet keeps its lookup at every setting: a word on the board was
+  played successfully and is already public (a phoney records no words at all).

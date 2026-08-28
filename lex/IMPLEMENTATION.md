@@ -143,6 +143,13 @@ hive + checkers + tafl `validate` as its gate; a red sibling suite blocks the me
 | **T7.17** | e2e: new `e2e/multiplayer/room.spec.ts` — three browsers, invite + code join, start early, full game, a withdrawal. `game.spec.ts` stays **unedited**. | `validate:m4` |
 | **T7.18** | Docs + `registry/apps.json` `players:{min,max}` + schema; collapse this table and append the SHIPPED entry; close `PORTFOLIO-HARDENING.md` M8. | `pnpm validate` |
 
+### M8 — word definitions (post-v1; FR-57–59, DESIGN §5.5)
+
+| Task | What | Gate |
+|---|---|---|
+| T8.1 | `@lex/dict` glossary: vendored gloss sources (WordNet projection + curated two-letter file), `morphology.ts`, sharded build artifact + manifest, on-demand loader with Cache API persistence | `pnpm --filter @lex/dict build && pnpm --filter @lex/dict test` — two-letter coverage asserted per dictionary |
+| T8.2 | [visual] `WordDefinitionSheet` + tappable preview-card rows and score-sheet words; Wiktionary link-out for uncovered words | `pnpm --filter @lex/app test`, `pnpm validate:visual` (gallery: `definition-found`, `definition-inflected`, `definition-none`, `definition-none-illegal`) |
+
 ---
 
 ## 3. What the builder must NOT do

@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "esbuild src/build-cli.ts --bundle --platform=node --format=esm --outfile=generated/.build-cli.mjs && node generated/.build-cli.mjs",
+    "derive:glosses": "esbuild src/derive-glosses.ts --bundle --platform=node --format=esm --outfile=generated/.derive-glosses.mjs && node generated/.derive-glosses.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
