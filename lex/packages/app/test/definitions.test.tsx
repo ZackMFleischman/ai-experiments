@@ -1,5 +1,5 @@
-// T7.2 gate: word definitions. Tap a word where it already is — a live preview
-// chip on the board, or a word in the score sheet — and one shared sheet
+// T7.2 gate: word definitions. Tap a word where it already is — a row of the
+// live preview card, or a word in the score sheet — and one shared sheet
 // answers. The load-bearing behaviours: a missing definition never reads as
 // "invalid word", a gloss found through a reduced form says so, and the
 // Wiktionary link-out is offered in every state.
@@ -11,9 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { riggedBagOrder, stubDict } from '../../engine/test/helpers';
 import { GameBoard } from '../src/board/GameBoard';
 import type { HotSeatOptions, LexEntry } from '../src/controller/entries';
-import type { Preview } from '../src/controller/GameController';
 import { GameController } from '../src/controller/GameController';
-import { PreviewOverlay } from '../src/board/PreviewOverlay';
 import { WordDefinitionSheet } from '../src/game/WordDefinitionSheet';
 
 const { lookupGloss } = vi.hoisted(() => ({ lookupGloss: vi.fn() }));
@@ -122,59 +120,45 @@ describe('WordDefinitionSheet', () => {
   });
 });
 
-describe('definition from a staged word (preview chip)', () => {
-  it('opens the sheet for the word the chip names', async () => {
+describe('definition from a staged word (preview card)', () => {
+  it('opens the sheet for the word the row names', async () => {
     lookupGloss.mockResolvedValue({ word: 'CATS', pos: 'n', gloss: 'more than one cat' });
     const { controller } = await setup();
     stageCats(controller);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Define CATS' }));
+    fireEvent.click(screen.getByTestId('preview-word'));
 
     expect((await screen.findByTestId('definition-gloss')).textContent).toBe('more than one cat');
     expect(lookupGloss).toHaveBeenCalledWith('CATS');
   });
 
-  // BoardViewport starts a pan from a React onPointerDown on the element the
-  // overlay sits inside, so the chip has to stop the synthetic event: without
-  // this, tapping a word would also drag the board out from under it.
-  it('does not let the tap reach the viewport that pans the board', () => {
-    const preview: Preview = {
-      check: { ok: true, words: [] },
-      words: [{ word: 'CATS', score: 12, valid: true, cells: [{ row: 7, col: 7 }] }],
-      total: 12,
-      bingo: false,
-      needsBlank: null,
-      playable: true,
-    };
-    const pan = vi.fn();
-    render(
-      <div onPointerDown={pan}>
-        <PreviewOverlay preview={preview} anchor={null} onDefine={() => {}} />
-      </div>,
-    );
+  // The card parks in the empty space beside the play — exactly where the next
+  // tile goes — so it is click-through by design (PreviewCard). A word row opts
+  // back in only under the grip's own rule: not while a tile is in flight or
+  // armed for placement, and never at the cost of the viewport's pan gesture.
+  it('does not let the tap reach the viewport that pans the board', async () => {
+    lookupGloss.mockResolvedValue(null);
+    const { controller } = await setup();
+    stageCats(controller);
 
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Define CATS' }));
-    expect(pan).not.toHaveBeenCalled();
+    // React dispatches from the root, so a synthetic stopPropagation() lands on
+    // the native event — which is exactly what keeps the viewport (and its
+    // pointer capture) out of a tap meant for the word.
+    const event = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
+    const stopped = vi.spyOn(event, 'stopPropagation');
+    screen.getByTestId('preview-word').dispatchEvent(event);
+
+    expect(stopped).toHaveBeenCalled();
   });
 
-  it('lets the tap through when chips are inert (no lookup wired)', () => {
-    const preview: Preview = {
-      check: { ok: true, words: [] },
-      words: [{ word: 'CATS', score: 12, valid: true, cells: [{ row: 7, col: 7 }] }],
-      total: 12,
-      bingo: false,
-      needsBlank: null,
-      playable: true,
-    };
-    const pan = vi.fn();
-    render(
-      <div onPointerDown={pan}>
-        <PreviewOverlay preview={preview} anchor={null} />
-      </div>,
-    );
+  it('stops taking taps while a rack tile is armed, so the board still gets them', async () => {
+    lookupGloss.mockResolvedValue(null);
+    const { controller } = await setup();
+    stageCats(controller);
+    act(() => controller.selectRackSlot(4)); // arm a tile for tap-tap placement
 
-    fireEvent.pointerDown(screen.getByTestId('preview-chip'));
-    expect(pan).toHaveBeenCalled();
+    const row = screen.getByTestId('preview-word');
+    expect(getComputedStyle(row).pointerEvents).toBe('none');
   });
 
   it('defines an invalid word too — that is when a player most wants to know', async () => {
@@ -185,9 +169,9 @@ describe('definition from a staged word (preview chip)', () => {
       controller.placeAt({ row: 7, col: 8 }, 5); // R — rejected by this dict
     });
 
-    const chip = screen.getByTestId('preview-chip');
-    expect(chip.getAttribute('data-valid')).toBe('false');
-    fireEvent.click(chip);
+    const row = screen.getByTestId('preview-word');
+    expect(row.getAttribute('data-valid')).toBe('false');
+    fireEvent.click(row);
 
     // …and the chip's verdict reaches the sheet, so the empty state doesn't
     // reassure the player that a rejected word is legal.

@@ -110,7 +110,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 | Task | What | Gate |
 |---|---|---|
 | T7.1 | `@lex/dict` glossary: vendored gloss sources (WordNet projection + curated two-letter file), `morphology.ts`, sharded build artifact + manifest, on-demand loader with Cache API persistence | `pnpm --filter @lex/dict build && pnpm --filter @lex/dict test` — two-letter coverage asserted per dictionary |
-| T7.2 | [visual] `WordDefinitionSheet` + tap targets on preview chips and score-sheet words; Wiktionary link-out for uncovered words | `pnpm --filter @lex/app test`, `pnpm validate:visual` (gallery: `definition-found`, `definition-inflected`, `definition-none`) |
+| T7.2 | [visual] `WordDefinitionSheet` + tappable preview-card rows and score-sheet words; Wiktionary link-out for uncovered words | `pnpm --filter @lex/app test`, `pnpm validate:visual` (gallery: `definition-found`, `definition-inflected`, `definition-none`, `definition-none-illegal`) |
 
 ---
 
@@ -142,8 +142,9 @@ Ported from hive (IMPLEMENTATION §4 there) — same runtime, same rules. Deltas
 ### 4.1 `/dev/gallery` minimum registry
 
 By end of M3: empty board (each skin); early/mid/late boards replayed from GCG
-fixtures; every premium type covered + labeled; pending placement with preview
-chips (valid, invalid-word, illegal-geometry states); blank picker open; exchange
+fixtures; every premium type covered + labeled; pending placement with the
+preview card (valid, invalid-word, illegal-geometry, cross-words, bingo states);
+blank picker open; exchange
 mode with selection; rack full/low/empty; pass-device interstitial; score sheet
 open; last-play highlight; every ending overlay (played-out win/loss, scoreless,
 tie/draw, resign, timeout) with adjustment line items; confirm dialogs.

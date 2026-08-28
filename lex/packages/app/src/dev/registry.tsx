@@ -242,6 +242,34 @@ export const GALLERY: GalleryEntry[] = [
     id: 'pending-invalid-word',
     render: () => game(() => fixtureController(null, stageCats, ['CATS'])),
   },
+  // The case the preview card exists for: a play that forms cross words. As
+  // chips (one per word, anchored over each word's first cell) these piled
+  // onto each other and onto the letters; as one card they stack in rows.
+  {
+    id: 'pending-cross-words',
+    render: () =>
+      game(() =>
+        fixtureController(midGame, (c) => {
+          // Three tiles under the row-7 word: the main word plus a cross word
+          // per tile — four scores, whose chips used to land on top of each
+          // other and on the letters they annotated.
+          c.placeAt({ row: 8, col: 1 }, 0);
+          c.placeAt({ row: 8, col: 2 }, 1);
+          c.placeAt({ row: 8, col: 3 }, 2);
+        }),
+      ),
+  },
+  // The worst case the card has to stay readable in: a seven-tile bingo laid
+  // under a full row — eight words, the bonus line, and the total.
+  {
+    id: 'pending-bingo',
+    render: () =>
+      game(() =>
+        fixtureController(midGame, (c) => {
+          for (let i = 0; i < 7; i++) c.placeAt({ row: 8, col: 1 + i }, i);
+        }),
+      ),
+  },
   {
     id: 'pending-illegal-geometry',
     render: () =>
@@ -279,6 +307,22 @@ export const GALLERY: GalleryEntry[] = [
       game(() =>
         fixtureController(null, (c) => {
           stageCats(c);
+          c.submitPlay();
+        }),
+      ),
+  },
+  // A play that BRIDGES committed tiles, laid out of reading order: the score
+  // badge has to follow the word, not the last tile dropped (which is what put
+  // it on top of a letter).
+  {
+    id: 'last-play-bridged',
+    render: () =>
+      game(() =>
+        fixtureController(null, (c) => {
+          stageCats(c);
+          c.submitPlay();
+          c.placeAt({ row: 7, col: 11 }, 1);
+          c.placeAt({ row: 7, col: 6 }, 0);
           c.submitPlay();
         }),
       ),

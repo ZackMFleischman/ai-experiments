@@ -106,7 +106,7 @@ test('full hot-seat game to the victory sequence — tap variant', async ({ page
   await tapPlace(page, 1, '7,8');
   await tapPlace(page, 2, '7,9');
   await tapPlace(page, 3, '7,10');
-  await expect(page.locator('[data-testid="preview-chip"]')).toContainText('CATS');
+  await expect(page.locator('[data-testid="preview-word"]')).toContainText('CATS');
   await playWord(page);
 
   // The turn flipped: Player 2's interstitial, then their rack.
@@ -126,7 +126,7 @@ test('full hot-seat game to the victory sequence — drag variant', async ({ pag
   await dragPlace(page, 1, '7,8');
   await dragPlace(page, 2, '7,9');
   await dragPlace(page, 3, '7,10');
-  await expect(page.locator('[data-testid="preview-chip"]')).toContainText('12');
+  await expect(page.getByTestId('preview-total')).toHaveText('+12');
   await playWord(page);
 
   await handoff(page, 'Player 2');

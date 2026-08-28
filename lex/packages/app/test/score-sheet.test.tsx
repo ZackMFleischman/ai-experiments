@@ -28,6 +28,14 @@ async function makeController() {
   return controller;
 }
 
+/** A motionless press on the board background — the viewport's "tap" (taps
+ * >12px apart so two in a row can't read as the double-tap zoom). */
+function tapBoard(x: number, y: number) {
+  const viewport = screen.getByTestId('board-viewport');
+  fireEvent.pointerDown(viewport, { pointerId: 1, clientX: x, clientY: y, isPrimary: true });
+  fireEvent.pointerUp(viewport, { pointerId: 1, clientX: x, clientY: y });
+}
+
 function playCats(controller: GameController) {
   controller.placeAt({ row: 7, col: 7 }, 0);
   controller.placeAt({ row: 7, col: 8 }, 1);
@@ -109,6 +117,94 @@ describe('last-play highlight + animation hooks (T3.9)', () => {
     act(() => controller.recallAll());
     expect(document.querySelectorAll('[data-last-play]')).toHaveLength(4);
     expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
+
+  // The badge sits in an empty cell beside the word, which can still be the
+  // square you want to look at — and staging a tile used to be its only exit.
+  it('a board tap tucks the score away; another tap brings it back', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+
+    tapBoard(30, 30);
+    expect(screen.queryByTestId('last-play-score')).toBeFalsy();
+    // Only the number steps aside: the play itself stays highlighted.
+    expect(document.querySelectorAll('[data-last-play]')).toHaveLength(4);
+
+    tapBoard(300, 200);
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
+
+  it('taps taken while tiles are staged leave the score alone for the recall', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    act(() => controller.placeAt({ row: 8, col: 7 }, 0));
+    expect(screen.queryByTestId('last-play-score')).toBeFalsy();
+
+    tapBoard(30, 30);
+    tapBoard(300, 200);
+    act(() => controller.recallAll());
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
+
+  it('the next play brings the score back however the last one was left', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    tapBoard(30, 30);
+    expect(screen.queryByTestId('last-play-score')).toBeFalsy();
+
+    act(() => {
+      controller.placeAt({ row: 8, col: 7 }, 0);
+      controller.placeAt({ row: 9, col: 7 }, 1);
+      controller.submitPlay();
+    });
+    expect(screen.getByTestId('last-play-score')).toBeTruthy();
+  });
+
+  it('tapping the score expands the words that made it', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    expect(screen.queryByTestId('last-play-breakdown')).toBeFalsy();
+
+    fireEvent.click(screen.getByTestId('last-play-score'));
+    const panel = screen.getByTestId('last-play-breakdown');
+    const rows = within(panel).getAllByTestId('breakdown-word');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain('CATS');
+    expect(rows[0]?.textContent).toContain('12');
+    expect(within(panel).getByTestId('breakdown-total').textContent).toBe('+12');
+  });
+
+  it('a bonus the words do not account for gets its own line', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => {
+      for (let i = 0; i < 7; i++) controller.placeAt({ row: 7, col: 7 + i }, i);
+      controller.submitPlay();
+    });
+    fireEvent.click(screen.getByTestId('last-play-score'));
+    const panel = screen.getByTestId('last-play-breakdown');
+    const words = within(panel).getAllByTestId('breakdown-word');
+    const sum = words.length;
+    expect(sum).toBeGreaterThan(0);
+    expect(within(panel).getByTestId('breakdown-bonus').textContent).toContain(
+      `${classic.bingoBonus}`,
+    );
+  });
+
+  // The badge sits in an empty cell — the cell you may be about to tap into.
+  it('goes inert the moment a rack tile is armed for tap-tap placement', async () => {
+    const controller = await makeController();
+    render(<GameBoard controller={controller} />);
+    act(() => playCats(controller));
+    const badge = screen.getByTestId('last-play-score');
+    expect(getComputedStyle(badge).pointerEvents).toBe('auto');
+    act(() => controller.selectRackSlot(0));
+    expect(getComputedStyle(screen.getByTestId('last-play-score')).pointerEvents).toBe('none');
   });
 });
 

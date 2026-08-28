@@ -223,3 +223,101 @@ test('pan/zoom mid-placement never invalidates the hit-test', async ({ page }) =
   expect(s.pending.sort()).toEqual(['7,7', '7,8']);
   await shot(page, 'zoomed-drop-exact');
 });
+
+test('the last-play score expands into the words that made it', async ({ page }) => {
+  const place = async (slot: number, cell: string) => {
+    await page.locator(`[data-rack-slot="${slot}"]`).click();
+    await page.locator(`[data-cell="${cell}"]`).click();
+    await page.waitForTimeout(400); // stay out of the double-tap window
+  };
+  // Tap-tap the whole word: with a tile armed the preview card's grip must be
+  // inert, or the tap meant for the cell under it never lands.
+  await place(0, '7,7');
+  await place(1, '7,8');
+  await place(2, '7,9');
+  await place(3, '7,10');
+  expect((await snap(page)).pending).toHaveLength(4);
+  await page.getByRole('button', { name: /^play$/i }).click();
+  await page.getByTestId('pass-device').click();
+
+  const badge = page.getByTestId('last-play-score');
+  await expect(badge).toBeVisible();
+  await page.waitForTimeout(500); // let the tile animate-in settle
+  await shot(page, 'last-play-badge');
+  await badge.click();
+  const panel = page.getByTestId('last-play-breakdown');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('CATS');
+  // Playwright counts an element mid-transition as visible, so the capture
+  // needs the Grow (and the last-play tile animate-in) to finish first.
+  await page.waitForTimeout(500);
+  await shot(page, 'last-play-breakdown');
+  await expect(panel).toContainText('12');
+});
+
+// The badge parks in an EMPTY cell, which is not the same as out of the way —
+// beside a tight word it can still sit over the square you want to read, and
+// staging a tile used to be its only exit. Only a real browser can show that
+// the badge's own tap is not also a board tap (it stops the gesture there).
+test('a board tap tucks the last-play score away; another brings it back', async ({ page }) => {
+  const place = async (slot: number, cell: string) => {
+    await page.locator(`[data-rack-slot="${slot}"]`).click();
+    await page.locator(`[data-cell="${cell}"]`).click();
+    await page.waitForTimeout(400); // stay out of the double-tap window
+  };
+  await place(0, '7,7');
+  await place(1, '7,8');
+  await place(2, '7,9');
+  await place(3, '7,10');
+  await page.getByRole('button', { name: /^play$/i }).click();
+  await page.getByTestId('pass-device').click();
+
+  const badge = page.getByTestId('last-play-score');
+  await expect(badge).toBeVisible();
+  await page.waitForTimeout(500); // let the tile animate-in settle
+
+  // Tapping the badge opens its breakdown — that gesture must never also
+  // count as the board tap that hides it.
+  await badge.click();
+  await expect(page.getByTestId('last-play-breakdown')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('last-play-breakdown')).toBeHidden();
+  await expect(badge).toBeVisible();
+
+  await page.waitForTimeout(400);
+  await page.locator('[data-cell="0,0"]').click();
+  await expect(badge).toBeHidden();
+  // Only the number steps aside: the play stays highlighted.
+  expect(await page.locator('[data-last-play]').count()).toBe(4);
+  await shot(page, 'last-play-tucked');
+
+  await page.waitForTimeout(400);
+  await page.locator('[data-cell="14,14"]').click();
+  await expect(badge).toBeVisible();
+});
+
+test('the preview card can be dragged by its grip (real pointer capture)', async ({ page }) => {
+  // TWO tiles: one is "Two tiles minimum", a transient hint, and hints carry
+  // no grip on purpose.
+  await page.locator('[data-rack-slot="0"]').click();
+  await page.locator('[data-cell="7,7"]').click();
+  await page.waitForTimeout(400); // stay out of the double-tap window
+  await page.locator('[data-rack-slot="1"]').click();
+  await page.locator('[data-cell="7,8"]').click();
+  const card = page.getByTestId('preview-card');
+  await expect(card).toBeVisible();
+  const before = (await card.boundingBox())!;
+
+  // jsdom has no pointer capture, so this drag is only ever exercised here:
+  // if the viewport steals the gesture the board pans and the card sits still.
+  const grip = (await page.getByTestId('preview-grip').boundingBox())!;
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + 40, grip.y + 120, { steps: 8 });
+  await page.mouse.up();
+
+  const after = (await card.boundingBox())!;
+  expect(Math.round(after.y - before.y)).toBeGreaterThan(60);
+  await expect(card).toHaveAttribute('data-manual', 'true');
+  await shot(page, 'preview-card-parked');
+});

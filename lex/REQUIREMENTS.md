@@ -160,9 +160,9 @@ Functions: validation, notifications, forfeits).
 ### Word definitions (DESIGN §5.5)
 
 - **FR-57** Any word a play forms can be looked up from where it already
-  appears: a live preview chip while the play is staged, or the word in a
-  score-sheet row once it is locked in. Invalid staged words included — that is
-  when a player most wants to know.
+  appears: a row of the live preview card while the play is staged, or the word
+  in a score-sheet row once it is locked in. Invalid staged words included —
+  that is when a player most wants to know.
 - **FR-58** Definitions come from a bundled glossary, sharded and fetched on
   demand, so a lookup is fast and works offline once that shard is cached.
   Every two-letter word playable in any registry dictionary has one.

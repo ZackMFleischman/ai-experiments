@@ -58,6 +58,11 @@ export interface GameActionsProps {
   confirmBeforePlay?: boolean;
   /** Preview score, used to enrich the Play-confirm copy when available. */
   playScore?: number | undefined;
+  /** Why Play is off, when the reason is the player's to fix (a word the
+   * dictionary rejected). The preview card states it at the play; this is the
+   * same sentence for the pointer and screen-reader paths, since a greyed-out
+   * button on its own explains nothing. */
+  blockedReason?: string | undefined;
   onPlay: () => void;
   onRecall: () => void;
   onExchange: () => void;
@@ -80,6 +85,7 @@ export function GameActions({
   bagCount,
   confirmBeforePlay,
   playScore,
+  blockedReason,
   onPlay,
   onRecall,
   onExchange,
@@ -93,6 +99,7 @@ export function GameActions({
   const resignable = canResign ?? interactive;
   const exchangeDisabled = !interactive || !canExchange;
   const exchangeTitle = exchangeShort ? `Exchange — needs ${exchangeMinBag} in bag` : 'Exchange';
+  const playBlocked = !playable && blockedReason ? blockedReason : '';
 
   const dialogCopy = {
     pass: { title: 'Pass your turn?', body: 'You will score nothing this turn.', cta: 'Pass', color: 'primary' as const },
@@ -159,14 +166,23 @@ export function GameActions({
       <Box sx={{ flexGrow: 1 }} />
 
       {/* Primary CTA: prominent, isolated on the right. */}
-      <Button
-        variant="contained"
-        disabled={!playable}
-        onClick={() => (confirmBeforePlay ? setConfirm('play') : onPlay())}
-        sx={{ minWidth: 96, minHeight: 44, px: 2.5, fontWeight: 700 }}
-      >
-        Play
-      </Button>
+      <Tooltip title={playBlocked}>
+        <span>
+          <Button
+            variant="contained"
+            disabled={!playable}
+            onClick={() => (confirmBeforePlay ? setConfirm('play') : onPlay())}
+            sx={{ minWidth: 96, minHeight: 44, px: 2.5, fontWeight: 700 }}
+          >
+            Play
+          </Button>
+        </span>
+      </Tooltip>
+      {playBlocked && (
+        <Typography data-testid="play-blocked-reason" component="span" sx={srOnly}>
+          {playBlocked}
+        </Typography>
+      )}
 
       <Menu
         anchorEl={menuAnchor}

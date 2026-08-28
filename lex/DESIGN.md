@@ -29,8 +29,8 @@ those requirements and cross-references them where useful.
 - **Async or sync, seamlessly.** No mode switch: a game is shared state updating in
   real time. Both online ⇒ feels live; otherwise you get a push when it's your turn.
 - **Great placement UX.** Drag tiles from a rack to the board (tap-tap fallback),
-  with live feedback: formed words, running score preview, valid/invalid word chips,
-  recall, shuffle, blank designation.
+  with live feedback: a preview card of the words it forms, their scores and
+  validity, the total; recall, shuffle, blank designation.
 - **Dictionary-enforced plays** (Words-with-Friends style): an invalid word can't be
   played — the app tells you which word failed. No challenge mechanic in v1 (§2.3).
 - **Swappable board layout, tileset, and dictionary** — first-class architectural
@@ -308,7 +308,7 @@ skeleton, and the doc set itself (CLAUDE/DESIGN/IMPLEMENTATION/DECISIONS structu
 
 **Rewrite — game-specific, no useful hive counterpart:** all of `@lex/engine`
 (different game), `@lex/dict` (new concern), board grid + tile + rack-tray
-components, pending-placement UX (preview chips, recall, blank picker, exchange
+components, pending-placement UX (the preview card, recall, blank picker, exchange
 mode), the hot-seat **pass-device** privacy interstitial, sprite/art assets
 (lex tiles are typography — far lighter art burden than hive's 16 glyphs).
 
@@ -580,18 +580,43 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      to rack. Tap-tap: tap a rack tile, tap an empty cell.
   3. Pending tiles are freely movable/returnable (drag back, tap to bounce back,
      **Recall** returns all). Dropping a blank opens the letter-picker sheet.
-  4. As placements change, the **live preview** updates: each formed word gets a
-     chip (word + points, ✓/✗ from the local dictionary); the chips are the only
-     score display (no separate total badge — it duplicated the main chip and
-     obscured the board). Play is enabled only when `checkPlay` passes and
-     all words are valid — pressing it submits optimistically (§6.3).
+  4. As placements change, the **live preview card** updates: ONE small panel
+     listing every formed word (word + points, ✓/✗ from the local dictionary),
+     the bingo line, and the play's total. It lives in *screen* space beside the
+     viewport — a readable size at every zoom — and auto-parks in the spot
+     around the play that hides the fewest letters (falling back to a clear
+     corner of the view on a crowded board), always on screen. That spot is the
+     empty space beside the play — where your next tile goes — so the card is
+     **click-through**: only its grip takes pointer events, and the transient
+     geometry hint has no grip at all. Drag the grip (or arrow-key it) to park
+     the card; a parked spot is kept until it would cover a new staged word.
+     A word that fails the dictionary is the card's loudest state, not a
+     footnote: red border, the doomed total struck through, that word's row
+     filled red, its cells ringed on the board (dashed red, ≠ pending gold /
+     last-play green). Color and weight only — the sentence naming the word
+     rides the disabled Play button (title + a11y tree), not the card, which
+     has no room to narrate what it already shows. Illegal geometry replaces
+     the list with its reason.
+     Play is enabled only when `checkPlay` passes and all words are valid —
+     pressing it submits optimistically (§6.3).
   5. **Exchange** flips the rack into multi-select (tiles dim/raise on tap) with a
      confirm bar ("Exchange 3 tiles — costs your turn"); disabled with a reason
      when the bag < 7. **Pass** confirms via dialog.
 - **Remote plays animate in** tile-by-tile along the word; the opponent's last play
   stays highlighted (hive's last-move convention, green edge — distinct from the
-  pending gold) and its score floats alongside. Both step aside while you have
+  pending gold) and its score badge sits in the first empty cell beside the word
+  — the word's full span, bridged letters included, never underneath one.
+  **Tapping the badge expands it** into the words that play formed and what each
+  scored (a popover, dismissed by a tap anywhere — the score sheet has the same
+  facts, but the question is asked while looking at the play). The badge and the
+  card's grip both go inert while a rack tile is armed, so board chrome can
+  never eat the tap that places a tile. Both step aside while you have
   tiles staged so they never compete with the placement emphasis.
+  **A tap on the board tucks the badge away and another tap brings it back**
+  (the highlight stays): an empty cell beside the word can still be the square
+  you want to read, and staging a tile shouldn't be the only way out. A new
+  play always restores it; taps taken while tiles are staged don't count, so
+  a recall never comes back to a missing badge.
 - Drag is raw pointer events, no dnd library — hive decision §9.8's reasoning
   transfers wholesale (touch first, transform-aware hit-testing, controller-testable
   without synthetic events).
@@ -691,7 +716,7 @@ Hive §8's layer table carries over with these substitutions:
 | Dictionary | DAWG lookup ≡ reference word-set on both full lists + fuzzed negatives; content-hash pins; registry metadata matches vendored files |
 | Controller | pending-placement model, optimistic apply + rack-refill merge + rejection rollback, exchange selection, drag/tap state machine |
 | Functions + rules | submitMove happy/illegal/concurrency paths, **rack/bag read-denial rules tests**, exchange privacy (public doc has count only), draw correctness, forfeit sweep |
-| UI components | board/rack render from fixed states, preview chips, blank picker, pass-device flow |
+| UI components | board/rack render from fixed states, the preview card + its placement math, blank picker, pass-device flow |
 | e2e (Playwright + emulators) | two-browser full game: create → invite → join → plays both ways → exchange → bingo → resign → rematch; reload-mid-game resume |
 
 Self-validation harness (gallery, `validate:visual`/`ux`, mandatory screenshot
