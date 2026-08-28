@@ -1,4 +1,4 @@
-// T7.1: the vendored gloss sources and the sharding that ships them.
+// T8.1: the vendored gloss sources and the sharding that ships them.
 //
 // The load-bearing test here is the two-letter guarantee: every two-letter word
 // playable in ANY registry dictionary must have a definition, because those are

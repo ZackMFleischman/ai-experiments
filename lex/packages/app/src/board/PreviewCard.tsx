@@ -101,7 +101,7 @@ export interface PreviewCardProps {
   manual: ManualSpot | null;
   onManualChange: (manual: ManualSpot) => void;
   /**
-   * Ask for a word's definition (T7.2). Like the grip, a word row opts back
+   * Ask for a word's definition (T8.2). Like the grip, a word row opts back
    * into pointer events — and under the same conditions, `faded || placing`,
    * so the card still never swallows a tap meant for a cell while a tile is in
    * hand. With nothing armed, a tap on an empty cell does nothing anyway.

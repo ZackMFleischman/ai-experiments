@@ -1,4 +1,4 @@
-// T7.1: the gloss-lookup reduction table. It is a spelling heuristic, not a
+// T8.1: the gloss-lookup reduction table. It is a spelling heuristic, not a
 // legality rule — nothing here may ever decide whether a word is playable —
 // so what these pin is that it is deterministic, never returns the word it was
 // given, and never proposes a base too short to be a word.

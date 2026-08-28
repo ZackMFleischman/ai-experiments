@@ -115,7 +115,7 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - High contrast: hard-outlined tiles on a black/white grid (inverted in dark);
   dark tiles are black-on-yellow; DL/TL/DW/TW labels stay the non-color signal.
 
-## Word definitions (T7.2)
+## Word definitions (T8.2)
 
 - Definition sheet: the word reads as the heading (uppercase, letter-spaced);
   part of speech is spelled out ("noun", not "n"); the gloss is body text, not

@@ -1,4 +1,4 @@
-// Build-time artifact compiler (T2.2, T7.1): vendored lists → generated/{id}.dawg,
+// Build-time artifact compiler (T2.2, T8.1): vendored lists → generated/{id}.dawg,
 // vendored gloss sources → generated/gloss/. Generated artifacts are never
 // committed; the app serves them as assets and the functions bundle embeds the
 // DAWGs (T2.3). Run via `pnpm --filter @lex/dict build`.

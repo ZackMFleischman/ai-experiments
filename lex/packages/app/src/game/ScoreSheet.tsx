@@ -9,7 +9,7 @@ export interface ScoreSheetProps {
   onClose: () => void;
   rows: readonly SheetRow[];
   names: readonly string[];
-  /** Tapping a played word asks for its definition (T7.2). Omitted = the words
+  /** Tapping a played word asks for its definition (T8.2). Omitted = the words
    * render as plain text, which is what the gallery's static states want. */
   onDefine?: (word: string) => void;
 }

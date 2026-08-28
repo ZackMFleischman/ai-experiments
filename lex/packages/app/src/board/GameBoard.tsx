@@ -92,7 +92,7 @@ export function GameBoard({
   const dragRef = useRef<DragState | null>(null);
   const [hover, setHover] = useState<CellKey | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  // The word whose definition is on screen (T7.2) — set by tapping a live
+  // The word whose definition is on screen (T8.2) — set by tapping a live
   // preview-card row or a word in the score sheet, both of which route here.
   // `legal` rides along from the chip's verdict; score-sheet words are locked
   // in, so the dictionary already accepted them.

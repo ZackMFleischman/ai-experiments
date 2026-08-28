@@ -343,39 +343,57 @@ per-game action; one sign-in works across all duo games; hive migration
 completes with zero lost games (verified by export diff); old projects
 deleted.
 
-## M8 — N-player generalization (L) — ○ not started (sequenced after M7)
+## M8 — N-player generalization (L) — ◐ planned, brought forward ahead of M7
 
-> **Deferred, and correctly last.** This touches the seat model across parlor
-> server + web + rules + every game's validate suite, and its acceptance gate
-> is a stamped N-player title playing a full game end-to-end via the emulator
-> MP test. It is unsafe and pointless to start before M3's server test suite
-> exists (nothing would catch a regression) and before M7 settles the seat/
-> identity model — the plan's own sequencing note. Needs the full runnable
-> stack; deferred until the earlier milestones land in a verifiable env.
+> **Resequenced (owner decision, 2026-08-28).** This was sequenced after M7 so
+> the seat model would be touched once. It is now going first, for two reasons:
+> the coupling is weaker than the original note assumed — M7 is about *which
+> Firebase project* and how collections are namespaced, not about seat shape —
+> and **lex is `status: "built"` with `webUrl: null`**, so its schema can change
+> with no live users and no migration. That is true today and false the moment
+> lex launches. M7's own migration cost is unaffected by seat count.
+>
+> **The acceptance vehicle changed too**: `lex/` rather than a freshly stamped
+> title. A real hidden-information game with a shipped UI and a two-browser MP
+> suite is stronger proof than a minimal new game, and it does not depend on the
+> factory being able to stamp N-player first. Task-level plan lives in
+> `lex/IMPLEMENTATION.md` §2 M7; the scope decisions are in `lex/DECISIONS.md`.
 
-- [ ] **Seat model**: `GameServerConfig.seatKeys` becomes length-N;
-      create/join/challenge/rematch lifecycle handles partial fill (min/max
-      players, start-when-full vs. host-starts), seat ordering, and per-seat
-      deadlines rotating through N seats. Forfeit/timeout removes a seat
-      rather than ending the game at N>2.
-- [ ] **Result model**: replace the binary win/loss/draw with a ranking
-      (`placements: seatKey[]` + optional draw groups); update rematch,
-      notify copy (`NotifyConfig` triggers gain seat context), and stats.
-- [ ] **Client**: `@parlor/web` lobby-ui renders N seat plaques
-      (`GameHud` already switches on player count — extend past 2);
-      transport/log-replay is seat-count-agnostic already (verify with a
-      property test).
-- [ ] **Rules + registry**: `playerIds` checks in the rules template are
-      already array-based — extend the parity template's invite tier for
-      multi-join; registry entries gain `players: {min,max}`.
-- [ ] **Prove it**: ship a minimal 3–4 player title through the factory
-      (e.g. a trick-taking or racing game from `tools/create-app/briefs/`)
-      as the acceptance vehicle — the epic isn't done until a stamped N-player
-      game passes the standard gates.
+**Shape of the generalization** (decided, see `lex/DECISIONS.md` 2026-08-28):
+the declared count is a **maximum** with a minimum of 2 — the host may start
+early — invitations reserve nothing (**first come, first served**), and seats,
+turn order and the deal do not exist until a new `startGame` callable. A
+resign/timeout above two players is a **withdrawal**, not a game end.
 
-Gate: 2-player games unchanged (all existing validate suites green on the
-generalized platform); the N-player acceptance title plays a full game
-end-to-end via emulator MP test; factory stamps `--kind duo --players 4`.
+- [ ] **Seat model**: `GameServerConfig.seatKeys` becomes `readonly string[]` and
+      gains `players?: {min,max}` (default `{2,2}`). The pre-game becomes a guest
+      list (`roster` / `invited` / `declined`, one always-present invite code);
+      `startGame` resolves order, deals, and activates, guarded by an
+      `expectedRoster` precondition so a late joiner is never locked out.
+      Forfeit/timeout withdraws a seat rather than ending the game above 2.
+- [ ] **Turn order as a platform capability**: `random | first | last | arrange`,
+      persisted so every player sees the arrangement before start; `rematch`
+      rotates it so the opening advantage circulates. `parseSeatChoice` is kept
+      as the per-game wire→intent mapping, so sibling callables are untouched.
+- [ ] **Result model**: replace binary win/loss/draw with `standings: Seat[][]`
+      (best-first, inner arrays = ties); withdrawn players rank below all
+      finishers. `LobbySummary` keeps `result` as a deprecated two-seat form
+      behind `finalStandings()`, so hive/checkers/tafl need no changes.
+- [ ] **Client**: `@parlor/web` gains the guest-list surfaces (`GuestList`,
+      `GameRoom`, `TurnOrderPicker`, `InvitationReceived`) as strictly additive
+      3+ components; `WaitingForOpponent` / `InviteLinkView` / `ChallengeReceived`
+      are not modified. `GameHud` extends past two seats.
+- [ ] **Rules + registry**: `firestore.rules` needs **no change** — invited uids
+      already sit in `playerIds`, so the `array-contains` read gate and the lobby
+      index carry over. Registry entries gain `players: {min,max}`.
+- [ ] **Notify**: fan-out (`invited`, `player-joined`, `game-started`); turn
+      pushes go to the next player only, so a 4-player game is not 3× the noise.
+
+Gate: 2-player games unchanged — all existing validate suites green on the
+generalized platform, **with no file changes in `hive/`, `checkers/` or `tafl/`**
+and `lex/e2e/multiplayer/game.spec.ts` passing unedited; lex plays a full 3- and
+4-player game end-to-end via a new emulator MP test, including a start-early and a
+withdrawal; factory stamps `--kind duo --players 4`.
 
 ## M9 — Duo CI wall-clock (S–M) — ○ not started
 
@@ -417,9 +435,11 @@ the M2 reusable duo CI template so all four duo games inherit it.
 
 **Sequencing summary**: M1 → M2 unblock everything (registry + trustworthy
 factory); M3 → M4 make the platform safe to change (tests, then the last
-migration); M5 → M6 cut the ongoing copy/context tax; M7 → M8 are the two
-structural bets (identity, then N seats) in the order that touches the seat
-model once. Each milestone merges independently with the standard rule:
+migration); M5 → M6 cut the ongoing copy/context tax; M8 → M7 are the two
+structural bets, now in that order: N seats goes first because lex is still
+unlaunched and its schema is free to change only until it ships, while M7's
+identity migration costs the same whenever it happens. Each milestone merges
+independently with the standard rule:
 typecheck + tests + affected validate suites green, and a DECISIONS entry for
 anything non-obvious. M9 (CI wall-clock) is independent — do it whenever the
 14-min duo CI hurts most, ideally folded into M2's reusable template.

@@ -1,4 +1,4 @@
-// T7.2 gate: word definitions. Tap a word where it already is — a row of the
+// T8.2 gate: word definitions. Tap a word where it already is — a row of the
 // live preview card, or a word in the score sheet — and one shared sheet
 // answers. The load-bearing behaviours: a missing definition never reads as
 // "invalid word", a gloss found through a reduced form says so, and the

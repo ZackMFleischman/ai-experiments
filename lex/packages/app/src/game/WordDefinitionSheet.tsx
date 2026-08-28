@@ -1,4 +1,4 @@
-// Word definitions (T7.2, DESIGN §5.5 / §7.1): the one surface that answers
+// Word definitions (T8.2, DESIGN §5.5 / §7.1): the one surface that answers
 // "what does that even mean?", opened by tapping a word wherever it already
 // appears — a row of the live preview card, or a word in the score sheet.
 //

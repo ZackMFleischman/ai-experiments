@@ -376,7 +376,7 @@ export const GALLERY: GalleryEntry[] = [
       />
     ),
   },
-  // Definitions (T7.2). initialState pins each outcome so the states are
+  // Definitions (T8.2). initialState pins each outcome so the states are
   // reproducible without a glossary artifact in the gallery build.
   {
     id: 'definition-found',

@@ -1,4 +1,4 @@
-// T7.1: the on-demand glossary loader — sharded fetch, memoization, and the
+// T8.1: the on-demand glossary loader — sharded fetch, memoization, and the
 // distinction the UI depends on between "no definition for this word" (null)
 // and "the glossary didn't load" (rejection).
 import { afterEach, describe, expect, it, vi } from 'vitest';
