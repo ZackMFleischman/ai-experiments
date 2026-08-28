@@ -34,6 +34,14 @@ type LookupState =
 export interface WordDefinitionSheetProps {
   /** The word to define; `null` closes the sheet. Case-insensitive. */
   word: string | null;
+  /**
+   * Whether the game's dictionary accepts this word. Only the empty state
+   * reads it, and it has to: reassuring a player that an undefined word is
+   * "still legal" is exactly wrong for a staged word the dictionary just
+   * rejected. Locked-in words are legal by construction; a staged word passes
+   * its preview verdict.
+   */
+  legal?: boolean;
   onClose: () => void;
   /** Test/gallery seam: skip the fetch and render this state directly. */
   initialState?: LookupState;
@@ -41,7 +49,12 @@ export interface WordDefinitionSheetProps {
 
 const wiktionary = (word: string) => `https://en.wiktionary.org/wiki/${word.toLowerCase()}`;
 
-export function WordDefinitionSheet({ word, onClose, initialState }: WordDefinitionSheetProps) {
+export function WordDefinitionSheet({
+  word,
+  legal = true,
+  onClose,
+  initialState,
+}: WordDefinitionSheetProps) {
   const [state, setState] = useState<LookupState>(initialState ?? { status: 'loading' });
 
   useEffect(() => {
@@ -105,7 +118,9 @@ export function WordDefinitionSheet({ word, onClose, initialState }: WordDefinit
 
         {state.status === 'none' && (
           <Typography data-testid="definition-none" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            No definition bundled for this one — it’s still a legal word.
+            {legal
+              ? 'No definition bundled for this one — it’s still a legal word.'
+              : 'No definition bundled, and this game’s dictionary doesn’t accept it.'}
           </Typography>
         )}
 

@@ -84,6 +84,15 @@ describe('WordDefinitionSheet', () => {
     expect(screen.queryByTestId('definition-gloss')).toBeFalsy();
   });
 
+  it('does not call a word the dictionary rejected "legal"', async () => {
+    lookupGloss.mockResolvedValue(null);
+    render(<WordDefinitionSheet word="ENT" legal={false} onClose={() => {}} />);
+
+    const none = await screen.findByTestId('definition-none');
+    expect(none.textContent).not.toMatch(/still a legal word/i);
+    expect(none.textContent).toMatch(/doesn.t accept it/i);
+  });
+
   it('distinguishes a glossary that will not load from a word it does not know', async () => {
     lookupGloss.mockRejectedValue(new Error('offline'));
     render(<WordDefinitionSheet word="QI" onClose={() => {}} />);
@@ -180,7 +189,10 @@ describe('definition from a staged word (preview chip)', () => {
     expect(chip.getAttribute('data-valid')).toBe('false');
     fireEvent.click(chip);
 
-    expect(await screen.findByTestId('definition-none')).toBeTruthy();
+    // …and the chip's verdict reaches the sheet, so the empty state doesn't
+    // reassure the player that a rejected word is legal.
+    const none = await screen.findByTestId('definition-none');
+    expect(none.textContent).toMatch(/doesn.t accept it/i);
   });
 });
 
@@ -198,6 +210,21 @@ describe('definition from a locked-in word (score sheet)', () => {
 
     await waitFor(() => expect(screen.getByTestId('definition-gloss')).toBeTruthy());
     expect(lookupGloss).toHaveBeenCalledWith('CATS');
+  });
+
+  it('treats a locked-in word as legal — the dictionary already accepted it', async () => {
+    lookupGloss.mockResolvedValue(null);
+    const { controller } = await setup();
+    stageCats(controller);
+    act(() => {
+      controller.submitPlay();
+    });
+
+    fireEvent.click(screen.getByLabelText('score sheet'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Define CATS' }));
+
+    const none = await screen.findByTestId('definition-none');
+    expect(none.textContent).toMatch(/still a legal word/i);
   });
 
   it('leaves turns with no words — a pass — as plain text', async () => {

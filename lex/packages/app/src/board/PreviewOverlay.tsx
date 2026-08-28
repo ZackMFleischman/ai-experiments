@@ -25,9 +25,10 @@ export interface PreviewOverlayProps {
   preview: Preview | null;
   /** Where to anchor the geometry-reason chip (first staged cell). */
   anchor: CellKey | null;
-  /** Tapping a word chip asks for its definition (T7.2). Omitted = chips are
-   * inert, which is what the gallery's static states want. */
-  onDefine?: (word: string) => void;
+  /** Tapping a word chip asks for its definition (T7.2), passing the chip's own
+   * verdict so the sheet's empty state can't call a rejected word legal.
+   * Omitted = chips are inert, which is what the gallery's static states want. */
+  onDefine?: (word: string, valid: boolean) => void;
 }
 
 const cellLeft = (col: number) => BOARD_PAD_PX + col * CELL_PX;
@@ -109,7 +110,7 @@ export function PreviewOverlay({ preview, anchor, onDefine }: PreviewOverlayProp
             // The viewport pans on pointerdown; a tap meant for the chip must
             // not also drag the board out from under it.
             onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-            onClick={() => onDefine(w.word)}
+            onClick={() => onDefine(w.word, w.valid)}
             sx={{ ...tappableChip, ...placement }}
           >
             {label}

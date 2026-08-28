@@ -85,7 +85,9 @@ export function GameBoard({
   const [sheetOpen, setSheetOpen] = useState(false);
   // The word whose definition is on screen (T7.2) — set by tapping a live
   // preview chip or a word in the score sheet, both of which route here.
-  const [defining, setDefining] = useState<string | null>(null);
+  // `legal` rides along from the chip's verdict; score-sheet words are locked
+  // in, so the dictionary already accepted them.
+  const [defining, setDefining] = useState<{ word: string; legal: boolean } | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
   const trayWrapRef = useRef<HTMLDivElement | null>(null);
@@ -366,7 +368,7 @@ export function GameBoard({
             <PreviewOverlay
               preview={snap.preview}
               anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
-              onDefine={setDefining}
+              onDefine={(word, valid) => setDefining({ word, legal: valid })}
             />
             {lastPlay && lastPlayEnd && (
               <Box
@@ -456,9 +458,13 @@ export function GameBoard({
         onClose={() => setSheetOpen(false)}
         rows={snap.sheet}
         names={seatNames}
-        onDefine={setDefining}
+        onDefine={(word) => setDefining({ word, legal: true })}
       />
-      <WordDefinitionSheet word={defining} onClose={() => setDefining(null)} />
+      <WordDefinitionSheet
+        word={defining?.word ?? null}
+        legal={defining?.legal ?? true}
+        onClose={() => setDefining(null)}
+      />
       {snap.beat && <EndBeat onDone={() => controller.finishBeat()} />}
       {snap.end && (
         <ResultOverlay

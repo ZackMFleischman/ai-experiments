@@ -109,8 +109,10 @@ are logged at the bottom with date + reason, and deleted when fixed.
   a caption.
 - A gloss found through a reduced form carries the "form of CAT" chip — the
   player can always see which word was actually defined.
-- The `definition-none` state reads as informative, not as a rejection: the word
-  is stated to be legal, and the Wiktionary link-out is present in every state.
+- The `definition-none` state reads as informative, not as a rejection: a legal
+  word is stated to be legal (`definition-none`), while a word the dictionary
+  rejected says so instead of being called legal (`definition-none-illegal`).
+  The Wiktionary link-out is present in every state.
 - Preview chips stay legible as buttons: no focus ring or button chrome at rest,
   and their grown tap targets (≥44px) don't overlap enough to make the wrong
   word tappable on a pileup.

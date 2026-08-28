@@ -378,6 +378,19 @@ export const GALLERY: GalleryEntry[] = [
     ),
   },
   {
+    id: 'definition-none-illegal',
+    render: () => (
+      <Box data-gallery-ready>
+        <WordDefinitionSheet
+          word="ENT"
+          legal={false}
+          onClose={() => {}}
+          initialState={{ status: 'none' }}
+        />
+      </Box>
+    ),
+  },
+  {
     id: 'ending-played-out-win',
     render: () => game(() => fixtureController(FULL_GAME, (c) => c.finishBeat()), ['You', 'Opponent']),
   },
