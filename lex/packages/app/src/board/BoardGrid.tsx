@@ -55,6 +55,10 @@ export interface BoardGridProps {
   /** Cells of the most recent play, in placement order — highlighted and
    * animated in tile-by-tile (T3.9). */
   lastPlayCells?: readonly CellKey[];
+  /** Cells of a staged word the preview card marks ✗ — a DASHED red ring, so
+   * it never reads as pending gold or last-play green (both solid) and points
+   * straight at which of several words failed the dictionary. */
+  flagCells?: readonly CellKey[] | null;
   /** Freeze animations (gallery ?static=1). */
   static?: boolean;
 }
@@ -66,6 +70,7 @@ export function BoardGrid({
   pending,
   hover,
   lastPlayCells,
+  flagCells,
   static: isStatic = false,
 }: BoardGridProps) {
   const mode = useTheme().palette.mode;
@@ -74,6 +79,7 @@ export function BoardGrid({
 
   const lastPlayIndex = new Map<CellKey, number>();
   lastPlayCells?.forEach((key, i) => lastPlayIndex.set(key, i));
+  const flagged = new Set<CellKey>(flagCells ?? []);
 
   const cells = [];
   for (let row = 0; row < layout.rows; row++) {
@@ -88,6 +94,7 @@ export function BoardGrid({
           key={key}
           data-cell={key}
           data-premium={premium}
+          data-flagged={flagged.has(key) ? 'true' : undefined}
           role="gridcell"
           sx={{
             width: 'var(--lex-cell)',
@@ -98,6 +105,14 @@ export function BoardGrid({
             alignItems: 'center',
             justifyContent: 'center',
             boxSizing: 'border-box',
+            ...(flagged.has(key) && {
+              // Thicker than the hover ring: this is the board half of the
+              // preview card's "this word isn't a word" and has to carry from
+              // across the board, not reward a squint.
+              outline: (t) => `3px dashed ${t.palette.error.main}`,
+              outlineOffset: '-1px',
+              zIndex: 1,
+            }),
             ...(hover === key && {
               outline: '2px solid var(--lex-tile-pending-edge)',
               outlineOffset: '-2px',

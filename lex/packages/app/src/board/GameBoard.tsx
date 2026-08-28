@@ -17,7 +17,10 @@ import { ResultOverlay } from '../game/ResultOverlay';
 import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { BoardGrid, boardPixelSize, pointToCell } from './BoardGrid';
-import { PreviewOverlay } from './PreviewOverlay';
+import { LastPlayBreakdown } from '../game/LastPlayBreakdown';
+import type { ManualSpot } from './PreviewCard';
+import { PreviewCard } from './PreviewCard';
+import { cellRect, cellsBounds, pickBadgeSpot } from './previewCard';
 import { rackSlotGeometry } from './rackGeometry';
 import type { BoardInteraction, BoardPoint, BoardViewportHandle } from './BoardViewport';
 import { BoardViewport } from './BoardViewport';
@@ -53,6 +56,12 @@ interface DragState {
 
 const HALF_TILE = CELL_PX / 2; // half the free-riding ghost tile
 
+// Last-play badge box. Sized from the label so its placement math (which is
+// pure geometry) reasons about the box the DOM actually renders.
+const BADGE_H = 20;
+const BADGE_PAD = 10;
+const BADGE_CHAR_PX = 8;
+
 const DEFAULT_NAMES = ['Player 1', 'Player 2'];
 
 export function GameBoard({
@@ -85,6 +94,19 @@ export function GameBoard({
   const [infoOpen, setInfoOpen] = useState(false);
   const pendingDrag = useRef<{ from: Cell; start: BoardPoint; moved: boolean } | null>(null);
   const trayWrapRef = useRef<HTMLDivElement | null>(null);
+  const boardAreaRef = useRef<HTMLDivElement | null>(null);
+  // Where the player parked the preview card. Kept for the whole session — a
+  // spot chosen once shouldn't have to be re-chosen every turn — and only
+  // overridden when it would sit on top of a NEW staged word (PreviewCard).
+  const [cardSpot, setCardSpot] = useState<ManualSpot | null>(null);
+  // The last-play badge expands into its word breakdown (how the opponent got
+  // that number) — anchored to the badge, so it can't hide the board for long.
+  const [breakdownAnchor, setBreakdownAnchor] = useState<HTMLElement | null>(null);
+  // The badge parks in an empty cell, but "empty" is not the same as "not in
+  // the way" — beside a tight word it can still sit over the square you are
+  // trying to read. Its only exit used to be staging a tile, so a tap on the
+  // board tucks it away, and another tap brings it back.
+  const [scoreTucked, setScoreTucked] = useState(false);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
@@ -186,6 +208,26 @@ export function GameBoard({
     [controller, snapCell, landSlot, overRack, rackIndexAt, updateDrag],
   );
 
+  /** Toggle the last-play badge — but only when a badge is actually on the
+   * board, so taps taken while tiles are staged (when it is hidden anyway)
+   * can't leave it tucked away for the recall that follows. */
+  const toggleLastPlayScore = useCallback(() => {
+    const s = controller.getSnapshot();
+    if (s.lastPlay?.kind !== 'play' || s.pending.size > 0) return;
+    setBreakdownAnchor(null);
+    setScoreTucked((tucked) => !tucked);
+  }, [controller]);
+
+  // A play of their own is news: it brings the badge back whatever the player
+  // did with the previous one.
+  const lastPlayKey = snap.lastPlay
+    ? `${snap.lastPlay.by}:${snap.lastPlay.kind}:${snap.lastPlay.total}:${snap.lastPlay.cells.join('|')}`
+    : '';
+  useEffect(() => {
+    setScoreTucked(false);
+    setBreakdownAnchor(null);
+  }, [lastPlayKey]);
+
   // Staged-tile drags arrive through the viewport; the drag layer works in
   // client coordinates from here on.
   const interaction: BoardInteraction = useMemo(
@@ -238,10 +280,21 @@ export function GameBoard({
         }
         finishDrag(client);
       },
-      onCellTap: (cell) => controller.tapCell(cell),
-      onBackgroundTap: () => controller.cancelSelection(),
+      // A tap that PLACES or bounces a tile is doing its own job — only a tap
+      // that would otherwise do nothing gets to toggle the badge.
+      onCellTap: (cell) => {
+        const s = controller.getSnapshot();
+        const moves = s.selection !== null || s.pending.has(cellKey(cell));
+        controller.tapCell(cell);
+        if (!moves) toggleLastPlayScore();
+      },
+      onBackgroundTap: () => {
+        const armed = controller.getSnapshot().selection !== null;
+        controller.cancelSelection();
+        if (!armed) toggleLastPlayScore();
+      },
     }),
-    [controller, finishDrag, snapCell, overRack, updateDrag],
+    [controller, finishDrag, snapCell, overRack, updateDrag, toggleLastPlayScore],
   );
 
   // Rack drags: the tray hands the pointer over; window listeners take it.
@@ -295,6 +348,54 @@ export function GameBoard({
   const lastPlay =
     snap.lastPlay?.kind === 'play' && snap.pending.size === 0 ? snap.lastPlay : undefined;
   const lastPlayEnd = lastPlay?.cells[lastPlay.cells.length - 1];
+  // The badge hugs the word it annotates, in the first spot that covers no
+  // letter. It used to anchor one cell past `cells[last]` — the tile the mover
+  // happened to drop LAST, which is neither the end of the word nor even
+  // necessarily next to an empty cell: a play that bridges committed tiles
+  // (LATELY laid through the L of LOVER) parked the badge right on a letter.
+  const lastPlayBadge = (() => {
+    if (!lastPlay || !lastPlayEnd || scoreTucked) return null;
+    const label = `+${lastPlay.total}`;
+    const play = cellsBounds(lastPlay.cells.map(parseCellKey));
+    if (!play) return null;
+    const spot = pickBadgeSpot({
+      play,
+      badge: { width: BADGE_PAD + BADGE_CHAR_PX * label.length, height: BADGE_H },
+      occupied: [...snap.state.board.keys()].map((k) => cellRect(parseCellKey(k))),
+      board: { left: 0, top: 0, width, height },
+      gap: 4,
+    });
+    return { label, spot };
+  })();
+
+  // What the preview card needs: the staged cells it must not cover, and the
+  // committed letters it would rather not cover either.
+  const playCells = useMemo(
+    () => [...snap.pending.keys()].map(parseCellKey),
+    [snap.pending],
+  );
+  const committedCells = useMemo(() => [...snap.state.board.keys()], [snap.state.board]);
+  const cardVisible = snap.preview !== null && !snap.preview.needsBlank && playCells.length > 0;
+  // A word the card marks ✗ gets its cells ringed, so "which of these three
+  // words is the bad one" is answered on the board rather than by counting
+  // letters. Derived from the verdict — no pointer events, so the card can
+  // stay click-through.
+  const rejectedWords = useMemo(
+    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => !w.valid) : []),
+    [snap.preview],
+  );
+  const flaggedCells = useMemo(
+    () => rejectedWords.flatMap((w) => w.cells.map(cellKey)),
+    [rejectedWords],
+  );
+  // The same sentence the card's red band carries, for the Play button (whose
+  // greyed-out state is otherwise the least legible signal on the screen).
+  const blockedReason =
+    cardVisible && rejectedWords.length > 0
+      ? rejectedWords.length === 1
+        ? `${rejectedWords[0]!.word} isn’t in the dictionary`
+        : `${rejectedWords.length} words aren’t in the dictionary`
+      : undefined;
 
   // While a staged tile is in flight its cell renders empty — the ghost IS the tile.
   const visiblePending = useMemo(() => {
@@ -341,7 +442,7 @@ export function GameBoard({
         dictionaryId={snap.options.dictionaryId}
         {...(timeControl !== undefined ? { timeControl } : {})}
       />
-      <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
+      <Box ref={boardAreaRef} sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardViewport
           boardWidth={width}
           boardHeight={height}
@@ -357,34 +458,80 @@ export function GameBoard({
               tiles={snap.state.board}
               pending={visiblePending}
               hover={hover}
+              flagCells={cardVisible ? flaggedCells : null}
               {...(lastPlay ? { lastPlayCells: lastPlay.cells } : {})}
             />
-            <PreviewOverlay
-              preview={snap.preview}
-              anchor={snap.pending.size > 0 ? [...snap.pending.keys()][0] ?? null : null}
-            />
-            {lastPlay && lastPlayEnd && (
+            {lastPlayBadge && (
               <Box
                 data-testid="last-play-score"
+                role="button"
+                tabIndex={0}
+                aria-label={`${lastPlay!.total} points last play — show the words`}
+                // The viewport captures the pointer on any pointerdown that
+                // reaches it, which retargets the click away from this badge —
+                // so the gesture has to stop here. (jsdom has no pointer
+                // capture, which is why only a real browser catches it.)
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => setBreakdownAnchor(e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setBreakdownAnchor(e.currentTarget);
+                }}
+                // Explicit size: the placement math above reasons about this
+                // exact box, so it must not be left to content flow.
+                style={{
+                  left: lastPlayBadge.spot.left,
+                  top: lastPlayBadge.spot.top,
+                  width: lastPlayBadge.spot.width,
+                  height: lastPlayBadge.spot.height,
+                }}
                 sx={{
                   position: 'absolute',
-                  left: 2 + (parseCellKey(lastPlayEnd).col + 1) * 36 + 4,
-                  top: 2 + parseCellKey(lastPlayEnd).row * 36,
-                  px: 0.75,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   borderRadius: 10,
                   bgcolor: 'secondary.main',
                   color: 'secondary.contrastText',
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: 700,
-                  pointerEvents: 'none',
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  // Tappable to expand the breakdown — but INERT the moment a
+                  // rack tile is armed, so it can never eat the cell tap that
+                  // places it. (It already disappears once anything is staged.)
+                  pointerEvents: snap.selection === null ? 'auto' : 'none',
                   zIndex: 2,
                 }}
               >
-                +{lastPlay.total}
+                {lastPlayBadge.label}
               </Box>
             )}
           </Box>
         </BoardViewport>
+        <LastPlayBreakdown
+          anchorEl={lastPlayBadge ? breakdownAnchor : null}
+          onClose={() => setBreakdownAnchor(null)}
+          {...(lastPlay ? { play: lastPlay } : {})}
+          by={seatNames[lastPlay?.by ?? 0] ?? `Player ${(lastPlay?.by ?? 0) + 1}`}
+        />
+        {/* The preview card lives OUTSIDE the board transform (screen space):
+            it stays a readable size at every zoom and can never be panned
+            off-screen. */}
+        {cardVisible && snap.preview && (
+          <PreviewCard
+            preview={snap.preview}
+            bingoBonus={snap.ruleset.bingoBonus}
+            playCells={playCells}
+            occupiedCells={committedCells}
+            boardSize={{ width, height }}
+            hostRef={boardAreaRef}
+            viewportRef={viewportRef}
+            faded={drag !== null}
+            placing={snap.selection !== null}
+            manual={cardSpot}
+            onManualChange={setCardSpot}
+          />
+        )}
       </Box>
       {snap.exchange ? (
         <ExchangeBar
@@ -403,6 +550,7 @@ export function GameBoard({
           bagCount={snap.bagCount}
           confirmBeforePlay={confirmPlay}
           playScore={snap.preview?.total}
+          {...(blockedReason ? { blockedReason } : {})}
           onPlay={() => controller.submitPlay()}
           onRecall={() => controller.recallAll()}
           onExchange={() => controller.beginExchange()}

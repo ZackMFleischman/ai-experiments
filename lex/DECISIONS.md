@@ -265,6 +265,78 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   provider in App.tsx, Settings toggle) gates a Play-confirm dialog; default
   **off** so existing one-tap flow and e2e are unchanged. Visual-checklist amended.
 
+- **2026-08-05 — Preview chips → one draggable preview card (Zack).** Per-word
+  chips anchored a row above each word's first cell covered the letters they
+  annotated, and cross words (whose first cells sit a cell apart) piled their
+  chips onto each other. Replaced by a single card: one row per word, a bingo
+  line, and the play's total — which **reverses the 2026-07-05 "no total badge"
+  call**, since the reason that badge was redundant (one chip = one word) dies
+  with the chips, and a multi-word play had nowhere to show its value. Placement
+  is `previewCard.pickCardSpot` (pure board-space geometry, unit-tested): score
+  the spots around the play by what they'd hide, fall back to a clear corner of
+  the visible slice, clamp on screen. It renders OUTSIDE the board transform so
+  zoom doesn't shrink the text, and it is drag/arrow-key movable — a parked spot
+  survives until it would cover a *new* staged word. Same pass: the last-play
+  `+N` badge flips inside the board when its word ends at the right edge.
+
+- **2026-08-05 — The preview card is click-through; only its grip isn't
+  (Zack, from the PR's mp e2e).** The card parks in the empty space beside the
+  play — which is exactly where the next tile goes — so as a normal pointer
+  target it swallowed taps meant for cells: the multiplayer e2e hung clicking a
+  cell under a "Must connect to a word" hint, and a real player would have hit
+  the same wall. The chips it replaced were `pointerEvents: none` and never
+  could. Now the card body is inert, a small grip carries the drag/arrow-key
+  affordance, and the transient geometry hint has no grip at all. The row
+  hover-to-ring interaction died with it, replaced by something better that
+  needs no pointer events: the cells of any word marked ✗ stay ringed (dashed
+  red) while the card is up.
+
+- **2026-08-05 — Last-play badge follows the WORD, not the last tile dropped
+  (Zack).** It anchored one cell past `cells[last]` — the tile the mover
+  happened to place last, in staging order — so on a play that bridges committed
+  letters (LATELY laid through the L of LOVER) it parked directly on a letter.
+  It now shares the card's geometry module: `pickBadgeSpot` hugs the played
+  word's full span (the placed cells' bbox spans anything bridged) and takes the
+  first side that covers no tile. The badge is explicitly sized so the placement
+  math reasons about the box the DOM renders.
+
+- **2026-08-05 — Board chrome goes inert while a tile is armed (Zack).** The
+  preview card's grip and the last-play badge both sit in empty cells beside the
+  play, and for a word growing down a column the grip lands on the very NEXT
+  cell — which is how the mp e2e's vertical bingo stalled even after the card
+  itself went click-through. Both now drop `pointer-events` whenever
+  `selection !== null` (a rack tile armed for tap-tap). Nothing is lost: with no
+  tile armed a tap on an empty cell does nothing anyway, so the only taps the
+  chrome can take are the ones the board had no use for.
+
+- **2026-08-05 — The last-play badge expands into its word breakdown (Zack).**
+  "How did they score 19?" was only answerable from the score-sheet drawer,
+  two taps away and out of sight of the play. Tapping the badge now opens a
+  popover with each word and its score, a ★ Bonus line when the recorded total
+  exceeds the recorded words (stated as the arithmetic gap — the UI doesn't know
+  the ruleset's bonus rules), and the total. A popover, not another board
+  floater: anchored, tap-away-dismissed, edge-flipping. Works in multiplayer —
+  the sync path keeps `words` (word + score) and drops only their cells.
+
+- **2026-08-13 — A rejected word is the preview card's loudest state (Zack).**
+  A small red ✗ on one row, beside a big black total, next to a Play button
+  whose only tell is being grey, read as decoration — players kept pressing a
+  disabled button. The card now turns whole: red border, total struck through,
+  the offending row filled red, a thicker dashed ring on its cells. The first
+  build also carried a band spelling out "CATS isn't in the dictionary"; Zack
+  cut it as clutter — the state is legible without narrating itself, and the
+  words still reach hover and the a11y tree as the Play button's title. Still
+  pure verdict rendering — the UI decides nothing new, it just stops whispering.
+
+- **2026-08-13 — A board tap tucks the last-play badge away (Zack).** The badge
+  parks in an empty cell, which is not the same as out of the way: beside a
+  tight word it still sits over the square you want to read, and its only exit
+  was staging a tile. A tap on the board now toggles it (the green highlight
+  stays — only the number steps aside). Taps that place or bounce a tile are
+  doing their own job and don't toggle; nor do taps taken while tiles are
+  staged, so a recall never returns to a missing badge; a new play always
+  restores it.
+
 - **2026-08-28 — N players (2–4) adopted; the platform generalizes, lex is the
   acceptance vehicle** (owner decision). Option B of the exploration: `../parlor/`
   grows an N-seat model rather than lex forking its own callables. Sequenced ahead
