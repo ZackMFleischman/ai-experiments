@@ -18,8 +18,9 @@ export interface SweepResult {
 }
 
 export interface ForfeitConfig {
-  /** Seat keys in move order (e.g. ['p0', 'p1']) — `toMove`/`result` values. */
-  seatKeys: readonly [string, string];
+  /** Seat keys in move order (e.g. ['p0', 'p1']) — `toMove`/`result` values.
+   * A list, not a pair, so a GameServerConfig drops straight in (T7.4). */
+  seatKeys: readonly string[];
   notify: NotifyConfig;
 }
 
@@ -30,7 +31,10 @@ export interface ForfeitHandlers {
 }
 
 export function createForfeitHandlers(config: ForfeitConfig): ForfeitHandlers {
-  const [SEAT0, SEAT1] = config.seatKeys;
+  // T7.7 turns an expired 3+ game into a withdrawal; today every forfeit is
+  // terminal and hands the game to the other seat.
+  const SEAT0 = config.seatKeys[0]!;
+  const SEAT1 = config.seatKeys[1]!;
   const notify = createNotify(config.notify);
 
   interface SweepGameDoc {

@@ -439,3 +439,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `initialState` also starts **refusing** seat counts outside `ruleset.players`,
   closing a door that was open (5+ seats dealt happily): the range is rules data,
   and a board that cannot deal a count should be the thing that says so.
+
+- **2026-08-28 — `parseSeatChoice` returns `TurnOrderChoice | number`, so no
+  sibling file changes** (T7.4). M7's hard gate is that hive, checkers and tafl
+  stay green **untouched**, and their configs return a resolved `0 | 1`. Widening
+  the hook's return type (covariant) rather than replacing it keeps those
+  implementations assignable, and `normalizeTurnOrder` lifts a bare index into
+  `{mode:'host-seat'}` at the one call site. Rematch's rotate-by-one also lands
+  here rather than in T7.7: it is *identical* to today's two-seat swap, and the
+  seat plumbing had to be rewritten generically anyway.

@@ -4,9 +4,12 @@
 // peerDependencies provided by the consuming game's functions package.
 export {
   createGameCallables,
+  normalizeTurnOrder,
   type GameCallables,
   type GameServerConfig,
   type InitialGame,
+  type SeatChoice,
+  type TurnOrderChoice,
 } from './games';
 export {
   createSubmitMove,

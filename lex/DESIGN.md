@@ -270,8 +270,9 @@ Firestore**. Consequences, designed once here and referenced everywhere:
 - **Dictionary interface** (§5.4): new word lists are assets, not code.
 - **`GameTransport`** (from hive): hot-seat, localStorage, and Firestore backends
   behind one interface; an AI opponent later is just another transport peer.
-- **N players:** engine state is seat-indexed arrays throughout; only
-  platform/lobby/UI assume 2 seats.
+- **N players:** the engine and the parlor server are seat-indexed throughout
+  (`seatKeys` is a list, `Ruleset.players`/`GameServerConfig.players` declare the
+  range); the lobby/UI surfaces are the last place two seats are assumed.
 - **Tile skinning:** tile/board visuals are CSS-variable-driven themes (the hive
   "bear mode" lesson institutionalized): rules and engine never see the skin.
 - **Backend swap:** Firebase confined to `@parlor/web`, `@parlor/server`,
@@ -300,7 +301,7 @@ by construction):**
 | `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `@parlor/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
 | `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config. `firestoreTransport.ts` keeps its class game-side but its shared shell — `seatIndexOf`, `watchGameMeta` (incl. the permission-denied **delete-detection**), and the log-replay reads `fetchOrderedMoves`/`watchAddedMoves` — is `@parlor/web/transport`. The **sync strategy** is game-owned: hive/perfect-info games replay the log (those two reads); lex keeps its hidden-info **coherent-adoption** strategy (re-read game+rack+log per signal, coherence + monotonic gates) — the plan's allowed "leave it game-provided". |
 | the lobby/landing **presentation**: `screens/lobbyView` (grouped list + cards), `turnBadge`, `waitingView` (invite/waiting/challenge), `Landing`+`LandingLayout` shell, `Join` card + `JoinByCode`, `newGameView`'s `friendsFrom`/`InviteLinkView` | `@parlor/web` (`./lobby-ui`) | game injects the slots — board thumbnail, card caption, empty-state motif, landing hero, join-detail chips; the lobby summary EXTENDS a generic `LobbySummary` (seat-index meta). Each `screens/*` file is now a thin wrapper binding lex's slots. |
-| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out |
+| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out. **Seats are a list, not a pair:** `seatKeys`/`rackDocs` are arrays, `players: {min,max}` declares the range (default `{2,2}`), `initialGame` receives the count, and `parseSeatChoice` returns a `TurnOrderChoice` — a bare seat index still means "the creator takes this seat", which is what the `me`/`them`/`random` wire values have always produced |
 | `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
 | `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `@parlor/harness` (+ thin `scripts/` wrappers in lex) | near-verbatim |
 | `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `@parlor/web` | theme tokens re-skinned per game |

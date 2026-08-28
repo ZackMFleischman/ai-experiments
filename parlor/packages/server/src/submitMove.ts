@@ -79,7 +79,9 @@ interface SubmitDocData extends DocumentData {
 export function createSubmitMove<TOptions, TMove>(
   config: SubmitMoveConfig<TOptions, TMove>,
 ): CallableFunction<unknown, unknown> {
-  const [SEAT0] = config.seatKeys;
+  // T7.11 widens `mySeat` past two; today every game that submits moves is
+  // two-seat, and seat 0 is the one that moves first.
+  const SEAT0 = config.seatKeys[0]!;
   const notify = createNotify(config.notify);
 
   return onCall(async (request) => {
