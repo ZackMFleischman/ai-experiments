@@ -541,9 +541,12 @@ export class GameController {
       // Line items = engine finals minus the recorded pre-adjustment totals
       // (arithmetic over verdicts already computed — no rules re-derived).
       const before = s.sheet[s.sheet.length - 1]?.totals ?? res.finalScores.map(() => 0);
+      // The 2-seat form of the engine's standings: the top placing is a draw
+      // when more than one seat shares it (T7.13/T7.16 render the full rail).
+      const top = res.standings[0]!;
       return {
         by: res.by,
-        winner: res.winner,
+        winner: top.length > 1 ? 'draw' : top[0]!,
         finalScores: res.finalScores,
         adjustments: res.finalScores.map((score, seat) => score - (before[seat] ?? 0)),
       };

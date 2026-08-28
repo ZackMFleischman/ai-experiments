@@ -78,6 +78,21 @@ export function nextActiveSeat(state: GameState, from: Seat): Seat {
   return from;
 }
 
+/**
+ * The seats still to play, starting at `toMove` and skipping the withdrawn —
+ * the ONE source of turn order (DESIGN §5.1). The UI renders this; it never
+ * derives the rotation itself.
+ */
+export function turnQueue(state: GameState): readonly Seat[] {
+  const seats = state.racks.length;
+  const queue: Seat[] = [];
+  for (let step = 0; step < seats; step++) {
+    const seat = (state.toMove + step) % seats;
+    if (!isWithdrawn(state, seat)) queue.push(seat);
+  }
+  return queue;
+}
+
 /** Draw `n` tiles off the bag front (or all that remain). Pure. */
 export function draw(bag: readonly TileFace[], n: number): { drawn: TileFace[]; rest: TileFace[] } {
   return { drawn: bag.slice(0, n), rest: bag.slice(n) };
@@ -115,8 +130,9 @@ function assertPermutation(ruleset: Ruleset, bagOrder: readonly TileFace[]): voi
 
 /** Validates the permutation and deals `seats` racks in seat order. */
 export function initialState(ruleset: Ruleset, bagOrder: readonly TileFace[], seats: number): GameState {
-  if (!Number.isInteger(seats) || seats < 2) {
-    throw new Error(`seats must be an integer ≥ 2, got ${seats}`);
+  const { min, max } = ruleset.players;
+  if (!Number.isInteger(seats) || seats < min || seats > max) {
+    throw new Error(`seats must be an integer in ${min}–${max} for ruleset '${ruleset.id}', got ${seats}`);
   }
   assertPermutation(ruleset, bagOrder);
   const racks: TileFace[][] = [];

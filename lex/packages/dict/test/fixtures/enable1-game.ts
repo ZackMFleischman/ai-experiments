@@ -48,5 +48,5 @@ export const ENABLE1_GAME = {
   ],
   finalScores: [219, 239] as readonly number[],
   endedBy: 'played-out' as const,
-  winner: 1,
+  standings: [[1], [0]] as readonly (readonly number[])[],
 };

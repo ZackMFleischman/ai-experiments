@@ -178,7 +178,9 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
     const terminal =
       outcome.status === 'finished'
         ? {
-            result: outcome.winner === 'draw' ? 'draw' : outcome.winner === 0 ? 'p0' : 'p1',
+            // 2-seat wire form (T7.11 widens it to standings): the top
+            // placing is a draw when more than one seat shares it.
+            result: outcome.standings[0]!.length > 1 ? 'draw' : outcome.standings[0]![0] === 0 ? 'p0' : 'p1',
             endedBy: outcome.by,
           }
         : null;

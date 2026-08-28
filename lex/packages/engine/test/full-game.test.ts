@@ -27,7 +27,7 @@ describe.each(Object.entries(FIXTURES))('%s', (_name, fixture) => {
     expect([...state.scores]).toEqual(fixture.finalScores);
     expect(result(state)).toEqual({
       status: 'finished',
-      winner: fixture.winner,
+      standings: fixture.standings,
       by: fixture.endedBy,
       finalScores: fixture.finalScores,
     });

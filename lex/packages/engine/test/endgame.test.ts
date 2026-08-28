@@ -53,7 +53,7 @@ describe('played-out ending', () => {
     expect(next.scores).toEqual([50 + 8 + 18, 60 - 18]);
     expect(result(next)).toEqual({
       status: 'finished',
-      winner: 0,
+      standings: [[0], [1]],
       by: 'played-out',
       finalScores: [76, 42],
     });
@@ -64,7 +64,7 @@ describe('played-out ending', () => {
     const state = endgameState({ scores: [50, 94] });
     const next = applyMove(state, { type: 'play', placements: [place(6, 9, 'E'), place(7, 9, 'S')] }, dict);
     expect(next.scores).toEqual([76, 76]);
-    expect(result(next)).toMatchObject({ status: 'finished', winner: 'draw', by: 'played-out' });
+    expect(result(next)).toMatchObject({ status: 'finished', standings: [[0, 1]], by: 'played-out' });
   });
 
   it('with N players the finisher collects every stranded rack', () => {
@@ -76,7 +76,7 @@ describe('played-out ending', () => {
     const next = applyMove(state, { type: 'play', placements: [place(6, 9, 'E'), place(7, 9, 'S')] }, dict);
     // play 8; gains Q(10) + Z+J(18) = 28
     expect(next.scores).toEqual([8 + 28, -10, -18]);
-    expect(result(next)).toMatchObject({ status: 'finished', winner: 0 });
+    expect(result(next)).toMatchObject({ status: 'finished', standings: [[0], [1], [2]] });
   });
 
   it('a played-out ending is not possible while the bag holds tiles', () => {
@@ -94,14 +94,14 @@ describe('scoreless-limit ending', () => {
     expect(next.scorelessRun).toBe(6);
     // seat 0 deducts S+E = 2; seat 1 deducts Q+X = 18
     expect(next.scores).toEqual([48, 42]);
-    expect(result(next)).toEqual({ status: 'finished', winner: 0, by: 'scoreless', finalScores: [48, 42] });
+    expect(result(next)).toEqual({ status: 'finished', standings: [[0], [1]], by: 'scoreless', finalScores: [48, 42] });
   });
 
   it('a scoreless deduction can produce a draw', () => {
     const state = endgameState({ scores: [50, 66], scorelessRun: 5, bag: ['B'] as TileFace[] });
     const next = applyMove(state, { type: 'pass' }, dict);
     expect(next.scores).toEqual([48, 48]);
-    expect(result(next)).toMatchObject({ winner: 'draw', by: 'scoreless' });
+    expect(result(next)).toMatchObject({ standings: [[0, 1]], by: 'scoreless' });
   });
 
   it('a scoring play resets the run and keeps the game alive', () => {
@@ -221,6 +221,54 @@ describe('withdrawn seats sit out the played-out pot', () => {
   });
 });
 
+// T7.3: placings, best-first, inner arrays tied (DECISIONS 2026-08-28).
+describe('standings', () => {
+  it('ranks every withdrawn player below everyone who finished, however far ahead', () => {
+    // Seat 1 quit on 250 in a game seat 0 is winning with 10.
+    const state = endgameState({
+      racks: [['S', 'E'], [], []] as TileFace[][],
+      scores: [10, 250, 20],
+      withdrawn: [1, 2],
+    });
+    expect(result(state)).toMatchObject({ by: 'last-standing', standings: [[0], [1], [2]] });
+  });
+
+  it('orders the withdrawn among themselves by frozen score', () => {
+    const state = endgameState({
+      racks: [['S'], [], []] as TileFace[][],
+      scores: [5, 40, 90],
+      withdrawn: [1, 2],
+    });
+    expect(result(state)).toMatchObject({ standings: [[0], [2], [1]] });
+  });
+
+  it('groups ties into one placing, in seat order', () => {
+    const state = endgameState({
+      racks: [[], ['Q'], ['Q'], ['Z']] as TileFace[][],
+      scores: [30, 20, 20, 40],
+    });
+    expect(result(state)).toMatchObject({ by: 'played-out', standings: [[3], [0], [1, 2]] });
+  });
+
+  it('is a single tied group when every score matches', () => {
+    const state = endgameState({ racks: [[], ['Q']] as TileFace[][], scores: [7, 7] });
+    expect(result(state)).toMatchObject({ standings: [[0, 1]] });
+  });
+
+  it('partitions every seat exactly once', () => {
+    const state = endgameState({
+      racks: [[], ['Q'], [], ['Z']] as TileFace[][],
+      scores: [30, 20, 60, 40],
+      withdrawn: [2],
+    });
+    const outcome = result(state);
+    if (outcome.status !== 'finished') throw new Error('expected a finished game');
+    expect([...outcome.standings.flat()].sort()).toEqual([0, 1, 2, 3]);
+    // Seat 2 leads on 60 but withdrew, so it places last.
+    expect(outcome.standings).toEqual([[3], [0], [1], [2]]);
+  });
+});
+
 describe('terminal states', () => {
   it('result() is ongoing for a fresh game', () => {
     const state = initialState(classic, canonicalBagOrder(classic), 2);
@@ -249,6 +297,6 @@ describe('terminal states', () => {
     ]);
     const next = applyMove({ ...state, board: zeroBoard }, { type: 'play', placements: [place(7, 9, 'S', true)] }, dict);
     expect(next.scores).toEqual([50 + 0 + 10, 60 - 10]);
-    expect(result(next)).toMatchObject({ by: 'played-out', winner: 0 });
+    expect(result(next)).toMatchObject({ by: 'played-out', standings: [[0], [1]] });
   });
 });

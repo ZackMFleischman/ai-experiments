@@ -34,7 +34,8 @@ export type GameResult =
   | { status: 'ongoing' }
   | {
       status: 'finished';
-      winner: Seat | 'draw';
+      /** Best-first placings; an inner array of 2+ seats is a tie. */
+      standings: readonly (readonly Seat[])[];
       by: 'played-out' | 'scoreless' | 'last-standing';
       finalScores: readonly number[];
     };
@@ -70,15 +71,31 @@ function endedBy(state: GameState, ruleset: Ruleset): 'played-out' | 'scoreless'
   return null;
 }
 
+/**
+ * Best-first placings. Everyone who finished ranks above everyone who
+ * withdrew; inside each block, by score, tied seats sharing a placing
+ * (DECISIONS 2026-08-28 — ranking purely by score would make resigning while
+ * ahead a viable way to bank a placing).
+ */
+function placings(state: GameState): readonly (readonly Seat[])[] {
+  const byScore = (seats: readonly Seat[]): (readonly Seat[])[] => {
+    const groups = new Map<number, Seat[]>();
+    for (const seat of seats) {
+      const tied = groups.get(state.scores[seat]!);
+      if (tied) tied.push(seat);
+      else groups.set(state.scores[seat]!, [seat]);
+    }
+    return [...groups.keys()].sort((a, b) => b - a).map((score) => Object.freeze(groups.get(score)!));
+  };
+  return Object.freeze([...byScore(activeSeats(state)), ...byScore(state.withdrawn)]);
+}
+
 /** Board outcomes only — resign/timeout live in the game doc (DESIGN §6.2). */
 export function result(state: GameState): GameResult {
   const ruleset = rulesetOf(state);
   const by = endedBy(state, ruleset);
   if (!by) return { status: 'ongoing' };
-  const top = Math.max(...state.scores);
-  const winners = state.scores.filter((score) => score === top);
-  const winner: Seat | 'draw' = winners.length === 1 ? state.scores.indexOf(top) : 'draw';
-  return { status: 'finished', winner, by, finalScores: state.scores };
+  return { status: 'finished', standings: placings(state), by, finalScores: state.scores };
 }
 
 /** The §2.1 end adjustments, applied by the terminal applyMove. */

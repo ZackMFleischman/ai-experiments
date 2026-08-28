@@ -1,11 +1,12 @@
 // T1.2: bag + initialState — permutation validation, seat-order dealing,
 // deterministic draw (IMPLEMENTATION §2 M1).
 import { describe, expect, it } from 'vitest';
-import { RULESETS, initialState } from '../src/index.js';
+import { RULESETS, applyMove, initialState, turnQueue, withdraw, type GameState } from '../src/index.js';
 import { draw } from '../src/state.js';
-import { canonicalBagOrder, rotatedBagOrder } from './helpers.js';
+import { canonicalBagOrder, rotatedBagOrder, stubDict } from './helpers.js';
 
 const classic = RULESETS.classic!;
+const dict = stubDict();
 
 describe('initialState', () => {
   it('deals racks in seat order and leaves the rest as the bag (front = next draw)', () => {
@@ -57,10 +58,15 @@ describe('initialState', () => {
     expect(() => initialState(classic, alien, 2)).toThrow(/permutation/);
   });
 
-  it('rejects nonsensical seat counts', () => {
+  it('rejects seat counts outside the ruleset’s players range', () => {
     const order = canonicalBagOrder(classic);
+    expect(classic.players).toEqual({ min: 2, max: 4 });
     expect(() => initialState(classic, order, 0)).toThrow(/seats/);
     expect(() => initialState(classic, order, 1)).toThrow(/seats/);
+    expect(() => initialState(classic, order, 5)).toThrow(/seats/);
+    expect(() => initialState(classic, order, 2.5)).toThrow(/seats/);
+    // The whole declared range deals.
+    for (const seats of [2, 3, 4]) expect(initialState(classic, order, seats).racks).toHaveLength(seats);
   });
 
   it('returns a deeply frozen state', () => {
@@ -70,6 +76,37 @@ describe('initialState', () => {
     expect(Object.isFrozen(state.racks[0])).toBe(true);
     expect(Object.isFrozen(state.bag)).toBe(true);
     expect(Object.isFrozen(state.scores)).toBe(true);
+  });
+});
+
+// T7.3: the one source of turn order — the UI never derives the rotation.
+describe('turnQueue', () => {
+  const fresh = (seats: number) => initialState(classic, canonicalBagOrder(classic), seats);
+
+  it('starts at toMove and rotates through every seat', () => {
+    expect(turnQueue(fresh(2))).toEqual([0, 1]);
+    expect(turnQueue(fresh(4))).toEqual([0, 1, 2, 3]);
+    const midway: GameState = { ...fresh(4), toMove: 2 };
+    expect(turnQueue(midway)).toEqual([2, 3, 0, 1]);
+  });
+
+  it('tracks the seat to move as play goes round', () => {
+    let state: GameState = fresh(3);
+    expect(turnQueue(state)).toEqual([0, 1, 2]);
+    state = applyMove(state, { type: 'pass' }, dict);
+    expect(turnQueue(state)).toEqual([1, 2, 0]);
+    state = applyMove(state, { type: 'pass' }, dict);
+    expect(turnQueue(state)).toEqual([2, 0, 1]);
+  });
+
+  it('leaves out withdrawn seats', () => {
+    const state = withdraw(fresh(4), 1);
+    expect(turnQueue(state)).toEqual([0, 2, 3]);
+    expect(turnQueue({ ...state, toMove: 2 })).toEqual([2, 3, 0]);
+  });
+
+  it('narrows to the survivor once everyone else has gone', () => {
+    expect(turnQueue(withdraw(withdraw(fresh(3), 1), 2))).toEqual([0]);
   });
 });
 

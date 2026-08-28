@@ -108,13 +108,17 @@ word list):
 Ruleset = {
   board:   BoardLayout      // rows, cols, premium map, start cell
   tiles:   TileSet          // per-letter count + points, blank count
-  rackSize, bingoBonus, exchangeMinBag, scorelessRounds   // × active seats
+  rackSize, bingoBonus, exchangeMinBag
+  scorelessRounds           // scoreless turns × active seats end the game
+  players: {min, max}       // seat counts this ruleset can be dealt for
 }
 GameOptions = { rulesetId, dictionaryId, timeControl }   // pinned at creation (FR-6..11)
 ```
 
 - The engine computes **everything** — geometry, scoring, end conditions — from the
   `Ruleset`; no dimension, premium, letter count, or bonus is hard-coded anywhere.
+  The **seat range is one of those dimensions** (a reduced-tile board cannot deal
+  four racks), so `initialState` refuses a count outside `players`.
 - Rulesets live in a registry in `@lex/engine` keyed by id. **v1 ships two**, both
   15×15 over the standard tile set, differing only in premium arrangement:
   `classic` (the traditional layout) and `modern` (a WWF-style layout). Games
@@ -357,6 +361,8 @@ and shrinks to zero when hive migrates.
   `toMove` seat, `moveCount`, `scorelessRun`, and `withdrawn` (the seats that have
   left, ascending). `PlayerView`: same minus other racks and bag contents (counts
   only) — who withdrew is public, so `withdrawn` projects through unchanged.
+- **Turn order is engine output, never UI arithmetic.** `turnQueue(state)` is the
+  rotation from `toMove` with withdrawn seats dropped; screens render it.
 
 ### 5.2 Verdict pipeline (what replaces hive's `legalMoves`)
 
@@ -384,6 +390,11 @@ exchange already uses, §3.3), records the seat in `withdrawn`, advances
 `moveCount`, and passes the turn on if it was theirs. Every seat scan in the
 engine — turn advance, the played-out test, the end adjustments — runs over
 **active** seats only, so a withdrawal never ends the game by itself.
+
+`result(state)` reports **`standings`** — placings best-first, an inner array of two
+or more seats being a tie — rather than a single winner. Everyone who finished
+ranks above everyone who withdrew, and only then by score, so resigning while
+ahead cannot bank a placing (DECISIONS 2026-08-28).
 
 ### 5.3 Algorithms (the interesting parts)
 

@@ -27,7 +27,7 @@ describe('controller end states from pinned fixtures', () => {
     const snap = controller.getSnapshot();
     expect(snap.end).toMatchObject({
       by: 'played-out',
-      winner: FULL_GAME.winner,
+      winner: FULL_GAME.standings[0]![0],
       finalScores: FULL_GAME.finalScores,
     });
     const end = snap.end!;
@@ -46,7 +46,7 @@ describe('controller end states from pinned fixtures', () => {
   it('scoreless limit: both racks deduct', async () => {
     const controller = await replayController(SCORELESS_GAME);
     const end = controller.getSnapshot().end!;
-    expect(end).toMatchObject({ by: 'scoreless', winner: SCORELESS_GAME.winner });
+    expect(end).toMatchObject({ by: 'scoreless', winner: SCORELESS_GAME.standings[0]![0] });
     if (!('adjustments' in end)) throw new Error('expected adjustments');
     expect(end.adjustments[0]).toBeLessThan(0);
     expect(end.adjustments[1]).toBeLessThan(0);
