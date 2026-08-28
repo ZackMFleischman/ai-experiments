@@ -21,10 +21,12 @@
 //
 // A game whose invalid words cost the turn (§2.3) removes exactly that column
 // and nothing else: every verdict is null, so no row can be red, no total
-// struck through, no cell ringed. The ✓/✗ slot becomes a "—" rather than
-// collapsing, so the card keeps its shape as you stage tiles and the missing
-// answer reads as WITHHELD rather than as a card that forgot to check. The
-// header says which it is, once and quietly.
+// struck through, no cell ringed — and the mark is simply ABSENT. An earlier
+// build kept a "—" in the slot plus a "not checked" tag in the header, on the
+// theory that a blank column would read as a broken check; in the game it read
+// as clutter repeating what the player chose at setup. The row is just the
+// word and its score. (`data-valid="unknown"` still distinguishes withheld
+// from valid for tests and the e2e — it is simply not drawn.)
 //
 // Everything shown is a controller verdict; only the position is computed here.
 import { Box, Paper, Typography } from '@mui/material';
@@ -393,15 +395,6 @@ export function PreviewCard({
             <Typography component="span" sx={{ fontSize: 11, color: 'text.secondary' }}>
               {words.length === 1 ? '1 word' : `${words.length} words`}
             </Typography>
-            {preview.verdictsWithheld && (
-              <Typography
-                data-testid="preview-withheld"
-                component="span"
-                sx={{ fontSize: 11, fontStyle: 'italic', color: 'text.disabled', ml: 'auto' }}
-              >
-                not checked
-              </Typography>
-            )}
           </Box>
           <Box role="list">
             {words.map((w, i) => (
@@ -410,9 +403,14 @@ export function PreviewCard({
               data-testid="preview-word"
               data-valid={w.valid === null ? 'unknown' : w.valid ? 'true' : 'false'}
               role="listitem"
-              aria-label={`${w.word}, ${w.score} points, ${
-                w.valid === null ? 'validity hidden until you play' : w.valid ? 'valid' : 'not in dictionary'
-              }`}
+              // Withheld reads the same to a screen reader as it looks on
+              // screen — word and score, no verdict — rather than narrating an
+              // absence the sighted card doesn't mention either.
+              aria-label={
+                w.valid === null
+                  ? `${w.word}, ${w.score} points`
+                  : `${w.word}, ${w.score} points, ${w.valid ? 'valid' : 'not in dictionary'}`
+              }
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -448,20 +446,21 @@ export function PreviewCard({
               <Typography component="span" sx={{ fontSize: 13, fontWeight: 700, color: 'inherit' }}>
                 {w.score}
               </Typography>
-              <Box
-                component="span"
-                aria-hidden
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 16,
-                  height: 16,
-                  lineHeight: 1,
-                  fontWeight: 800,
-                  ...(w.valid === null
-                    ? { fontSize: 13, color: 'text.disabled' }
-                    : w.valid
+              {/* No mark at all when the verdict is withheld — not a
+                  placeholder standing in for one. */}
+              {w.valid !== null && (
+                <Box
+                  component="span"
+                  aria-hidden
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 16,
+                    height: 16,
+                    lineHeight: 1,
+                    fontWeight: 800,
+                    ...(w.valid
                       ? { fontSize: 13, color: 'success.main' }
                       : {
                           fontSize: 11,
@@ -469,10 +468,11 @@ export function PreviewCard({
                           bgcolor: 'error.main',
                           color: 'error.contrastText',
                         }),
-                }}
-              >
-                {w.valid === null ? '—' : w.valid ? '✓' : '✗'}
-              </Box>
+                  }}
+                >
+                  {w.valid ? '✓' : '✗'}
+                </Box>
+              )}
             </Box>
             ))}
           </Box>

@@ -78,11 +78,11 @@ Functions: validation, notifications, forfeits).
   points and a ✓/✗ dictionary verdict; a total-score badge (including bingo)
   anchors to the main word; Play is enabled only when the play is fully legal.
 - **FR-24b** When invalid words **cost the turn**, the preview shows the same
-  words, scores and total but **no dictionary verdict** (a "—" in the mark's
-  place, and a "not checked" tag so the blank column reads as deliberate), no
-  rejected word is flagged on the card or the board, and Play stays enabled for
-  any legally-placed play. Committing a phoney raises a dismissible beat naming
-  the refused word(s) — the only surface that ever shows them.
+  words, scores and total and **no dictionary verdict at all** — no ✓/✗ and
+  nothing standing in for one. No rejected word is flagged on the card or the
+  board, and Play stays enabled for any legally-placed play. Committing a phoney
+  raises a dismissible beat naming the refused word(s) — the only surface that
+  ever shows them.
 - **FR-25** Playing a blank prompts for its letter; the designation is permanent
   and visually distinct (no point index) thereafter.
 - **FR-26** Exchange tiles: multi-select on the rack + confirm ("costs your

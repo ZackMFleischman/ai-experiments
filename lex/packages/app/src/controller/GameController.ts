@@ -59,10 +59,6 @@ export interface Preview {
   /** First staged blank still awaiting its letter (blocks Play). */
   needsBlank: CellKey | null;
   playable: boolean;
-  /** This game withholds dictionary verdicts (every `word.valid` is null) —
-   * the flag the card reads to say WHY the ✓/✗ column is blank rather than
-   * just dropping it silently. */
-  verdictsWithheld: boolean;
 }
 
 export type GameEnd =
@@ -637,7 +633,6 @@ export class GameController {
         bingo: false,
         needsBlank,
         playable: false,
-        verdictsWithheld: withheld,
       };
     }
     const score = scorePlay(game.board, placements, ruleset);
@@ -662,7 +657,6 @@ export class GameController {
       bingo: score.bingo,
       needsBlank,
       playable,
-      verdictsWithheld: withheld,
     };
   }
 

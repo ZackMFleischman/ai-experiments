@@ -62,7 +62,10 @@ test('"cost your turn" reaches the board: the preview withholds its verdict', as
   // The setting is live: no verdict on the word, and Play is enabled anyway.
   const word = page.getByTestId('preview-word').first();
   await expect(word).toHaveAttribute('data-valid', 'unknown');
-  await expect(page.getByTestId('preview-withheld')).toBeVisible();
+  // Nothing stands in for the verdict: no tick, no cross, no placeholder.
+  await expect(word).not.toContainText('✓');
+  await expect(word).not.toContainText('✗');
+  await expect(word).not.toContainText('—');
   // Scoped to the action row: the preview card's drag grip is also a `button`
   // whose accessible name contains "play".
   await expect(page.getByTestId('game-actions').getByRole('button', { name: 'Play' })).toBeEnabled();
@@ -80,10 +83,11 @@ test('the default rule still blocks: same flow, verdicts shown', async ({ page }
   await revealRack(page);
   await stageTwo(page);
 
-  await expect(page.getByTestId('preview-withheld')).toHaveCount(0);
-  // Whatever two tiles came up, the card commits to a verdict either way.
+  // Whatever two tiles came up, the card commits to a verdict either way —
+  // and draws it.
   const word = page.getByTestId('preview-word').first();
   await expect(word).toHaveAttribute('data-valid', /^(true|false)$/);
+  await expect(word).toContainText(/[✓✗]/);
 });
 
 test('a started game resumes on reload rather than re-asking', async ({ page }) => {

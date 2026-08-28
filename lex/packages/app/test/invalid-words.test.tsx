@@ -65,9 +65,16 @@ describe("invalidWords 'costs-turn': the preview withholds the verdict", () => {
     expect(row.textContent).toContain('CATS');
     expect(row.textContent).toContain('12'); // scoring is never withheld
     expect(row.getAttribute('data-valid')).toBe('unknown');
+    // The verdict column is ABSENT, not blanked: no tick, no cross, and no
+    // placeholder standing in for one. The row is word + score, nothing else.
     expect(row.textContent).not.toContain('✓');
     expect(row.textContent).not.toContain('✗');
-    expect(screen.getByTestId('preview-withheld')).toBeTruthy();
+    expect(row.textContent).not.toContain('—');
+    // Concatenated with no separator: the row is exactly two spans, the word
+    // and the score. Anything else in here is a mark that shouldn't be drawn.
+    expect(row.textContent).toBe('CATS12');
+    // The card doesn't narrate the omission either.
+    expect(screen.getByTestId('preview-card').textContent).not.toMatch(/not checked/i);
   });
 
   it('looks IDENTICAL for a word the dictionary would reject', async () => {
@@ -107,7 +114,7 @@ describe("invalidWords 'costs-turn': the preview withholds the verdict", () => {
     expect(row.getAttribute('data-valid')).toBe('false');
     expect(screen.getByTestId('preview-card').getAttribute('data-blocked')).toBe('true');
     expect(controller.getSnapshot().preview?.playable).toBe(false);
-    expect(screen.queryByTestId('preview-withheld')).toBeNull();
+    expect(row.textContent).toContain('✗');
   });
 });
 

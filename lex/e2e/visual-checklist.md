@@ -22,11 +22,12 @@ are logged at the bottom with date + reason, and deleted when fixed.
   red, its cells ringed dashed red — and the valid card next to it stays calm
   (no red anywhere). The card says it in color, never in a sentence.
 - **A "Cost your turn" game gives NOTHING away** (`pending-words-unchecked`,
-  which stages a word the dictionary refuses): no ✓, no ✗, no red anywhere on
-  the card or the board, the total not struck through, Play plainly enabled. Its
+  which stages a word the dictionary refuses): no ✓, no ✗, nothing standing in
+  for a mark, no red anywhere on the card or the board, the total not struck
+  through, Play plainly enabled. Each row is just the word and its score. Its
   capture must be indistinguishable from the same staging with a valid word
-  except for the verdict column's "—" and the header's quiet "not checked" tag
-  — if a reviewer can tell which word is bad, the feature is broken.
+  except for the missing mark — if a reviewer can tell which word is bad, the
+  feature is broken.
 - **Phoney beat** (`phoney-beat`): the refused word is the biggest thing on the
   dialog, the cost is stated in a sentence, and the board behind it is visibly
   unchanged (no tiles placed), and no mode name is used — the copy states the

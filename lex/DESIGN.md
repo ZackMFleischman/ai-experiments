@@ -638,14 +638,16 @@ are colored *and labeled* (DL/TL/DW/TW) so color is never the only signal.
      the list with its reason.
      Play is enabled only when `checkPlay` passes and all words are valid —
      pressing it submits optimistically (§6.3).
-     **Where invalid words cost the turn (§2.3) that whole verdict column goes
-     dark and nothing else changes:** each row's mark becomes a "—", no row is
-     filled, no total is struck through, no cell is ringed, and Play is live for
-     any legal placement. (The controller models this as `valid: null` —
+     **Where invalid words cost the turn (§2.3) the verdict column is simply
+     gone:** no mark on any row, no row filled, no total struck through, no cell
+     ringed, and Play is live for any legal placement. The row is the word and
+     its score, full stop. (The controller models this as `valid: null` —
      *withheld*, a third state deliberately distinct from `false`, so no surface
-     can render "not told" as "rejected".) The card tags itself "not checked"
-     once in its header, because a permanently blank column would otherwise read
-     as a broken check.
+     can render "not told" as "rejected"; it survives in the DOM as
+     `data-valid="unknown"` for the tests, but is not drawn.) An earlier build
+     kept a "—" in the mark's slot and a "not checked" tag in the header, on the
+     theory that a blank column reads as a broken check; in play it read as
+     clutter restating the setting the player had just chosen, so both were cut.
      The verdict then arrives *after* the commit, as a **phoney beat**: a small
      dismissible dialog naming the refused word(s) and stating the cost. It is
      blocking rather than a toast because a lost turn that leaves the board
