@@ -16,9 +16,13 @@ const DEFAULT_NAMES = ['Player 1', 'Player 2'];
 export function HotSeatGame({
   controller,
   seatNames = DEFAULT_NAMES,
+  onNewGame,
 }: {
   controller: GameController;
   seatNames?: readonly string[];
+  /** Start over with different options (the setup screen). Hot-seat only —
+   * a multiplayer game's options are server-pinned and immutable. */
+  onNewGame?: () => void;
 }) {
   const snap = useGameController(controller);
   const navigate = useNavigate();
@@ -37,12 +41,14 @@ export function HotSeatGame({
         controller={controller}
         seatNames={seatNames}
         onRematch={() => {
-          void controller.newGame(
-            createHotSeatOptions(snap.options.rulesetId, snap.options.dictionaryId),
-          );
+          // A rematch is the SAME game again: every option carries over. (Spread
+          // the stored options rather than listing fields — the last time these
+          // were listed by hand, adding a setting silently reset it on rematch.)
+          void controller.newGame(createHotSeatOptions(snap.options));
           setAcknowledged(null);
         }}
         onBackToLobby={() => navigate('/')}
+        {...(onNewGame ? { onNewGame } : {})}
       />
       {needsHandoff && (
         <PassDeviceInterstitial

@@ -10,6 +10,7 @@ import { GameBoard } from '../board/GameBoard';
 import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
 import { NoticeToast } from '../game/NoticeToast';
+import { HotSeatSetup } from '../game/HotSeatSetup';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
@@ -148,6 +149,16 @@ export const GALLERY: GalleryEntry[] = [
     render: () => (
       <Box data-gallery-ready sx={{ p: 2 }}>
         <LobbyView games={[]} now={LOBBY_NOW} onOpen={() => {}} onNewGame={() => {}} />
+      </Box>
+    ),
+  },
+  // The hot-seat creation form: the same option pickers as `new-game`, minus
+  // the settings one device can't honour (turn order, the clock).
+  {
+    id: 'hotseat-setup',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2 }}>
+        <HotSeatSetup onStart={() => {}} />
       </Box>
     ),
   },

@@ -2,7 +2,9 @@
 // creation — board, dictionary, time control — mid-game. Pure display;
 // options are immutable after creation (§2.2).
 import {
+  Button,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   List,
@@ -26,6 +28,7 @@ export function GameInfoDialog({
   dictionaryId,
   timeControl,
   invalidWords = 'blocked',
+  onNewGame,
 }: {
   open: boolean;
   onClose: () => void;
@@ -35,6 +38,12 @@ export function GameInfoDialog({
   timeControl?: { days: 1 | 3 | 7 } | null;
   /** What invalid words do (§2.3) — pinned at creation like everything here. */
   invalidWords?: InvalidWordRule;
+  /** Hot-seat only: start a NEW game with different options. This dialog is
+   * where a player comes to read how the current game is set up, which makes
+   * it the one place "…and I'd rather it were set up differently" naturally
+   * lands. Options stay immutable for the game in progress (§2.2) — this
+   * starts another one. */
+  onNewGame?: () => void;
 }) {
   const dict = DICTIONARIES.find((d) => d.id === dictionaryId);
   return (
@@ -68,6 +77,13 @@ export function GameInfoDialog({
           </ListItem>
         </List>
       </DialogContent>
+      {onNewGame && (
+        <DialogActions>
+          <Button onClick={onNewGame} data-testid="info-new-game">
+            New game with different options…
+          </Button>
+        </DialogActions>
+      )}
     </Dialog>
   );
 }

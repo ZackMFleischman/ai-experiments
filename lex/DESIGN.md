@@ -567,7 +567,17 @@ changes what a turn can cost — the invitee sees the rules before accepting,
 FR-10), Settings (notifications, theme, tile skin), and Game (the game menu
 restates the chosen options mid-game, the invalid-words rule spelled out in
 full — it is where a player goes mid-game to ask what happens if they're
-wrong).
+wrong, and so also where "start one set up differently" is offered).
+
+**Hot-seat setup** (`/game/local/new`) is the one-device twin of the New game
+screen: the same board / dictionary / invalid-words pickers (literally the same
+components — `optionPickers`, so the two forms cannot describe a rule
+differently), minus the two settings one device cannot honour (turn order — p0
+always starts; the async clock — there is nobody to wait for). `/game/local`
+resumes a stored game if there is one and shows this form if there isn't, so
+the very first hot-seat game is configured rather than assumed. This is also
+what makes the options exercisable in a PR preview, which deploys the static
+hot-seat build alone.
 
 Game-screen deltas: player bars carry **scores** (players shown by first name —
 falling back to first + last initial, then full name, only as far as needed to

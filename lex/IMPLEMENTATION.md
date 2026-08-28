@@ -141,7 +141,8 @@ words-unchecked state); the phoney beat; blank picker open; exchange
 mode with selection; rack full/low/empty; pass-device interstitial; score sheet
 open; last-play highlight; every ending overlay (played-out win/loss, scoreless,
 tie/draw, resign, timeout) with adjustment line items; confirm dialogs.
-M4 adds: landing, join, lobby groups (incl. empty), new-game form, waiting screen.
+M4 adds: landing, join, lobby groups (incl. empty), new-game form, hot-seat
+setup form, waiting screen.
 M5 adds: coach mark, offline lobby. `?static=1` freezes animations and pins
 fixture names/timestamps, as in hive.
 

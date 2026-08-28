@@ -70,6 +70,7 @@ export function GameBoard({
   seatNames = DEFAULT_NAMES,
   onRematch,
   onBackToLobby,
+  onNewGame,
   timeControl,
   deadlineAtMs,
 }: {
@@ -77,6 +78,9 @@ export function GameBoard({
   seatNames?: readonly string[];
   onRematch?: () => void;
   onBackToLobby?: () => void;
+  /** Hot-seat only: start over with different options. Multiplayer omits it —
+   * those options are server-pinned and immutable (§2.2). */
+  onNewGame?: () => void;
   /** Multiplayer: the game's async clock, restated in the info menu (T4.7). */
   timeControl?: { days: 1 | 3 | 7 } | null;
   /** Multiplayer: the side-to-move's move deadline (ms) — drives the live
@@ -446,6 +450,14 @@ export function GameBoard({
         dictionaryId={snap.options.dictionaryId}
         invalidWords={snap.options.invalidWords ?? 'blocked'}
         {...(timeControl !== undefined ? { timeControl } : {})}
+        {...(onNewGame
+          ? {
+              onNewGame: () => {
+                setInfoOpen(false);
+                onNewGame();
+              },
+            }
+          : {})}
       />
       <Box ref={boardAreaRef} sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardViewport

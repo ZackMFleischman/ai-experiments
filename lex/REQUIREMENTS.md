@@ -154,6 +154,12 @@ Functions: validation, notifications, forfeits).
 
 ### Hot-seat mode (DESIGN §7.3)
 
+- **FR-47b** Hot-seat games are created from their own setup screen: board,
+  dictionary and invalid-words (FR-6/FR-7/FR-9b) — the settings one device can
+  honour. Turn order and time controls are not offered (p0 always starts; there
+  is no clock). Opening the hot-seat game with nothing stored shows this screen;
+  a stored game resumes straight onto the board. A rematch re-deals under the
+  finished game's own settings.
 - **FR-48** Two players, one device, no accounts, no network: full game with
   the same UI, backed by a local transport.
 - **FR-49** Pass-device interstitial hides both racks between turns.

@@ -363,3 +363,21 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   suppressing it — the first build suppressed it, and the gallery capture showed
   the incoming player's rack behind the dialog, since a phoney has already passed
   the turn. No log marker is needed: replay re-derives the verdict.
+
+- **2026-08-24 — Hot-seat gets its own setup screen (Zack).** Zack couldn't test
+  the invalid-words setting in the PR preview: a preview deploys the static
+  build, the static build is hot-seat only, and hot-seat had no creation form at
+  all — every game was classic/NWL2023 under the default rules. So `/game/local`
+  now shows a setup form when nothing is stored (a stored game still resumes
+  straight onto the board, since options are immutable once a game is under
+  way), `/game/local/new` reaches it any time, and the in-game info dialog —
+  where you go to read how this game is set up — offers starting another one.
+  It shows the three settings one device can honour; turn order and the clock
+  are meaningless with no second device. The pickers are extracted to
+  `optionPickers` and shared with the multiplayer form so the two can't describe
+  a rule differently. Two hazards found while building it: `createHotSeatOptions`
+  took positional args, so the rematch path silently reset any setting it forgot
+  to pass (it now takes an object and rematch spreads the finished game's own
+  options); and switching dictionary needs a NEW controller with reset-before-
+  reload ordering, or the previous log replays through the new dictionary and
+  throws on a word the narrower list refuses. Both are pinned by tests.

@@ -1,34 +1,27 @@
 // ported from hive/packages/app/src/screens/newGameView.tsx (adapted)
-// New-game presentation (T4.7, DESIGN §7.1, FR-6..9): opponent pick (invite
-// link or a past opponent to challenge directly), BOARD picker with a mini
-// premium-map preview, DICTIONARY picker labeled with word counts, turn
-// order, async time control; then the invite-link view. Firebase-free —
-// sync/NewGameFlow drives it.
+// New-game presentation (T4.7, DESIGN §7.1, FR-6..9b): opponent pick (invite
+// link or a past opponent to challenge directly), then the per-game option
+// pickers — board, dictionary, invalid words (shared with the hot-seat setup
+// screen, see optionPickers) — plus the two settings only a two-device game
+// has: turn order and the async time control. Then the invite-link view.
+// Firebase-free — sync/NewGameFlow drives it.
 import {
   Button,
-  Card,
-  CardActionArea,
   Chip,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { RULESETS } from '@lex/engine';
-import { DICTIONARIES } from '@lex/dict';
 import { friendsFrom, InviteLinkView, type Friend } from '@parlor/web/lobby-ui';
 import { useState } from 'react';
-import { MiniBoard } from '../board/MiniBoard';
 import {
-  boardName,
-  INVALID_WORDS_BLURBS,
-  INVALID_WORDS_LABELS,
-  INVALID_WORDS_NAME,
-  type InvalidWordRule,
-  type LexGameOptions,
-  type SeatChoice,
-  type TimeControlDays,
-} from '../gameOptions';
+  BoardPicker,
+  DictionaryPicker,
+  InvalidWordsPicker,
+  OptionSection,
+} from './optionPickers';
+import type { InvalidWordRule, LexGameOptions, SeatChoice, TimeControlDays } from '../gameOptions';
 
 // The invite-link view and the friends helper are shared platform pieces.
 export { friendsFrom, InviteLinkView, type Friend };
@@ -96,100 +89,10 @@ export function NewGameForm({
           </Typography>
         </Stack>
       )}
-      <Stack spacing={1}>
-        <Typography variant="overline" color="text.secondary">
-          Board
-        </Typography>
-        <Stack direction="row" spacing={1.5}>
-          {Object.keys(RULESETS).map((id) => (
-            <Card
-              key={id}
-              variant="outlined"
-              sx={{
-                flex: 1,
-                borderColor: rulesetId === id ? 'primary.main' : 'divider',
-                borderWidth: rulesetId === id ? 2 : 1,
-              }}
-            >
-              <CardActionArea
-                onClick={() => setRulesetId(id)}
-                data-testid={`board-${id}`}
-                aria-pressed={rulesetId === id}
-                sx={{ p: 1.25 }}
-              >
-                <Stack spacing={1} alignItems="center">
-                  <MiniBoard rulesetId={id} size={96} />
-                  <Typography variant="body2" fontWeight={600}>
-                    {boardName(id)}
-                  </Typography>
-                </Stack>
-              </CardActionArea>
-            </Card>
-          ))}
-        </Stack>
-      </Stack>
-      <Stack spacing={1}>
-        <Typography variant="overline" color="text.secondary">
-          Dictionary
-        </Typography>
-        <Stack spacing={1}>
-          {DICTIONARIES.map((d) => (
-            <Card
-              key={d.id}
-              variant="outlined"
-              sx={{
-                borderColor: dictionaryId === d.id ? 'primary.main' : 'divider',
-                borderWidth: dictionaryId === d.id ? 2 : 1,
-              }}
-            >
-              <CardActionArea
-                onClick={() => setDictionaryId(d.id)}
-                data-testid={`dictionary-${d.id}`}
-                aria-pressed={dictionaryId === d.id}
-                sx={{ p: 1.25 }}
-              >
-                <Stack direction="row" spacing={1} alignItems="baseline">
-                  <Typography fontWeight={600}>{d.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {Math.round(d.wordCount / 1000)}k words
-                  </Typography>
-                </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  {d.description}
-                </Typography>
-              </CardActionArea>
-            </Card>
-          ))}
-        </Stack>
-      </Stack>
-      {/* Same shape as the turn-order and time-control pickers: a setting with
-          two named values, not a difficulty switch. The blurb tracks the
-          selection, so the rule is stated for whichever one is highlighted. */}
-      <Stack spacing={1}>
-        <Typography variant="overline" color="text.secondary">
-          {INVALID_WORDS_NAME}
-        </Typography>
-        <ToggleButtonGroup
-          exclusive
-          value={invalidWords}
-          onChange={(_, v: InvalidWordRule | null) => v && setInvalidWords(v)}
-          fullWidth
-        >
-          <ToggleButton value="blocked" data-testid="invalid-words-blocked">
-            {INVALID_WORDS_LABELS.blocked}
-          </ToggleButton>
-          <ToggleButton value="costs-turn" data-testid="invalid-words-costs-turn">
-            {INVALID_WORDS_LABELS['costs-turn']}
-          </ToggleButton>
-        </ToggleButtonGroup>
-        <Typography variant="body2" color="text.secondary">
-          {INVALID_WORDS_BLURBS[invalidWords]}
-        </Typography>
-      </Stack>
-      <Stack spacing={1}>
-        <Typography variant="overline" color="text.secondary">
-          Who goes first
-        </Typography>
+      <BoardPicker value={rulesetId} onChange={setRulesetId} />
+      <DictionaryPicker value={dictionaryId} onChange={setDictionaryId} />
+      <InvalidWordsPicker value={invalidWords} onChange={setInvalidWords} />
+      <OptionSection label="Who goes first">
         <ToggleButtonGroup
           exclusive
           value={seat}
@@ -206,11 +109,8 @@ export function NewGameForm({
             They do
           </ToggleButton>
         </ToggleButtonGroup>
-      </Stack>
-      <Stack spacing={1}>
-        <Typography variant="overline" color="text.secondary">
-          Time per move
-        </Typography>
+      </OptionSection>
+      <OptionSection label="Time per move">
         <ToggleButtonGroup
           exclusive
           value={days === null ? 'none' : String(days)}
@@ -233,7 +133,7 @@ export function NewGameForm({
             7 days
           </ToggleButton>
         </ToggleButtonGroup>
-      </Stack>
+      </OptionSection>
       <Button
         variant="contained"
         size="large"
