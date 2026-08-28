@@ -29,13 +29,34 @@ async function revealRack(page: Page) {
   await expect(overlay).not.toBeVisible();
 }
 
+/** The rack slots holding a designated letter, skipping any blank. A blank
+ * opens the letter-picker instead of placing, and a staged-but-undesignated
+ * blank suppresses the preview card entirely (`needsBlank`) — so with a really
+ * shuffled deal, reaching for slots 0 and 1 flakes whenever one of the two
+ * blanks lands there. Which it did, once, before this. */
+async function letteredSlots(page: Page): Promise<number[]> {
+  const slots = page.locator('[data-rack-slot]');
+  const out: number[] = [];
+  for (let i = 0; i < (await slots.count()); i++) {
+    const slot = slots.nth(i);
+    const tile = slot.locator('[data-tile]');
+    if ((await tile.count()) === 0) continue;
+    if ((await tile.getAttribute('data-blank')) === 'true') continue;
+    out.push(Number(await slot.getAttribute('data-rack-slot')));
+  }
+  return out;
+}
+
 /** Two tiles across the star — a legal first play whatever the deal gave us. */
 async function stageTwo(page: Page) {
-  await page.locator('[data-rack-slot="0"]').click();
+  const [first, second] = await letteredSlots(page);
+  expect(first).toBeDefined();
+  expect(second).toBeDefined();
+  await page.locator(`[data-rack-slot="${first}"]`).click();
   await page.locator('[data-cell="7,7"]').click();
   await expect(page.locator('[data-cell="7,7"] [data-tile]')).toBeVisible();
   await page.waitForTimeout(380); // clear of the double-tap window
-  await page.locator('[data-rack-slot="1"]').click();
+  await page.locator(`[data-rack-slot="${second}"]`).click();
   await page.locator('[data-cell="7,8"]').click();
   await expect(page.locator('[data-cell="7,8"] [data-tile]')).toBeVisible();
 }

@@ -381,3 +381,79 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   options); and switching dictionary needs a NEW controller with reset-before-
   reload ordering, or the previous log replays through the new dictionary and
   throws on a word the narrower list refuses. Both are pinned by tests.
+
+- **2026-08-28 — N players (2–4) adopted; the platform generalizes, lex is the
+  acceptance vehicle** (owner decision). Option B of the exploration: `../parlor/`
+  grows an N-seat model rather than lex forking its own callables. Sequenced ahead
+  of `PORTFOLIO-HARDENING.md` M7 (Firebase identity consolidation) because the
+  coupling is weak — M7 is project/namespacing, not seat shape — and lex is
+  `status: "built"` with no live users, so the schema is free to change now and
+  never again. Plan: IMPLEMENTATION §2 M7. Hard gate on every parlor PR: hive,
+  checkers and tafl `validate` suites green, with no file changes in those repos.
+
+- **2026-08-28 — The player count is a MAXIMUM, not a fixed size** (owner
+  decision, superseding "fixed at creation" from the same exploration). The host
+  picks up to 4, invites people, and may **start early** from 2 behind a
+  confirmation that names who is being left out; the server auto-starts at max.
+  Consequence, and the largest platform change in M7: the count is unknown at
+  creation, so `initialGame` — the bag shuffle and the deal — **moves from
+  `createGame` to a new `startGame`** for `maxPlayers ≥ 3`. Games with
+  `min === max` (all three siblings, and lex at 2) keep dealing at create.
+
+- **2026-08-28 — Invitations reserve nothing; first come, first served** (owner
+  decision). Inviting friends and sharing a code are additive recruiting channels,
+  not alternatives: every 3+ game always has one code, and whoever arrives first is
+  next on the list. Kills the per-seat invite structure an earlier draft proposed,
+  and with it `withdrawInvite`, `inviteToSeat`, per-seat vacate logic and
+  code-minting-on-decline. Pre-game is a **guest list** (`roster` in join order +
+  `invited` + `declined`); seats do not exist until `startGame`. A decline moves a
+  name and never deletes the game at 3+ (at 2 it still deletes, as today).
+
+- **2026-08-28 — Turn order is a parlor capability with three modes.** Random
+  (default), a named player first, or a manual arrangement, chosen at create and
+  finalized in the game room; `setTurnOrder` persists it **so every player sees the
+  arrangement live, not just the host**. Opening on the centre double-word is a real
+  edge, so fairness is enforced by transparency before start rather than by
+  prohibition; `rematch` rotates the order by one so the advantage circulates.
+  Manual arrangement uses up/down icon buttons, not drag — no DnD library is
+  permitted, hand-rolled HTML5 drag is unreliable on touch, and buttons are
+  keyboard- and AT-reachable for free. `parseSeatChoice` is kept as the per-game
+  wire→intent mapping so the siblings' callable contracts are untouched.
+
+- **2026-08-28 — Resign/timeout at 3+ is a WITHDRAWAL** (owner decision). The
+  player is out, their score freezes, and **their rack returns to the bag** for the
+  server to re-shuffle (the machinery exchange already uses). Tiles were nearly
+  vanished instead; returning them wins because 4-player lex deals 28 of 100 tiles
+  and removing a rack shortens the rest of the game by an arbitrary amount. Both
+  options conserve tiles — the conservation argument raised against returning them
+  was wrong. The game ends when one active player remains (`'last-standing'`).
+  At exactly 2 players the behaviour is terminal, byte-for-byte as today.
+
+- **2026-08-28 — Withdrawn players rank below everyone who finished** (owner
+  decision), ordered among themselves by frozen score. Ranking purely by score
+  makes resigning-while-ahead a viable strategy — leave at 250 in a 4-player game
+  and bank second place. Reverse-withdrawal-order (the elimination convention) was
+  rejected too: it punishes an early disconnect harder than a late rage-quit and
+  makes the standings order underivable from the printed numbers. `GameResult`
+  therefore replaces `winner: Seat | 'draw'` with `standings: Seat[][]`
+  (best-first, inner arrays = ties) rather than carrying both.
+
+- **2026-08-28 — `scorelessLimit: 6` reinterpreted as `scorelessRounds: 3`,
+  keeping the `classic`/`modern` ruleset ids.** Evaluated as
+  `scorelessRounds × activeSeats`, which is exactly 6 at two seats. DESIGN §2.2
+  declares registry entries immutable ("a rules change means a NEW id") so that
+  finished games replay under their original rules; behaviour is preserved
+  bit-for-bit for every game that could exist today (all extant games are 2-seat),
+  so replay fidelity — the property the rule protects — is intact and the ids
+  stand. Recorded because it brushes a stated invariant rather than clearing it.
+  `Ruleset` also gains `players: {min,max}`: the range is a rules dimension (a
+  reduced-tile board cannot deal four racks), and lex forbids dimensions outside it.
+
+- **2026-08-28 — The 2-player path is preserved, not migrated** (owner decision on
+  two candidate changes). Today's post-create `InviteLinkView` step **stays** at
+  `maxPlayers === 2`; `WaitingForOpponent`, `ChallengeReceived` and `InviteLinkView`
+  are not modified at all, and the new `GameRoom`/`GuestList`/`InvitationReceived`
+  are strictly additive 3+ surfaces. `e2e/multiplayer/game.spec.ts` must pass
+  unedited; 3+ coverage lands in a new `room.spec.ts`. The one accepted 2-player
+  change is the **winner-first result overlay** (today it lists seats in seat order;
+  a victory screen should read winner-first, and `ResultOverlay` is not shared).
