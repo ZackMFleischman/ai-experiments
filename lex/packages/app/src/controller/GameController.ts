@@ -56,7 +56,7 @@ export interface Preview {
 
 export type GameEnd =
   | {
-      by: 'played-out' | 'scoreless';
+      by: 'played-out' | 'scoreless' | 'last-standing';
       winner: Seat | 'draw';
       finalScores: readonly number[];
       /** Per-seat end adjustment (rack gains/deductions), for the score
@@ -522,7 +522,7 @@ export class GameController {
       ...(s.lastPlay ? { lastPlay: s.lastPlay } : {}),
       sheet: s.sheet,
       view: this.view,
-      ...(end && !this.beatDone && (end.by === 'played-out' || end.by === 'scoreless')
+      ...(end && !this.beatDone && (end.by === 'played-out' || end.by === 'scoreless' || end.by === 'last-standing')
         ? { beat: { cells: s.lastPlay?.cells ?? [] } }
         : {}),
       overlayOpen: !!end && (this.beatDone || end.by === 'resign' || end.by === 'timeout') && !this.overlayDismissed,

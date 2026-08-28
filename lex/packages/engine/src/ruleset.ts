@@ -40,7 +40,8 @@ export interface Ruleset {
   rackSize: number;
   bingoBonus: number;
   exchangeMinBag: number;
-  scorelessLimit: number;
+  /** Scoreless turns per ACTIVE seat that end the game: 3 ⇒ six at two seats. */
+  scorelessRounds: number;
 } // dictionary chosen per game (GameOptions)
 
 // Both v1 layouts are 4-fold symmetric, so each is defined by its upper-left
@@ -111,7 +112,7 @@ export const RULESETS: Readonly<Record<string, Ruleset>> = Object.freeze({
     rackSize: 7,
     bingoBonus: 50,
     exchangeMinBag: 7,
-    scorelessLimit: 6,
+    scorelessRounds: 3,
   }),
   modern: Object.freeze({
     id: 'modern',
@@ -120,6 +121,6 @@ export const RULESETS: Readonly<Record<string, Ruleset>> = Object.freeze({
     rackSize: 7,
     bingoBonus: 50,
     exchangeMinBag: 7,
-    scorelessLimit: 6,
+    scorelessRounds: 3,
   }),
 });

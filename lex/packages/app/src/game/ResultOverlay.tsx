@@ -22,8 +22,14 @@ function headline(end: GameEnd, names: readonly string[]): { title: string; reas
     `${name(seat)} win${name(seat) === 'You' ? '' : 's'}${bang ? '!' : ''}`;
   switch (end.by) {
     case 'played-out':
-    case 'scoreless': {
-      const reason = end.by === 'played-out' ? 'Played out!' : 'Scoreless limit reached';
+    case 'scoreless':
+    case 'last-standing': {
+      const reason =
+        end.by === 'played-out'
+          ? 'Played out!'
+          : end.by === 'scoreless'
+            ? 'Scoreless limit reached'
+            : 'Last player standing';
       if (end.winner === 'draw') {
         return { title: `Draw — ${formatScore(end.finalScores[0] ?? 0)} apiece`, reason };
       }

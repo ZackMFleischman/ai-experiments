@@ -421,3 +421,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   freezes exactly as it stands: their rack is already back in the bag, so there is
   nothing to deduct, and deducting anything would price quitting differently from
   the §2.1 endings, which all settle against tiles a player still holds.
+
+- **2026-08-28 — Ending precedence, and `withdraw` finalizes** (T7.2). `endedBy`
+  ranks `last-standing` above `played-out` above `scoreless`: once one active seat
+  remains nothing else can be decided, and a played-out rack still beats a
+  scoreless run as it always has. `last-standing` applies **no** adjustment — the
+  survivor's tiles never came off a natural ending, and the other racks are
+  already in the bag. `withdraw` therefore runs the same finalizer `applyMove`
+  does: dropping an active seat shrinks the scoreless limit (`scorelessRounds` ×
+  active seats), so leaving can itself end the game, deductions and all.

@@ -82,14 +82,20 @@ Standard crossword-game rules, played to the **strict-dictionary** house rule:
   holds ≥ 7 tiles. Costs the turn.
 - **Pass:** always allowed; costs the turn.
 - **Game end:**
-  1. The bag is empty and one player plays out their last tile ⇒ that player adds
-     the sum of the opponent's remaining tile points; the opponent deducts their own.
-  2. **Six consecutive scoreless turns** (pass, exchange, or a 0-point play) ⇒ game
-     ends; each player deducts their own remaining tile points.
+  1. The bag is empty and one active player plays out their last tile ⇒ that
+     player adds the sum of every other **active** rack; each of those deducts its
+     own. Withdrawn seats hold nothing and sit the pot out.
+  2. **`scorelessRounds` scoreless turns per active seat** (pass, exchange, or a
+     0-point play) ⇒ game ends; each player still holding tiles deducts their own
+     remaining points. The knob is 3, so it is six turns at two seats — unchanged
+     — nine at three, twelve at four.
   3. Resignation, or timeout under an async time control (§6.4). At two seats
      that ends the game; at three or four it is a **withdrawal** — that player
      is out, their score freezes, their rack goes back to the bag, and the turn
      order skips them (DECISIONS 2026-08-28).
+  4. **One active player left** (`last-standing`) ⇒ game ends with no adjustment:
+     every other rack is already back in the bag, and the survivor's tiles never
+     came off a natural ending.
 - Higher adjusted score wins; equal ⇒ **draw** (no first-player tiebreak).
 
 ### 2.2 Configurable surfaces (the "easily changeable" requirement)
@@ -102,7 +108,7 @@ word list):
 Ruleset = {
   board:   BoardLayout      // rows, cols, premium map, start cell
   tiles:   TileSet          // per-letter count + points, blank count
-  rackSize, bingoBonus, exchangeMinBag, scorelessLimit
+  rackSize, bingoBonus, exchangeMinBag, scorelessRounds   // × active seats
 }
 GameOptions = { rulesetId, dictionaryId, timeControl }   // pinned at creation (FR-6..11)
 ```
@@ -441,7 +447,7 @@ games/{gameId}:           { players: {p0: uid, p1: uid|null},        // p0 moves
                             status: 'open'|'active'|'finished',
                             inviteCode?, challenge?,                  // = hive semantics
                             result?: 'p0'|'p1'|'draw',
-                            endedBy?: 'played-out'|'scoreless'|'resign'|'timeout',
+                            endedBy?: 'played-out'|'scoreless'|'last-standing'|'resign'|'timeout',
                             toMove: 'p0'|'p1', moveCount,
                             scores: {p0, p1}, bagCount, rackCounts: {p0, p1},
                             lastPlay?: {by, word, score},             // lobby cards + push copy

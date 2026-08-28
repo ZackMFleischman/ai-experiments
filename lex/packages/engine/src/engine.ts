@@ -32,7 +32,12 @@ export class IllegalMoveError extends Error {
 
 export type GameResult =
   | { status: 'ongoing' }
-  | { status: 'finished'; winner: Seat | 'draw'; by: 'played-out' | 'scoreless'; finalScores: readonly number[] };
+  | {
+      status: 'finished';
+      winner: Seat | 'draw';
+      by: 'played-out' | 'scoreless' | 'last-standing';
+      finalScores: readonly number[];
+    };
 
 export function rulesetOf(state: GameState): Ruleset {
   const ruleset = RULESETS[state.rulesetId];
@@ -49,13 +54,19 @@ function rackSum(rack: readonly TileFace[], ruleset: Ruleset): number {
   return rack.reduce((sum, face) => sum + (ruleset.tiles.points[face] ?? 0), 0);
 }
 
-/** Which board ending, if any, does this state sit in? Played-out wins. */
-function endedBy(state: GameState, ruleset: Ruleset): 'played-out' | 'scoreless' | null {
-  // A withdrawn seat's rack is empty by construction (it went back to the
-  // bag), so the played-out test looks at ACTIVE seats only — otherwise any
-  // withdrawal would end the game on the spot.
-  if (state.bag.length === 0 && activeSeats(state).some((seat) => state.racks[seat]!.length === 0)) return 'played-out';
-  if (state.scorelessRun >= ruleset.scorelessLimit) return 'scoreless';
+/**
+ * Which board ending, if any, does this state sit in? Last-standing outranks
+ * played-out, which outranks scoreless. Every test reads ACTIVE seats: a
+ * withdrawn seat's rack is empty by construction (it went back to the bag),
+ * so counting it would end the game the instant anyone withdrew.
+ */
+function endedBy(state: GameState, ruleset: Ruleset): 'played-out' | 'scoreless' | 'last-standing' | null {
+  const active = activeSeats(state);
+  if (state.withdrawn.length > 0 && active.length <= 1) return 'last-standing';
+  if (state.bag.length === 0 && active.some((seat) => state.racks[seat]!.length === 0)) return 'played-out';
+  // The limit is per ROUND — one full circuit of the seats still playing — so
+  // it is 6 at two seats, exactly as before M7 (DECISIONS 2026-08-28).
+  if (state.scorelessRun >= ruleset.scorelessRounds * active.length) return 'scoreless';
   return null;
 }
 
@@ -87,9 +98,12 @@ function finalizeIfEnded(state: GameState, ruleset: Ruleset): GameState {
     return freezeState({ ...state, scores });
   }
   if (by === 'scoreless') {
-    const scores = state.scores.map((score, seat) => score - rackSum(state.racks[seat]!, ruleset));
+    // A withdrawn seat's score is frozen — it holds no tiles to deduct.
+    const scores = state.scores.map((score, seat) => (isWithdrawn(state, seat) ? score : score - rackSum(state.racks[seat]!, ruleset)));
     return freezeState({ ...state, scores });
   }
+  // 'last-standing' adjusts nothing: the survivor's tiles never came off a
+  // natural ending, and every other rack is already back in the bag.
   return state;
 }
 
@@ -135,7 +149,10 @@ export function withdraw(state: GameState, seat: Seat): GameState {
     withdrawn: [...state.withdrawn, seat].sort((a, b) => a - b),
     moveCount: state.moveCount + 1,
   };
-  return freezeState({ ...next, toMove: state.toMove === seat ? nextActiveSeat(next, seat) : state.toMove });
+  const moved = freezeState({ ...next, toMove: state.toMove === seat ? nextActiveSeat(next, seat) : state.toMove });
+  // Losing an active seat shrinks the scoreless limit, and the last withdrawal
+  // ends the game outright — either way the ending must be finalized here.
+  return finalizeIfEnded(moved, ruleset);
 }
 
 function applyPlay(state: GameState, placements: readonly Placement[], dict: Dictionary, ruleset: Ruleset): GameState {
