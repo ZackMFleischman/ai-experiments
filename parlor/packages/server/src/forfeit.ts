@@ -8,6 +8,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore';
 import { onSchedule, type ScheduleFunction } from 'firebase-functions/v2/scheduler';
 import { createNotify, sendPush, type NotifyConfig, type PushTransport, type SharedTrigger, type TriggerArgs } from './notify';
+import { seatKeysOf, withdrawInTx, type WithdrawConfig } from './withdraw';
 
 const WARN_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -15,12 +16,18 @@ export interface SweepResult {
   forfeited: number;
   warned: number;
   invitesCulled: number;
+  /** Open 3+ rooms culled because they never reached `players.min` before the
+   * invite expired — a two-seat open game is culled by its invite alone. */
+  roomsCulled: number;
 }
 
-export interface ForfeitConfig {
+export interface ForfeitConfig extends WithdrawConfig {
   /** Seat keys in move order (e.g. ['p0', 'p1']) — `toMove`/`result` values.
    * A list, not a pair, so a GameServerConfig drops straight in (T7.4). */
   seatKeys: readonly string[];
+  /** Fewest players a game can start with; an open room that never reached it
+   * is culled with its invite. Defaults to 2. */
+  players?: { min: number; max: number };
   notify: NotifyConfig;
 }
 
@@ -31,10 +38,7 @@ export interface ForfeitHandlers {
 }
 
 export function createForfeitHandlers(config: ForfeitConfig): ForfeitHandlers {
-  // T7.7 turns an expired 3+ game into a withdrawal; today every forfeit is
-  // terminal and hands the game to the other seat.
-  const SEAT0 = config.seatKeys[0]!;
-  const SEAT1 = config.seatKeys[1]!;
+  const MIN_PLAYERS = config.players?.min ?? 2;
   const notify = createNotify(config.notify);
 
   interface SweepGameDoc {
@@ -42,6 +46,8 @@ export function createForfeitHandlers(config: ForfeitConfig): ForfeitHandlers {
     playerNames: Record<string, string | null>;
     toMove: string;
     moveCount: number;
+    withdrawn?: string[];
+    timeControl?: { days: number } | null;
     deadlineAt?: Timestamp | null;
     deadlineWarnedAt?: Timestamp;
   }
@@ -72,7 +78,7 @@ export function createForfeitHandlers(config: ForfeitConfig): ForfeitHandlers {
     now: number,
     transport?: PushTransport,
   ): Promise<SweepResult> {
-    const result: SweepResult = { forfeited: 0, warned: 0, invitesCulled: 0 };
+    const result: SweepResult = { forfeited: 0, warned: 0, invitesCulled: 0, roomsCulled: 0 };
 
     const active = await db
       .collection('games')
@@ -83,45 +89,38 @@ export function createForfeitHandlers(config: ForfeitConfig): ForfeitHandlers {
     for (const gameSnap of active.docs) {
       const game = gameSnap.data() as SweepGameDoc;
       if (!game.deadlineAt) continue;
+      const seats = seatKeysOf(config, game);
       const loserSeat = game.toMove;
-      const winnerSeat = loserSeat === SEAT0 ? SEAT1 : SEAT0;
+      const loserIndex = seats.indexOf(loserSeat);
+      const winnerSeat = seats[loserIndex === 0 ? 1 : 0] ?? loserSeat;
       const loserUid = game.players[loserSeat] ?? null;
       const winnerUid = game.players[winnerSeat] ?? null;
       const loserName = game.playerNames[loserSeat] ?? 'Your opponent';
       const winnerName = game.playerNames[winnerSeat] ?? 'Your opponent';
 
       if (game.deadlineAt.toMillis() <= now) {
-        // Forfeit: timeout meta event in the move log + terminal game doc.
+        // Timeout: terminal at two seats, a WITHDRAWAL at three or four — the
+        // same routine `resign` runs, so the two can never drift apart.
+        let outcome: { finished: boolean; remaining: string[] } = { finished: true, remaining: [] };
         await db.runTransaction(async (tx) => {
           const fresh = await tx.get(gameSnap.ref);
           const doc = fresh.data() as SweepGameDoc & { status: string };
           if (doc.status !== 'active' || !doc.deadlineAt || doc.deadlineAt.toMillis() > now) return;
-          tx.set(gameSnap.ref.collection('moves').doc(String(doc.moveCount)), {
-            n: doc.moveCount,
-            kind: 'timeout',
-            by: loserUid,
-            at: FieldValue.serverTimestamp(),
-          });
-          tx.update(gameSnap.ref, {
-            status: 'finished',
-            result: winnerSeat,
-            endedBy: 'timeout',
-            moveCount: doc.moveCount + 1,
-            deadlineAt: null,
-            updatedAt: FieldValue.serverTimestamp(),
-          });
+          outcome = await withdrawInTx(config, tx, gameSnap.ref, doc, loserIndex, 'timeout', loserUid);
           result.forfeited++;
         });
         await sendMaybe(db, transport, loserUid, 'game-over', {
           gameId: gameSnap.id,
           opponentName: winnerName,
-          outcome: 'You lost on time',
+          outcome: outcome.finished ? 'You lost on time' : 'You ran out of time and are out',
         });
-        await sendMaybe(db, transport, winnerUid, 'game-over', {
-          gameId: gameSnap.id,
-          opponentName: loserName,
-          outcome: 'You won on time',
-        });
+        for (const uid of outcome.remaining) {
+          await sendMaybe(db, transport, uid, 'game-over', {
+            gameId: gameSnap.id,
+            opponentName: loserName,
+            outcome: outcome.finished ? 'You won on time' : `${loserName} ran out of time`,
+          });
+        }
       } else if (!game.deadlineWarnedAt) {
         // Within the warning window and not yet nudged.
         const hoursLeft = Math.max(1, Math.round((game.deadlineAt.toMillis() - now) / 3_600_000));
@@ -140,6 +139,24 @@ export function createForfeitHandlers(config: ForfeitConfig): ForfeitHandlers {
       .where('expiresAt', '<=', Timestamp.fromMillis(now))
       .get();
     for (const invite of expired.docs) {
+      // A 3+ room outlives its invite: the guest list is the game, so an
+      // expired code would leave an unjoinable room sitting in every guest's
+      // lobby forever. Cull the room too, unless it reached the minimum and
+      // could still be started by its host.
+      const gameId = invite.data()['gameId'] as string | undefined;
+      if (gameId) {
+        const gameRef = db.collection('games').doc(gameId);
+        const game = await gameRef.get();
+        const data = game.data() as { status?: string; maxPlayers?: number; roster?: unknown[] } | undefined;
+        if (
+          data?.status === 'open' &&
+          typeof data.maxPlayers === 'number' &&
+          (data.roster?.length ?? 0) < MIN_PLAYERS
+        ) {
+          await gameRef.delete();
+          result.roomsCulled++;
+        }
+      }
       await invite.ref.delete();
       result.invitesCulled++;
     }

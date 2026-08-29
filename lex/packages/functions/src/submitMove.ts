@@ -9,7 +9,6 @@
 // sub-writes, the terminal outcome, and the push. Exchange letters never reach a
 // public doc — the log entry carries a count only, and the re-shuffled remainder
 // is recorded as a private replay event (§3.3).
-import { randomInt } from 'node:crypto';
 import { join } from 'node:path';
 import { FieldValue } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
@@ -29,7 +28,16 @@ import {
   type TileFace,
 } from '@lex/engine';
 import { loadDictionarySync } from '@lex/dict/node';
-import { SEAT_KEYS, bySeat, lexServerConfig, playedCopy, requireRuleset, type LexGameOptions } from './config';
+import {
+  SEAT_KEYS,
+  bySeat,
+  lexServerConfig,
+  playedCopy,
+  requireRuleset,
+  shuffleFaces,
+  withBag,
+  type LexGameOptions,
+} from './config';
 
 // The compiled DAWGs ship next to the bundle (lib/dict, scripts/dawgs.mjs).
 const DICT_DIR = join(__dirname, 'dict');
@@ -86,26 +94,6 @@ function parseMove(raw: unknown): Move {
     return { type: 'play', placements };
   }
   throw new HttpsError('invalid-argument', `unknown move type '${m.type}'`);
-}
-
-/** Crypto Fisher-Yates over tile faces (server-side randomness, §3.3). */
-function shuffleFaces(faces: readonly TileFace[]): TileFace[] {
-  const out = [...faces];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
-    const a = out[i]!;
-    out[i] = out[j]!;
-    out[j] = a;
-  }
-  return out;
-}
-
-/** Same state with the bag remainder replaced (exchange re-shuffle) — via the
- * frozen serialize round-trip, so no private constructor is needed. */
-function withBag(state: GameState, bag: readonly TileFace[]): GameState {
-  const s = JSON.parse(serializeState(state)) as { bag: string };
-  s.bag = bag.join('');
-  return deserializeState(JSON.stringify(s));
 }
 
 export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {

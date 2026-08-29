@@ -478,3 +478,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   (T7.12) into this task. `standings` is a new field rather than a reshaped
   `result`: `result` keeps its two-seat meaning for the lobby, and T7.9 reads
   `standings` behind `finalStandings()`.
+
+- **2026-08-28 — Withdrawal is one shared routine, and the game owns the state
+  change** (T7.7). `resign` and the timeout sweep both call `withdrawInTx`, so
+  the two paths cannot drift — the bug that would otherwise surface only in a
+  scheduled job nobody watches. Parlor owns the doc bookkeeping (`withdrawn`, the
+  meta log entry, the deadline, the terminal flip) and delegates the state change
+  to a `withdrawSeat` hook, because returning a rack to the bag is lex's business
+  and `@parlor/*` may never import a game package. lex re-shuffles those returned
+  tiles exactly as it does an exchange's, so the remainder stays unpredictable.

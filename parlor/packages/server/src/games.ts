@@ -28,6 +28,7 @@ import {
   type Caller,
 } from './helpers';
 import { createNotify, type NotifyConfig } from './notify';
+import { withdrawInTx, type WithdrawResult } from './withdraw';
 import {
   declineInvite,
   emptyGuestList,
@@ -93,6 +94,18 @@ export interface GameServerConfig<TOptions> {
     game: DocumentData,
     seatIndex: number,
   ): Promise<Record<string, unknown>>;
+  /**
+   * Take a seat out of a running 3+ game (DECISIONS 2026-08-28 — a resign or
+   * timeout at three or four players is a WITHDRAWAL, not a game end). May
+   * `tx.get()` before returning; parlor performs every write after. Omit it and
+   * a game stays terminal-on-resign at every seat count.
+   */
+  withdrawSeat?(ctx: {
+    tx: Transaction;
+    gameRef: DocumentReference;
+    doc: DocumentData;
+    seat: number;
+  }): Promise<WithdrawResult> | WithdrawResult;
   notify: NotifyConfig;
 }
 
@@ -603,7 +616,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     const gameId = requireGameId(request.data);
     const db = getFirestore();
     const gameRef = db.collection('games').doc(gameId);
-    let opponentUid: string | null = null;
+    let outcome: { finished: boolean; remaining: string[] } = { finished: false, remaining: [] };
     await db.runTransaction(async (tx) => {
       const game = await tx.get(gameRef);
       if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -612,32 +625,23 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
       if (doc.status !== 'active') {
         throw new HttpsError('failed-precondition', 'game is not active');
       }
-      // Terminal at two seats. T7.7 makes this a WITHDRAWAL at three or four
-      // (the leaver's score freezes and play continues) and T7.8 fans the push
-      // out to every remaining player.
-      const winnerSeat = seatKey(seatIndex === 0 ? 1 : 0);
-      opponentUid = doc.players[winnerSeat] ?? null;
-      tx.set(gameRef.collection('moves').doc(String(doc.moveCount)), {
-        n: doc.moveCount,
-        kind: 'resign',
-        by: caller.uid,
-        at: FieldValue.serverTimestamp(),
-      });
-      tx.update(gameRef, {
-        moveCount: doc.moveCount + 1,
-        status: 'finished',
-        result: winnerSeat,
-        endedBy: 'resign',
-        deadlineAt: null,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+      if (((doc.withdrawn as string[] | undefined) ?? []).includes(seatKey(seatIndex))) {
+        throw new HttpsError('failed-precondition', 'you have already left this game');
+      }
+      outcome = await withdrawInTx(config, tx, gameRef, doc, seatIndex, 'resign', caller.uid);
     });
-    await notify(db, opponentUid, 'game-over', {
-      gameId,
-      opponentName: caller.name,
-      outcome: `You won — ${caller.name} resigned`,
-    });
-    return { ok: true };
+    // T7.8 turns this into the placing-aware fan-out; the copy below is the
+    // two-seat wording, sent to everyone still in at 3+.
+    for (const uid of outcome.remaining) {
+      await notify(db, uid, 'game-over', {
+        gameId,
+        opponentName: caller.name,
+        outcome: outcome.finished
+          ? `You won — ${caller.name} resigned`
+          : `${caller.name} left the game`,
+      });
+    }
+    return { ok: true, finished: outcome.finished };
   });
 
   const rematch = onCall(async (request) => {

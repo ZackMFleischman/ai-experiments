@@ -41,6 +41,7 @@ export {
   type DrawOptions,
   type DrawTrigger,
 } from './draws';
+export { seatKeysOf, withdrawInTx, type WithdrawConfig, type WithdrawResult } from './withdraw';
 export {
   createForfeitHandlers,
   type ForfeitConfig,

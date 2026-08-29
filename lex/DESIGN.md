@@ -518,8 +518,8 @@ invites/{code}:           { gameId, createdBy, hostName, hostSeat?, options, exp
 | `startGame(gameId, expectedRoster, turnOrder)` *(3+ only)* | host-only **start early** from `min`. `expectedRoster` guards it exactly as `submitMove`'s `expectedMoveCount` does, so a last-second joiner is never silently left out. Resolves the order, deals every rack, flips to `active` |
 | `setTurnOrder(gameId, turnOrder)` *(3+ only)* | host-only, persisted **before** the start so every player sees the arrangement live |
 | `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary), draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent |
-| `resign(gameId)` | = hive |
-| `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull) |
+| `resign(gameId)` | = hive at two seats. At 3+ it is a **withdrawal** (§2.1): score frozen, rack back to the bag and re-shuffled, turn order skips the seat, `withdrawn` grows, and the game runs on until one active player is left |
+| `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull), with a timeout at 3+ taking the same withdrawal path, plus a cull of **open rooms** whose invite expired while the roster was still below the minimum — a 3+ room outlives its code, so an expired one would otherwise sit unjoinable in every guest's lobby |
 
 Dropped from hive's list: `offerDraw`/`respondDraw` (§2.3).
 

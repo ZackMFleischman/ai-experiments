@@ -5,12 +5,15 @@
 // from the bag front), so server replay reproduces the deal.
 import { randomInt } from 'node:crypto';
 import { HttpsError } from 'firebase-functions/v2/https';
-import type { DocumentData, DocumentReference, Transaction } from 'firebase-admin/firestore';
+import { FieldValue, type DocumentData, type DocumentReference, type Transaction } from 'firebase-admin/firestore';
 import {
   RULESETS,
+  deserializeState,
   initialState,
+  result as gameResult,
   serializePublic,
   serializeState,
+  withdraw,
   type Ruleset,
   type TileFace,
 } from '@lex/engine';
@@ -18,6 +21,7 @@ import { DICTIONARIES } from '@lex/dict';
 import { parseTurnOrderChoice } from '@parlor/server';
 import type {
   GameServerConfig,
+  WithdrawResult,
   InitialGame,
   PushPayload,
   SeatChoice,
@@ -153,6 +157,103 @@ async function seatRackDoc(
   return { tiles, n: 0 };
 }
 
+/**
+ * A seat leaves a running 3+ game (DECISIONS 2026-08-28). The engine freezes
+ * their score, returns their rack to the BAG END and skips them in the turn
+ * order; those tiles are re-shuffled here, exactly as an exchange's are (§3.3),
+ * so the remainder stays unpredictable. Reads before parlor's writes.
+ */
+async function withdrawSeat({
+  tx,
+  gameRef,
+  doc,
+  seat,
+}: {
+  tx: Transaction;
+  gameRef: DocumentReference;
+  doc: DocumentData;
+  seat: number;
+}): Promise<WithdrawResult> {
+  const bagRef = gameRef.collection('private').doc('bag');
+  const bagDoc = await tx.get(bagRef);
+  const priv = bagDoc.data() as { order: string; state: string } | undefined;
+  if (!priv?.state) throw new HttpsError('internal', 'missing private state');
+
+  const before = deserializeState(priv.state);
+  const returned = before.racks[seat]?.length ?? 0;
+  let next = withdraw(before, seat);
+  let event: { n: number; returned: number; reshuffled: string } | null = null;
+  if (returned > 0) {
+    const reshuffled = shuffleFaces(next.bag);
+    next = withBag(next, reshuffled);
+    event = { n: before.moveCount, returned, reshuffled: reshuffled.join('') };
+  }
+
+  const seatCount = next.racks.length;
+  const outcome = gameResult(next);
+  const standings =
+    outcome.status === 'finished' ? outcome.standings.map((tied) => tied.map((s) => SEAT_KEYS[s]!)) : null;
+
+  return {
+    gameFields: {
+      public: serializePublic(next),
+      toMove: SEAT_KEYS[next.toMove]!,
+      scores: bySeat(seatCount, (s) => next.scores[s]!),
+      bagCount: next.bag.length,
+      rackCounts: bySeat(seatCount, (s) => next.racks[s]!.length),
+    },
+    subWrites: [
+      // The leaver's rack doc empties with their rack.
+      ...(doc['players'] && (doc['players'] as Record<string, string | null>)[SEAT_KEYS[seat]!]
+        ? [
+            {
+              path: ['racks', (doc['players'] as Record<string, string>)[SEAT_KEYS[seat]!]!] as const,
+              data: { tiles: '', n: before.moveCount + 1 },
+            },
+          ]
+        : []),
+      {
+        path: ['private', 'bag'] as const,
+        data: {
+          state: serializeState(next),
+          drawn: priv.order.length - next.bag.length,
+          ...(event ? { events: FieldValue.arrayUnion(event) } : {}),
+        },
+        merge: true,
+      },
+    ],
+    terminal:
+      outcome.status === 'finished' && standings
+        ? {
+            result: standings[0]!.length > 1 ? 'draw' : standings[0]![0]!,
+            endedBy: outcome.by,
+            standings,
+          }
+        : null,
+  };
+}
+
+/** Crypto Fisher-Yates over tile faces (server randomness, §3.3). Shared with
+ *  submitMove's exchange re-shuffle. */
+export function shuffleFaces(faces: readonly TileFace[]): TileFace[] {
+  const out = [...faces];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    const a = out[i]!;
+    out[i] = out[j]!;
+    out[j] = a;
+  }
+  return out;
+}
+
+/** Same state with the bag remainder replaced, via the frozen serialize
+ *  round-trip so no private constructor is needed. */
+export function withBag(state: ReturnType<typeof deserializeState>, bag: readonly TileFace[]) {
+  const s = JSON.parse(serializeState(state)) as { bag: string };
+  s.bag = bag.join('');
+  return deserializeState(JSON.stringify(s));
+}
+
 /** The opponent-moved push copy: word + score in the body (DESIGN §8). */
 export function playedCopy(name: string, word: string, score: number): string {
   return `${name} played ${word} for ${score} — your move.`;
@@ -247,5 +348,6 @@ export const lexServerConfig: GameServerConfig<LexGameOptions> = {
   timeControlDays: (options) => options.timeControl?.days ?? null,
   initialGame,
   seatRackDoc,
+  withdrawSeat,
   notify: { buildPayload, isMyTurn },
 };
