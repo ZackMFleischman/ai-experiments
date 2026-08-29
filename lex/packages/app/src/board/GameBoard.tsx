@@ -32,6 +32,8 @@ import { useSkinId } from './skinContext';
 import { useConfirmPlay } from '../game/confirmPlayContext';
 import { GameInfoDialog } from '../game/GameInfoDialog';
 import { NoticeToast } from '../game/NoticeToast';
+import { PhoneyBanner } from '../game/PhoneyBanner';
+import { PhoneyBeat } from '../game/PhoneyBeat';
 import { Tile } from './Tile';
 
 /** ONE drag layer for every tile in flight, rack- or board-origin: a fixed-
@@ -70,6 +72,7 @@ export function GameBoard({
   seatNames = DEFAULT_NAMES,
   onRematch,
   onBackToLobby,
+  onNewGame,
   timeControl,
   deadlineAtMs,
 }: {
@@ -77,6 +80,9 @@ export function GameBoard({
   seatNames?: readonly string[];
   onRematch?: () => void;
   onBackToLobby?: () => void;
+  /** Hot-seat only: start over with different options. Multiplayer omits it —
+   * those options are server-pinned and immutable (§2.2). */
+  onNewGame?: () => void;
   /** Multiplayer: the game's async clock, restated in the info menu (T4.7). */
   timeControl?: { days: 1 | 3 | 7 } | null;
   /** Multiplayer: the side-to-move's move deadline (ms) — drives the live
@@ -406,8 +412,11 @@ export function GameBoard({
   // words is the bad one" is answered on the board rather than by counting
   // letters. Derived from the verdict — no pointer events, so the card can
   // stay click-through.
+  // Only an EXPLICIT rejection rings cells. Where invalid words cost the turn
+  // every verdict is null (withheld), so this stays empty and the board gives
+  // nothing away.
   const rejectedWords = useMemo(
-    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => !w.valid) : []),
+    () => (snap.preview?.check.ok ? snap.preview.words.filter((w) => w.valid === false) : []),
     [snap.preview],
   );
   const flaggedCells = useMemo(
@@ -474,12 +483,31 @@ export function GameBoard({
         />
       )}
       <NoticeToast notice={snap.notice} />
+      {/* A phoney leaves the board untouched, so without this the next player
+          sees nothing at all. Hidden once tiles are staged — by then they are
+          reading their own turn, not the last one. */}
+      {snap.lastPlay?.kind === 'phoney' && snap.pending.size === 0 && (
+        <PhoneyBanner
+          name={seatNames[snap.lastPlay.by] ?? `Player ${snap.lastPlay.by + 1}`}
+          words={snap.lastPlay.words.map((w) => w.word)}
+          onOpenSheet={() => setSheetOpen(true)}
+        />
+      )}
       <GameInfoDialog
         open={infoOpen}
         onClose={() => setInfoOpen(false)}
         rulesetId={snap.options.rulesetId}
         dictionaryId={snap.options.dictionaryId}
+        invalidWords={snap.options.invalidWords ?? 'blocked'}
         {...(timeControl !== undefined ? { timeControl } : {})}
+        {...(onNewGame
+          ? {
+              onNewGame: () => {
+                setInfoOpen(false);
+                onNewGame();
+              },
+            }
+          : {})}
       />
       <Box ref={boardAreaRef} sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardViewport
@@ -678,6 +706,9 @@ export function GameBoard({
             View result
           </Box>
         </Box>
+      )}
+      {snap.phoney && (
+        <PhoneyBeat words={snap.phoney.words} onDismiss={() => controller.dismissPhoney()} />
       )}
       <BlankPicker
         open={snap.preview?.needsBlank != null}
