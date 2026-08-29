@@ -833,40 +833,19 @@ not reinvented process. Full harness spec and build protocol: IMPLEMENTATION.md.
 
 ## 11. Milestone map
 
-Task-level breakdown, gates, and the frozen engine API live in
-[IMPLEMENTATION.md](./IMPLEMENTATION.md). Estimates assume agent builders, matching
-hive's actuals.
+Every milestone through **M7** has shipped. The per-task breakdown, the gate for
+each, and the frozen engine API live in [IMPLEMENTATION.md](./IMPLEMENTATION.md),
+which collapses each shipped milestone to a SHIPPED entry in
+[DECISIONS.md](./DECISIONS.md) — that pair is the record, so it is not restated
+here. In outline: M0 scaffolded both workspaces, M1 the engine, M2 the
+dictionaries, M3 the local/hot-seat UI and the whole validation harness, M4 the
+multiplayer backend, M5 PWA + push + async deadlines, M6 the polish-and-ship
+pass, and M7 seats three and four players.
 
-- **M0 — Scaffold (½ day).** The `parlor/` workspace + the lex workspace (five
-  packages) with source-link wiring, CI for both, emulators, doc-lint — hive's
-  M0 outputs copied wholesale. *Gate:* `validate:m0` in CI.
-- **M1 — Engine core (2–3 days).** Ruleset data + registry (`classic` +
-  `modern`), bag/draw, checkPlay, scoring, applyMove, end conditions, GCG,
-  serialization, property suite. *Gate:* scripted full game replays to known
-  final scores; property run clean.
-- **M2 — Dictionaries (1–2 days).** Both lists vendored, DAWG build + loaders,
-  registry metadata, engine integration, invalid-word fixtures.
-  *Gate:* `validate:m2`.
-- **M3 — Local game UI (3–4 days).** Grid board + viewport, rack, drag/tap,
-  pending-placement UX with live preview, blank/exchange/pass flows, pass-device
-  hot-seat with persistence, end-of-game sequence, **the whole validation harness**,
-  static hot-seat PWA deploy. *Gate:* hot-seat e2e full game; visual review done.
-- **M4 — Multiplayer backend (3–4 days).** Auth + landing, three-tier schema +
-  rules (+ privacy rules tests), callables, invite/challenge/rematch, lobby,
-  new-game flow with board/dictionary pickers, optimistic + refill
-  reconciliation, two-browser e2e, multiplayer build + deploy workflow.
-  *Gate:* `validate:m4`; a real game from two devices.
-- **M5 — PWA + notifications + async (2–3 days).** Manifest/SW, push (all
-  triggers, payloads asserted), badges, deadlines + hourly forfeit.
-  *Gate:* `validate:m5`; real push on a phone.
-- **M6 — Polish & ship (2–3 days).** Theme/tile-skin pass, dark + responsive
-  audit, Lighthouse, production deploy + DNS, website card, a real game
-  start-to-finish. *Gate:* full `pnpm validate`; a finished real game.
-
-**v1.1 candidates:** challenge-mode ruleset · real-time clocks · 3–4 players ·
-keyboard entry on desktop · game chat/emotes · AI opponent (`@lex/ai`, DAWG move
-gen) · analysis/best-play review · hive's migration onto `parlor/` · `.gcg` export ·
-more rulesets/word lists (11×11 quick board; NWL/SOWPODS if licensed).
+**v1.1 candidates:** real-time clocks · keyboard entry on desktop · game
+chat/emotes · AI opponent (`@lex/ai`, DAWG move gen) · analysis/best-play review ·
+hive's migration onto `parlor/` · `.gcg` export · more rulesets/word lists
+(11×11 quick board; NWL/SOWPODS if licensed).
 
 ---
 
