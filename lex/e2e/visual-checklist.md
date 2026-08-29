@@ -90,9 +90,14 @@ are logged at the bottom with date + reason, and deleted when fixed.
   The deadline (clock-icon) chip rides BOTH your-turn and waiting cards — the
   current player's move deadline — and never starves the caption at 390px.
 - New game: both board cards show real premium-map previews; dictionaries show
-  name + word count + description; toggles legible at 390px.
+  name + word count + description; toggles legible at 390px. PLAYERS offers only
+  the selected board's range; a board that cannot seat the count is dimmed and
+  disabled with its range, never hidden; the invite row is multi-select at 3+;
+  the pace line under the clock states the round at the chosen count.
 - Join card lists board, dictionary + word count, time control, and seat
-  (FR-10) before the accept button; themed hero above.
+  (FR-10) before the accept button; themed hero above. A 3+ code previews the
+  guest list and the places left instead of a seat; a full room reads "This
+  game is full", never "no longer valid".
 - Waiting screen: invite link AND bare code visible with copy affordances;
   challenge variant swaps copy + withdraw action; board never visible while open.
 
