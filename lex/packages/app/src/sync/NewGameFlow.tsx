@@ -43,18 +43,29 @@ function Flow({ uid }: { uid: string }) {
   const create = (choices: NewGameChoices) => {
     setBusy(true);
     setError(null);
-    const { opponent, options, seat } = choices;
+    const { opponent, options, seat, invite = [] } = choices;
     (opponent
       ? api
           .challengeUser({ opponentUid: opponent.uid, options, seat })
           .then(({ gameId }) => void navigate(`/game/${gameId}`))
-      : api.createGame({ options, seat }).then((created) => {
+      : api.createGame({ options, seat }).then(async (created) => {
           // At three or four seats the created game IS a room, and the room
           // screen already carries the code and the friend picker — a separate
           // post-create invite step would be a detour. Two seats keep the
           // invite-link view exactly as it has always been.
-          if ((options.maxPlayers ?? 2) >= 3) void navigate(`/game/${created.gameId}`);
-          else setCreated(created);
+          if ((options.maxPlayers ?? 2) >= 3) {
+            // The invitations the host picked on the form. A failure here must
+            // not strand them on the form: the game exists, and the room's own
+            // invite picker is the place to try again — so report and go.
+            if (invite.length > 0) {
+              await api
+                .invitePlayers({ gameId: created.gameId, uids: invite.map((f) => f.uid) })
+                .catch((err: unknown) => {
+                  setError(err instanceof Error ? err.message : 'the invitations did not send');
+                });
+            }
+            void navigate(`/game/${created.gameId}`);
+          } else setCreated(created);
         })
     )
       .catch((err: unknown) => {

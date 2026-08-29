@@ -18,7 +18,10 @@ export interface LexGameOptions {
 
 export type SeatChoice = 'me' | 'them' | 'random';
 
-const api = createGameApi<LexGameOptions, SeatChoice>();
+// The two-seat wire values, or — at three or more seats, where seats do not
+// exist yet — the room's turn-order choice, which createGame stores on the
+// game doc (DESIGN §6.3; parlor's parseSeatChoice takes either).
+const api = createGameApi<LexGameOptions, SeatChoice | TurnOrderChoice>();
 
 export const { createGame, joinGame, cancelGame, challengeUser, respondChallenge, resign, rematch } =
   api;

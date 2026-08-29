@@ -49,7 +49,7 @@ export function LandingHero() {
 
 export function LandingLayout({ children }: { children: ReactNode }) {
   return (
-    <ParlorLandingLayout hero={<LandingHero />} name="LEX" tagline="A crossword tile game for two.">
+    <ParlorLandingLayout hero={<LandingHero />} name="LEX" tagline="A crossword tile game for two to four.">
       {children}
     </ParlorLandingLayout>
   );

@@ -7,6 +7,6 @@ import { LandingHero } from './LandingLayout';
 
 export function Landing() {
   return (
-    <ParlorLanding hero={<LandingHero />} name="LEX" tagline="A crossword tile game for two." />
+    <ParlorLanding hero={<LandingHero />} name="LEX" tagline="A crossword tile game for two to four." />
   );
 }

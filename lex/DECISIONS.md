@@ -537,3 +537,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   with no new element on any two-seat screen, and no two-seat capture changed.
   `Snapshot.review.board` is null while the cursor sits on the newest missed
   move, so the live board never re-renders from a rewound copy.
+
+- **2026-08-29 — `validate:visual`'s fit-view check targets the GAME board only**
+  (T7.15). `MiniBoard` reuses the real renderer for lobby thumbnails and the
+  board picker's premium-map preview, so those carry `data-board` too — the
+  check had been silently asserting on decorative previews since T3.11 and only
+  noticed when a 4-player form grew tall enough to scroll one off the top. A
+  decorative preview has no fit-view, so it is now excluded via `data-decorative`
+  rather than the assertion being loosened: the game board is held to exactly the
+  same bound as before. Lex's landing tagline also stops saying "for two".

@@ -50,6 +50,50 @@ describe('JoinCard (FR-10)', () => {
   });
 });
 
+// T7.15: the same code, but it opens a ROOM. There is no seat to promise yet,
+// so the card leads with who is already in and how many places are left.
+describe('JoinCard — a 3+ room', () => {
+  const room = {
+    kind: 'room' as const,
+    hostName: 'Ada',
+    names: ['Ada', 'Sam'],
+    filled: 2,
+    maxPlayers: 4,
+    options: { rulesetId: 'classic', dictionaryId: 'nwl2023', timeControl: { days: 3 as const } },
+  };
+
+  it('previews the guest list, the open places and the options', () => {
+    const onAccept = vi.fn();
+    render(<JoinCard state={room} onAccept={onAccept} />);
+    expect(screen.getByTestId('join-roster').textContent).toBe('Ada and Sam are in.');
+    expect(screen.getByTestId('join-seats').textContent).toBe(
+      '2 of 4 seats filled — 2 seats left.',
+    );
+    expect(screen.getByText(/Classic board/)).toBeTruthy();
+    expect(screen.getByText(/3 days per move/)).toBeTruthy();
+    // No seat exists before the start, so the card must promise none.
+    expect(screen.queryByText(/You.ll go/)).toBeNull();
+    fireEvent.click(screen.getByTestId('join-accept'));
+    expect(onAccept).toHaveBeenCalled();
+  });
+
+  it('says the host is alone when nobody else has joined', () => {
+    render(<JoinCard state={{ ...room, names: ['Ada'], filled: 1 }} onAccept={() => {}} />);
+    expect(screen.getByTestId('join-roster').textContent).toMatch(/first to join/);
+    expect(screen.getByTestId('join-seats').textContent).toBe(
+      '1 of 4 seats filled — 3 seats left.',
+    );
+  });
+
+  it('a full room is closed, not invalid — the code was never wrong', () => {
+    render(<JoinCard state={{ kind: 'closed' }} onAccept={() => {}} />);
+    expect(screen.getByTestId('join-closed')).toBeTruthy();
+    expect(screen.getByText(/This game is full/)).toBeTruthy();
+    expect(screen.queryByText(/no longer valid/)).toBeNull();
+    expect(screen.queryByTestId('join-accept')).toBeNull();
+  });
+});
+
 describe('WaitingForOpponent (§8.10 — board withheld while open)', () => {
   it('keeps the invite re-shareable as link AND code', () => {
     render(

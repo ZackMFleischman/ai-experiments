@@ -31,3 +31,39 @@ export function boardName(rulesetId: string): string {
 export function timeControlLabel(timeControl: { days: number } | null): string {
   return timeControl ? `${timeControl.days} day${timeControl.days === 1 ? '' : 's'} per move` : 'No clock';
 }
+
+/** The seat range a ruleset allows (`Ruleset.players`). Nothing in the UI may
+ * assume 2–4: the range is engine data, and a board that can only deal three
+ * racks says so here. */
+export interface SeatRange {
+  min: number;
+  max: number;
+}
+
+/** Every seat count the range allows, low to high — the count picker's options. */
+export function seatCounts(range: SeatRange): number[] {
+  const counts: number[] = [];
+  for (let n = range.min; n <= range.max; n++) counts.push(n);
+  return counts;
+}
+
+/** Pull a chosen count back inside a range (a board change can narrow it). */
+export function clampCount(count: number, range: SeatRange): number {
+  return Math.min(Math.max(count, range.min), range.max);
+}
+
+/** Whether a board can seat this many players. */
+export function seats(range: SeatRange, count: number): boolean {
+  return count >= range.min && count <= range.max;
+}
+
+/**
+ * The pace line under the time control: a round is one move per player, so the
+ * wait between YOUR turns grows with the table. Null when there is no clock —
+ * an untimed game has no pace to state.
+ */
+export function paceLine(timeControl: { days: number } | null, players: number): string | null {
+  if (!timeControl) return null;
+  const round = timeControl.days * players;
+  return `${timeControlLabel(timeControl)} — about ${round} day${round === 1 ? '' : 's'} a round at ${players} players`;
+}

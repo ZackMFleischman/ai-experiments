@@ -31,7 +31,14 @@ export function MiniBoard({
       data-testid="mini-board"
       sx={{ width: size, height: size, pointerEvents: 'none', flexShrink: 0, overflow: 'hidden' }}
     >
-      <Box sx={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+      {/* Decorative: thumbnails and the board picker's premium-map preview
+          reuse the real renderer, so they carry data-board too. `data-decorative`
+          marks them as not-the-game-board for validate:visual's fit-view check,
+          which a preview scrolled inside a tall form would otherwise trip. */}
+      <Box
+        data-decorative
+        sx={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
+      >
         <BoardGrid layout={ruleset.board} points={ruleset.tiles.points} tiles={tiles} static />
       </Box>
     </Box>

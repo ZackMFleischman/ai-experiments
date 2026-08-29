@@ -26,12 +26,20 @@ test('gallery: every entry renders clean at every viewport and theme', async ({ 
       );
       if (missingGlyphs > 0) found.push(`${label}: ${missingGlyphs} tile cells with no letter glyph`);
 
-      // At fit-view (all entries render view=null) the board sits inside the
-      // viewport. getBoundingClientRect accounts for the CSS transform.
-      const board = p.locator('[data-board]').first();
-      if ((await board.count()) > 0) {
-        const box = await board.boundingBox();
-        if (!box || box.width <= 0 || box.height <= 0) {
+      // At fit-view (all entries render view=null) the GAME board sits inside
+      // the viewport. getBoundingClientRect accounts for the CSS transform.
+      // MiniBoard reuses the real renderer for lobby thumbnails and the board
+      // picker's premium-map preview, so those carry data-board too — they are
+      // decorative, have no fit-view, and may legitimately scroll out of a tall
+      // form, so they are excluded rather than the assertion loosened.
+      const box = await p.evaluate(() => {
+        const el = [...document.querySelectorAll('[data-board]')].find(
+          (b) => !b.closest('[data-decorative]'),
+        );
+        return el ? { ...el.getBoundingClientRect().toJSON() } : null;
+      });
+      if (box) {
+        if (box.width <= 0 || box.height <= 0) {
           found.push(`${label}: board has no size`);
         } else if (box.x < -1 || box.y < -1 || box.x + box.width > vp.width + 1 || box.y + box.height > vp.height + 1) {
           found.push(`${label}: board overflows viewport: ${JSON.stringify(box)}`);

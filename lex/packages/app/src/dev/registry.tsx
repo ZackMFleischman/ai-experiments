@@ -35,6 +35,22 @@ import {
 
 const classic = RULESETS['classic']!;
 
+// T7.15: a four-handed new game, two of the three past opponents invited.
+const FOUR_HANDED = {
+  friends: [
+    { uid: 'u1', name: 'Sam' },
+    { uid: 'u2', name: 'Noor' },
+    { uid: 'u3', name: 'Kai' },
+  ],
+  initial: {
+    players: 4,
+    invite: [
+      { uid: 'u1', name: 'Sam' },
+      { uid: 'u2', name: 'Noor' },
+    ],
+  },
+};
+
 function EmptyBoard({ rulesetId }: { rulesetId: string }) {
   const ruleset = RULESETS[rulesetId]!;
   const { width, height } = boardPixelSize(ruleset.board);
@@ -236,6 +252,72 @@ export const GALLERY: GalleryEntry[] = [
             }}
             onAccept={() => {}}
           />
+        </LandingLayout>
+      </Box>
+    ),
+  },
+  // T7.15: the same form at a four-handed table — the count picker, the
+  // multi-select invite chips, the shared 3+ turn-order picker and the pace of
+  // a round at four.
+  {
+    id: 'new-game-4p',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2 }}>
+        <NewGameForm onCreate={() => {}} {...FOUR_HANDED} />
+      </Box>
+    ),
+  },
+  // The form is taller than any viewport, so the entry above frames its head
+  // (count picker + invite chips) and this one its tail: the 3+ turn-order
+  // picker and the pace of a round at four.
+  {
+    id: 'new-game-4p-pace',
+    render: () => (
+      <Box
+        data-gallery-ready
+        sx={{
+          height: '100dvh',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          // Taller than the frame: flex-end pushes the overflow past the TOP,
+          // so the capture lands on the tail of the form.
+          justifyContent: 'flex-end',
+          p: 2,
+        }}
+      >
+        <NewGameForm onCreate={() => {}} {...FOUR_HANDED} />
+      </Box>
+    ),
+  },
+  // The 3+ join preview: the room's guest list before you accept, and the
+  // closed variant for a room whose last place went to somebody else.
+  {
+    id: 'join-room',
+    render: () => (
+      <Box data-gallery-ready>
+        <LandingLayout>
+          <JoinCard
+            state={{
+              kind: 'room',
+              hostName: 'Ada',
+              names: ['Ada', 'Sam'],
+              filled: 2,
+              maxPlayers: 4,
+              options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: { days: 3 } },
+            }}
+            onAccept={() => {}}
+          />
+        </LandingLayout>
+      </Box>
+    ),
+  },
+  {
+    id: 'join-room-full',
+    render: () => (
+      <Box data-gallery-ready>
+        <LandingLayout>
+          <JoinCard state={{ kind: 'closed' }} onAccept={() => {}} />
         </LandingLayout>
       </Box>
     ),
