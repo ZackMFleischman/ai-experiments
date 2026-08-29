@@ -118,8 +118,63 @@ export function leaveList(list: GuestList, uid: string): GuestList {
   return { roster: without(list.roster, uid), invited: without(list.invited, uid), declined: list.declined };
 }
 
-/** Turn order for the seats about to be dealt — see TurnOrderChoice. */
+/**
+ * How a game's turn order is decided (DECISIONS 2026-08-28 — three modes,
+ * chosen at create and finalized in the game room, where `setTurnOrder`
+ * persists it so every player sees the arrangement, not just the host).
+ */
+export type TurnOrderChoice =
+  /** The creator takes this seat; everyone else fills in join order. */
+  | { mode: 'host-seat'; seat: number }
+  /** Shuffle the seats when the game starts. */
+  | { mode: 'random' }
+  /** An explicit arrangement: uids in turn order. */
+  | { mode: 'arrange'; order: readonly string[] };
+
+/**
+ * What a game's `parseSeatChoice` may return. A bare number is an
+ * already-resolved creator seat — which is what the two-seat wire values
+ * ('me' → 0, 'them' → 1, 'random' → a coin flip) have always produced, so the
+ * siblings' callable contracts are untouched.
+ */
+export type SeatChoice = TurnOrderChoice | number;
+
+/** Lift a bare seat index into the modern choice shape. */
+export function normalizeTurnOrder(choice: SeatChoice): TurnOrderChoice {
+  return typeof choice === 'number' ? { mode: 'host-seat', seat: choice } : choice;
+}
+
+/** Turn order for the seats about to be dealt. */
 export type SeatOrder = readonly RosterEntry[];
+
+/**
+ * Validate a turn-order choice off the wire. `setTurnOrder` and `startGame`
+ * both take one from the host, so it is never trusted.
+ */
+export function parseTurnOrderChoice(raw: unknown): TurnOrderChoice {
+  const choice = raw as { mode?: unknown; seat?: unknown; order?: unknown } | null;
+  if (!choice || typeof choice !== 'object') {
+    throw new HttpsError('invalid-argument', 'malformed turn order');
+  }
+  if (choice.mode === 'random') return { mode: 'random' };
+  if (choice.mode === 'host-seat') {
+    if (!Number.isInteger(choice.seat) || (choice.seat as number) < 0) {
+      throw new HttpsError('invalid-argument', 'host-seat needs a non-negative integer seat');
+    }
+    return { mode: 'host-seat', seat: choice.seat as number };
+  }
+  if (choice.mode === 'arrange') {
+    const order = choice.order;
+    if (!Array.isArray(order) || order.some((uid) => typeof uid !== 'string' || uid.length === 0)) {
+      throw new HttpsError('invalid-argument', 'arrange needs an array of uids');
+    }
+    if (new Set(order as string[]).size !== order.length) {
+      throw new HttpsError('invalid-argument', 'arrange has a duplicate uid');
+    }
+    return { mode: 'arrange', order: [...(order as string[])] };
+  }
+  throw new HttpsError('invalid-argument', "turn order mode must be 'random', 'host-seat' or 'arrange'");
+}
 
 /**
  * Resolve the host's turn-order choice against the final roster.
@@ -129,10 +184,7 @@ export type SeatOrder = readonly RosterEntry[];
  *   list must not be dropped, and must not fail the permutation check.
  * - `host-seat` puts the host at that index and everyone else in join order.
  */
-export function resolveSeatOrder(
-  turnOrder: { mode: 'host-seat'; seat: number } | { mode: 'random' } | { mode: 'arrange'; order: readonly string[] },
-  roster: readonly RosterEntry[],
-): SeatOrder {
+export function resolveSeatOrder(turnOrder: TurnOrderChoice, roster: readonly RosterEntry[]): SeatOrder {
   if (turnOrder.mode === 'random') {
     const shuffled = [...roster];
     for (let i = shuffled.length - 1; i > 0; i--) {

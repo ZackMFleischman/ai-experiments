@@ -458,3 +458,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   so every two-seat doc is byte-for-byte what it was and takes the original code
   path. The host leaving promotes `roster[0]` implicitly rather than storing a
   separate host field; the last one out deletes the game, as cancelling would.
+
+- **2026-08-28 — A stored arrangement is a preference, not a permutation** (T7.6).
+  `setTurnOrder` persists the host's choice while people are still arriving, so by
+  the time `startGame` (or an auto-start at max) resolves it, the roster has often
+  moved on. `resolveSeatOrder` therefore appends anyone the arrangement never named
+  in join order and ignores any uid that has since left, rather than validating a
+  permutation and failing. Treating it strictly would drop a newcomer or break the
+  auto-start outright — the trap IMPLEMENTATION §2 T7.6 names. `setTurnOrder` still
+  rejects an arrangement naming somebody who is not in the game, so typos surface
+  when the host makes them rather than silently at the start.

@@ -10,6 +10,7 @@ import {
   inviteToList,
   joinRoster,
   leaveList,
+  parseTurnOrderChoice,
   playerIdsOf,
   previewOf,
   resolveSeatOrder,
@@ -167,5 +168,35 @@ describe('resolveSeatOrder', () => {
         [...roster].sort((a, b) => a.uid.localeCompare(b.uid)),
       );
     }
+  });
+});
+
+describe('parseTurnOrderChoice', () => {
+  it('accepts the three modes', () => {
+    expect(parseTurnOrderChoice({ mode: 'random' })).toEqual({ mode: 'random' });
+    expect(parseTurnOrderChoice({ mode: 'host-seat', seat: 2 })).toEqual({ mode: 'host-seat', seat: 2 });
+    expect(parseTurnOrderChoice({ mode: 'arrange', order: ['a', 'b'] })).toEqual({
+      mode: 'arrange',
+      order: ['a', 'b'],
+    });
+  });
+
+  it('copies the arrangement rather than aliasing the caller’s array', () => {
+    const order = ['a', 'b'];
+    const parsed = parseTurnOrderChoice({ mode: 'arrange', order });
+    order.push('c');
+    expect(parsed).toEqual({ mode: 'arrange', order: ['a', 'b'] });
+  });
+
+  it('rejects anything malformed', () => {
+    expect(() => parseTurnOrderChoice(null)).toThrow(/malformed/);
+    expect(() => parseTurnOrderChoice('random')).toThrow(/malformed/);
+    expect(() => parseTurnOrderChoice({ mode: 'nope' })).toThrow(/must be/);
+    expect(() => parseTurnOrderChoice({ mode: 'host-seat' })).toThrow(/non-negative integer/);
+    expect(() => parseTurnOrderChoice({ mode: 'host-seat', seat: -1 })).toThrow(/non-negative integer/);
+    expect(() => parseTurnOrderChoice({ mode: 'host-seat', seat: 1.5 })).toThrow(/non-negative integer/);
+    expect(() => parseTurnOrderChoice({ mode: 'arrange' })).toThrow(/array of uids/);
+    expect(() => parseTurnOrderChoice({ mode: 'arrange', order: ['a', ''] })).toThrow(/array of uids/);
+    expect(() => parseTurnOrderChoice({ mode: 'arrange', order: ['a', 'a'] })).toThrow(/duplicate/);
   });
 });

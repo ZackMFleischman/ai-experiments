@@ -4,15 +4,14 @@
 // peerDependencies provided by the consuming game's functions package.
 export {
   createGameCallables,
-  normalizeTurnOrder,
   type GameCallables,
   type GameServerConfig,
   type InitialGame,
-  type SeatChoice,
-  type TurnOrderChoice,
 } from './games';
 export {
   declineInvite,
+  normalizeTurnOrder,
+  parseTurnOrderChoice,
   emptyGuestList,
   guestListOf,
   inviteToList,
@@ -24,7 +23,9 @@ export {
   type GuestList,
   type InvitePreview,
   type RosterEntry,
+  type SeatChoice,
   type SeatOrder,
+  type TurnOrderChoice,
 } from './roster';
 export {
   createSubmitMove,

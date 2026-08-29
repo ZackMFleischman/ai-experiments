@@ -37,9 +37,13 @@ import {
   leaveList,
   playerIdsOf,
   previewOf,
+  normalizeTurnOrder,
+  parseTurnOrderChoice,
   resolveSeatOrder,
   type GuestList,
   type RosterEntry,
+  type SeatChoice,
+  type TurnOrderChoice,
 } from './roster';
 
 export interface InitialGame {
@@ -54,32 +58,6 @@ export interface InitialGame {
    * (hidden info — games without per-player secrets omit this and no rack docs
    * are written). One entry per seat dealt. */
   rackDocs?: readonly Record<string, unknown>[];
-}
-
-/**
- * How a game's turn order is decided (DECISIONS 2026-08-28 — three modes,
- * chosen at create and finalized in the game room, where `setTurnOrder`
- * persists it so every player sees the arrangement, not just the host).
- */
-export type TurnOrderChoice =
-  /** The creator takes this seat; everyone else fills in join order. */
-  | { mode: 'host-seat'; seat: number }
-  /** Shuffle the seats when the game starts. */
-  | { mode: 'random' }
-  /** An explicit arrangement: uids in turn order. */
-  | { mode: 'arrange'; order: readonly string[] };
-
-/**
- * What a game's `parseSeatChoice` may return. A bare number is an
- * already-resolved creator seat — which is what the two-seat wire values
- * ('me' → 0, 'them' → 1, 'random' → a coin flip) have always produced, so the
- * siblings' callable contracts are untouched.
- */
-export type SeatChoice = TurnOrderChoice | number;
-
-/** Lift a bare seat index into the modern choice shape. */
-export function normalizeTurnOrder(choice: SeatChoice): TurnOrderChoice {
-  return typeof choice === 'number' ? { mode: 'host-seat', seat: choice } : choice;
 }
 
 export interface GameServerConfig<TOptions> {
@@ -146,11 +124,13 @@ export interface GameCallables {
   respondChallenge: CallableFunction<unknown, unknown>;
   rematch: CallableFunction<unknown, unknown>;
   resign: CallableFunction<unknown, unknown>;
-  /** Guest-list callables — only meaningful on a 3+ game (T7.5). A two-seat
-   * game may export them; every one refuses a two-seat doc. */
+  /** Guest-list callables — only meaningful on a 3+ game (T7.5–T7.6). A
+   * two-seat game may export them; every one refuses a two-seat doc. */
   respondInvite: CallableFunction<unknown, unknown>;
   invitePlayers: CallableFunction<unknown, unknown>;
   leaveGame: CallableFunction<unknown, unknown>;
+  startGame: CallableFunction<unknown, unknown>;
+  setTurnOrder: CallableFunction<unknown, unknown>;
 }
 
 export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>): GameCallables {
@@ -826,6 +806,86 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     return { gameId, deleted };
   });
 
+  /**
+   * Start early (DECISIONS 2026-08-28 — the count is a MAXIMUM). Host-only.
+   *
+   * `expectedRoster` is the same guard `submitMove`'s `expectedMoveCount` is:
+   * the host confirms a start against the list they were LOOKING at, so
+   * somebody who joined in the last second is never silently left out — the
+   * call fails and the host re-confirms against the new list.
+   */
+  const startGame = onCall(async (request) => {
+    const caller = requireAuth(request);
+    const gameId = requireGameId(request.data);
+    const data = request.data as { expectedRoster?: unknown; turnOrder?: unknown };
+    if (
+      !Array.isArray(data?.expectedRoster) ||
+      data.expectedRoster.some((uid) => typeof uid !== 'string')
+    ) {
+      throw new HttpsError('invalid-argument', 'expectedRoster must be an array of uids');
+    }
+    const expectedRoster = data.expectedRoster as string[];
+    const turnOrder =
+      data.turnOrder === undefined ? null : parseTurnOrderChoice(data.turnOrder);
+
+    const db = getFirestore();
+    const gameRef = db.collection('games').doc(gameId);
+    await db.runTransaction(async (tx) => {
+      const game = await tx.get(gameRef);
+      if (!game.exists) throw new HttpsError('not-found', 'game not found');
+      const doc = game.data() as GameDocData;
+      requireGuestList(doc);
+      const list = guestListOf(doc);
+      if (list.roster[0]?.uid !== caller.uid) {
+        throw new HttpsError('permission-denied', 'only the host can start the game');
+      }
+      const actual = list.roster.map((entry) => entry.uid);
+      if (
+        actual.length !== expectedRoster.length ||
+        actual.some((uid, i) => uid !== expectedRoster[i])
+      ) {
+        throw new HttpsError(
+          'failed-precondition',
+          `the guest list changed (${actual.length} players now) — check who is in and start again`,
+        );
+      }
+      startGameInTx(db, tx, gameRef, turnOrder ? { ...doc, turnOrder } : doc, list);
+    });
+    return { gameId, started: true };
+  });
+
+  /**
+   * Persist the host's turn-order choice BEFORE the start, so every player
+   * sees the arrangement live rather than discovering it when the game begins
+   * (DECISIONS 2026-08-28 — fairness by transparency, not by prohibition).
+   */
+  const setTurnOrder = onCall(async (request) => {
+    const caller = requireAuth(request);
+    const gameId = requireGameId(request.data);
+    const turnOrder = parseTurnOrderChoice((request.data as { turnOrder?: unknown })?.turnOrder);
+
+    const db = getFirestore();
+    const gameRef = db.collection('games').doc(gameId);
+    await db.runTransaction(async (tx) => {
+      const game = await tx.get(gameRef);
+      if (!game.exists) throw new HttpsError('not-found', 'game not found');
+      const doc = game.data() as GameDocData;
+      requireGuestList(doc);
+      const list = guestListOf(doc);
+      if (list.roster[0]?.uid !== caller.uid) {
+        throw new HttpsError('permission-denied', 'only the host can set the turn order');
+      }
+      if (turnOrder.mode === 'arrange') {
+        const onRoster = new Set(list.roster.map((entry) => entry.uid));
+        if (turnOrder.order.some((uid) => !onRoster.has(uid))) {
+          throw new HttpsError('failed-precondition', 'the arrangement names somebody who is not in the game');
+        }
+      }
+      tx.update(gameRef, { turnOrder, updatedAt: FieldValue.serverTimestamp() });
+    });
+    return { gameId, turnOrder };
+  });
+
   return {
     createGame,
     joinGame,
@@ -837,5 +897,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     respondInvite,
     invitePlayers,
     leaveGame,
+    startGame,
+    setTurnOrder,
   };
 }

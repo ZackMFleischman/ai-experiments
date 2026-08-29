@@ -502,8 +502,11 @@ invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expi
 
 | Callable | Delta vs hive |
 |---|---|
-| `createGame(options, seat)` | seat = `me / them / random` (turn order, not color); shuffles + persists the bag, deals both racks |
-| `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + swaps who starts) |
+| `createGame(options, seat)` | seat = `me / them / random` (turn order, not color). At two seats it shuffles + persists the bag and deals both racks; at 3+ it creates a **guest list** instead and the deal waits for `startGame` (§2.3) |
+| `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + rotates who starts). At 3+, `joinGame` appends to the roster and auto-starts once it is full, and `cancelGame` is host-only |
+| `respondInvite` / `invitePlayers` / `leaveGame` *(3+ only)* | answer an invitation (a decline moves a name, never deletes), recruit more names, or take your own off the list. Invitees are reachable under the same rule as `challengeUser`: only people you have played |
+| `startGame(gameId, expectedRoster, turnOrder)` *(3+ only)* | host-only **start early** from `min`. `expectedRoster` guards it exactly as `submitMove`'s `expectedMoveCount` does, so a last-second joiner is never silently left out. Resolves the order, deals every rack, flips to `active` |
+| `setTurnOrder(gameId, turnOrder)` *(3+ only)* | host-only, persisted **before** the start so every player sees the arrangement live |
 | `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary), draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent |
 | `resign(gameId)` | = hive |
 | `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull) |
