@@ -517,3 +517,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `opponents` list, so a three-handed game contributes all of its players to the
   challenge picker rather than one, and `actionableCount` stops nagging a player
   who has withdrawn but is still nominally `toMove`.
+
+- **2026-08-28 — The 3+ turn-order picker only ever emits `arrange`** (T7.10).
+  It accepts `host-seat` (what the two-seat create form produces, before anyone
+  has joined) but "somebody goes first" emits `{mode:'arrange'}` even when the
+  pick is the host: emitting a different mode for the host would make the toggle
+  flip panels under the user, and `arrange` is the only mode that can name a
+  non-host first. Switching sub-mode normalizes immediately, so what the other
+  players see always matches the panel the host is looking at. The component is
+  `GuestListView`, not `GuestList` — TypeScript cannot re-export a type and a
+  value under one name, and the type keeps the server-mirroring name.

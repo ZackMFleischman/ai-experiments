@@ -564,6 +564,15 @@ replaces the move list (per-turn word + score + running totals); actions are
 **Play / Recall / Exchange / Pass / Resign**; while `status:'open'` the same
 waiting-screen treatment as hive (board withheld, invite re-shareable).
 
+At **three or four players** the open game is a **Game room** instead
+(`@parlor/web/lobby-ui`): the guest list, the always-live invite code, the host's
+turn-order picker — persisted, so everyone sees the arrangement rather than only
+the host — and a Start control that confirms an early start by **naming who is
+being left out**. Invitees get an `InvitationReceived` screen, and a full room
+answers a good code with "this game is full", not "invalid invite". The two-seat
+screens (`WaitingForOpponent`, `InviteLinkView`, `ChallengeReceived`) are
+untouched — the 3+ surfaces are strictly additive (DECISIONS 2026-08-28).
+
 ### 7.2 Board rendering & interaction (the UX core)
 
 **DOM/CSS grid, not SVG** — a deliberate departure from hive §6.2, same goals:
