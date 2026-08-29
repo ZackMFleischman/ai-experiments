@@ -565,3 +565,17 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   The winner's placing pill is filled accent (`primary.contrastText` on
   `primary.main`), not accent text on the selected-row wash, which fails 4.5:1
   in dark.
+
+- **2026-08-29 — the sync gate counts withdrawals, not just moves** (T7.17). The
+  three-browser e2e found that a withdrawal reached nobody: `refetch` emitted a
+  sync only when `moveCount` rose, and a withdrawal is not a move, so every
+  other player's board went on showing the seat that had left as still in the
+  game until somebody happened to move or reload. Both counters only ever rise
+  server-side, so "either advanced" is still monotonic and still refuses a
+  stale read over optimistic state — but `load()` has to seed BOTH, or the
+  first refetch after opening a game passes the test on a game nobody has left.
+  Two smaller bugs from the same test: the rack-currency gate wedged the
+  leaver's own client for good (their rack is stamped with the move count they
+  left at, which is not one of their moves, so the gate could never pass
+  again), and `canResign` still offered Withdraw to a player who had already
+  withdrawn — an action only the server would refuse.

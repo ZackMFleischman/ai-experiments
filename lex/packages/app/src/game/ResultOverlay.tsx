@@ -157,7 +157,10 @@ export function FinalStandings({ end, names }: { end: GameEnd; names: readonly s
                   </Box>
                 )}
                 <Box sx={{ flexGrow: 1 }} />
-                <Typography sx={{ fontWeight: 800, flexShrink: 0 }}>
+                <Typography
+                  data-testid={`result-score-${seat}`}
+                  sx={{ fontWeight: 800, flexShrink: 0 }}
+                >
                   {formatScore(end.finalScores[seat] ?? 0)}
                 </Typography>
               </Box>
