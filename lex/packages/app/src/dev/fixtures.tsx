@@ -107,6 +107,60 @@ export function WithController({
   return <Box data-gallery-ready sx={{ height: '100%' }}>{render(controller)}</Box>;
 }
 
+/** Rigged racks for the N-seat table fixtures (T7.14), seat order. */
+const TABLE_RACKS: readonly (readonly TileFace[])[] = [
+  ['C', 'A', 'T', 'S', 'E', 'R', 'N'],
+  ['D', 'O', 'G', 'L', 'I', 'P', 'U'],
+  ['M', 'I', 'N', 'E', 'R', 'A', 'L'],
+  ['B', 'O', 'X', 'E', 'S', 'T', 'Y'],
+];
+
+/**
+ * An N-seat hot-seat controller for the catch-up / columnar-sheet entries
+ * (T7.14): rigged racks per seat and a fixed rng, driven through the
+ * controller's own actions so every sheet row is real recorded verdict data.
+ */
+export async function tableController(
+  seats: number,
+  script?: (controller: GameController) => void,
+): Promise<GameController> {
+  const ruleset = RULESETS['classic']!;
+  const options: HotSeatOptions = {
+    rulesetId: 'classic',
+    dictionaryId: 'stub',
+    // A pinned draw tail too, so refills are letters rather than the blanks
+    // and A's the sorted remainder starts with.
+    bagOrder: riggedBagOrder(ruleset, TABLE_RACKS.slice(0, seats), [
+      'R', 'A', 'T', 'E', 'S', 'O', 'N', 'I', 'T', 'E', 'A', 'D',
+    ]),
+    seats,
+  };
+  const transport = new LocalTransport<HotSeatOptions, LexEntry>(options);
+  const controller = new GameController(transport, options, {
+    dict: stubDict(),
+    rng: () => 0.5,
+  });
+  await controller.init();
+  script?.(controller);
+  return controller;
+}
+
+/** Lay `letters` (found in the acting rack, whatever slot they landed in)
+ * into `cells` and commit the turn. Slot order is a reconciliation detail —
+ * addressing tiles by letter keeps the fixtures readable and stable. */
+export function playWord(
+  controller: GameController,
+  letters: string,
+  cells: readonly { row: number; col: number }[],
+): void {
+  [...letters].forEach((letter, i) => {
+    const slot = controller.getSnapshot().rack.indexOf(letter as TileFace);
+    if (slot < 0) throw new Error(`no '${letter}' in the rack`);
+    controller.placeAt(cells[i]!, slot);
+  });
+  controller.submitPlay();
+}
+
 /**
  * A dealt N-seat state for the score-bar entries (T7.13): `passes` rotate the
  * turn, `out` seats withdraw. Built through the engine so the rail's queue is

@@ -9,6 +9,7 @@ import { riggedBagOrder, stubDict } from '../../engine/test/helpers';
 import { GameBoard } from '../src/board/GameBoard';
 import type { HotSeatOptions, LexEntry } from '../src/controller/entries';
 import { GameController } from '../src/controller/GameController';
+import type { SheetRow } from '../src/controller/GameController';
 import { ScoreSheet } from '../src/game/ScoreSheet';
 
 const classic = RULESETS['classic']!;
@@ -81,6 +82,83 @@ describe('ScoreSheet drawer', () => {
     expect(sheet.textContent).toMatch(/exchanged 2/i);
     // Running totals line: 12 — 0 after the first play.
     expect(within(sheet).getAllByTestId('sheet-row')[0]?.textContent).toContain('12');
+  });
+});
+
+// T7.14: at four seats the flat list — one line per turn, four running totals
+// joined by dashes — was unreadable. The sheet is a column per player.
+describe('the columnar sheet (T7.14)', () => {
+  /** A hand-built sheet: rows in play order, running totals accumulated the
+   * way the controller records them. */
+  function rows(seats: number, moves: ReadonlyArray<Partial<SheetRow> & { by: number }>): SheetRow[] {
+    const totals = Array.from({ length: seats }, () => 0);
+    return moves.map((move, n) => {
+      totals[move.by] = (totals[move.by] ?? 0) + (move.score ?? 0);
+      return {
+        n,
+        kind: 'play',
+        word: null,
+        words: [],
+        score: 0,
+        cells: [],
+        ...move,
+        by: move.by,
+        totals: [...totals],
+      } as SheetRow;
+    });
+  }
+
+  const FOUR = rows(4, [
+    { by: 0, word: 'CATS', words: [{ word: 'CATS', score: 12, cells: [] }], score: 12 },
+    { by: 1, kind: 'pass' },
+    { by: 2, word: 'MINA', words: [{ word: 'MINA', score: 9, cells: [] }], score: 9 },
+    { by: 3, kind: 'exchange', count: 3 },
+    { by: 0, word: 'RATS', words: [{ word: 'RATS', score: 14, cells: [] }], score: 14 },
+    { by: 1, kind: 'resign' },
+  ]);
+
+  it('gives every seat a column and every round a row', () => {
+    render(<ScoreSheet open onClose={() => {}} rows={FOUR} names={['Ada', 'Sam', 'Noor', 'Kai']} />);
+    const sheet = screen.getByTestId('score-sheet');
+    expect(within(sheet).getAllByTestId('sheet-column-head').map((el) => el.textContent)).toEqual([
+      'Ada',
+      'Sam',
+      'Noor',
+      'Kai',
+    ]);
+    // Two turns each at most → two rounds, each with a cell per seat.
+    const roundRows = within(sheet).getAllByTestId('sheet-row');
+    expect(roundRows).toHaveLength(2);
+    expect(within(roundRows[0]!).getAllByTestId('sheet-cell')).toHaveLength(4);
+    expect(roundRows[0]!.textContent).toContain('CATS');
+    expect(roundRows[0]!.textContent).toContain('MINA');
+    expect(roundRows[1]!.textContent).toContain('RATS');
+  });
+
+  it('foots each column with that player’s running total', () => {
+    render(<ScoreSheet open onClose={() => {}} rows={FOUR} names={['Ada', 'Sam', 'Noor', 'Kai']} />);
+    expect(
+      within(screen.getByTestId('score-sheet'))
+        .getAllByTestId('sheet-total')
+        .map((el) => el.textContent),
+    ).toEqual(['26', '0', '9', '0']);
+  });
+
+  it('calls a 3+ resign a withdrawal, and keeps the two-seat word', () => {
+    const { unmount } = render(
+      <ScoreSheet open onClose={() => {}} rows={FOUR} names={['Ada', 'Sam', 'Noor', 'Kai']} />,
+    );
+    expect(screen.getByTestId('score-sheet').textContent).toContain('Withdrew');
+    unmount();
+    render(
+      <ScoreSheet
+        open
+        onClose={() => {}}
+        rows={rows(2, [{ by: 0, kind: 'pass' }, { by: 1, kind: 'resign' }])}
+        names={['Alice', 'Bob']}
+      />,
+    );
+    expect(screen.getByTestId('score-sheet').textContent).toContain('Resigned');
   });
 });
 

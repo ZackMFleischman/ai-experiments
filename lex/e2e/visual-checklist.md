@@ -44,6 +44,13 @@ are logged at the bottom with date + reason, and deleted when fixed.
   rows (names ellipsize instead).
 - A withdrawn seat in the rail: muted, no queue numeral, an "out" marker, score
   still readable — and the seats still playing renumber with no gap.
+- Catch-up bar at 3+ seats (T7.14): one line under the player bar naming the
+  reviewed move ("Kai played TOE +4") with ‹ › and Live ≥44px; stepping back
+  rewinds the board (later tiles gone) and moves the SAME green highlight onto
+  the reviewed play; the rack and action row stay live behind it.
+- Columnar score sheet: a column per player, a row per round, running totals
+  footing each column; four seats readable at 390px (the sheet scrolls sideways
+  inside its own box, the page never does).
 - Last-play highlight (green edge) clearly a different signal than pending gold,
   and gone entirely while any tile is staged.
 - A dragged tile is always visible: a fixed-position shadowed ghost rides
@@ -107,7 +114,8 @@ are logged at the bottom with date + reason, and deleted when fixed.
   icon-button cluster (≥44px targets) on the left; Play is the prominent
   contained CTA pinned to the right ("thumb corner"), clearly separated by a
   spacer so it never sits adjacent to a secondary action; Resign is only in the
-  ⋯ overflow menu (never in the CTA slot).
+  ⋯ overflow menu (never in the CTA slot) — labelled Withdraw at 3+ seats, and
+  its confirm says the player leaves and the others play on.
 
 ## Tile skins & Settings (T6.1)
 

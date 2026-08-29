@@ -10,6 +10,7 @@ import type {
   GameResult,
   GameState,
   Letter,
+  PlacedTile,
   PlayCheck,
   Ruleset,
   Seat,
@@ -75,7 +76,10 @@ export interface LastPlay {
   count?: number;
 }
 
-/** One score-sheet line (T3.9): what happened + running totals after it. */
+/** One score-sheet line (T3.9): what happened + running totals after it.
+ * `cells` (T7.14) carries a play's placement cells — the catch-up player
+ * rewinds the board with them (a play's tiles are the only thing a later row
+ * adds to it), and highlights the reviewed move. Empty for non-plays. */
 export interface SheetRow {
   n: number;
   by: Seat;
@@ -84,7 +88,21 @@ export interface SheetRow {
   words: readonly WordScore[];
   score: number;
   count?: number;
+  cells: readonly CellKey[];
   totals: readonly number[];
+}
+
+/** The catch-up player's cursor (T7.14): where it sits in the run of moves
+ * that happened since the local player last acted, and what that move was. */
+export interface ReviewState {
+  /** 0 = the first move you missed; `total - 1` = the newest (the live board). */
+  index: number;
+  total: number;
+  row: SheetRow;
+  /** The board AS OF the reviewed move — the live board minus every cell laid
+   * after it. Null while the cursor sits on the newest move, whose position IS
+   * the live one (so the live board never re-renders from a rewound copy). */
+  board: ReadonlyMap<CellKey, PlacedTile> | null;
 }
 
 export interface Snapshot {
@@ -119,6 +137,10 @@ export interface Snapshot {
   canExchange: boolean;
   lastPlay?: LastPlay;
   sheet: readonly SheetRow[];
+  /** Catch-up player (T7.14): the moves that happened since the local player
+   * last acted, and where the cursor sits in them. Null when there is nothing
+   * to catch up on (fewer than two missed moves, or the game is over). */
+  review: ReviewState | null;
   view: ViewState | null;
   /** End-of-game beat (T3.10): camera settles on these cells before the
    * overlay. Present only until finishBeat() (board endings only). */
@@ -195,6 +217,11 @@ export class GameController {
   private syncedGame: GameState | null = null;
   private syncedSeat: Seat | null = null;
 
+  /** Catch-up cursor (T7.14): the ABSOLUTE sheet index under review, or null
+   * for "live". Absolute so a move landing mid-review keeps the cursor on the
+   * move the player is looking at. */
+  private reviewRow: number | null = null;
+
   private view: ViewState | null = null;
   private beatDone = false;
   private overlayDismissed = false;
@@ -247,6 +274,7 @@ export class GameController {
   async newGame(options?: HotSeatOptions): Promise<void> {
     await this.session.reset(options ?? this.defaultOptions);
     this.pending.clear();
+    this.reviewRow = null;
     this.view = null;
     this.beatDone = false;
     this.overlayDismissed = false;
@@ -322,6 +350,7 @@ export class GameController {
             word: score.words[0]?.word ?? null,
             words: score.words,
             score: score.total,
+            cells: entry.placements.map((p) => cellKey(p.cell)),
           }),
         };
       }
@@ -338,7 +367,15 @@ export class GameController {
           ...nextMyRack(entry.tiles),
           game: { ...game, bag: entry.bagAfter },
           lastPlay: { by, kind: 'exchange', cells: [], words: [], total: 0, count: entry.tiles.length },
-          sheet: row({ by, kind: 'exchange', word: null, words: [], score: 0, count: entry.tiles.length }),
+          sheet: row({
+            by,
+            kind: 'exchange',
+            word: null,
+            words: [],
+            score: 0,
+            count: entry.tiles.length,
+            cells: [],
+          }),
         };
       }
       case 'pass': {
@@ -347,20 +384,20 @@ export class GameController {
           ...state,
           game,
           lastPlay: { by, kind: 'pass', cells: [], words: [], total: 0 },
-          sheet: row({ by, kind: 'pass', word: null, words: [], score: 0 }),
+          sheet: row({ by, kind: 'pass', word: null, words: [], score: 0, cells: [] }),
         };
       }
       case 'resign':
         return {
           ...state,
           resigned: entry.by,
-          sheet: row({ by: entry.by, kind: 'resign', word: null, words: [], score: 0 }),
+          sheet: row({ by: entry.by, kind: 'resign', word: null, words: [], score: 0, cells: [] }),
         };
       case 'timeout':
         return {
           ...state,
           timedOut: entry.by,
-          sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0 }),
+          sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0, cells: [] }),
         };
     }
   }
@@ -381,6 +418,7 @@ export class GameController {
         words: row.words.map((w) => ({ ...w, cells: [] })),
         score: row.score,
         ...(row.count !== undefined ? { count: row.count } : {}),
+        cells: row.cells,
         totals,
       };
     });
@@ -526,6 +564,7 @@ export class GameController {
         this.interactive() && this.pending.size === 0 && s.game.bag.length >= ruleset.exchangeMinBag,
       ...(s.lastPlay ? { lastPlay: s.lastPlay } : {}),
       sheet: s.sheet,
+      review: this.buildReview(s, end !== undefined),
       view: this.view,
       ...(end && !this.beatDone && (end.by === 'played-out' || end.by === 'scoreless' || end.by === 'last-standing')
         ? { beat: { cells: s.lastPlay?.cells ?? [] } }
@@ -533,6 +572,65 @@ export class GameController {
       overlayOpen: !!end && (this.beatDone || end.by === 'resign' || end.by === 'timeout') && !this.overlayDismissed,
       ...(this.notice ? { notice: this.notice } : {}),
     };
+  }
+
+  // ── catch-up review (T7.14) ────────────────────────────────────────────────
+
+  /** Sheet index of the first move the local player has not seen: everything
+   * after their own last row. (Their own move is the last thing they watched
+   * happen.) `sheet.length` when there is nothing new. */
+  private firstMissed(s: SessionState): number {
+    const seat = this.actingSeat();
+    for (let i = s.sheet.length - 1; i >= 0; i--) {
+      if (s.sheet[i]!.by === seat) return i + 1;
+    }
+    return 0;
+  }
+
+  /**
+   * The catch-up window: null unless at least TWO moves happened since the
+   * local player last acted. One missed move is already told by the last-play
+   * highlight and its badge — and at two seats there is never more than one,
+   * so the two-player surface is exactly what it was (M7's N=2 contract).
+   */
+  private buildReview(s: SessionState, ended: boolean): ReviewState | null {
+    if (ended) return null;
+    const from = this.firstMissed(s);
+    const total = s.sheet.length - from;
+    if (total < 2) return null;
+    const at = this.reviewRow === null ? total - 1 : Math.min(Math.max(this.reviewRow - from, 0), total - 1);
+    const row = s.sheet[from + at];
+    if (!row) return null;
+    return { index: at, total, row, board: at === total - 1 ? null : this.rewound(s, from + at) };
+  }
+
+  /** The board as of sheet row `index`: the live board less every cell laid
+   * after it. Tiles are never removed from a board, so the recorded placement
+   * cells (SheetRow.cells) are the whole difference — no replay, no rules. */
+  private rewound(s: SessionState, index: number): ReadonlyMap<CellKey, PlacedTile> {
+    const board = new Map(s.game.board);
+    for (const row of s.sheet.slice(index + 1)) {
+      for (const key of row.cells) board.delete(key);
+    }
+    return board;
+  }
+
+  /** Step the catch-up cursor (−1 back, +1 forward), clamped to the window. */
+  reviewStep(delta: number): void {
+    const s = this.sessionState();
+    const review = this.buildReview(s, this.ended());
+    if (!review) return;
+    const from = this.firstMissed(s);
+    const next = Math.min(Math.max(review.index + delta, 0), review.total - 1);
+    this.reviewRow = next === review.total - 1 ? null : from + next;
+    this.emit();
+  }
+
+  /** Back to the live board (the cursor parks on the newest missed move). */
+  reviewExit(): void {
+    if (this.reviewRow === null) return;
+    this.reviewRow = null;
+    this.emit();
   }
 
   private computeEnd(s: SessionState, res: GameResult): GameEnd | undefined {
@@ -599,6 +697,7 @@ export class GameController {
     if (this.ended()) return;
     this.syncRack();
     if (!this.rackSlots[index]) return;
+    this.reviewRow = null; // reaching for a tile means you are done reviewing
     this.selection = this.selection === index ? null : index;
     this.emit();
   }
@@ -640,6 +739,7 @@ export class GameController {
     if (cell.row < 0 || cell.col < 0 || cell.row >= ruleset.board.rows || cell.col >= ruleset.board.cols) return;
     const face = this.rackSlots[rackIndex];
     if (!face) return;
+    this.reviewRow = null; // never stage onto a rewound board
     this.rackSlots[rackIndex] = null;
     this.pending.set(key, {
       face,

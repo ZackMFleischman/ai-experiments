@@ -24,7 +24,14 @@ import { JoinCard } from '../screens/Join';
 import { LobbyView, type LobbyGameSummary } from '../screens/lobbyView';
 import { NewGameForm } from '../screens/newGameView';
 import { WaitingForOpponent } from '../screens/waitingView';
-import { fixtureController, fixturePublic, seatedState, WithController } from './fixtures';
+import {
+  fixtureController,
+  fixturePublic,
+  playWord,
+  seatedState,
+  tableController,
+  WithController,
+} from './fixtures';
 
 const classic = RULESETS['classic']!;
 
@@ -58,6 +65,32 @@ const stageCats = (c: import('../controller/GameController').GameController) => 
   c.placeAt({ row: 7, col: 8 }, 1);
   c.placeAt({ row: 7, col: 9 }, 2);
   c.placeAt({ row: 7, col: 10 }, 3);
+};
+
+// A four-handed table (T7.14). Ada (seat 0, the reader) opens; then three
+// turns happen before it comes back to her — exactly the gap the catch-up
+// player exists for. Every row is real recorded verdict data.
+const TABLE_NAMES = ['Ada', 'Sam', 'Noor', 'Kai'];
+const down = (col: number, rows: readonly number[]) => rows.map((row) => ({ row, col }));
+const across = (row: number, cols: readonly number[]) => cols.map((col) => ({ row, col }));
+
+type C = import('../controller/GameController').GameController;
+
+/** Ada plays CATS; Sam passes; Noor plays MINA; Kai plays TOE. */
+const tableOpening = (c: C) => {
+  playWord(c, 'CATS', across(7, [7, 8, 9, 10])); // Ada
+  c.pass(); // Sam
+  playWord(c, 'MIN', down(8, [4, 5, 6])); // Noor — MINA, down onto Ada's A
+  playWord(c, 'OE', down(9, [8, 9])); // Kai — TOE, down off Ada's T
+};
+
+/** …and a second time round the table, so the sheet has two full rounds. */
+const tableTwoRounds = (c: C) => {
+  tableOpening(c);
+  playWord(c, 'RAT', down(10, [4, 5, 6])); // Ada — RATS, down onto her own S
+  c.exchangeTiles([0, 1, 2]); // Sam
+  c.pass(); // Noor
+  c.pass(); // Kai
 };
 
 /** The N-seat player bar (T7.13): the turn line from the reader's seat, plus a
@@ -423,6 +456,72 @@ export const GALLERY: GalleryEntry[] = [
           <ScoreSheet open onClose={() => {}} rows={c.getSnapshot().sheet} names={['Player 1', 'Player 2']} />
         )}
       />
+    ),
+  },
+  // Four-handed, mid-review (T7.14): the board is rewound to Noor's MINA —
+  // Kai's TOE is not on it yet — with that move highlighted and the bar
+  // saying whose it was. The rack and the action row stay live below.
+  {
+    id: 'catch-up-review',
+    render: () => (
+      <WithController
+        make={() =>
+          tableController(4, (c) => {
+            tableOpening(c);
+            c.reviewStep(-1);
+          })
+        }
+        render={(c) => <GameBoard controller={c} seatNames={TABLE_NAMES} />}
+      />
+    ),
+  },
+  // The same table with the cursor parked on the newest move: the board is
+  // live (Live and › are spent) and the bar is a caption of what you missed.
+  {
+    id: 'catch-up-live',
+    render: () => (
+      <WithController
+        make={() => tableController(4, tableOpening)}
+        render={(c) => <GameBoard controller={c} seatNames={TABLE_NAMES} />}
+      />
+    ),
+  },
+  // The columnar sheet at four seats: a column per player, a row per round,
+  // running totals footing each column (the flat list this replaced joined
+  // four totals with dashes).
+  {
+    id: 'score-sheet-4-seats',
+    render: () => (
+      <WithController
+        make={() => tableController(4, tableTwoRounds)}
+        render={(c) => (
+          <ScoreSheet open onClose={() => {}} rows={c.getSnapshot().sheet} names={TABLE_NAMES} />
+        )}
+      />
+    ),
+  },
+  // At 3+ seats leaving is a WITHDRAWAL, not the end of the game — the
+  // confirm has to say so (the two-seat copy is confirm-resign, above).
+  {
+    id: 'confirm-withdraw',
+    render: () => (
+      <Box sx={{ p: 2 }} data-gallery-ready>
+        <GameActions
+          playable={false}
+          hasPending={false}
+          interactive
+          seats={4}
+          canExchange
+          exchangeMinBag={7}
+          bagCount={86}
+          onPlay={() => {}}
+          onRecall={() => {}}
+          onExchange={() => {}}
+          onPass={() => {}}
+          onResign={() => {}}
+          initialConfirm="resign"
+        />
+      </Box>
     ),
   },
   {

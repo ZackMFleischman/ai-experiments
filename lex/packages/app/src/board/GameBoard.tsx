@@ -7,9 +7,10 @@ import { Box } from '@mui/material';
 import type { Cell, CellKey, TileFace } from '@lex/engine';
 import { cellKey, parseCellKey, turnQueue } from '@lex/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GameController } from '../controller/GameController';
+import type { GameController, LastPlay } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
 import { BlankPicker } from '../game/BlankPicker';
+import { CatchUpBar } from '../game/CatchUpBar';
 import { EndBeat } from '../game/EndBeat';
 import { ExchangeBar } from '../game/ExchangeBar';
 import { GameActions } from '../game/GameActions';
@@ -347,10 +348,31 @@ export function GameBoard({
     return () => window.removeEventListener('keydown', key);
   }, [controller]);
 
+  // Catch-up review (T7.14): the board rewinds to the position as of the
+  // reviewed move, and that move takes over the last-play highlight — one
+  // highlight mechanism, two sources. A null review board means the cursor is
+  // on the newest move, whose position IS the live one.
+  const rewound = snap.review?.board ?? null;
+  const boardTiles = rewound ?? snap.state.board;
+  const reviewRow = snap.review?.row;
+  const reviewPlay: LastPlay | undefined =
+    rewound && reviewRow?.kind === 'play'
+      ? {
+          by: reviewRow.by,
+          kind: 'play',
+          cells: reviewRow.cells,
+          words: reviewRow.words,
+          total: reviewRow.score,
+        }
+      : undefined;
+
   // The opponent-play highlight yields the stage to pending placements: the
   // moment a tile is staged it disappears (recall brings it back).
-  const lastPlay =
-    snap.lastPlay?.kind === 'play' && snap.pending.size === 0 ? snap.lastPlay : undefined;
+  const lastPlay = rewound
+    ? reviewPlay
+    : snap.lastPlay?.kind === 'play' && snap.pending.size === 0
+      ? snap.lastPlay
+      : undefined;
   const lastPlayEnd = lastPlay?.cells[lastPlay.cells.length - 1];
   // The badge hugs the word it annotates, in the first spot that covers no
   // letter. It used to anchor one cell past `cells[last]` — the tile the mover
@@ -365,7 +387,7 @@ export function GameBoard({
     const spot = pickBadgeSpot({
       play,
       badge: { width: BADGE_PAD + BADGE_CHAR_PX * label.length, height: BADGE_H },
-      occupied: [...snap.state.board.keys()].map((k) => cellRect(parseCellKey(k))),
+      occupied: [...boardTiles.keys()].map((k) => cellRect(parseCellKey(k))),
       board: { left: 0, top: 0, width, height },
       gap: 4,
     });
@@ -378,7 +400,7 @@ export function GameBoard({
     () => [...snap.pending.keys()].map(parseCellKey),
     [snap.pending],
   );
-  const committedCells = useMemo(() => [...snap.state.board.keys()], [snap.state.board]);
+  const committedCells = useMemo(() => [...boardTiles.keys()], [boardTiles]);
   const cardVisible = snap.preview !== null && !snap.preview.needsBlank && playCells.length > 0;
   // A word the card marks ✗ gets its cells ringed, so "which of these three
   // words is the bad one" is answered on the board rather than by counting
@@ -442,6 +464,15 @@ export function GameBoard({
         {...(onBackToLobby ? { onBack: onBackToLobby } : {})}
         {...(deadlineAtMs !== undefined && !snap.end ? { deadlineAtMs } : {})}
       />
+      {snap.review && (
+        <CatchUpBar
+          review={snap.review}
+          names={seatNames}
+          onPrev={() => controller.reviewStep(-1)}
+          onNext={() => controller.reviewStep(1)}
+          onLive={() => controller.reviewExit()}
+        />
+      )}
       <NoticeToast notice={snap.notice} />
       <GameInfoDialog
         open={infoOpen}
@@ -463,7 +494,7 @@ export function GameBoard({
             <BoardGrid
               layout={layout}
               points={points}
-              tiles={snap.state.board}
+              tiles={boardTiles}
               pending={visiblePending}
               hover={hover}
               flagCells={cardVisible ? flaggedCells : null}
@@ -552,6 +583,7 @@ export function GameBoard({
           playable={snap.preview?.playable ?? false}
           hasPending={snap.pending.size > 0}
           interactive={snap.interactive}
+          seats={snap.scores.length}
           canResign={!snap.end}
           canExchange={snap.canExchange}
           exchangeMinBag={snap.ruleset.exchangeMinBag}
@@ -585,6 +617,9 @@ export function GameBoard({
           onShuffle={() => controller.shuffleRack()}
           onDragOut={(index, pointerId, x, y) => {
             if (snap.exchange) return; // no board drags while exchanging
+            // A tile on the way to the board means the review is over — hit
+            // testing is against the LIVE board, so the two must not disagree.
+            controller.reviewExit();
             const face = controller.getSnapshot().rack[index];
             if (face) {
               updateDrag({

@@ -29,7 +29,13 @@ test.beforeAll(() => {
   if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 });
 
-test.beforeEach(async ({ page }) => {
+// The catch-up player needs a table of three or four, which the hot-seat route
+// cannot deal — those tests drive the gallery's four-handed entry instead and
+// skip this two-seat setup.
+const TABLE_SUITE = 'catch-up review (four seats)';
+
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.titlePath.includes(TABLE_SUITE)) return;
   await page.addInitScript(
     ([key, value]) => window.localStorage.setItem(key!, value!),
     ['lex.hotseat.v1', JSON.stringify(STORED)] as const,
@@ -320,4 +326,33 @@ test('the preview card can be dragged by its grip (real pointer capture)', async
   expect(Math.round(after.y - before.y)).toBeGreaterThan(60);
   await expect(card).toHaveAttribute('data-manual', 'true');
   await shot(page, 'preview-card-parked');
+});
+
+test.describe(TABLE_SUITE, () => {
+  // Real pointers on the real bar: the board must actually rewind (later
+  // tiles gone) and come back, and the turn must stay takeable throughout.
+  test('stepping back rewinds the board; Live brings it back', async ({ page }) => {
+    await page.goto('/dev/gallery?entry=catch-up-live&static=1');
+    const bar = page.getByTestId('catch-up-bar');
+    await expect(bar).toContainText('Kai played');
+    const tiles = () => page.locator('[data-cell] [data-tile]').count();
+    const live = await tiles();
+    expect(live).toBeGreaterThan(0);
+    await shot(page, 'catch-up-live');
+
+    await page.getByTestId('catch-up-prev').click();
+    await expect(bar).toContainText('Noor played');
+    await expect(bar).toContainText('2 of 3');
+    // Kai's two tiles are not on the board as of Noor's move — and Noor's
+    // play wears the last-play highlight.
+    expect(await tiles()).toBe(live - 2);
+    expect(await page.locator('[data-last-play]').count()).toBe(3);
+    // Reviewing never takes the turn away.
+    await expect(page.getByRole('button', { name: /^pass$/i })).toBeEnabled();
+    await shot(page, 'catch-up-rewound');
+
+    await page.getByTestId('catch-up-live').click();
+    expect(await tiles()).toBe(live);
+    await expect(page.getByTestId('catch-up-live')).toBeDisabled();
+  });
 });
