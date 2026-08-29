@@ -218,6 +218,12 @@ describe('challengeUser / respondChallenge', () => {
     expect(open?.['playerIds']).toEqual(expect.arrayContaining([ada.uid, sam.uid]));
     expect((open?.['players'] as Record<string, unknown>)['p0']).toBe(ada.uid);
     expect((open?.['players'] as Record<string, unknown>)['p1']).toBeNull();
+    // A challenge is addressed to ONE person. The ruleset allows four seats, so
+    // the doc must be sized from the options — not from that maximum, which
+    // would activate the game with two permanently empty seats in the rotation.
+    expect(Object.keys(open?.['players'] as Record<string, unknown>).sort()).toEqual(['p0', 'p1']);
+    expect(Object.keys(open?.['scores'] as Record<string, unknown>).sort()).toEqual(['p0', 'p1']);
+    expect(Object.keys(open?.['rackCounts'] as Record<string, unknown>).sort()).toEqual(['p0', 'p1']);
 
     const accepted = await call('respondChallenge', { gameId, accept: true }, sam);
     expect(accepted.status).toBe(200);

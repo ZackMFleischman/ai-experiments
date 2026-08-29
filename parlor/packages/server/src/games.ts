@@ -426,7 +426,10 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
   const challengeUser = onCall(async (request) => {
     const caller = requireAuth(request);
     const options = config.parseOptions((request.data as { options?: unknown })?.options);
-    const seats = PLAYERS.max;
+    // The seat count comes from the OPTIONS, exactly as createGame reads it — a
+    // challenge is addressed to one person, so a game whose range allows four
+    // must still deal two here rather than PLAYERS.max empty seats.
+    const seats = seatsFor(options);
     const creatorSeat = creatorSeatFrom(
       normalizeTurnOrder(config.parseSeatChoice((request.data as { seat?: unknown })?.seat)),
       seats,
