@@ -14,8 +14,22 @@ export const ping = onCall<{ echo?: string }>((request) => {
   return { pong: true, echo: request.data?.echo ?? null };
 });
 
-export const { createGame, joinGame, cancelGame, challengeUser, respondChallenge, rematch, resign } =
-  createGameCallables(lexServerConfig);
+export const {
+  createGame,
+  joinGame,
+  cancelGame,
+  challengeUser,
+  respondChallenge,
+  rematch,
+  resign,
+  // The 3+ guest-list lifecycle (DESIGN §6.3). Every one refuses a two-seat
+  // game, so exporting them changes nothing for an existing game.
+  respondInvite,
+  invitePlayers,
+  leaveGame,
+  startGame,
+  setTurnOrder,
+} = createGameCallables(lexServerConfig);
 
 // submitMove is the @parlor/server createSubmitMove shell shaped by lex's engine
 // `advance` (lexSubmitConfig). lex is a hidden-information game and does NOT opt

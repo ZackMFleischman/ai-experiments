@@ -36,8 +36,9 @@ export interface AdvanceContext<TMove> {
   /** The current game doc (pre-move). */
   doc: DocumentData;
   move: TMove;
-  /** Caller's seat index (0 = seatKeys[0], moves first). */
-  mySeat: 0 | 1;
+  /** Caller's seat index (0 = seatKeys[0], moves first). A two-seat game may
+   * still read it as `mySeat === 0 ? … : …`; N-seat games index by it. */
+  mySeat: number;
   caller: Caller;
   expectedMoveCount: number;
 }
@@ -57,7 +58,10 @@ export interface AdvanceResult {
    * moveCount, pendingDrawOffer clear, deadline bookkeeping, updatedAt, terminal. */
   gameFields: Record<string, unknown>;
   subWrites?: readonly SubWrite[];
-  terminal?: { result: string; endedBy: string } | null;
+  /** `result` is the winning seat key (or 'draw'); `standings` is every placing
+   * best-first, each holding the seats tied at it. Firestore cannot store an
+   * array inside an array, so a placing is a MAP, not a bare list (T7.7). */
+  terminal?: { result: string; endedBy: string; standings?: readonly { seats: readonly string[] }[] } | null;
   push: { recipientUid: string | null; trigger: SharedTrigger; args: TriggerArgs };
 }
 
@@ -79,7 +83,7 @@ interface SubmitDocData extends DocumentData {
 export function createSubmitMove<TOptions, TMove>(
   config: SubmitMoveConfig<TOptions, TMove>,
 ): CallableFunction<unknown, unknown> {
-  const [SEAT0] = config.seatKeys;
+  const SEATS = config.seatKeys;
   const notify = createNotify(config.notify);
 
   return onCall(async (request) => {
@@ -111,7 +115,8 @@ export function createSubmitMove<TOptions, TMove>(
       if (!config.notify.isMyTurn(doc, caller.uid)) {
         throw new HttpsError('failed-precondition', 'not your turn');
       }
-      const mySeat: 0 | 1 = doc.players[SEAT0] === caller.uid ? 0 : 1;
+      const mySeat = SEATS.findIndex((key) => doc.players[key] === caller.uid);
+      if (mySeat === -1) throw new HttpsError('permission-denied', 'not seated in this game');
 
       const res = await config.advance({
         tx,
@@ -140,7 +145,12 @@ export function createSubmitMove<TOptions, TMove>(
         updatedAt: FieldValue.serverTimestamp(),
         ...res.gameFields,
         ...(res.terminal
-          ? { status: 'finished', result: res.terminal.result, endedBy: res.terminal.endedBy }
+          ? {
+              status: 'finished',
+              result: res.terminal.result,
+              endedBy: res.terminal.endedBy,
+              ...(res.terminal.standings ? { standings: res.terminal.standings } : {}),
+            }
           : {}),
       });
       for (const sub of res.subWrites ?? []) {

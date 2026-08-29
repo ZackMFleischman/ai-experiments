@@ -9,6 +9,25 @@ export {
   type InitialGame,
 } from './games';
 export {
+  declineInvite,
+  normalizeTurnOrder,
+  parseTurnOrderChoice,
+  emptyGuestList,
+  guestListOf,
+  inviteToList,
+  joinRoster,
+  leaveList,
+  playerIdsOf,
+  previewOf,
+  resolveSeatOrder,
+  type GuestList,
+  type InvitePreview,
+  type RosterEntry,
+  type SeatChoice,
+  type SeatOrder,
+  type TurnOrderChoice,
+} from './roster';
+export {
   createSubmitMove,
   type SubmitMoveConfig,
   type AdvanceContext,
@@ -22,6 +41,7 @@ export {
   type DrawOptions,
   type DrawTrigger,
 } from './draws';
+export { seatKeysOf, withdrawInTx, type WithdrawConfig, type WithdrawResult } from './withdraw';
 export {
   createForfeitHandlers,
   type ForfeitConfig,
@@ -38,13 +58,18 @@ export {
   type Caller,
 } from './helpers';
 export {
+  actorOf,
   countActionable,
   createNotify,
+  createNotifyRoom,
+  defaultRoomPayload,
   sendPush,
   type Notify,
   type NotifyConfig,
+  type NotifyRoom,
   type PushPayload,
   type PushTransport,
+  type RoomTrigger,
   type SharedTrigger,
   type TriggerArgs,
 } from './notify';

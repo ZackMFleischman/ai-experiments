@@ -24,7 +24,11 @@ import { useNavigate } from 'react-router-dom';
 export type JoinState =
   | { kind: 'loading' }
   | { kind: 'invalid' }
-  | { kind: 'ready'; hostName: string; hostSeat: 'p0' | 'p1'; details?: ReactNode };
+  | { kind: 'ready'; hostName: string; hostSeat: 'p0' | 'p1'; details?: ReactNode }
+  // The code was fine — the room just filled up or already started. Distinct
+  // from 'invalid' on purpose: nothing is wrong with the invite, and telling
+  // somebody their link is broken when it isn't sends them back to the sender.
+  | { kind: 'closed' };
 
 /** The invite summary card. `details` is the game-specific chip row (board,
  * dictionary, time control — whatever the game shows before you accept). */
@@ -44,6 +48,15 @@ export function JoinCard({ state, onAccept }: { state: JoinState; onAccept: () =
           <Typography align="center" sx={{ py: 2 }}>
             This invite is no longer valid — it may have expired or already been accepted.
           </Typography>
+        )}
+        {state.kind === 'closed' && (
+          <Stack spacing={1} alignItems="center" sx={{ py: 2 }} data-testid="join-closed">
+            <Typography align="center">This game is full.</Typography>
+            <Typography variant="body2" color="text.secondary" align="center">
+              Your code was good — the last seat went to somebody else, or the game has already
+              started. Ask for another invite and you&apos;ll be in.
+            </Typography>
+          </Stack>
         )}
         {state.kind === 'ready' && (
           <Stack spacing={2} alignItems="center">

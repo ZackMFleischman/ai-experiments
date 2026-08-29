@@ -5,21 +5,27 @@
 // from the bag front), so server replay reproduces the deal.
 import { randomInt } from 'node:crypto';
 import { HttpsError } from 'firebase-functions/v2/https';
-import type { DocumentData, DocumentReference, Transaction } from 'firebase-admin/firestore';
+import { FieldValue, type DocumentData, type DocumentReference, type Transaction } from 'firebase-admin/firestore';
 import {
   RULESETS,
+  deserializeState,
   initialState,
+  result as gameResult,
   serializePublic,
   serializeState,
+  withdraw,
   type InvalidWordRule,
   type Ruleset,
   type TileFace,
 } from '@lex/engine';
 import { DICTIONARIES } from '@lex/dict';
+import { parseTurnOrderChoice } from '@parlor/server';
 import type {
   GameServerConfig,
+  WithdrawResult,
   InitialGame,
   PushPayload,
+  SeatChoice,
   SharedTrigger,
   TriggerArgs,
 } from '@parlor/server';
@@ -35,6 +41,31 @@ export interface LexGameOptions {
   /** What invalid words do (§2.3). Optional on the wire — games created before
    * the setting existed carry no field and must keep playing as 'blocked'. */
   invalidWords: InvalidWordRule;
+  /** The host's chosen MAXIMUM (DECISIONS 2026-08-28) — the game may start
+   * early from the ruleset's minimum. Absent on pre-M7 documents, which
+   * re-parse as the two-seat games they are. */
+  maxPlayers: number;
+}
+
+/** Seat keys in move order. A game only ever uses the first `maxPlayers`. */
+export const SEAT_KEYS = ['p0', 'p1', 'p2', 'p3'] as const;
+
+/**
+ * The engine's placings as the schema stores them (§6.2): best-first, each
+ * holding the seats tied at it. Firestore rejects an array nested directly in
+ * an array, so a placing is a MAP rather than a bare list of seat keys.
+ */
+export function placingsOf(
+  standings: readonly (readonly number[])[],
+): { seats: string[] }[] {
+  return standings.map((tied) => ({ seats: tied.map((seat) => SEAT_KEYS[seat]!) }));
+}
+
+/** Fold a per-seat value into the seat-keyed map the schema uses (§6.2). */
+export function bySeat<T>(count: number, value: (seat: number) => T): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (let seat = 0; seat < count; seat++) out[SEAT_KEYS[seat]!] = value(seat);
+  return out;
 }
 
 export function requireRuleset(rulesetId: string): Ruleset {
@@ -69,7 +100,22 @@ function parseOptions(raw: unknown): LexGameOptions {
     throw new HttpsError('invalid-argument', "invalidWords must be 'blocked' or 'costs-turn'");
   }
   const invalidWords: InvalidWordRule = iw === 'costs-turn' ? 'costs-turn' : 'blocked';
-  return { rulesetId: ruleset.id, dictionaryId: o.dictionaryId, timeControl, invalidWords };
+  // The seat range is a property of the SELECTED ruleset, not of the registry
+  // union: a reduced-tile board could not deal four racks (DESIGN §2.2).
+  const seats = o.maxPlayers ?? ruleset.players.min;
+  if (!Number.isInteger(seats) || (seats as number) < ruleset.players.min || (seats as number) > ruleset.players.max) {
+    throw new HttpsError(
+      'invalid-argument',
+      `maxPlayers must be ${ruleset.players.min}–${ruleset.players.max} for ruleset '${ruleset.id}'`,
+    );
+  }
+  return {
+    rulesetId: ruleset.id,
+    dictionaryId: o.dictionaryId,
+    timeControl,
+    invalidWords,
+    maxPlayers: seats as number,
+  };
 }
 
 /** Crypto-shuffled full-tileset permutation (§3.3: randomness at the edge). */
@@ -87,15 +133,15 @@ export function shuffledBag(ruleset: Ruleset): TileFace[] {
   return bag;
 }
 
-function initialGame(options: LexGameOptions): InitialGame {
+function initialGame(options: LexGameOptions, playerCount = 2): InitialGame {
   const ruleset = requireRuleset(options.rulesetId);
   const order = shuffledBag(ruleset);
-  const state = initialState(ruleset, order, 2);
+  const state = initialState(ruleset, order, playerCount);
   return {
     fields: {
-      scores: { p0: 0, p1: 0 },
+      scores: bySeat(playerCount, () => 0),
       bagCount: state.bag.length,
-      rackCounts: { p0: ruleset.rackSize, p1: ruleset.rackSize },
+      rackCounts: bySeat(playerCount, (seat) => state.racks[seat]!.length),
       public: serializePublic(state),
     },
     subDocs: [
@@ -103,7 +149,7 @@ function initialGame(options: LexGameOptions): InitialGame {
         path: ['private', 'bag'],
         data: {
           order: order.join(''),
-          drawn: 2 * ruleset.rackSize,
+          drawn: playerCount * ruleset.rackSize,
           // Server-private full-state snapshot (§6.2) — submitMove's fast
           // path; tests regression-check it against order+log+events replay.
           state: serializeState(state),
@@ -112,10 +158,7 @@ function initialGame(options: LexGameOptions): InitialGame {
       },
     ],
     // `n` = the move count this rack is current for (client reconciliation).
-    rackDocs: [
-      { tiles: state.racks[0]!.join(''), n: 0 },
-      { tiles: state.racks[1]!.join(''), n: 0 },
-    ],
+    rackDocs: state.racks.map((rack) => ({ tiles: rack.join(''), n: 0 })),
   };
 }
 
@@ -126,7 +169,7 @@ async function seatRackDoc(
   tx: Transaction,
   gameRef: DocumentReference,
   game: DocumentData,
-  seatIndex: 0 | 1,
+  seatIndex: number,
 ): Promise<Record<string, unknown>> {
   const bag = await tx.get(gameRef.collection('private').doc('bag'));
   const order = (bag.data()?.['order'] as string | undefined) ?? '';
@@ -136,6 +179,102 @@ async function seatRackDoc(
     throw new HttpsError('internal', 'corrupt bag order for this game');
   }
   return { tiles, n: 0 };
+}
+
+/**
+ * A seat leaves a running 3+ game (DECISIONS 2026-08-28). The engine freezes
+ * their score, returns their rack to the BAG END and skips them in the turn
+ * order; those tiles are re-shuffled here, exactly as an exchange's are (§3.3),
+ * so the remainder stays unpredictable. Reads before parlor's writes.
+ */
+async function withdrawSeat({
+  tx,
+  gameRef,
+  doc,
+  seat,
+}: {
+  tx: Transaction;
+  gameRef: DocumentReference;
+  doc: DocumentData;
+  seat: number;
+}): Promise<WithdrawResult> {
+  const bagRef = gameRef.collection('private').doc('bag');
+  const bagDoc = await tx.get(bagRef);
+  const priv = bagDoc.data() as { order: string; state: string } | undefined;
+  if (!priv?.state) throw new HttpsError('internal', 'missing private state');
+
+  const before = deserializeState(priv.state);
+  const returned = before.racks[seat]?.length ?? 0;
+  let next = withdraw(before, seat);
+  let event: { n: number; returned: number; reshuffled: string } | null = null;
+  if (returned > 0) {
+    const reshuffled = shuffleFaces(next.bag);
+    next = withBag(next, reshuffled);
+    event = { n: before.moveCount, returned, reshuffled: reshuffled.join('') };
+  }
+
+  const seatCount = next.racks.length;
+  const outcome = gameResult(next);
+  const standings = outcome.status === 'finished' ? placingsOf(outcome.standings) : null;
+
+  return {
+    gameFields: {
+      public: serializePublic(next),
+      toMove: SEAT_KEYS[next.toMove]!,
+      scores: bySeat(seatCount, (s) => next.scores[s]!),
+      bagCount: next.bag.length,
+      rackCounts: bySeat(seatCount, (s) => next.racks[s]!.length),
+    },
+    subWrites: [
+      // The leaver's rack doc empties with their rack.
+      ...(doc['players'] && (doc['players'] as Record<string, string | null>)[SEAT_KEYS[seat]!]
+        ? [
+            {
+              path: ['racks', (doc['players'] as Record<string, string>)[SEAT_KEYS[seat]!]!] as const,
+              data: { tiles: '', n: before.moveCount + 1 },
+            },
+          ]
+        : []),
+      {
+        path: ['private', 'bag'] as const,
+        data: {
+          state: serializeState(next),
+          drawn: priv.order.length - next.bag.length,
+          ...(event ? { events: FieldValue.arrayUnion(event) } : {}),
+        },
+        merge: true,
+      },
+    ],
+    terminal:
+      outcome.status === 'finished' && standings
+        ? {
+            result: standings[0]!.seats.length > 1 ? 'draw' : standings[0]!.seats[0]!,
+            endedBy: outcome.by,
+            standings,
+          }
+        : null,
+  };
+}
+
+/** Crypto Fisher-Yates over tile faces (server randomness, §3.3). Shared with
+ *  submitMove's exchange re-shuffle. */
+export function shuffleFaces(faces: readonly TileFace[]): TileFace[] {
+  const out = [...faces];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    const a = out[i]!;
+    out[i] = out[j]!;
+    out[j] = a;
+  }
+  return out;
+}
+
+/** Same state with the bag remainder replaced, via the frozen serialize
+ *  round-trip so no private constructor is needed. */
+export function withBag(state: ReturnType<typeof deserializeState>, bag: readonly TileFace[]) {
+  const s = JSON.parse(serializeState(state)) as { bag: string };
+  s.bag = bag.join('');
+  return deserializeState(JSON.stringify(s));
 }
 
 /** The opponent-moved push copy: word + score in the body (DESIGN §8). */
@@ -227,23 +366,29 @@ export function buildPayload(trigger: SharedTrigger, args: TriggerArgs): PushPay
 }
 
 export function isMyTurn(game: DocumentData, uid: string): boolean {
-  const players = game['players'] as { p0: string | null; p1: string | null };
-  const mySeat = players.p0 === uid ? 'p0' : 'p1';
-  return game['toMove'] === mySeat;
+  const players = (game['players'] ?? {}) as Record<string, string | null>;
+  const mySeat = SEAT_KEYS.find((key) => players[key] === uid);
+  return mySeat !== undefined && game['toMove'] === mySeat;
 }
 
 export const lexServerConfig: GameServerConfig<LexGameOptions> = {
-  seatKeys: ['p0', 'p1'],
+  seatKeys: SEAT_KEYS,
+  players: { min: 2, max: 4 },
   parseOptions,
-  parseSeatChoice(raw: unknown): 0 | 1 {
-    // Turn-order choice (DESIGN §2.3): p0 moves first.
+  maxPlayers: (options) => options.maxPlayers,
+  parseSeatChoice(raw: unknown): SeatChoice {
+    // Turn-order choice (DESIGN §2.3): p0 moves first. The two-seat wire values
+    // resolve to a creator seat here, exactly as they always have; the 3+ room
+    // sends a TurnOrderChoice and settles it at startGame instead.
     if (raw === 'me') return 0;
     if (raw === 'them') return 1;
     if (raw === 'random') return randomInt(2) === 0 ? 0 : 1;
-    throw new HttpsError('invalid-argument', "seat must be 'me' | 'them' | 'random'");
+    if (raw && typeof raw === 'object') return parseTurnOrderChoice(raw);
+    throw new HttpsError('invalid-argument', "seat must be 'me' | 'them' | 'random' | a turn order");
   },
   timeControlDays: (options) => options.timeControl?.days ?? null,
   initialGame,
   seatRackDoc,
+  withdrawSeat,
   notify: { buildPayload, isMyTurn },
 };

@@ -158,27 +158,30 @@ GameOptions = { rulesetId, dictionaryId, timeControl, invalidWords }  // pinned 
 - **Time controls:** per-move async deadlines (`1 / 3 / 7 days` or none), timeout ⇒
   loss — identical semantics and machinery to hive (§6.4). Real-time clocks post-v1.
 - **Turn order:** chosen at creation (me / them / random, default random); rematch
-  swaps who starts.
+  rotates the order by one, which at two seats is the swap it always was.
+- **Before a 3+ game starts** there is a **guest list**, not seats: a `roster` in
+  join order (host first), `invited`, and `declined`. An invitation reserves
+  nothing — first to arrive is next — and a decline moves a name rather than
+  deleting the game (DECISIONS 2026-08-28). Seats and the deal appear only at the
+  start, so `invites/{code}` publishes a **uid-free** name-and-count preview.
 - **Invalid words:** what happens to a play whose words aren't all in the
-  dictionary is **chosen per game** (`invalidWords`, FR-9b) — a setting picked at
-  creation like the board, the word list and the clock, and deliberately named
-  for the rule rather than for a difficulty:
+  dictionary is **chosen per game** (`invalidWords`, FR-9b) — picked at creation
+  like the board, the word list and the clock, and named for the rule rather
+  than for a difficulty:
   - **`'blocked'`** — "Can't be played", the default. Such a play is not a move
-    at all. The preview marks the offending word ✗ before you commit and Play
+    at all: the preview marks the offending word ✗ before you commit and Play
     stays disabled; the server rejects it if a client tries anyway.
   - **`'costs-turn'`** — "Cost your turn". The app **withholds** the verdict (the
     preview shows words, scores and the total but no ✓/✗) and a play the
     dictionary refuses is a **phoney**: it places nothing, scores nothing, and
     spends the turn (feeding the scoreless run, §2.1).
 
-  Geometry and rack legality are identical under both — those plays are still
-  refused outright. This is exactly why the engine's geometry check and
-  dictionary check were always separate calls (§5.2): the second setting is a
-  second consequence for stage 3, not a second pipeline.
-- Neither setting is a **challenge** mechanic (where the opponent adjudicates):
-  the dictionary is the arbiter either way, so a phoney is caught the moment it
-  is played rather than left standing until someone doubts it. Nothing is hidden
-  from the opponent that isn't already hidden — see the privacy note in §3.3.
+  Geometry and rack legality are identical under both — which is why the engine
+  keeps its geometry and dictionary checks separate (§5.2): a second consequence
+  for stage 3, not a second pipeline.
+- Neither is a **challenge** mechanic (opponent adjudicates): the dictionary
+  arbitrates either way, so a phoney is caught when played rather than left
+  standing until doubted. Nothing is hidden that isn't already — see §3.3.
 
 ### 2.4 Notation & the move log
 
@@ -187,8 +190,8 @@ blanks, words, and score; `exchange` with a tile *count* publicly; `pass`; plus 
 `resign`/`timeout`) — JSON, not a string format, because placements with blank
 designations are unambiguous that way and the wire format equals the storage format.
 A `resign`/`timeout` entry at three or four seats records a **withdrawal**, not an
-ending, and advances the move count like any other entry so the turn cursor and the
-`expectedMoveCount` guard stay in step with the log.
+ending, and advances the move count like any other entry, so the turn cursor and
+`expectedMoveCount` stay in step with the log.
 
 For fixtures, human-auditable records, and interop, the engine also speaks
 **GCG-style notation** (the community-standard crossword game format): coordinates
@@ -294,19 +297,15 @@ Firestore**. Consequences, designed once here and referenced everywhere:
 - **Exchanges are private.** The public move entry records only *how many* tiles
   were exchanged; which letters went back is server-private.
 - **A phoney IS made public, words and all — the one deliberate opening in this
-  section.** A refused play changes nothing on the board, so to the player
-  arriving next it is indistinguishable from a pass unless the app says so. It
-  says so three times, in one sentence: a persistent strip under the score bar
-  (§7.2), the score-sheet row (marked ✗/red/0, not merely worded), and the
-  opponent's push — each naming the player, **the words that were tried**, and
-  the cost. This is what an over-the-board challenge does: a phoney is shown
-  before it is withdrawn.
-  What is published is exactly the **words the play formed** — never the
-  placements, never a score, and never the rest of the rack. That bound is what
-  keeps the rest of this section true: a formed word can include tiles already
-  on the board, so it discloses at most the tiles that word consumed, and the
-  hand behind it stays as secret as the bag. The move entry carries
-  `kind: 'phoney'` plus `phoney.words`, and nothing else.
+  section.** A refused play changes nothing on the board, so it is a pass unless
+  the app says otherwise. It says so three times — a strip under the score bar
+  (§7.2), the score-sheet row (✗/red/0, not merely worded), and the opponent's
+  push — each naming the player, **the words tried**, and the cost, as an
+  over-the-board challenge shows a phoney before withdrawing it. Published is the
+  **words the play formed** — never the placements, a score, or the rest of the
+  rack. That bound keeps this section true: a formed word can include tiles
+  already on the board, so it discloses at most the tiles it consumed. The entry
+  carries `kind: 'phoney'` plus `phoney.words`, nothing else.
 - **Optimistic play still works** because play legality and scoring depend only on
   public board + own rack: the client fully validates and scores locally, applies
   optimistically, and the only thing it must wait for is its **refill** — which
@@ -318,8 +317,9 @@ Firestore**. Consequences, designed once here and referenced everywhere:
 - **Dictionary interface** (§5.4): new word lists are assets, not code.
 - **`GameTransport`** (from hive): hot-seat, localStorage, and Firestore backends
   behind one interface; an AI opponent later is just another transport peer.
-- **N players:** engine state is seat-indexed arrays throughout; only
-  platform/lobby/UI assume 2 seats.
+- **N players:** the engine and the parlor server are seat-indexed throughout
+  (`seatKeys` is a list, `Ruleset.players`/`GameServerConfig.players` declare the
+  range); the lobby/UI surfaces are the last place two seats are assumed.
 - **Tile skinning:** tile/board visuals are CSS-variable-driven themes (the hive
   "bear mode" lesson institutionalized): rules and engine never see the skin.
 - **Backend swap:** Firebase confined to `@parlor/web`, `@parlor/server`,
@@ -348,7 +348,7 @@ by construction):**
 | `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `@parlor/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
 | `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config. `firestoreTransport.ts` keeps its class game-side but its shared shell — `seatIndexOf`, `watchGameMeta` (incl. the permission-denied **delete-detection**), and the log-replay reads `fetchOrderedMoves`/`watchAddedMoves` — is `@parlor/web/transport`. The **sync strategy** is game-owned: hive/perfect-info games replay the log (those two reads); lex keeps its hidden-info **coherent-adoption** strategy (re-read game+rack+log per signal, coherence + monotonic gates) — the plan's allowed "leave it game-provided". |
 | the lobby/landing **presentation**: `screens/lobbyView` (grouped list + cards), `turnBadge`, `waitingView` (invite/waiting/challenge), `Landing`+`LandingLayout` shell, `Join` card + `JoinByCode`, `newGameView`'s `friendsFrom`/`InviteLinkView` | `@parlor/web` (`./lobby-ui`) | game injects the slots — board thumbnail, card caption, empty-state motif, landing hero, join-detail chips; the lobby summary EXTENDS a generic `LobbySummary` (seat-index meta). Each `screens/*` file is now a thin wrapper binding lex's slots. |
-| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out |
+| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out. **Seats are a list, not a pair:** `seatKeys`/`rackDocs` are arrays, `players: {min,max}` declares the range (default `{2,2}`), `initialGame` receives the count, and `parseSeatChoice` returns a `TurnOrderChoice` — a bare seat index still means "the creator takes this seat", which is what the `me`/`them`/`random` wire values have always produced |
 | `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
 | `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `@parlor/harness` (+ thin `scripts/` wrappers in lex) | near-verbatim |
 | `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `@parlor/web` | theme tokens re-skinned per game |
@@ -451,14 +451,14 @@ so a phoney is re-derived, not remembered.
 `withdraw(state, seat)` is the one transition that is not a move: it empties that
 seat's rack into the **bag end** for the server to re-shuffle (the machinery
 exchange already uses, §3.3), records the seat in `withdrawn`, advances
-`moveCount`, and passes the turn on if it was theirs. Every seat scan in the
-engine — turn advance, the played-out test, the end adjustments — runs over
-**active** seats only, so a withdrawal never ends the game by itself.
+`moveCount`, and passes the turn on if it was theirs. Every seat scan — turn
+advance, the played-out test, the end adjustments — runs over **active** seats
+only, so a withdrawal never ends the game by itself.
 
-`result(state)` reports **`standings`** — placings best-first, an inner array of two
-or more seats being a tie — rather than a single winner. Everyone who finished
-ranks above everyone who withdrew, and only then by score, so resigning while
-ahead cannot bank a placing (DECISIONS 2026-08-28).
+`result(state)` reports **`standings`** — placings best-first, an inner array of
+two or more seats being a tie — not a single winner. Everyone who finished ranks
+above everyone who withdrew, and only then by score, so resigning while ahead
+cannot bank a placing (DECISIONS 2026-08-28).
 
 ### 5.3 Algorithms (the interesting parts)
 
@@ -516,15 +516,23 @@ service account, and preview-channel strategy).
 
 ```
 users/{uid}:              { displayName, photoURL, fcmTokens: string[], settings }   // = hive
-games/{gameId}:           { players: {p0: uid, p1: uid|null},        // p0 moves first
-                            playerNames: {p0, p1}, playerIds: uid[],
-                            options: { rulesetId, dictionaryId, timeControl, invalidWords },
+games/{gameId}:           { players: {p0: uid, p1: uid|null, …},     // one key per seat; p0 moves first
+                            playerNames: {p0, p1, …}, playerIds: uid[],
+                            options: { rulesetId, dictionaryId, timeControl,
+                                       invalidWords, maxPlayers },
                             status: 'open'|'active'|'finished',
                             inviteCode?, challenge?,                  // = hive semantics
-                            result?: 'p0'|'p1'|'draw',
+                            maxPlayers?, roster?, invited?, declined?, turnOrder?,
+                                                                      // 3+ ONLY: the pre-start guest list
+                                                                      // (§2.3). Its presence is what makes a
+                                                                      // game a 3+ game; a 2-seat doc has none
+                                                                      // of these and `players` from creation
+                            result?: 'p0'|'p1'|'draw',                // winning seat key, or a shared top
+                            standings?: [{seats: seatKey[]}],         // every placing, best-first; a placing is a
+                                                                      // MAP because Firestore forbids array-in-array
                             endedBy?: 'played-out'|'scoreless'|'last-standing'|'resign'|'timeout',
-                            toMove: 'p0'|'p1', moveCount,
-                            scores: {p0, p1}, bagCount, rackCounts: {p0, p1},
+                            toMove: seatKey, moveCount,
+                            scores: {p0, p1, …}, bagCount, rackCounts: {p0, p1, …},
                             lastPlay?: {by, word, score},             // lobby cards + push copy
                             rematchOf?, rematchGameId?,
                             timeControl?: {days: 1|3|7} | null,
@@ -545,10 +553,14 @@ games/{gameId}/private/bag: { order: string, drawn: number,           // NO clie
                               state: string,                          // serialized FULL GameState — submitMove's fast path,
                                                                       // regression-checked against order+log+events replay
                               events: [{n, returned, reshuffled}] }   // exchange re-shuffles (§3.3 replay)
-invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expiresAt }  // = hive
+invites/{code}:           { gameId, createdBy, hostName, hostSeat?, options, expiresAt,
+                            preview? }   // 3+: {hostName, names, filled, maxPlayers} — UID-FREE,
+                                         // because anyone signed in holding the code may read this doc
 ```
 
-- Security rules: game docs + moves readable by the two players; `racks/{uid}`
+- Security rules: game docs + moves readable by the seated players — and, before
+  a 3+ game starts, by everyone on its guest list, since `playerIds` carries the
+  roster plus anyone still holding an invitation (a decline drops both); `racks/{uid}`
   readable only when `request.auth.uid == uid`; `private/*` readable by **no one**;
   all writes through callables except your own `users/{uid}`. **Rules tests assert
   each boundary, including the negative cases** (opponent rack read denied, bag read
@@ -562,11 +574,14 @@ invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expi
 
 | Callable | Delta vs hive |
 |---|---|
-| `createGame(options, seat)` | seat = `me / them / random` (turn order, not color); shuffles + persists the bag, deals both racks |
-| `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + swaps who starts) |
+| `createGame(options, seat)` | seat = `me / them / random` (turn order, not color). At two seats it shuffles + persists the bag and deals both racks; at 3+ it creates a **guest list** instead and the deal waits for `startGame` (§2.3) |
+| `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + rotates who starts). At 3+, `joinGame` appends to the roster and auto-starts once it is full, and `cancelGame` is host-only |
+| `respondInvite` / `invitePlayers` / `leaveGame` *(3+ only)* | answer an invitation (a decline moves a name, never deletes), recruit more names, or take your own off the list. Invitees are reachable under the same rule as `challengeUser`: only people you have played. Pushes fan out to the table — `invited`, `player-joined`, `game-started` — never to the actor, and never for a decline |
+| `startGame(gameId, expectedRoster, turnOrder)` *(3+ only)* | host-only **start early** from `min`. `expectedRoster` guards it exactly as `submitMove`'s `expectedMoveCount` does, so a last-second joiner is never silently left out. Resolves the order, deals every rack, flips to `active` |
+| `setTurnOrder(gameId, turnOrder)` *(3+ only)* | host-only, persisted **before** the start so every player sees the arrangement live |
 | `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary) **under the game's own `invalidWords`**, draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent. A phoney takes the same path: it is a legal move, so it commits, but writes `kind:'phoney'` with the refused words (no placements, no score), clears `lastPlay`, and pushes copy naming what was tried |
-| `resign(gameId)` | = hive |
-| `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull) |
+| `resign(gameId)` | = hive at two seats. At 3+ it is a **withdrawal** (§2.1): score frozen, rack back to the bag and re-shuffled, turn order skips the seat, `withdrawn` grows, and the game runs on until one active player is left |
+| `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull), with a timeout at 3+ taking the same withdrawal path, plus a cull of **open rooms** whose invite expired while the roster was still below the minimum — a 3+ room outlives its code, so an expired one would otherwise sit unjoinable in every guest's lobby |
 
 Dropped from hive's list: `offerDraw`/`respondDraw` (§2.3).
 
@@ -625,6 +640,15 @@ is the **rack** (7 slots, drag-reorder, shuffle button); a **score sheet** drawe
 replaces the move list (per-turn word + score + running totals); actions are
 **Play / Recall / Exchange / Pass / Resign**; while `status:'open'` the same
 waiting-screen treatment as hive (board withheld, invite re-shareable).
+
+At **three or four players** the open game is a **Game room** instead
+(`@parlor/web/lobby-ui`): the guest list, the always-live invite code, the host's
+turn-order picker — persisted, so everyone sees the arrangement rather than only
+the host — and a Start control that confirms an early start by **naming who is
+being left out**. Invitees get an `InvitationReceived` screen, and a full room
+answers a good code with "this game is full", not "invalid invite". The two-seat
+screens (`WaitingForOpponent`, `InviteLinkView`, `ChallengeReceived`) are
+untouched — the 3+ surfaces are strictly additive (DECISIONS 2026-08-28).
 
 ### 7.2 Board rendering & interaction (the UX core)
 

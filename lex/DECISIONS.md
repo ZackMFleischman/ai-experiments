@@ -485,6 +485,94 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   closing a door that was open (5+ seats dealt happily): the range is rules data,
   and a board that cannot deal a count should be the thing that says so.
 
+- **2026-08-28 — `parseSeatChoice` returns `TurnOrderChoice | number`, so no
+  sibling file changes** (T7.4). M7's hard gate is that hive, checkers and tafl
+  stay green **untouched**, and their configs return a resolved `0 | 1`. Widening
+  the hook's return type (covariant) rather than replacing it keeps those
+  implementations assignable, and `normalizeTurnOrder` lifts a bare index into
+  `{mode:'host-seat'}` at the one call site. Rematch's rotate-by-one also lands
+  here rather than in T7.7: it is *identical* to today's two-seat swap, and the
+  seat plumbing had to be rewritten generically anyway.
+
+- **2026-08-28 — The guest list is a pure module; `maxPlayers` on the doc is what
+  makes a game a 3+ game** (T7.5). Every transition (join / invite / decline /
+  leave / resolve the seat order) is a pure function in `@parlor/server`'s
+  `roster.ts`, unit-tested without an emulator, with the callables as thin
+  transactional shells — parlor has no emulator harness of its own, and this is
+  what makes the lifecycle testable at all. `maxPlayers` is written **only** at 3+,
+  so every two-seat doc is byte-for-byte what it was and takes the original code
+  path. The host leaving promotes `roster[0]` implicitly rather than storing a
+  separate host field; the last one out deletes the game, as cancelling would.
+
+- **2026-08-28 — A stored arrangement is a preference, not a permutation** (T7.6).
+  `setTurnOrder` persists the host's choice while people are still arriving, so by
+  the time `startGame` (or an auto-start at max) resolves it, the roster has often
+  moved on. `resolveSeatOrder` therefore appends anyone the arrangement never named
+  in join order and ignores any uid that has since left, rather than validating a
+  permutation and failing. Treating it strictly would drop a newcomer or break the
+  auto-start outright — the trap IMPLEMENTATION §2 T7.6 names. `setTurnOrder` still
+  rejects an arrangement naming somebody who is not in the game, so typos surface
+  when the host makes them rather than silently at the start.
+
+- **2026-08-28 — Per-seat doc fields stay seat-KEYED maps, not arrays**
+  (T7.11, deviating from IMPLEMENTATION §2's "array `scores`/`rackCounts`").
+  `{p0, p1, p2}` is N-capable already, and it keeps a two-seat game's doc
+  byte-for-byte what it was — which is the promise the rest of M7 is built on and
+  what lets the 75 existing functions tests pass untouched. An array would have
+  changed the wire format for every existing game and dragged the whole sync layer
+  (T7.12) into this task. `standings` is a new field rather than a reshaped
+  `result`: `result` keeps its two-seat meaning for the lobby, and T7.9 reads
+  `standings` behind `finalStandings()`.
+
+- **2026-08-28 — Withdrawal is one shared routine, and the game owns the state
+  change** (T7.7). `resign` and the timeout sweep both call `withdrawInTx`, so
+  the two paths cannot drift — the bug that would otherwise surface only in a
+  scheduled job nobody watches. Parlor owns the doc bookkeeping (`withdrawn`, the
+  meta log entry, the deadline, the terminal flip) and delegates the state change
+  to a `withdrawSeat` hook, because returning a rack to the bag is lex's business
+  and `@parlor/*` may never import a game package. lex re-shuffles those returned
+  tiles exactly as it does an exchange's, so the remainder stays unpredictable.
+
+- **2026-08-28 — A placing on the wire is a map, not a bare list** (T7.7).
+  Firestore cannot store an array directly inside an array, so the engine's
+  `standings: Seat[][]` is written as `[{seats:['p3']}, {seats:['p0','p1']}]`.
+  The emulator suite is what found it: the field is only written on a terminal
+  move, so the whole 3+ withdrawal path type-checked and passed unit tests while
+  being unwritable in production. The same suite caught a second one — parlor was
+  writing the meta log entry BEFORE calling `withdrawSeat`, which reads the
+  private bag, violating Firestore's reads-before-writes rule.
+
+- **2026-08-28 — Guest-list pushes are a capability trigger, and `actorName` is
+  additive** (T7.8). `'invited' | 'player-joined' | 'game-started'` form a
+  `RoomTrigger` that parlor builds copy for itself (the `DrawTrigger` pattern),
+  rather than joining `SharedTrigger`: adding a member there would make hive's,
+  checkers' and tafl's exhaustive `buildPayload` switches non-exhaustive and
+  break the three workspaces M7 promises not to touch. For the same reason
+  `TriggerArgs.opponentName` stays required and `actorName` is an optional
+  alongside it that parlor always sets — a rename would have been a breaking
+  change to a field every game constructs. A decline sends nothing: it is the
+  host's business and not push-worthy.
+
+- **2026-08-28 — `LobbySummary.result` is kept, deprecated, and read through
+  helpers** (T7.9). Every N-shaped field on the lobby contract is optional, and
+  `finalStandings()` falls back to the two-seat `'p0'|'p1'|'draw'` when a game
+  carries no `standings` — so games finished before M7 still place correctly and
+  no backfill is needed. `placingOf()` / `isWinner()` are the only things the UI
+  calls; nothing reads `result` directly any more. `friendsFrom` now prefers an
+  `opponents` list, so a three-handed game contributes all of its players to the
+  challenge picker rather than one, and `actionableCount` stops nagging a player
+  who has withdrawn but is still nominally `toMove`.
+
+- **2026-08-28 — The 3+ turn-order picker only ever emits `arrange`** (T7.10).
+  It accepts `host-seat` (what the two-seat create form produces, before anyone
+  has joined) but "somebody goes first" emits `{mode:'arrange'}` even when the
+  pick is the host: emitting a different mode for the host would make the toggle
+  flip panels under the user, and `arrange` is the only mode that can name a
+  non-host first. Switching sub-mode normalizes immediately, so what the other
+  players see always matches the panel the host is looking at. The component is
+  `GuestListView`, not `GuestList` — TypeScript cannot re-export a type and a
+  value under one name, and the type keeps the server-mirroring name.
+
 - **2026-08-28 — A phoney is announced on the board surface, not just logged
   (Zack).** Shipped with the opponent learning only via a push and a row inside
   the score-sheet drawer — and since a phoney leaves the board untouched, a

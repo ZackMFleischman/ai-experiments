@@ -55,7 +55,10 @@ export function createDrawCallables<TOptions>(
   config: GameServerConfig<TOptions>,
   opts: DrawOptions = {},
 ): DrawCallables {
-  const [SEAT0, SEAT1] = config.seatKeys;
+  // Draw offers are a strictly TWO-seat capability (an offer has exactly one
+  // recipient), so this reads the first two seat keys rather than the list.
+  const SEAT0 = config.seatKeys[0]!;
+  const SEAT1 = config.seatKeys[1]!;
   const notify = createNotify(config.notify); // 'game-over' is a SharedTrigger
   const drawPayload = opts.drawOfferedPayload ?? defaultDrawPayload;
   const seatKey = (i: 0 | 1) => (i === 0 ? SEAT0 : SEAT1);
