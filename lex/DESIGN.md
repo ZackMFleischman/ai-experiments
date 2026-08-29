@@ -1,7 +1,7 @@
 # LEX — Design Doc
 
-A digital, two-player **crossword tile game** (Scrabble / Words-with-Friends family),
-built as a **PWA** so two people in different states can play each other
+A digital **crossword tile game** for two to four players (Scrabble /
+Words-with-Friends family), built as a **PWA** so people in different states play
 **synchronously or asynchronously** — same shape as its sibling project
 [`hive/`](../hive/DESIGN.md), from which this project deliberately inherits its
 architecture, backend, validation harness, and much of its code (§4).
@@ -346,7 +346,7 @@ by construction):**
 |---|---|---|
 | `app/src/controller/transport.ts`, `localStorageTransport.ts` | `@parlor/core` | `GameTransport` with a generic entry type instead of hive's `LogEntry` |
 | `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `@parlor/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
-| `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config. `firestoreTransport.ts` keeps its class game-side but its shared shell — `seatIndexOf`, `watchGameMeta` (incl. the permission-denied **delete-detection**), and the log-replay reads `fetchOrderedMoves`/`watchAddedMoves` — is `@parlor/web/transport`. The **sync strategy** is game-owned: hive/perfect-info games replay the log (those two reads); lex keeps its hidden-info **coherent-adoption** strategy (re-read game+rack+log per signal, coherence + monotonic gates) — the plan's allowed "leave it game-provided". |
+| `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config. `firestoreTransport.ts` keeps its class game-side but its shared shell — `seatIndexOf`, `watchGameMeta` (incl. the permission-denied **delete-detection**), and the log-replay reads `fetchOrderedMoves`/`watchAddedMoves` — is `@parlor/web/transport`. The **sync strategy** is game-owned: hive/perfect-info games replay the log (those two reads); lex keeps its hidden-info **coherent-adoption** strategy (re-read game+rack+log per signal, coherence + monotonic gates) — the plan's allowed "leave it game-provided". The monotonic gate counts **withdrawals as well as moves**, because a withdrawal advances the game without advancing `moveCount`; and the rack-currency gate is skipped for a seat that has withdrawn, whose empty rack is stamped with the move count it left at rather than one of its own moves. |
 | the lobby/landing **presentation**: `screens/lobbyView` (grouped list + cards), `turnBadge`, `waitingView` (invite/waiting/challenge), `Landing`+`LandingLayout` shell, `Join` card + `JoinByCode`, `newGameView`'s `friendsFrom`/`InviteLinkView` | `@parlor/web` (`./lobby-ui`) | game injects the slots — board thumbnail, card caption, empty-state motif, landing hero, join-detail chips; the lobby summary EXTENDS a generic `LobbySummary` (seat-index meta). Each `screens/*` file is now a thin wrapper binding lex's slots. |
 | `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out. **Seats are a list, not a pair:** `seatKeys`/`rackDocs` are arrays, `players: {min,max}` declares the range (default `{2,2}`), `initialGame` receives the count, and `parseSeatChoice` returns a `TurnOrderChoice` — a bare seat index still means "the creator takes this seat", which is what the `me`/`them`/`random` wire values have always produced |
 | `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
@@ -378,7 +378,7 @@ mode), the hot-seat **pass-device** privacy interstitial, sprite/art assets
 
 **The shared library is repo-level from day one (owner decision): `parlor/`** —
 named for what it is, a parlor-games platform: the game-agnostic layer for
-turn-based, two-player, invite-a-friend PWA games on Firebase. It is its own pnpm
+turn-based, 2–4-player, invite-a-friend PWA games on Firebase. It is its own pnpm
 workspace at the repo root with four packages (`@parlor/core`, `@parlor/web`,
 `@parlor/server`, `@parlor/harness`), its own tests and CI, and **no game
 imports** — lex was its first consumer; hive now consumes the `@parlor/web`

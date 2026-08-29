@@ -41,6 +41,7 @@ import {
   normalizeTurnOrder,
   parseTurnOrderChoice,
   resolveSeatOrder,
+  othersOf,
   type GuestList,
   type RosterEntry,
   type SeatChoice,
@@ -672,7 +673,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     const db = getFirestore();
     const gameRef = db.collection('games').doc(gameId);
     const newRef = db.collection('games').doc();
-    let opponentUid: string | null = null;
+    let opponents: string[] = [];
     const newId = await db.runTransaction(async (tx) => {
       const game = await tx.get(gameRef);
       if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -720,10 +721,15 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
       writeInitialSubDocs(tx, newRef, init);
       rotated.forEach((uid, i) => writeRack(tx, newRef, init, i, uid!));
       tx.update(gameRef, { rematchGameId: newRef.id, updatedAt: FieldValue.serverTimestamp() });
-      opponentUid = rotated.find((uid) => uid !== caller.uid) ?? null;
+      // EVERY other player, not just the next one: a rematch at a table pulls
+      // the whole roster back in, so telling only one of them left the others
+      // to notice a game they were already in.
+      opponents = othersOf(rotated, caller.uid);
       return newRef.id;
     });
-    await notify(db, opponentUid, 'rematch-offered', { gameId: newId, opponentName: caller.name });
+    for (const uid of opponents) {
+      await notify(db, uid, 'rematch-offered', { gameId: newId, opponentName: caller.name });
+    }
     return { gameId: newId };
   });
 

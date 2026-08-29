@@ -611,6 +611,59 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `primary.main`), not accent text on the selected-row wash, which fails 4.5:1
   in dark.
 
+- **2026-08-29 — the sync gate counts withdrawals, not just moves** (T7.17). The
+  three-browser e2e found that a withdrawal reached nobody: `refetch` emitted a
+  sync only when `moveCount` rose, and a withdrawal is not a move, so every
+  other player's board went on showing the seat that had left as still in the
+  game until somebody happened to move or reload. Both counters only ever rise
+  server-side, so "either advanced" is still monotonic and still refuses a
+  stale read over optimistic state — but `load()` has to seed BOTH, or the
+  first refetch after opening a game passes the test on a game nobody has left.
+  Two smaller bugs from the same test: the rack-currency gate wedged the
+  leaver's own client for good (their rack is stamped with the move count they
+  left at, which is not one of their moves, so the gate could never pass
+  again), and `canResign` still offered Withdraw to a player who had already
+  withdrawn — an action only the server would refuse.
+
+- **2026-08-29 — a rematch at a table notifies the whole table** (M7 follow-up).
+  `rematch` took the first other seat (`rotated.find(uid => uid !== caller)`)
+  and pushed to that one player — correct at two seats, silently wrong at three
+  or four, where the other one or two were left to notice a game they were
+  already in. The recipient rule is now `othersOf(seatUids, actor)` in
+  `@parlor/server`'s roster module: everyone but the actor, deduped, empty seats
+  dropped. It is a pure helper so it can be unit-tested — the callable itself
+  cannot be, since `fire()` swallows push failures and the emulator has no FCM.
+
+- **2026-08-29 — SHIPPED M7 (T7.1–T7.18): N players (2–4).** Gates: full
+  `pnpm validate` green (m0–m5 + typecheck + 592 unit tests); `validate:m4`
+  runs both browser specs, `game.spec.ts` **unedited**; hive, checkers and tafl
+  typecheck+test green with **zero file changes** in those workspaces, PR by PR.
+  Engine: `withdrawn`, `withdraw()`, `turnQueue()`, `standings`,
+  `scorelessRounds`, `Ruleset.players`, property suite over 2/3/4 seats.
+  Platform: seat lists not pairs, the guest-list room (`roster`/`invited`/
+  `declined`), `startGame`, turn-order modes, `withdrawInTx`, room pushes,
+  N-seat lobby contract, `GameRoom`/`TurnOrderPicker`/`InvitationReceived`.
+  Lex: count picker, catch-up bar, standings rail, the podium, the room e2e.
+  Stumbles, all caught by a gate rather than by luck: `standings` as a nested
+  array is **unwritable to Firestore** (a placing became a map); a meta write
+  before `withdrawSeat`'s read broke every 3+ resign (read-before-write);
+  `challengeUser` built 4-seat docs once lex declared `{min:2,max:4}`; and the
+  sync gate swallowed withdrawals entirely (T7.17's entry). The plan's array
+  `scores`/`rackCounts` were kept as seat-keyed maps so two-seat docs stay
+  byte-identical.
+
+- **2026-08-29 — `players` is required on every game in the registry, and the
+  factory stamps it** (T7.18). How many can play an app was folklore living in
+  taglines ("for two"), which is how lex's own tagline stayed wrong through
+  eighteen tasks of making it untrue. It is now a `{min,max}` range that
+  `check-registry.mjs` requires of every game kind and forbids on `other`, with
+  a solo/arcade/utility app pinned to 1..1 and a duo game floored at 2. That
+  made `create-app` stamp an entry its own checker would reject, so the factory
+  grew `--players` (the MAXIMUM; the minimum comes from the archetype). Asking
+  for more seats than the exemplar has stamps a **claim, not a fact** — the
+  cloned ruleset still declares the exemplar's seats — so the tool says so on
+  stamp rather than letting the registry and the engine disagree quietly.
+
 - **2026-08-28 — A phoney is announced on the board surface, not just logged
   (Zack).** Shipped with the opponent learning only via a push and a row inside
   the score-sheet drawer — and since a phoney leaves the board untouched, a

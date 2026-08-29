@@ -5,6 +5,10 @@
       "name": "hive",
       "dir": "hive",
       "kind": "duo",
+      "players": {
+        "min": 2,
+        "max": 2
+      },
       "displayName": "Hive",
       "tagline": "The bug board game, online with a friend",
       "glyph": "🐝",
@@ -26,8 +30,12 @@
       "name": "lex",
       "dir": "lex",
       "kind": "duo",
+      "players": {
+        "min": 2,
+        "max": 4
+      },
       "displayName": "Lex",
-      "tagline": "A crossword tile game for two",
+      "tagline": "A crossword tile game for 2–4",
       "glyph": "🅻",
       "accent": "#0d7a5f",
       "webUrl": null,
@@ -48,6 +56,10 @@
       "name": "checkers",
       "dir": "checkers",
       "kind": "duo",
+      "players": {
+        "min": 2,
+        "max": 2
+      },
       "displayName": "Checkers",
       "tagline": "Draughts, online with a friend",
       "glyph": "⛃",
@@ -71,6 +83,10 @@
       "name": "tafl",
       "dir": "tafl",
       "kind": "duo",
+      "players": {
+        "min": 2,
+        "max": 2
+      },
       "displayName": "Tafl",
       "tagline": "The Viking siege game, for two",
       "glyph": "⚔️",
@@ -94,6 +110,10 @@
       "name": "sudoku",
       "dir": "sudoku",
       "kind": "solo",
+      "players": {
+        "min": 1,
+        "max": 1
+      },
       "displayName": "Sudoku",
       "tagline": "A calm daily puzzle",
       "glyph": "🔢",
@@ -117,6 +137,10 @@
       "name": "breakout",
       "dir": "breakout",
       "kind": "arcade",
+      "players": {
+        "min": 1,
+        "max": 1
+      },
       "displayName": "Bricks",
       "tagline": "The wall, the paddle, the ball",
       "glyph": "🧱",
@@ -141,6 +165,10 @@
       "name": "stillness",
       "dir": "stillness",
       "kind": "utility",
+      "players": {
+        "min": 1,
+        "max": 1
+      },
       "displayName": "Stillness",
       "tagline": "A quiet meditation timer",
       "glyph": "🧘",

@@ -241,6 +241,7 @@ export function ScoreBar({
                 <Typography
                   variant="h6"
                   component="span"
+                  data-testid={`score-value-${seat}`}
                   sx={{
                     fontWeight: 700,
                     lineHeight: 1,

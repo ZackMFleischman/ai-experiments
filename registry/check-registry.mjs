@@ -84,6 +84,28 @@ function main() {
     if (a.kind === 'duo' && !a.firebaseProject) errors.push(`${id}: duo game must set firebaseProject`);
     if (a.kind !== 'duo' && a.firebaseProject) errors.push(`${id}: non-duo game must not set firebaseProject`);
 
+    // `players` is the seat range the app supports — required for and exclusive
+    // to game kinds, so "how many can play this" stops being folklore spread
+    // across taglines. It is a RANGE, not a count: lex is 2..4 (M7), and a
+    // 2..2 duo game says so rather than leaving it implied.
+    const isGame = GAME_KINDS.includes(a.kind);
+    if (isGame && !a.players) {
+      errors.push(`${id}: game must set players {min,max}`);
+    } else if (!isGame && a.players) {
+      errors.push(`${id}: non-game must not set players`);
+    } else if (a.players) {
+      const { min, max } = a.players;
+      if (!Number.isInteger(min) || min < 1) errors.push(`${id}: players.min must be an integer ≥ 1`);
+      if (!Number.isInteger(max) || max < 1) errors.push(`${id}: players.max must be an integer ≥ 1`);
+      if (Number.isInteger(min) && Number.isInteger(max) && max < min) {
+        errors.push(`${id}: players.max (${max}) is below players.min (${min})`);
+      }
+      if (a.kind !== 'duo' && (min !== 1 || max !== 1)) {
+        errors.push(`${id}: a ${a.kind} app seats exactly one player, not ${min}..${max}`);
+      }
+      if (a.kind === 'duo' && min < 2) errors.push(`${id}: a duo game needs at least two players`);
+    }
+
     for (const w of a.workflows || []) {
       if (!existsSync(join(REPO_ROOT, '.github/workflows', w))) errors.push(`${id}: workflow "${w}" not found under .github/workflows`);
     }
@@ -102,7 +124,12 @@ function main() {
     for (const e of errors) console.error(`  - ${e}`);
     process.exit(1);
   }
-  console.log(`✓ registry: ${apps.length} apps, ${apps.filter((a) => GAME_KINDS.includes(a.kind)).length} games — shape + filesystem parity OK`);
+  const games = apps.filter((a) => GAME_KINDS.includes(a.kind));
+  const multi = games.filter((a) => a.players && a.players.max > 2).length;
+  console.log(
+    `✓ registry: ${apps.length} apps, ${games.length} games ` +
+      `(${multi} seating more than two) — shape + filesystem parity OK`,
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

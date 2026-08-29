@@ -1,8 +1,9 @@
 # LEX
 
-A minimalist two-player crossword tile game (Scrabble / Words-with-Friends family)
-as an installable PWA: invite a friend by link, play live or correspondence-style
-with push notifications, dictionary-enforced plays, and server-secret racks.
+A minimalist crossword tile game for two to four players (Scrabble /
+Words-with-Friends family) as an installable PWA: invite friends by link, play
+live or correspondence-style with push notifications, dictionary-enforced plays,
+and server-secret racks.
 
 Private, non-commercial. Board layout, tileset, and dictionary are data, not code —
 swappable by design (DESIGN.md §2.2).

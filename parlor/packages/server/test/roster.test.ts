@@ -10,6 +10,7 @@ import {
   inviteToList,
   joinRoster,
   leaveList,
+  othersOf,
   parseTurnOrderChoice,
   playerIdsOf,
   previewOf,
@@ -198,5 +199,32 @@ describe('parseTurnOrderChoice', () => {
     expect(() => parseTurnOrderChoice({ mode: 'arrange' })).toThrow(/array of uids/);
     expect(() => parseTurnOrderChoice({ mode: 'arrange', order: ['a', ''] })).toThrow(/array of uids/);
     expect(() => parseTurnOrderChoice({ mode: 'arrange', order: ['a', 'a'] })).toThrow(/duplicate/);
+  });
+});
+
+// A whole-table event has to reach the whole table. `rematch` used to take the
+// FIRST other seat and notify only that one, which is right at two seats and
+// silently wrong at three or four.
+describe('othersOf', () => {
+  it('returns every other seat, not just the next one', () => {
+    expect(othersOf(['u-ada', 'u-sam', 'u-noor', 'u-kai'], 'u-ada')).toEqual([
+      'u-sam',
+      'u-noor',
+      'u-kai',
+    ]);
+  });
+
+  it('is the single opponent at two seats, whichever side asked', () => {
+    expect(othersOf(['u-ada', 'u-sam'], 'u-ada')).toEqual(['u-sam']);
+    expect(othersOf(['u-ada', 'u-sam'], 'u-sam')).toEqual(['u-ada']);
+  });
+
+  it('drops empty seats and dedupes', () => {
+    expect(othersOf(['u-ada', null, undefined, 'u-sam', 'u-sam'], 'u-ada')).toEqual(['u-sam']);
+  });
+
+  it('is empty when nobody else is there', () => {
+    expect(othersOf(['u-ada'], 'u-ada')).toEqual([]);
+    expect(othersOf([], 'u-ada')).toEqual([]);
   });
 });

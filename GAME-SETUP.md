@@ -12,8 +12,11 @@
 
 The wiring reference for a turn-based, two-player, invite-a-friend PWA on the
 `@parlor/*` platform. It names every wiring point and the tribal knowledge that
-is otherwise scattered across a game's `DECISIONS.md`. Scope is **2-player**
-(N-player is a parked epic).
+is otherwise scattered across a game's `DECISIONS.md`. Scope is the **2-player**
+wiring, which is still every duo game's shape. Seating three or four is additive
+on top of it — the guest-list room, `startGame`, turn order and withdrawal —
+and lex is the worked example; see `lex/DESIGN.md` and its M7 `DECISIONS.md`
+entries rather than duplicating them here.
 
 > Placement: this lives at the repo root, not under `parlor/`, because parlor
 > keeps a closed, line-budgeted doc set (`CLAUDE.md` + `README.md` only —

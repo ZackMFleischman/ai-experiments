@@ -12,7 +12,7 @@ mark it `✅ SHIPPED (date)` here and log deviations in the most-affected
 project's `DECISIONS.md`.
 
 **Status legend:** ✅ shipped · ◐ partially shipped · ○ not started. Progress as
-of 2026-07-11: **M0 ✅, M1 ✅, M2 ◐, M3 ◐, M5 ◐, M6 ◐, M4/M7/M8/M9 ○.** The deferred
+of 2026-08-29: **M0 ✅, M1 ✅, M8 ✅, M2 ◐, M3 ◐, M5 ◐, M6 ◐, M4/M7/M9 ○.** The deferred
 items share one cause — they need a runnable environment (full `pnpm install`
 per workspace, the Firebase emulator jars, or a GitHub Actions run) or live
 owner action (Firebase data migration, store submission) that this session
@@ -343,7 +343,12 @@ per-game action; one sign-in works across all duo games; hive migration
 completes with zero lost games (verified by export diff); old projects
 deleted.
 
-## M8 — N-player generalization (L) — ◐ planned, brought forward ahead of M7
+## M8 — N-player generalization (L) — ✅ SHIPPED (2026-08-29), ahead of M7
+
+Built as `lex/IMPLEMENTATION.md` §2 M7 (T7.1–T7.18); the milestone record, the
+scope decisions and the stumbles are in `lex/DECISIONS.md`. Every checkbox below
+landed, and the gate held: the three sibling workspaces needed **no file
+changes**, and `lex/e2e/multiplayer/game.spec.ts` passes **unedited**.
 
 > **Resequenced (owner decision, 2026-08-28).** This was sequenced after M7 so
 > the seat model would be touched once. It is now going first, for two reasons:
@@ -365,35 +370,44 @@ early — invitations reserve nothing (**first come, first served**), and seats,
 turn order and the deal do not exist until a new `startGame` callable. A
 resign/timeout above two players is a **withdrawal**, not a game end.
 
-- [ ] **Seat model**: `GameServerConfig.seatKeys` becomes `readonly string[]` and
+- [x] **Seat model**: `GameServerConfig.seatKeys` becomes `readonly string[]` and
       gains `players?: {min,max}` (default `{2,2}`). The pre-game becomes a guest
       list (`roster` / `invited` / `declined`, one always-present invite code);
       `startGame` resolves order, deals, and activates, guarded by an
       `expectedRoster` precondition so a late joiner is never locked out.
       Forfeit/timeout withdraws a seat rather than ending the game above 2.
-- [ ] **Turn order as a platform capability**: `random | first | last | arrange`,
+- [x] **Turn order as a platform capability**: `random | first | last | arrange`,
       persisted so every player sees the arrangement before start; `rematch`
       rotates it so the opening advantage circulates. `parseSeatChoice` is kept
       as the per-game wire→intent mapping, so sibling callables are untouched.
-- [ ] **Result model**: replace binary win/loss/draw with `standings: Seat[][]`
+- [x] **Result model**: replace binary win/loss/draw with `standings: Seat[][]`
       (best-first, inner arrays = ties); withdrawn players rank below all
       finishers. `LobbySummary` keeps `result` as a deprecated two-seat form
       behind `finalStandings()`, so hive/checkers/tafl need no changes.
-- [ ] **Client**: `@parlor/web` gains the guest-list surfaces (`GuestList`,
+- [x] **Client**: `@parlor/web` gains the guest-list surfaces (`GuestList`,
       `GameRoom`, `TurnOrderPicker`, `InvitationReceived`) as strictly additive
       3+ components; `WaitingForOpponent` / `InviteLinkView` / `ChallengeReceived`
       are not modified. `GameHud` extends past two seats.
-- [ ] **Rules + registry**: `firestore.rules` needs **no change** — invited uids
+- [x] **Rules + registry**: `firestore.rules` needs **no change** — invited uids
       already sit in `playerIds`, so the `array-contains` read gate and the lobby
       index carry over. Registry entries gain `players: {min,max}`.
-- [ ] **Notify**: fan-out (`invited`, `player-joined`, `game-started`); turn
+- [x] **Notify**: fan-out (`invited`, `player-joined`, `game-started`); turn
       pushes go to the next player only, so a 4-player game is not 3× the noise.
 
-Gate: 2-player games unchanged — all existing validate suites green on the
+Gate (met): 2-player games unchanged — every validate suite green on the
 generalized platform, **with no file changes in `hive/`, `checkers/` or `tafl/`**
-and `lex/e2e/multiplayer/game.spec.ts` passing unedited; lex plays a full 3- and
-4-player game end-to-end via a new emulator MP test, including a start-early and a
-withdrawal; factory stamps `--kind duo --players 4`.
+and `lex/e2e/multiplayer/game.spec.ts` passing unedited; lex plays a full
+3-player game end-to-end in `lex/e2e/multiplayer/room.spec.ts` (three browsers,
+link join + code join, start-early, a withdrawal mid-game, and the standings
+podium); the factory takes `--kind duo --players 4` and stamps a registry entry
+that `check-registry` accepts.
+
+Two carried forward rather than claimed: the room e2e proves **3** seats end to
+end, not 4 — the seat-count generality is covered by the engine's property suite
+over 2/3/4 and by the 4-seat gallery fixtures, and a fourth browser would have
+bought a slower gate rather than a new failure mode. And `--players 4` stamps
+the registry range only: the cloned ruleset still declares the exemplar's seats,
+which the tool now says out loud.
 
 ## M9 — Duo CI wall-clock (S–M) — ○ not started
 

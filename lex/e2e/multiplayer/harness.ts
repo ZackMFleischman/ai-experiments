@@ -5,7 +5,13 @@
 // real words). Emulators are booted around the whole run by
 // `firebase emulators:exec` (see validate:m4 in the root package.json).
 import { expect, type Page } from '@playwright/test';
-import { RULESETS, initialState, serializeState, type TileFace } from '../../packages/engine/src/index.js';
+import {
+  RULESETS,
+  initialState,
+  serializePublic,
+  serializeState,
+  type TileFace,
+} from '../../packages/engine/src/index.js';
 
 const AUTH = 'http://127.0.0.1:9099';
 const FIRESTORE = 'http://127.0.0.1:8080';
@@ -107,4 +113,90 @@ export async function rigGameByCode(code: string): Promise<string> {
     events: [],
   });
   return gameId;
+}
+
+// ── a rigged deal for a 3+ ROOM game (T7.17) ─────────────────────────────────
+// A two-seat game is dealt by createGame, so `rigGameByCode` can script it
+// while the game is still open. A room has no seats until the host starts, so
+// the deal only exists AFTER startGame — the rig therefore lands on a running
+// game and has to keep the public mirror (`public`, `scores`, `bagCount`,
+// `rackCounts`) consistent with the private bag it replaces.
+
+/** The scripted 3-seat deal. Ada opens small; Sam bingoes and then walks out
+ * while comfortably ahead — the case the ranking rule exists for. */
+export const ROOM_RACKS = ['CATSNTI', 'NTISERA', 'BLEMPHO'] as const;
+
+export function roomOrder(): TileFace[] {
+  const classic = RULESETS['classic']!;
+  const remaining = new Map<string, number>(Object.entries(classic.tiles.counts));
+  for (const face of ROOM_RACKS.join('')) {
+    const left = (remaining.get(face) ?? 0) - 1;
+    if (left < 0) throw new Error(`room rig overdraws '${face}'`);
+    remaining.set(face, left);
+  }
+  const rest: string[] = [];
+  for (const [face, count] of remaining) {
+    for (let i = 0; i < count; i++) rest.push(face);
+  }
+  return [...ROOM_RACKS.join(''), ...rest] as TileFace[];
+}
+
+/** PATCH only the named fields. `adminSet`'s maskless PATCH REPLACES a
+ * document, which would strip `players`/`status` off a live game doc. */
+async function adminPatch(path: string, data: Record<string, unknown>): Promise<void> {
+  const mask = Object.keys(data)
+    .map((key) => `updateMask.fieldPaths=${encodeURIComponent(key)}`)
+    .join('&');
+  const res = await fetch(`${DOCS}/${path}?${mask}`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: encodeFields(data) }),
+  });
+  if (!res.ok) throw new Error(`adminPatch ${path} failed: ${await res.text()}`);
+}
+
+/** Seat key → uid, from a started game's `players` map. */
+function playersOf(doc: Record<string, unknown>): Record<string, string> {
+  const fields = doc['fields'] as Record<string, unknown>;
+  const map = fields['players'] as { mapValue?: { fields?: Record<string, { stringValue?: string }> } };
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(map?.mapValue?.fields ?? {})) {
+    if (value.stringValue) out[key] = value.stringValue;
+  }
+  return out;
+}
+
+/**
+ * Replace a just-started room game's deal with the scripted one. Callers
+ * should reload every open page afterwards: the rig lands through the same
+ * listeners the app is already using, and a reload is the cheapest way to be
+ * certain no page is rendering a rack from the deal we just threw away.
+ */
+export async function rigStartedRoom(gameId: string): Promise<void> {
+  const classic = RULESETS['classic']!;
+  const order = roomOrder();
+  const seats = ROOM_RACKS.length;
+  const state = initialState(classic, order, seats);
+  const players = playersOf(await adminGet(`games/${gameId}`));
+
+  await adminSet(`games/${gameId}/private/bag`, {
+    order: order.join(''),
+    drawn: seats * classic.rackSize,
+    state: serializeState(state),
+    events: [],
+  });
+  const seatKeys = ['p0', 'p1', 'p2'];
+  for (let seat = 0; seat < seats; seat++) {
+    const uid = players[seatKeys[seat]!];
+    if (!uid) throw new Error(`room rig: seat ${seatKeys[seat]} is empty`);
+    await adminSet(`games/${gameId}/racks/${uid}`, { tiles: ROOM_RACKS[seat]!, n: 0 });
+  }
+  const perSeat = <T,>(value: (seat: number) => T): Record<string, T> =>
+    Object.fromEntries(seatKeys.map((key, seat) => [key, value(seat)]));
+  await adminPatch(`games/${gameId}`, {
+    public: serializePublic(state),
+    bagCount: state.bag.length,
+    scores: perSeat(() => 0),
+    rackCounts: perSeat((seat) => state.racks[seat]!.length),
+  });
 }

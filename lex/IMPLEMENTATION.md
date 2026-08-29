@@ -105,43 +105,7 @@ pnpm validate:ux      # scripted drag/tap flows with frame captures (§4)
 
 ### M6 — shipped, see DECISIONS.md (⚑ production deploy/DNS + PersonalWebsite PR remain with the owner)
 
-### M7 — N players (2–4)
-
-Generalizes the **platform** (`../parlor/`) to N seats, with lex as the acceptance
-vehicle; this is `PORTFOLIO-HARDENING.md` M8, brought forward (that file records why).
-Scope decisions live in DECISIONS.md — read them first, they are load-bearing:
-the count is a **maximum** (the host may start early, min 2), invitations reserve
-nothing (**first come, first served**), seats and the deal do not exist until
-`startGame`, and a resign/timeout at 3+ is a **withdrawal**, not a game end.
-
-**The N=2 contract.** Every task below is additive and branches on `maxPlayers`.
-A 2-player lex game — and hive, checkers and tafl — must render and behave exactly
-as today: `e2e/multiplayer/game.spec.ts` passes **unedited**, and the three sibling
-workspaces need **no file changes** (their `seatKeys` 2-tuples stay assignable to
-`readonly string[]`, `initialGame` gains a defaulted param they ignore, and
-`GameServerConfig.players` defaults to `{min:2,max:2}`). Every parlor PR runs
-hive + checkers + tafl `validate` as its gate; a red sibling suite blocks the merge.
-
-| Task | What | Gate |
-|---|---|---|
-| **T7.1** | Engine: `GameState.withdrawn`, `withdraw(state, seat)` (rack returns to the bag end for the server to re-shuffle, as exchange does), turn advance skips withdrawn seats, serialize/`parsePublic` round-trip (`withdrawn` defaults `[]` when absent). Amends DESIGN §2.1/§2.4/§5.2, IMPLEMENTATION §5. | engine unit |
-| **T7.2** | Engine: `Ruleset.scorelessLimit` → `scorelessRounds` (× active seats; 3 ⇒ 6 at two seats, so `classic`/`modern` keep their ids — see DECISIONS); `endedBy` gains `'last-standing'`; played-out pot and scoreless deduction exclude withdrawn seats. **The played-out check must ignore a withdrawn seat's empty rack** or a withdrawal ends the game instantly. | fixtures |
-| **T7.3** | Engine: `GameResult.winner` → `standings: readonly (readonly Seat[])[]` (best-first, inner = tied); `turnQueue(state)` export (rotation from `toMove`, withdrawn excluded — the UI must never derive turn order). `Ruleset.players: {min,max}`. Property suite parameterized over 2/3/4 seats + withdrawal invariants (conservation still holds; `toMove` never lands on a withdrawn seat). | `validate:m1` |
-| **T7.4** | parlor server: `seatKeys: readonly string[]`, `players?: {min,max}` (default `{2,2}`), `initialGame(options, playerCount = 2)`, `rackDocs`/`seatRackDoc` widened, `parseSeatChoice` → `TurnOrderChoice` normalizing today's `'me'\|'them'\|'random'`. | siblings green |
-| **T7.5** | parlor server: the guest-list lifecycle at `maxPlayers ≥ 3` — `roster`/`invited`/`declined`, one always-present invite code, `joinGame` appends + auto-starts at max, `respondInvite` (decline moves a name, never deletes), `invitePlayers`, `leaveGame`. `invites/{code}` carries a **uid-free** roster projection, rewritten in the same transaction as every join/leave. | functions tests |
-| **T7.6** | parlor server: **`startGame({gameId, expectedRoster, turnOrder})`** — host-only, `expectedRoster` guard (same pattern as `submitMove`'s `expectedMoveCount`, so a late joiner is never silently locked out), resolves the order, calls `initialGame(options, roster.length)`, deals every rack, flips to `active`. Plus `setTurnOrder` (persisted so non-hosts see the arrangement live). **Newcomers append to a stored `arrange` order** or auto-start fails its own permutation check. | functions tests |
-| **T7.7** | parlor server: withdraw hook for `resign` + `forfeitExpired` (terminal at 2, withdrawal at 3+); `rematch` **rotates** the order by one so the opening advantage circulates; `forfeitExpired` culls open 3+ games that never reached `min` before the invite TTL. | functions tests |
-| **T7.8** | parlor server: notify fan-out — `'invited'`, `'player-joined'`, `'game-started'`; turn pushes go to the next player only; `game-over` copy becomes placing-aware. `TriggerArgs.opponentName` → `actorName` (alias kept). | notify tests |
-| **T7.9** | parlor web: `seatIndexOf` widened; `LobbySummary` gains `seatCount`/`standings`/`withdrawn`/`openSeats`/`opponents`, keeps `result` as the deprecated 2-seat form behind `finalStandings()`/`placingOf()`; `friendsFrom` prefers `opponents`. | `lobby-ui` tests |
-| **T7.10** | parlor web: `roster.ts` model, `GuestList`, `TurnOrderPicker` (emits today's three toggles **and testids** at `maxPlayers === 2`), `GameRoom` + `StartGameBar`, `InvitationReceived`, `JoinState.closed`. `WaitingForOpponent`/`InviteLinkView`/`ChallengeReceived` are **not modified**. | `lobby-ui` tests |
-| **T7.11** | lex functions: `maxPlayers` in options validated against the **selected** ruleset's range (not the registry union); array `scores`/`rackCounts`; deal moves to `startGame` at 3+; `submitMove` push fan-out + `standings` terminal. | rules tests unchanged |
-| **T7.12** | lex sync: `GameMeta` gains roster/invited/turnOrder/counts; transport + lobby seat mapping over N; `MultiplayerGame` open-branch splits on `maxPlayers`; `NewGameFlow` keeps `InviteLinkView` at 2. **`Thumbnail` renders an empty `MiniBoard` when `public` is absent** — an open 3+ game has no state and `LobbyList` calls `renderThumbnail` unconditionally. | integration |
-| **T7.13** | lex UI: `ScoreBar` → turn line + standings rail (two tiers below 600/900px, one row above), queue numerals, withdrawn treatment, `Snapshot.mySeat`. **[visual]** | `validate:visual` |
-| **T7.14** | lex UI: `CatchUpBar` review player + board rewind + `SheetRow.cells` (free — `SyncRow.cells` already arrives and is discarded); columnar `ScoreSheet`; `GameActions` withdraw copy. **[visual]** | `validate:ux` |
-| **T7.15** | lex UI: New Game count picker from the ruleset range, uncapped invite chips, boards disabled out of range, pace round-line; bind `GameRoom`/`InvitationReceived`/Join preview. **[visual]** | `validate:visual` |
-| **T7.16** | lex UI: lobby card roster title + two-line caption, `FinalStandings` podium (winner-first at every count), withdrawn rows, rematch opt-out. **[visual]** | `validate:visual` |
-| **T7.17** | e2e: new `e2e/multiplayer/room.spec.ts` — three browsers, invite + code join, start early, full game, a withdrawal. `game.spec.ts` stays **unedited**. | `validate:m4` |
-| **T7.18** | Docs + `registry/apps.json` `players:{min,max}` + schema; collapse this table and append the SHIPPED entry; close `PORTFOLIO-HARDENING.md` M8. | `pnpm validate` |
+### M7 — shipped, see DECISIONS.md
 
 ---
 

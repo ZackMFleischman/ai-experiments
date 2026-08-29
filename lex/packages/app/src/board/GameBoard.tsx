@@ -118,6 +118,10 @@ export function GameBoard({
   // Turn order is the engine's verdict, not the bar's arithmetic (§7.1): the
   // queue skips withdrawn seats and leads with the side to move.
   const queue = useMemo(() => turnQueue(snap.state), [snap.state]);
+  // A seat that has already left watches the rest of the game out. The game
+  // has not ended for them, so nothing else here switches off — but offering
+  // Withdraw a second time would only earn them a server error.
+  const iAmOut = snap.state.withdrawn.includes(snap.mySeat);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
@@ -613,7 +617,7 @@ export function GameBoard({
           hasPending={snap.pending.size > 0}
           interactive={snap.interactive}
           seats={snap.scores.length}
-          canResign={!snap.end}
+          canResign={!snap.end && !iAmOut}
           canExchange={snap.canExchange}
           exchangeMinBag={snap.ruleset.exchangeMinBag}
           bagCount={snap.bagCount}

@@ -15,6 +15,16 @@
           "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
           "dir": { "type": "string" },
           "kind": { "enum": ["duo", "solo", "arcade", "utility", "other"] },
+          "players": {
+            "description": "Seats the app supports. Required for game kinds, absent for \"other\". A duo game is 2..2 unless it says otherwise; a solo/arcade/utility app is 1..1.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["min", "max"],
+            "properties": {
+              "min": { "type": "integer", "minimum": 1 },
+              "max": { "type": "integer", "minimum": 1 }
+            }
+          },
           "displayName": { "type": "string" },
           "tagline": { "type": "string" },
           "glyph": { "type": "string" },

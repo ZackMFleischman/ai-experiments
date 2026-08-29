@@ -206,10 +206,14 @@ export function canonicalBagOrder(rulesetId: string): TileFace[] {
 export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> {
   private players: Record<string, string | null> = {};
   private serverMoveCount = 0;
+  private serverWithdrawnCount = 0;
   private logLength = 0;
-  /** Monotonic gate: never emit a sync at or below this server move count —
-   * a fetch racing a commit must not clobber newer optimistic state. */
+  /** Monotonic gate: never re-emit a sync the session has already adopted —
+   * a fetch racing a commit must not clobber newer optimistic state. Moves and
+   * withdrawals both advance the game, and only moves touch `moveCount`, so
+   * both are tracked. */
   private lastEmittedMoveCount = -1;
+  private lastEmittedWithdrawnCount = -1;
   private fetching = false;
   private refetchQueued = false;
   private emitEntry: ((entry: LexEntry, index: number) => void) | undefined;
@@ -314,6 +318,8 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
     // Coherence gates: the move log must have caught up with the game doc,
     // and the rack doc must be current for my latest rack-writing move.
     if (moves.length !== game.moveCount) return null;
+    const pub = JSON.parse(game.public) as PublicSnapshot;
+    const iAmOut = (pub.withdrawn ?? []).includes(mySeat);
     const lastMine = [...moves]
       .reverse()
       .find(
@@ -322,9 +328,12 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
           (m.kind === 'play' || m.kind === 'phoney' || m.kind === 'exchange' || m.kind === 'pass'),
       );
     const expectedRackN = lastMine ? lastMine.n + 1 : 0;
-    if (rack.n !== expectedRackN) return null;
-
-    const pub = JSON.parse(game.public) as PublicSnapshot;
+    // A withdrawal empties the rack doc and stamps it with the move count it
+    // happened at, which is NOT tied to any move of mine — so for a seat that
+    // has left, rack currency is not a thing to wait for. Gating on it anyway
+    // wedged the leaver's own client: it would never adopt another sync, and
+    // so never learn that the game it had left had ended.
+    if (!iAmOut && rack.n !== expectedRackN) return null;
     const state = synthesizedState(pub, mySeat, rack.tiles);
 
     // Seat of the uid that made each move — over the seats this doc dealt, not
@@ -364,6 +373,7 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
         : undefined;
 
     this.serverMoveCount = game.moveCount;
+    this.serverWithdrawnCount = game.withdrawn?.length ?? 0;
     return {
       entry: {
         kind: 'sync',
@@ -393,7 +403,11 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       const sync = await this.fetchSync();
       if (sync) {
         this.logLength = 1;
+        // Seed BOTH gate counters: leaving the withdrawal one at its initial
+        // -1 would make the next refetch's "advanced" test true on a game
+        // nobody has left, and emit a stale read over the optimistic state.
         this.lastEmittedMoveCount = this.serverMoveCount;
+        this.lastEmittedWithdrawnCount = this.serverWithdrawnCount;
         return { options: sync.options, log: [sync.entry] };
       }
       await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
@@ -466,10 +480,20 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       const sync = await this.fetchSync();
       // Monotonic: a coherent-but-stale read (fetch raced a commit, or the
       // refill listener fired before the game doc) must not re-adopt an
-      // older server state over newer local/optimistic state. One emission
-      // per server move count is enough — fetchSync already gates coherence.
-      if (sync && this.emitEntry && this.serverMoveCount > this.lastEmittedMoveCount) {
+      // older server state over newer local/optimistic state. Both counters
+      // only ever rise server-side, so "either is greater" is still monotonic.
+      //
+      // The withdrawal count has to be in here: a withdrawal is not a move and
+      // leaves `moveCount` alone, so keying the emission on moves alone
+      // swallowed it — every other player's board went on showing the seat
+      // that had left as still in the game, and only caught up when somebody
+      // happened to move (or reloaded).
+      const advanced =
+        this.serverMoveCount > this.lastEmittedMoveCount ||
+        this.serverWithdrawnCount > this.lastEmittedWithdrawnCount;
+      if (sync && this.emitEntry && advanced) {
         this.lastEmittedMoveCount = this.serverMoveCount;
+        this.lastEmittedWithdrawnCount = this.serverWithdrawnCount;
         this.emitEntry(sync.entry, this.logLength);
         this.logLength++;
       }
