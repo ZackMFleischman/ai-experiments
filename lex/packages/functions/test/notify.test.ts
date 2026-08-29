@@ -7,7 +7,7 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { sendPush, type PushTransport } from '@parlor/server';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { buildPayload, isMyTurn, playedCopy } from '../src/config';
+import { buildPayload, isMyTurn, phoneyCopy, playedCopy } from '../src/config';
 
 const notifyConfig = { buildPayload, isMyTurn };
 
@@ -228,5 +228,20 @@ describe('sendPush', () => {
     );
     const doc = await db.doc('users/pruney').get();
     expect(doc.data()?.['fcmTokens']).toEqual(['tok-live']);
+  });
+});
+
+describe('phoneyCopy (§2.3)', () => {
+  it('names the word that was tried, singular and plural', () => {
+    // Pinned literally: the in-app banner builds the same sentence from its own
+    // package (app/src/gameOptions invalidWordList), so a change here that is
+    // not mirrored there shows up as a diff in review.
+    expect(phoneyCopy('Sam', ['QUIZZ'])).toBe(
+      'Sam tried to play the invalid word “QUIZZ” — turn lost. Your move.',
+    );
+    expect(phoneyCopy('Sam', ['QUIZZ', 'ZA'])).toBe(
+      'Sam tried to play the invalid words “QUIZZ” and “ZA” — turn lost. Your move.',
+    );
+    expect(phoneyCopy('Sam', ['A', 'B', 'C'])).toContain('“A”, “B” and “C”');
   });
 });

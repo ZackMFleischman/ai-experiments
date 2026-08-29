@@ -9,6 +9,14 @@
 // sub-writes, the terminal outcome, and the push. Exchange letters never reach a
 // public doc — the log entry carries a count only, and the re-shuffled remainder
 // is recorded as a private replay event (§3.3).
+//
+// A game whose `invalidWords` setting is 'costs-turn' (§2.3) adds a fourth kind
+// of outcome: a play the dictionary refuses is no longer an error, it is a
+// PHONEY — a spent turn. Unlike an exchange, the WORDS it formed are recorded
+// publicly (§3.3): the opponent is told what was tried, the same way an
+// over-the-board challenge reveals a phoney before it is withdrawn. What stays
+// secret is the rack — only the words the play actually formed are written, not
+// the placements and not the tiles that never left the hand.
 import { randomInt } from 'node:crypto';
 import { join } from 'node:path';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -19,6 +27,7 @@ import {
   applyMove,
   deserializeState,
   result as gameResult,
+  rejectedWords,
   scorePlay,
   serializePublic,
   serializeState,
@@ -29,7 +38,15 @@ import {
   type TileFace,
 } from '@lex/engine';
 import { loadDictionarySync } from '@lex/dict/node';
-import { SEAT_KEYS, bySeat, lexServerConfig, playedCopy, requireRuleset, type LexGameOptions } from './config';
+import {
+  SEAT_KEYS,
+  bySeat,
+  lexServerConfig,
+  phoneyCopy,
+  playedCopy,
+  requireRuleset,
+  type LexGameOptions,
+} from './config';
 
 // The compiled DAWGs ship next to the bundle (lib/dict, scripts/dawgs.mjs).
 const DICT_DIR = join(__dirname, 'dict');
@@ -131,25 +148,37 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
 
     // Score the play BEFORE applying (the log entry wants words + total);
     // applyMove reruns the full verdict pipeline and throws on any illegality.
+    const invalidWords = d.options.invalidWords ?? 'blocked';
     let next: GameState;
     let playRecord: { placements: unknown[]; words: unknown[]; score: number; bingo: boolean } | null =
       null;
+    // 'costs-turn' games only: the play was legal geometry but a phoney.
+    // applyMove has already spent the turn for it; these decide what is WRITTEN.
+    let phoney = false;
+    let phoneyWords: readonly string[] = [];
     try {
       if (move.type === 'play') {
         const scored = scorePlay(state.board, move.placements, ruleset);
-        playRecord = {
-          placements: move.placements.map((p) => ({
-            row: p.cell.row,
-            col: p.cell.col,
-            letter: p.letter,
-            isBlank: p.isBlank,
-          })),
-          words: scored.words.map((w) => ({ word: w.word, score: w.score })),
-          score: scored.total,
-          bingo: scored.bingo,
-        };
+        // The same stage-3 verdict applyMove is about to reach, asked here
+        // because only the pre-move board can still be scored.
+        const refused = rejectedWords(scored.words, dict);
+        phoney = invalidWords === 'costs-turn' && refused.length > 0;
+        if (phoney) phoneyWords = refused;
+        if (!phoney) {
+          playRecord = {
+            placements: move.placements.map((p) => ({
+              row: p.cell.row,
+              col: p.cell.col,
+              letter: p.letter,
+              isBlank: p.isBlank,
+            })),
+            words: scored.words.map((w) => ({ word: w.word, score: w.score })),
+            score: scored.total,
+            bingo: scored.bingo,
+          };
+        }
       }
-      next = applyMove(state, move, dict);
+      next = applyMove(state, move, dict, { invalidWords });
     } catch (err) {
       if (err instanceof IllegalMoveError) {
         const words = err.words?.length ? ` (${err.words.join(', ')})` : '';
@@ -208,11 +237,17 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
     if (move.type === 'play' && playRecord) {
       const main = (playRecord.words[0] as { word?: string } | undefined)?.word ?? '';
       movedCopy = playedCopy(caller.name, main, playRecord.score);
+    } else if (phoney) {
+      movedCopy = phoneyCopy(caller.name, phoneyWords);
     }
 
     return {
       moveDoc: {
-        kind: move.type,
+        // A phoney is its own kind, not a play with a zero — the sheet has to
+        // say "turn lost". It records the WORDS it formed and nothing else: no
+        // placements, no score, so the rack behind them stays secret (§3.3).
+        kind: phoney ? 'phoney' : move.type,
+        ...(phoney ? { phoney: { words: phoneyWords } } : {}),
         ...(playRecord ? { play: playRecord } : {}),
         // Privacy invariant (§3.3): the public log records HOW MANY tiles were
         // exchanged, never which.
