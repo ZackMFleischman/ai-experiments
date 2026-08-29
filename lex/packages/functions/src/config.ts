@@ -46,6 +46,17 @@ export interface LexGameOptions {
 /** Seat keys in move order. A game only ever uses the first `maxPlayers`. */
 export const SEAT_KEYS = ['p0', 'p1', 'p2', 'p3'] as const;
 
+/**
+ * The engine's placings as the schema stores them (§6.2): best-first, each
+ * holding the seats tied at it. Firestore rejects an array nested directly in
+ * an array, so a placing is a MAP rather than a bare list of seat keys.
+ */
+export function placingsOf(
+  standings: readonly (readonly number[])[],
+): { seats: string[] }[] {
+  return standings.map((tied) => ({ seats: tied.map((seat) => SEAT_KEYS[seat]!) }));
+}
+
 /** Fold a per-seat value into the seat-keyed map the schema uses (§6.2). */
 export function bySeat<T>(count: number, value: (seat: number) => T): Record<string, T> {
   const out: Record<string, T> = {};
@@ -191,8 +202,7 @@ async function withdrawSeat({
 
   const seatCount = next.racks.length;
   const outcome = gameResult(next);
-  const standings =
-    outcome.status === 'finished' ? outcome.standings.map((tied) => tied.map((s) => SEAT_KEYS[s]!)) : null;
+  const standings = outcome.status === 'finished' ? placingsOf(outcome.standings) : null;
 
   return {
     gameFields: {
@@ -225,7 +235,7 @@ async function withdrawSeat({
     terminal:
       outcome.status === 'finished' && standings
         ? {
-            result: standings[0]!.length > 1 ? 'draw' : standings[0]![0]!,
+            result: standings[0]!.seats.length > 1 ? 'draw' : standings[0]!.seats[0]!,
             endedBy: outcome.by,
             standings,
           }

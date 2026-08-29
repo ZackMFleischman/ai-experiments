@@ -469,7 +469,8 @@ games/{gameId}:           { players: {p0: uid, p1: uid|null, …},     // one ke
                                                                       // game a 3+ game; a 2-seat doc has none
                                                                       // of these and `players` from creation
                             result?: 'p0'|'p1'|'draw',                // winning seat key, or a shared top
-                            standings?: seatKey[][],                  // every placing, best-first, inner = tied
+                            standings?: [{seats: seatKey[]}],         // every placing, best-first; a placing is a
+                                                                      // MAP because Firestore forbids array-in-array
                             endedBy?: 'played-out'|'scoreless'|'last-standing'|'resign'|'timeout',
                             toMove: seatKey, moveCount,
                             scores: {p0, p1, …}, bagCount, rackCounts: {p0, p1, …},

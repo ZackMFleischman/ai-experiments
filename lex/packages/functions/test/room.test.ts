@@ -3,12 +3,19 @@
 // (append, then auto-start at the maximum), invite / respond / leave, the
 // host-only start with its stale-roster guard, turn order, and a regression
 // check that the two-seat path is byte-for-byte what it always was.
-import { RULESETS, parsePublic } from '@lex/engine';
+import {
+  RULESETS,
+  initialState,
+  parsePublic,
+  serializeState,
+  type TileFace,
+} from '@lex/engine';
 import { describe, expect, it } from 'vitest';
 import {
   OPTIONS,
   adminGetDoc,
   adminListDocs,
+  adminSetDoc,
   call,
   createJoinedGame,
   signUp,
@@ -440,5 +447,229 @@ describe('the two-seat path', () => {
     expect(invited.errorStatus).toBe('FAILED_PRECONDITION');
     const ordered = await call('setTurnOrder', { gameId, turnOrder: { mode: 'random' } }, ada);
     expect(ordered.errorStatus).toBe('FAILED_PRECONDITION');
+  });
+});
+
+// T7.7: a seat leaving a RUNNING 3+ game is a withdrawal, not an ending —
+// score frozen, rack back to the bag, turn order closed over the gap, and the
+// game finishes only when one active player is left standing.
+describe('withdrawal at 3+ seats', () => {
+  /** Ada (p0), Sam (p1), Eve (p2): the third join fills the room and deals. */
+  async function threeHanded(): Promise<{
+    gameId: string;
+    p0: TestUser;
+    p1: TestUser;
+    p2: TestUser;
+  }> {
+    const ada = await signUp('Ada');
+    const sam = await signUp('Sam');
+    const eve = await signUp('Eve');
+    const { gameId, code } = await hostRoom(ada, 3);
+    for (const guest of [sam, eve]) {
+      const joined = await call('joinGame', { code }, guest);
+      if (joined.status !== 200) throw new Error(`joinGame failed: ${joined.errorMessage}`);
+    }
+    return { gameId, p0: ada, p1: sam, p2: eve };
+  }
+
+  const TILES = Object.values(classic.tiles.counts).reduce((sum, n) => sum + n, 0);
+
+  /** The invariant the whole withdrawal design turns on: a withdrawal only
+   *  MOVES tiles (rack → bag), so bag + racks + board is still the tileset. */
+  function expectTileConservation(publicText: unknown): void {
+    const pub = parsePublic(publicText as string);
+    const racked = pub.rackCounts.reduce((sum, n) => sum + n, 0);
+    expect(pub.bagCount + racked + pub.board.size).toBe(TILES);
+  }
+
+  const moveCountOf = async (gameId: string): Promise<number> =>
+    (await adminGetDoc(`games/${gameId}`))?.['moveCount'] as number;
+
+  // A deterministic three-hand deal (the rig submit-move.test.ts uses): Ada
+  // C A T S Q J X, Sam D O G E R N U, Eve B I M P H V W, then the rest of the
+  // classic multiset. It buys ONE thing the random deal cannot — a played word,
+  // so a leaver can walk out holding a score the survivor never matches.
+  const RACKS3 = ['CATSQJX', 'DOGERNU', 'BIMPHVW'] as const;
+  const BAG3: TileFace[] = (() => {
+    const remaining = new Map<string, number>(Object.entries(classic.tiles.counts));
+    for (const face of RACKS3.join('')) remaining.set(face, (remaining.get(face) ?? 0) - 1);
+    const rest: string[] = [];
+    for (const [face, count] of remaining) {
+      if (count < 0) throw new Error(`rigged racks overdraw '${face}'`);
+      for (let i = 0; i < count; i++) rest.push(face);
+    }
+    return [...RACKS3.join(''), ...rest] as TileFace[];
+  })();
+  const RIGGED3 = initialState(classic, BAG3, 3);
+
+  /** CATS across the centre: 6 doubled by the centre DW = 12 for seat 0. */
+  const CATS_PLAY = {
+    type: 'play',
+    placements: [
+      { row: 7, col: 7, letter: 'C', isBlank: false },
+      { row: 7, col: 8, letter: 'A', isBlank: false },
+      { row: 7, col: 9, letter: 'T', isBlank: false },
+      { row: 7, col: 10, letter: 'S', isBlank: false },
+    ],
+  };
+
+  /** Swap the hidden state for the rig. The public snapshot needs no patch:
+   *  board, scores and counts are identical for any fresh three-hand deal. */
+  async function riggedThree(): Promise<Awaited<ReturnType<typeof threeHanded>>> {
+    const game = await threeHanded();
+    for (const [seat, user] of [game.p0, game.p1, game.p2].entries()) {
+      await adminSetDoc(`games/${game.gameId}/racks/${user.uid}`, {
+        tiles: RIGGED3.racks[seat]!.join(''),
+        n: 0,
+      });
+    }
+    await adminSetDoc(`games/${game.gameId}/private/bag`, {
+      order: BAG3.join(''),
+      drawn: 3 * RACK,
+      state: serializeState(RIGGED3),
+      events: [],
+    });
+    return game;
+  }
+
+  it('does not end the game: the seat is marked withdrawn and play continues', async () => {
+    const { gameId, p0, p1 } = await threeHanded();
+    const res = await call('resign', { gameId }, p1);
+    expect(res.status).toBe(200);
+    expect((res.result as { finished: boolean }).finished).toBe(false);
+
+    const game = await adminGetDoc(`games/${gameId}`);
+    expect(game?.['status']).toBe('active');
+    expect(game?.['withdrawn']).toEqual(['p1']);
+    expect(game?.['result']).toBeUndefined();
+    expect(game?.['endedBy']).toBeUndefined();
+    expect(game?.['moveCount']).toBe(1);
+
+    // The resign is logged like any other meta move, and the table is live:
+    // the player to move can still play.
+    const moves = await adminListDocs(`games/${gameId}/moves`);
+    expect(moves).toHaveLength(1);
+    expect(moves[0]).toMatchObject({ kind: 'resign', by: p1.uid });
+    const passed = await call(
+      'submitMove',
+      { gameId, expectedMoveCount: 1, move: { type: 'pass' } },
+      p0,
+    );
+    expect(passed.status).toBe(200);
+  });
+
+  it("returns the leaver's tiles to the bag, conserving the tileset", async () => {
+    const { gameId, p1 } = await threeHanded();
+    const before = await adminGetDoc(`games/${gameId}`);
+    expect(before?.['bagCount']).toBe(TILES - 3 * RACK);
+
+    expect((await call('resign', { gameId }, p1)).status).toBe(200);
+
+    const game = await adminGetDoc(`games/${gameId}`);
+    expect(game?.['bagCount']).toBe((before?.['bagCount'] as number) + RACK);
+    expect(game?.['rackCounts']).toEqual({ p0: RACK, p1: 0, p2: RACK });
+    // The rack DOC empties too — a withdrawn player must not keep a hand the
+    // client could still render (or a leak the bag now also holds).
+    expect((await adminGetDoc(`games/${gameId}/racks/${p1.uid}`))?.['tiles']).toBe('');
+    expectTileConservation(game?.['public']);
+
+    const pub = parsePublic(game?.['public'] as string);
+    expect(pub.rackCounts).toEqual([RACK, 0, RACK]);
+    expect(pub.withdrawn).toEqual([1]); // the public snapshot names the gap
+  });
+
+  it('skips the withdrawn seat in the turn order for good', async () => {
+    const { gameId, p0, p1, p2 } = await threeHanded();
+    const wasToMove = (await adminGetDoc(`games/${gameId}`))?.['toMove'];
+    expect((await call('resign', { gameId }, p1)).status).toBe(200);
+
+    const game = await adminGetDoc(`games/${gameId}`);
+    // p1 leaving only moves the turn on if the turn was theirs.
+    expect(game?.['toMove']).toBe(wasToMove === 'p1' ? 'p2' : wasToMove);
+
+    // Four passes is a full lap and a half of the two seats still playing —
+    // p1 must never come up again (and 4 < the 6-turn scoreless limit at two
+    // active seats, so this does not end the game).
+    const seen: unknown[] = [game?.['toMove']];
+    const bySeat: Record<string, TestUser> = { p0, p1, p2 };
+    for (let i = 0; i < 4; i++) {
+      const current = (await adminGetDoc(`games/${gameId}`))?.['toMove'] as string;
+      const moved = await call(
+        'submitMove',
+        {
+          gameId,
+          expectedMoveCount: await moveCountOf(gameId),
+          move: { type: 'pass' },
+        },
+        bySeat[current]!,
+      );
+      expect(moved.status).toBe(200);
+      seen.push((await adminGetDoc(`games/${gameId}`))?.['toMove']);
+    }
+    expect(seen).not.toContain('p1');
+    expect((await adminGetDoc(`games/${gameId}`))?.['status']).toBe('active');
+  });
+
+  it('locks the withdrawn player out of moving or leaving twice', async () => {
+    const { gameId, p1 } = await threeHanded();
+    expect((await call('resign', { gameId }, p1)).status).toBe(200);
+
+    const moved = await call(
+      'submitMove',
+      { gameId, expectedMoveCount: await moveCountOf(gameId), move: { type: 'pass' } },
+      p1,
+    );
+    expect(moved.errorStatus).toBe('FAILED_PRECONDITION');
+    const again = await call('resign', { gameId }, p1);
+    expect(again.errorStatus).toBe('FAILED_PRECONDITION');
+    expect((await adminGetDoc(`games/${gameId}`))?.['withdrawn']).toEqual(['p1']); // not doubled
+  });
+
+  it('ends by last-standing on the second withdrawal, survivor first', async () => {
+    const { gameId, p0, p1, p2 } = await riggedThree();
+    // Ada banks 12 before walking out, so the SURVIVOR ends on the lower
+    // score — the placing has to reward staying, not scoring.
+    expect(
+      (await call('submitMove', { gameId, expectedMoveCount: 0, move: CATS_PLAY }, p0)).status,
+    ).toBe(200);
+    expect((await adminGetDoc(`games/${gameId}`))?.['scores']).toEqual({ p0: 12, p1: 0, p2: 0 });
+
+    expect((await call('resign', { gameId }, p0)).status).toBe(200);
+    const last = await call('resign', { gameId }, p1);
+    expect(last.status).toBe(200);
+    expect((last.result as { finished: boolean }).finished).toBe(true);
+
+    const game = await adminGetDoc(`games/${gameId}`);
+    expect(game?.['status']).toBe('finished');
+    expect(game?.['endedBy']).toBe('last-standing');
+    expect(game?.['result']).toBe('p2');
+    expect(game?.['withdrawn']).toEqual(['p0', 'p1']);
+    expect(game?.['scores']).toEqual({ p0: 12, p1: 0, p2: 0 });
+    // A placing is a MAP of tied seats, not a bare list — Firestore rejects an
+    // array nested directly inside an array.
+    const standings = game?.['standings'] as { seats: string[] }[];
+    expect(standings?.[0]).toEqual({ seats: ['p2'] }); // Eve is first on 0 against Ada's 12
+    expect(standings).toEqual([{ seats: ['p2'] }, { seats: ['p0'] }, { seats: ['p1'] }]);
+    expectTileConservation(game?.['public']);
+
+    // A finished game takes nothing more.
+    expect((await call('resign', { gameId }, p2)).errorStatus).toBe('FAILED_PRECONDITION');
+  });
+
+  it('leaves the two-seat game terminal on resign, with no withdrawn field', async () => {
+    const { gameId, p0: ada } = await createJoinedGame();
+    const res = await call('resign', { gameId }, ada);
+    expect(res.status).toBe(200);
+    expect((res.result as { finished: boolean }).finished).toBe(true);
+
+    const game = await adminGetDoc(`games/${gameId}`);
+    expect(game?.['status']).toBe('finished');
+    expect(game?.['result']).toBe('p1');
+    expect(game?.['endedBy']).toBe('resign');
+    // Withdrawal machinery must stay invisible at two seats: no marker, no
+    // standings, no re-dealt bag.
+    expect(game?.['withdrawn']).toBeUndefined();
+    expect(game?.['standings']).toBeUndefined();
+    expect(game?.['bagCount']).toBe(TILES - 2 * RACK);
   });
 });

@@ -487,3 +487,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   to a `withdrawSeat` hook, because returning a rack to the bag is lex's business
   and `@parlor/*` may never import a game package. lex re-shuffles those returned
   tiles exactly as it does an exchange's, so the remainder stays unpredictable.
+
+- **2026-08-28 — A placing on the wire is a map, not a bare list** (T7.7).
+  Firestore cannot store an array directly inside an array, so the engine's
+  `standings: Seat[][]` is written as `[{seats:['p3']}, {seats:['p0','p1']}]`.
+  The emulator suite is what found it: the field is only written on a terminal
+  move, so the whole 3+ withdrawal path type-checked and passed unit tests while
+  being unwritable in production. The same suite caught a second one — parlor was
+  writing the meta log entry BEFORE calling `withdrawSeat`, which reads the
+  private bag, violating Firestore's reads-before-writes rule.

@@ -58,9 +58,10 @@ export interface AdvanceResult {
    * moveCount, pendingDrawOffer clear, deadline bookkeeping, updatedAt, terminal. */
   gameFields: Record<string, unknown>;
   subWrites?: readonly SubWrite[];
-  /** `result` is the winning seat key (or 'draw'); `standings` is every
-   * placing best-first, inner arrays tied — the N-seat form (T7.11). */
-  terminal?: { result: string; endedBy: string; standings?: readonly (readonly string[])[] } | null;
+  /** `result` is the winning seat key (or 'draw'); `standings` is every placing
+   * best-first, each holding the seats tied at it. Firestore cannot store an
+   * array inside an array, so a placing is a MAP, not a bare list (T7.7). */
+  terminal?: { result: string; endedBy: string; standings?: readonly { seats: readonly string[] }[] } | null;
   push: { recipientUid: string | null; trigger: SharedTrigger; args: TriggerArgs };
 }
 

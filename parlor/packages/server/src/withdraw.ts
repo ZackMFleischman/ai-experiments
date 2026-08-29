@@ -28,7 +28,7 @@ export interface WithdrawResult {
   }>;
   /** Set when the withdrawal ENDED the game (one player left standing, or a
    * shrinking scoreless limit tipping over). */
-  terminal?: { result: string; endedBy: string; standings?: readonly (readonly string[])[] } | null;
+  terminal?: { result: string; endedBy: string; standings?: readonly { seats: readonly string[] }[] } | null;
 }
 
 
@@ -68,16 +68,18 @@ export async function withdrawInTx(
   const leaving = seats[seat];
   if (leaving === undefined) throw new Error(`this game has no seat ${seat}`);
 
-  tx.set(gameRef.collection('moves').doc(String(doc.moveCount)), {
-    n: doc.moveCount,
-    kind,
-    by,
-    at: FieldValue.serverTimestamp(),
-  });
+  const meta = () =>
+    tx.set(gameRef.collection('moves').doc(String(doc.moveCount)), {
+      n: doc.moveCount,
+      kind,
+      by,
+      at: FieldValue.serverTimestamp(),
+    });
 
   // Two seats — or a game that never opted into withdrawal — stays terminal.
   if (seats.length <= 2 || !config.withdrawSeat) {
     const winnerSeat = seats[seat === 0 ? 1 : 0]!;
+    meta();
     tx.update(gameRef, {
       moveCount: doc.moveCount + 1,
       status: 'finished',
@@ -89,9 +91,12 @@ export async function withdrawInTx(
     return { finished: true, remaining: [doc.players[winnerSeat] ?? ''].filter(Boolean) };
   }
 
-  // The game owns the state change (lex returns the rack to the bag). It may
-  // read, so it runs before every write below.
+  // The game owns the state change (lex returns the rack to the bag) and it
+  // READS to do so, so it must run before this transaction's first write —
+  // Firestore rejects a read that follows a write. That is why the meta log
+  // entry is deferred rather than written up front with the two-seat one.
   const applied = await config.withdrawSeat({ tx, gameRef, doc, seat });
+  meta();
   const withdrawn = [...already, leaving];
   tx.update(gameRef, {
     moveCount: doc.moveCount + 1,

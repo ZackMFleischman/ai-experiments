@@ -32,6 +32,7 @@ import {
   SEAT_KEYS,
   bySeat,
   lexServerConfig,
+  placingsOf,
   playedCopy,
   requireRuleset,
   shuffleFaces,
@@ -170,19 +171,18 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
     const outcome = gameResult(next);
     // Placings as seat keys (§6.2). `result` keeps its two-seat meaning — the
     // winning seat, or 'draw' when the top placing is shared.
-    const standings =
-      outcome.status === 'finished' ? outcome.standings.map((placing) => placing.map(seatKey)) : null;
+    const standings = outcome.status === 'finished' ? placingsOf(outcome.standings) : null;
     const terminal =
       outcome.status === 'finished' && standings
         ? {
-            result: standings[0]!.length > 1 ? 'draw' : standings[0]![0]!,
+            result: standings[0]!.seats.length > 1 ? 'draw' : standings[0]!.seats[0]!,
             endedBy: outcome.by,
             standings,
           }
         : null;
     let recipientOutcome: string | null = null;
     if (terminal && standings) {
-      const placing = standings.findIndex((tied) => tied.includes(seatKey(recipientSeat)));
+      const placing = standings.findIndex((tied) => tied.seats.includes(seatKey(recipientSeat)));
       recipientOutcome =
         terminal.result === 'draw'
           ? 'Draw'
