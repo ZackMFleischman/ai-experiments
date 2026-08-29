@@ -448,3 +448,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `{mode:'host-seat'}` at the one call site. Rematch's rotate-by-one also lands
   here rather than in T7.7: it is *identical* to today's two-seat swap, and the
   seat plumbing had to be rewritten generically anyway.
+
+- **2026-08-28 — The guest list is a pure module; `maxPlayers` on the doc is what
+  makes a game a 3+ game** (T7.5). Every transition (join / invite / decline /
+  leave / resolve the seat order) is a pure function in `@parlor/server`'s
+  `roster.ts`, unit-tested without an emulator, with the callables as thin
+  transactional shells — parlor has no emulator harness of its own, and this is
+  what makes the lifecycle testable at all. `maxPlayers` is written **only** at 3+,
+  so every two-seat doc is byte-for-byte what it was and takes the original code
+  path. The host leaving promotes `roster[0]` implicitly rather than storing a
+  separate host field; the last one out deletes the game, as cancelling would.

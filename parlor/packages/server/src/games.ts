@@ -28,6 +28,19 @@ import {
   type Caller,
 } from './helpers';
 import { createNotify, type NotifyConfig } from './notify';
+import {
+  declineInvite,
+  emptyGuestList,
+  guestListOf,
+  inviteToList,
+  joinRoster,
+  leaveList,
+  playerIdsOf,
+  previewOf,
+  resolveSeatOrder,
+  type GuestList,
+  type RosterEntry,
+} from './roster';
 
 export interface InitialGame {
   /** Game-specific top-level doc fields (scores, counts, public snapshot…). */
@@ -84,6 +97,10 @@ export interface GameServerConfig<TOptions> {
   parseSeatChoice(raw: unknown): SeatChoice;
   /** Async time control read out of the parsed options (null = no clock). */
   timeControlDays(options: TOptions): 1 | 3 | 7 | null;
+  /** How many seats THIS game will hold, read from its parsed options — the
+   * host's chosen maximum (DECISIONS 2026-08-28: the count is a maximum, not a
+   * fixed size). Defaults to `players.max`; a two-seat game never needs it. */
+  maxPlayers?(options: TOptions): number;
   /** Fresh game-specific state for `playerCount` seats. Runs inside the
    * create/challenge/rematch transaction; randomness (bag shuffles) is the
    * game's own. Parlor always passes the count; two-seat games may ignore it. */
@@ -108,6 +125,13 @@ interface GameDocData extends DocumentData {
   playerIds: string[];
   options: unknown;
   moveCount: number;
+  /** Present only on a 3+ game: the host's chosen maximum. Its presence is
+   * what makes a game a guest-list game — two-seat docs are untouched. */
+  maxPlayers?: number;
+  roster?: RosterEntry[];
+  invited?: RosterEntry[];
+  declined?: RosterEntry[];
+  turnOrder?: TurnOrderChoice;
   inviteCode?: string;
   challenge?: { from: string; fromName: string; to: string; toName: string };
   rematchGameId?: string;
@@ -122,6 +146,11 @@ export interface GameCallables {
   respondChallenge: CallableFunction<unknown, unknown>;
   rematch: CallableFunction<unknown, unknown>;
   resign: CallableFunction<unknown, unknown>;
+  /** Guest-list callables — only meaningful on a 3+ game (T7.5). A two-seat
+   * game may export them; every one refuses a two-seat doc. */
+  respondInvite: CallableFunction<unknown, unknown>;
+  invitePlayers: CallableFunction<unknown, unknown>;
+  leaveGame: CallableFunction<unknown, unknown>;
 }
 
 export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>): GameCallables {
@@ -202,6 +231,64 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     };
   }
 
+  /** How many seats this game will hold, from its own options. */
+  const seatsFor = (options: TOptions): number =>
+    config.maxPlayers ? config.maxPlayers(options) : PLAYERS.max;
+
+  /**
+   * A guest-list game is one that carries `maxPlayers` — written only at 3+,
+   * so every two-seat doc is byte-for-byte what it always was and takes the
+   * original code path everywhere below.
+   */
+  const isGuestList = (doc: Pick<GameDocData, 'maxPlayers'>): boolean =>
+    typeof doc.maxPlayers === 'number' && doc.maxPlayers >= 3;
+
+  function requireGuestList(doc: GameDocData): number {
+    if (!isGuestList(doc)) {
+      throw new HttpsError('failed-precondition', 'this game has no guest list');
+    }
+    if (doc.status !== 'open') {
+      throw new HttpsError('failed-precondition', 'the game has already started');
+    }
+    return doc.maxPlayers!;
+  }
+
+  /** The guest-list fields, written together so the doc is never half-updated. */
+  const guestListFields = (list: GuestList): Record<string, unknown> => ({
+    roster: list.roster,
+    invited: list.invited,
+    declined: list.declined,
+    playerIds: playerIdsOf(list),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  /** Display names for uids the caller has played with (the challengeUser
+   *  rule: you may only reach people from your own games). One query. */
+  async function lookupNames(
+    db: FirebaseFirestore.Firestore,
+    callerUid: string,
+    uids: readonly string[],
+  ): Promise<Map<string, string>> {
+    const found = new Map<string, string>();
+    if (uids.length === 0) return found;
+    const myGames = await db
+      .collection('games')
+      .where('playerIds', 'array-contains', callerUid)
+      .select('playerIds', 'players', 'playerNames', 'roster')
+      .get();
+    for (const snap of myGames.docs) {
+      const d = snap.data() as Pick<GameDocData, 'playerIds' | 'players' | 'playerNames' | 'roster'>;
+      for (const uid of uids) {
+        if (found.has(uid) || !d.playerIds?.includes(uid)) continue;
+        const seat = SEATS.find((key) => d.players?.[key] === uid);
+        const fromRoster = d.roster?.find((e) => e.uid === uid)?.name;
+        const name = (seat ? d.playerNames?.[seat] : null) ?? fromRoster ?? null;
+        if (name) found.set(uid, name);
+      }
+    }
+    return found;
+  }
+
   /** Deal `uid` its opening rack, when the game has per-seat secrets. */
   function writeRack(
     tx: Transaction,
@@ -224,13 +311,59 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     }
   }
 
+  /**
+   * Turn the guest list into seats: resolve the order, deal, flip to active.
+   * Shared by joinGame's auto-start-at-max and (T7.6) the startGame callable.
+   * Every write here happens after `config.initialGame`, which is pure.
+   */
+  function startGameInTx(
+    db: FirebaseFirestore.Firestore,
+    tx: Transaction,
+    gameRef: DocumentReference,
+    doc: GameDocData,
+    list: GuestList,
+  ): void {
+    const options = config.parseOptions(doc.options);
+    const order = resolveSeatOrder(doc.turnOrder ?? { mode: 'random' }, list.roster);
+    if (order.length < PLAYERS.min) {
+      throw new HttpsError('failed-precondition', `a game needs at least ${PLAYERS.min} players`);
+    }
+    const init = config.initialGame(options, order.length);
+    const players: Record<string, string | null> = {};
+    const playerNames: Record<string, string | null> = {};
+    order.forEach((entry, i) => {
+      players[seatKey(i)] = entry.uid;
+      playerNames[seatKey(i)] = entry.name;
+    });
+    tx.update(gameRef, {
+      players,
+      playerNames,
+      playerIds: order.map((entry) => entry.uid),
+      roster: [...order],
+      // Outstanding invitations lapse when the game starts — and with them the
+      // read access `playerIds` was granting those uids.
+      invited: [],
+      // Freeze the resolved order so a rematch and the UI read the same list.
+      turnOrder: { mode: 'arrange', order: order.map((entry) => entry.uid) },
+      status: 'active',
+      toMove: SEAT0,
+      moveCount: 0,
+      inviteCode: FieldValue.delete(),
+      deadlineAt: deadlineFor(doc.timeControl ?? null),
+      updatedAt: FieldValue.serverTimestamp(),
+      ...init.fields,
+    });
+    writeInitialSubDocs(tx, gameRef, init);
+    order.forEach((entry, i) => writeRack(tx, gameRef, init, i, entry.uid));
+    if (doc.inviteCode) tx.delete(db.collection('invites').doc(doc.inviteCode));
+  }
+
   const createGame = onCall(async (request) => {
     const caller = requireAuth(request);
     const options = config.parseOptions((request.data as { options?: unknown })?.options);
-    const seats = PLAYERS.max;
-    const creatorSeat = creatorSeatFrom(
+    const seats = seatsFor(options);
+    const turnOrder = normalizeTurnOrder(
       config.parseSeatChoice((request.data as { seat?: unknown })?.seat),
-      seats,
     );
 
     const db = getFirestore();
@@ -241,6 +374,38 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     await db.runTransaction(async (tx) => {
       const existing = await tx.get(inviteRef);
       if (existing.exists) throw new HttpsError('aborted', 'invite collision, retry');
+      const expiresAt = Timestamp.fromMillis(Date.now() + INVITE_TTL_MS);
+
+      if (seats >= 3) {
+        // Seats — and the deal — do not exist yet: the host may still invite,
+        // people may still decline, and the count is only settled at start
+        // (DECISIONS 2026-08-28). So no initialGame, no players map, no toMove.
+        const list = emptyGuestList({ uid: caller.uid, name: caller.name });
+        const timeControlDays = config.timeControlDays(options);
+        tx.set(gameRef, {
+          options,
+          status: 'open',
+          maxPlayers: seats,
+          turnOrder,
+          moveCount: 0,
+          timeControl: timeControlDays ? { days: timeControlDays } : null,
+          inviteCode: code,
+          createdAt: FieldValue.serverTimestamp(),
+          ...guestListFields(list),
+        });
+        tx.set(inviteRef, {
+          gameId: gameRef.id,
+          createdBy: caller.uid,
+          hostName: caller.name,
+          options,
+          expiresAt,
+          // Uid-free (invites/{code} is readable by anyone signed in).
+          preview: previewOf(list, seats),
+        });
+        return;
+      }
+
+      const creatorSeat = creatorSeatFrom(turnOrder, seats);
       const init = config.initialGame(options, seats);
       tx.set(gameRef, {
         ...baseGameDoc(caller, creatorSeat, options, init, seats),
@@ -254,7 +419,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
         hostName: caller.name,
         hostSeat: seatKey(creatorSeat),
         options,
-        expiresAt: Timestamp.fromMillis(Date.now() + INVITE_TTL_MS),
+        expiresAt,
       });
     });
 
@@ -269,7 +434,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     const options = config.parseOptions((request.data as { options?: unknown })?.options);
     const seats = PLAYERS.max;
     const creatorSeat = creatorSeatFrom(
-      config.parseSeatChoice((request.data as { seat?: unknown })?.seat),
+      normalizeTurnOrder(config.parseSeatChoice((request.data as { seat?: unknown })?.seat)),
       seats,
     );
     const opponentUid = (request.data as { opponentUid?: unknown })?.opponentUid;
@@ -284,20 +449,8 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     // Only past opponents are challengeable: the caller and opponent must
     // share a game. The shared doc also supplies the opponent's display name
     // (users/* is private; playerNames is the denormalized source).
-    const myGames = await db
-      .collection('games')
-      .where('playerIds', 'array-contains', caller.uid)
-      .select('playerIds', 'players', 'playerNames')
-      .get();
-    let opponentName: string | null = null;
-    for (const snap of myGames.docs) {
-      const d = snap.data() as Pick<GameDocData, 'playerIds' | 'players' | 'playerNames'>;
-      if (!d.playerIds.includes(opponentUid)) continue;
-      const theirSeat = SEATS.find((key) => d.players[key] === opponentUid);
-      opponentName = (theirSeat ? d.playerNames[theirSeat] : null) ?? 'Player';
-      break;
-    }
-    if (opponentName === null) {
+    const opponentName = (await lookupNames(db, caller.uid, [opponentUid])).get(opponentUid);
+    if (opponentName === undefined) {
       throw new HttpsError('failed-precondition', 'you can only challenge players from your games');
     }
 
@@ -383,6 +536,11 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
       if (data.status !== 'open') {
         throw new HttpsError('failed-precondition', 'only open games can be cancelled');
       }
+      // On a guest list only the host may call the whole thing off — everyone
+      // else uses leaveGame, which takes only their own name off the list.
+      if (isGuestList(data) && guestListOf(data).roster[0]?.uid !== caller.uid) {
+        throw new HttpsError('permission-denied', 'only the host can cancel this game');
+      }
       if (data.inviteCode) tx.delete(db.collection('invites').doc(data.inviteCode));
       tx.delete(gameRef); // no moves exist while open — the doc is the whole game
     });
@@ -414,6 +572,22 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
       if (data.status !== 'open') {
         throw new HttpsError('failed-precondition', 'game already started');
       }
+
+      if (isGuestList(data)) {
+        // First come, first served: an invitation reserves nothing, so a code
+        // holder and an invitee take the next place on the same list.
+        const seats = data.maxPlayers!;
+        const list = joinRoster(guestListOf(data), { uid: caller.uid, name: caller.name }, seats);
+        creatorUid = list.roster[0]?.uid ?? null;
+        tx.update(gameRef, guestListFields(list));
+        if (list.roster.length >= seats) {
+          startGameInTx(db, tx, gameRef, data, list);
+        } else {
+          tx.update(inviteRef, { preview: previewOf(list, seats) });
+        }
+        return inv.gameId;
+      }
+
       if (data.playerIds.includes(caller.uid)) {
         throw new HttpsError('failed-precondition', 'cannot join your own game');
       }
@@ -547,5 +721,121 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     return { gameId: newId };
   });
 
-  return { createGame, joinGame, cancelGame, challengeUser, respondChallenge, rematch, resign };
+  /** Accept or decline an invitation to a 3+ game. A decline moves the name to
+   *  `declined` and NEVER deletes the game (DECISIONS 2026-08-28); at two seats
+   *  a decline is still respondChallenge's delete. */
+  const respondInvite = onCall(async (request) => {
+    const caller = requireAuth(request);
+    const gameId = requireGameId(request.data);
+    const accept = (request.data as { accept?: unknown })?.accept;
+    if (typeof accept !== 'boolean') throw new HttpsError('invalid-argument', 'missing accept');
+
+    const db = getFirestore();
+    const gameRef = db.collection('games').doc(gameId);
+    let started = false;
+    await db.runTransaction(async (tx) => {
+      const game = await tx.get(gameRef);
+      if (!game.exists) throw new HttpsError('not-found', 'game not found');
+      const doc = game.data() as GameDocData;
+      const seats = requireGuestList(doc);
+      const before = guestListOf(doc);
+      if (!before.invited.some((e) => e.uid === caller.uid)) {
+        throw new HttpsError('permission-denied', 'you have no invitation to this game');
+      }
+      const list = accept
+        ? joinRoster(before, { uid: caller.uid, name: caller.name }, seats)
+        : declineInvite(before, caller.uid);
+      tx.update(gameRef, guestListFields(list));
+      if (accept && list.roster.length >= seats) {
+        startGameInTx(db, tx, gameRef, doc, list);
+        started = true;
+      } else if (doc.inviteCode) {
+        tx.update(db.collection('invites').doc(doc.inviteCode), {
+          preview: previewOf(list, seats),
+        });
+      }
+    });
+    return { gameId, started };
+  });
+
+  /** Host adds names to the guest list. Recruiting is additive: the code stays
+   *  live, and nothing here reserves a place. */
+  const invitePlayers = onCall(async (request) => {
+    const caller = requireAuth(request);
+    const gameId = requireGameId(request.data);
+    const raw = (request.data as { uids?: unknown })?.uids;
+    if (!Array.isArray(raw) || raw.some((uid) => typeof uid !== 'string' || uid.length === 0)) {
+      throw new HttpsError('invalid-argument', 'uids must be a non-empty string array');
+    }
+    const uids = [...new Set(raw as string[])].filter((uid) => uid !== caller.uid);
+    if (uids.length === 0) throw new HttpsError('invalid-argument', 'nobody to invite');
+
+    const db = getFirestore();
+    // Same rule as challengeUser: you may only reach people you have played.
+    const names = await lookupNames(db, caller.uid, uids);
+    const unknown = uids.filter((uid) => !names.has(uid));
+    if (unknown.length > 0) {
+      throw new HttpsError('failed-precondition', 'you can only invite players from your games');
+    }
+    const entries: RosterEntry[] = uids.map((uid) => ({ uid, name: names.get(uid)! }));
+
+    const gameRef = db.collection('games').doc(gameId);
+    await db.runTransaction(async (tx) => {
+      const game = await tx.get(gameRef);
+      if (!game.exists) throw new HttpsError('not-found', 'game not found');
+      const doc = game.data() as GameDocData;
+      requireGuestList(doc);
+      const before = guestListOf(doc);
+      if (before.roster[0]?.uid !== caller.uid) {
+        throw new HttpsError('permission-denied', 'only the host can invite');
+      }
+      tx.update(gameRef, guestListFields(inviteToList(before, entries)));
+    });
+    return { invited: uids };
+  });
+
+  /** Take your own name off a guest list before the game starts. The host
+   *  leaving promotes the next arrival (roster[0] IS the host); the last one
+   *  out deletes the game, exactly as cancelling would. */
+  const leaveGame = onCall(async (request) => {
+    const caller = requireAuth(request);
+    const gameId = requireGameId(request.data);
+    const db = getFirestore();
+    const gameRef = db.collection('games').doc(gameId);
+    let deleted = false;
+    await db.runTransaction(async (tx) => {
+      const game = await tx.get(gameRef);
+      if (!game.exists) throw new HttpsError('not-found', 'game not found');
+      const doc = game.data() as GameDocData;
+      const seats = requireGuestList(doc);
+      const list = leaveList(guestListOf(doc), caller.uid);
+      if (list.roster.length === 0) {
+        if (doc.inviteCode) tx.delete(db.collection('invites').doc(doc.inviteCode));
+        tx.delete(gameRef); // no moves exist while open — the doc is the game
+        deleted = true;
+        return;
+      }
+      tx.update(gameRef, guestListFields(list));
+      if (doc.inviteCode) {
+        tx.update(db.collection('invites').doc(doc.inviteCode), {
+          hostName: list.roster[0]!.name,
+          preview: previewOf(list, seats),
+        });
+      }
+    });
+    return { gameId, deleted };
+  });
+
+  return {
+    createGame,
+    joinGame,
+    cancelGame,
+    challengeUser,
+    respondChallenge,
+    rematch,
+    resign,
+    respondInvite,
+    invitePlayers,
+    leaveGame,
+  };
 }

@@ -141,7 +141,12 @@ GameOptions = { rulesetId, dictionaryId, timeControl }   // pinned at creation (
 - **Time controls:** per-move async deadlines (`1 / 3 / 7 days` or none), timeout ⇒
   loss — identical semantics and machinery to hive (§6.4). Real-time clocks post-v1.
 - **Turn order:** chosen at creation (me / them / random, default random); rematch
-  swaps who starts.
+  rotates the order by one, which at two seats is the swap it always was.
+- **Before a 3+ game starts** there is a **guest list**, not seats: a `roster` in
+  join order (host first), `invited`, and `declined`. An invitation reserves
+  nothing — whoever arrives first is next — and a decline moves a name rather than
+  deleting the game (DECISIONS 2026-08-28). Seats and the deal appear only when the
+  game starts, so `invites/{code}` publishes a **uid-free** name-and-count preview.
 - v1 plays **strict dictionary** only: no phoneys, no challenges. Challenge-mode
   (play anything, opponent may challenge) is a post-v1 ruleset flag, and is why the
   engine's geometry check and dictionary check are separate calls (§5.2).

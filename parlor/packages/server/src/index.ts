@@ -12,6 +12,21 @@ export {
   type TurnOrderChoice,
 } from './games';
 export {
+  declineInvite,
+  emptyGuestList,
+  guestListOf,
+  inviteToList,
+  joinRoster,
+  leaveList,
+  playerIdsOf,
+  previewOf,
+  resolveSeatOrder,
+  type GuestList,
+  type InvitePreview,
+  type RosterEntry,
+  type SeatOrder,
+} from './roster';
+export {
   createSubmitMove,
   type SubmitMoveConfig,
   type AdvanceContext,
