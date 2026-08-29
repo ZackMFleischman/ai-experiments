@@ -91,6 +91,7 @@ export default function MultiplayerGame({ gameId }: { gameId: string }) {
           {
             rulesetId: info.options.rulesetId,
             dictionaryId: info.options.dictionaryId,
+            invalidWords: info.options.invalidWords ?? 'blocked',
             bagOrder: canonicalBagOrder(info.options.rulesetId),
             // The deal decides the count; the first sync entry carries the real
             // one. Two until then — the board never renders before it lands.

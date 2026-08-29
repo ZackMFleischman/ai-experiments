@@ -4,8 +4,16 @@
 // "who did what, totals joined by dashes" list it replaced was unreadable the
 // moment there were more than two of those totals. Rows come from the
 // controller (verdict data recorded at apply time); nothing is recomputed here.
+//
+// A phoney (§2.3) is the one cell that reports something going WRONG, and the
+// sheet is where players read the history — so it is MARKED, not merely worded:
+// an ✗ badge, a red-tinted cell and an explicit `0`, the same visual language
+// the preview card uses for a word the dictionary refuses. "Did anyone blow a
+// turn?" should be answerable by scanning a column, not by reading it.
 import { Box, Drawer, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import type { SheetRow } from '../controller/GameController';
+import { invalidWordList } from '../gameOptions';
 import { displayNames } from './names';
 
 export interface ScoreSheetProps {
@@ -19,6 +27,12 @@ function describe(row: SheetRow, seats: number): string {
   switch (row.kind) {
     case 'play':
       return row.words.map((w) => w.word).join(' / ') || '—';
+    // The words a refused play formed are public (§3.3), so the history both
+    // players read names them — same phrasing as the banner and the push.
+    case 'phoney':
+      return row.words.length > 0
+        ? `Tried ${invalidWordList(row.words.map((w) => w.word))}`
+        : 'Played a word that isn’t in the dictionary';
     case 'exchange':
       return `Exchanged ${row.count ?? 0}`;
     case 'pass':
@@ -123,24 +137,79 @@ export function ScoreSheet({ open, onClose, rows, names }: ScoreSheetProps) {
                     {n + 1}
                   </Typography>
                   {round.map((row, seat) => (
-                    <Box key={seat} data-testid="sheet-cell" sx={cell}>
+                    <Box
+                      key={seat}
+                      data-testid="sheet-cell"
+                      data-kind={row?.kind}
+                      sx={{
+                        ...cell,
+                        // In a columnar sheet the phoney tint belongs to the
+                        // CELL: the round it sits in was fine for everyone else.
+                        ...(row?.kind === 'phoney' && {
+                          bgcolor: (t) => alpha(t.palette.error.main, 0.12),
+                          borderRadius: 0.5,
+                        }),
+                      }}
+                    >
                       {row ? (
                         <>
                           <Typography
                             variant="body2"
                             // Slightly tighter than body: an 80px column has
                             // to hold "Exchanged 3" without breaking it.
-                            sx={{ fontSize: '0.8125rem', lineHeight: 1.3, wordBreak: 'break-word' }}
+                            sx={{
+                              fontSize: '0.8125rem',
+                              lineHeight: 1.3,
+                              wordBreak: 'break-word',
+                              ...(row.kind === 'phoney' && {
+                                color: 'error.main',
+                                fontWeight: 600,
+                              }),
+                            }}
                           >
+                            {row.kind === 'phoney' && (
+                              <Box
+                                component="span"
+                                aria-hidden
+                                data-testid="sheet-phoney-mark"
+                                sx={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 15,
+                                  height: 15,
+                                  mr: 0.5,
+                                  borderRadius: '50%',
+                                  bgcolor: 'error.main',
+                                  color: 'error.contrastText',
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  lineHeight: 1,
+                                  verticalAlign: 'middle',
+                                }}
+                              >
+                                ✗
+                              </Box>
+                            )}
                             {describe(row, seats)}
                           </Typography>
                           {/* Only a play carries a number; "Pass" and
                               "Exchanged 3" already say they scored nothing,
                               and a placeholder dash under them just cost a
-                              third line in an 80px column. */}
+                              third line in an 80px column. A phoney is the
+                              exception: it scored zero and says so, because a
+                              blank would read as "no score applies here". */}
                           {row.kind === 'play' && (
                             <Typography variant="caption" sx={{ fontWeight: 700 }}>
                               +{row.score}
+                            </Typography>
+                          )}
+                          {row.kind === 'phoney' && (
+                            <Typography
+                              variant="caption"
+                              sx={{ fontWeight: 700, color: 'error.main' }}
+                            >
+                              0
                             </Typography>
                           )}
                         </>

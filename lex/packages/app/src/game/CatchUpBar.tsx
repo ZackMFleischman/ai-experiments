@@ -25,6 +25,10 @@ export function describeMove(row: SheetRow, name: string): string {
   switch (row.kind) {
     case 'play':
       return `${name} played ${row.word ?? '—'} +${row.score}`;
+    // A phoney leaves the board untouched, so the bar has to say what happened
+    // or the catch-up reads as a pass — the same reason the banner exists.
+    case 'phoney':
+      return `${name} tried ${row.word ?? 'an invalid word'} — turn lost`;
     case 'exchange':
       return `${name} exchanged ${row.count ?? 0}`;
     case 'pass':

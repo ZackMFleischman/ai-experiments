@@ -14,7 +14,12 @@ describe('JoinCard (FR-10)', () => {
           kind: 'ready',
           hostName: 'Ada',
           hostSeat: 'p0',
-          options: { rulesetId: 'modern', dictionaryId: 'enable1', timeControl: { days: 7 } },
+          options: {
+            rulesetId: 'modern',
+            dictionaryId: 'enable1',
+            timeControl: { days: 7 },
+            invalidWords: 'blocked',
+          },
         }}
         onAccept={() => {}}
       />,
@@ -24,6 +29,28 @@ describe('JoinCard (FR-10)', () => {
     expect(screen.getByText(/Modern board/)).toBeTruthy();
     expect(screen.getByText(/Tournament-style · 173k words/)).toBeTruthy();
     expect(screen.getByText(/7 days per move/)).toBeTruthy();
+    // The default rule is not chipped at all — absent, not present-and-off.
+    expect(screen.queryByTestId('join-invalid-words')).toBeNull();
+  });
+
+  it('warns the invitee when the host chose invalid-words-cost-your-turn (FR-10)', () => {
+    render(
+      <JoinCard
+        state={{
+          kind: 'ready',
+          hostName: 'Ada',
+          hostSeat: 'p0',
+          options: {
+            rulesetId: 'classic',
+            dictionaryId: 'enable1',
+            timeControl: null,
+            invalidWords: 'costs-turn',
+          },
+        }}
+        onAccept={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('join-invalid-words').textContent).toMatch(/cost your turn/i);
   });
 
   it('accepts through the callback; invalid invites say so', () => {
@@ -34,7 +61,12 @@ describe('JoinCard (FR-10)', () => {
           kind: 'ready',
           hostName: 'Ada',
           hostSeat: 'p1',
-          options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: null },
+          options: {
+            rulesetId: 'classic',
+            dictionaryId: '2of12inf',
+            timeControl: null,
+            invalidWords: 'blocked',
+          },
         }}
         onAccept={onAccept}
       />,
@@ -59,7 +91,12 @@ describe('JoinCard — a 3+ room', () => {
     names: ['Ada', 'Sam'],
     filled: 2,
     maxPlayers: 4,
-    options: { rulesetId: 'classic', dictionaryId: 'nwl2023', timeControl: { days: 3 as const } },
+    options: {
+      rulesetId: 'classic',
+      dictionaryId: 'nwl2023',
+      invalidWords: 'blocked' as const,
+      timeControl: { days: 3 as const },
+    },
   };
 
   it('previews the guest list, the open places and the options', () => {
