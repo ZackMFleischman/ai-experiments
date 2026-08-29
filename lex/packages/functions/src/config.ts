@@ -15,10 +15,12 @@ import {
   type TileFace,
 } from '@lex/engine';
 import { DICTIONARIES } from '@lex/dict';
+import { parseTurnOrderChoice } from '@parlor/server';
 import type {
   GameServerConfig,
   InitialGame,
   PushPayload,
+  SeatChoice,
   SharedTrigger,
   TriggerArgs,
 } from '@parlor/server';
@@ -31,6 +33,20 @@ export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
+  /** The host's chosen MAXIMUM (DECISIONS 2026-08-28) — the game may start
+   * early from the ruleset's minimum. Absent on pre-M7 documents, which
+   * re-parse as the two-seat games they are. */
+  maxPlayers: number;
+}
+
+/** Seat keys in move order. A game only ever uses the first `maxPlayers`. */
+export const SEAT_KEYS = ['p0', 'p1', 'p2', 'p3'] as const;
+
+/** Fold a per-seat value into the seat-keyed map the schema uses (§6.2). */
+export function bySeat<T>(count: number, value: (seat: number) => T): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (let seat = 0; seat < count; seat++) out[SEAT_KEYS[seat]!] = value(seat);
+  return out;
 }
 
 export function requireRuleset(rulesetId: string): Ruleset {
@@ -57,7 +73,21 @@ function parseOptions(raw: unknown): LexGameOptions {
     }
     timeControl = { days };
   }
-  return { rulesetId: ruleset.id, dictionaryId: o.dictionaryId, timeControl };
+  // The seat range is a property of the SELECTED ruleset, not of the registry
+  // union: a reduced-tile board could not deal four racks (DESIGN §2.2).
+  const seats = o.maxPlayers ?? ruleset.players.min;
+  if (!Number.isInteger(seats) || (seats as number) < ruleset.players.min || (seats as number) > ruleset.players.max) {
+    throw new HttpsError(
+      'invalid-argument',
+      `maxPlayers must be ${ruleset.players.min}–${ruleset.players.max} for ruleset '${ruleset.id}'`,
+    );
+  }
+  return {
+    rulesetId: ruleset.id,
+    dictionaryId: o.dictionaryId,
+    timeControl,
+    maxPlayers: seats as number,
+  };
 }
 
 /** Crypto-shuffled full-tileset permutation (§3.3: randomness at the edge). */
@@ -75,15 +105,15 @@ export function shuffledBag(ruleset: Ruleset): TileFace[] {
   return bag;
 }
 
-function initialGame(options: LexGameOptions): InitialGame {
+function initialGame(options: LexGameOptions, playerCount = 2): InitialGame {
   const ruleset = requireRuleset(options.rulesetId);
   const order = shuffledBag(ruleset);
-  const state = initialState(ruleset, order, 2);
+  const state = initialState(ruleset, order, playerCount);
   return {
     fields: {
-      scores: { p0: 0, p1: 0 },
+      scores: bySeat(playerCount, () => 0),
       bagCount: state.bag.length,
-      rackCounts: { p0: ruleset.rackSize, p1: ruleset.rackSize },
+      rackCounts: bySeat(playerCount, (seat) => state.racks[seat]!.length),
       public: serializePublic(state),
     },
     subDocs: [
@@ -91,7 +121,7 @@ function initialGame(options: LexGameOptions): InitialGame {
         path: ['private', 'bag'],
         data: {
           order: order.join(''),
-          drawn: 2 * ruleset.rackSize,
+          drawn: playerCount * ruleset.rackSize,
           // Server-private full-state snapshot (§6.2) — submitMove's fast
           // path; tests regression-check it against order+log+events replay.
           state: serializeState(state),
@@ -100,10 +130,7 @@ function initialGame(options: LexGameOptions): InitialGame {
       },
     ],
     // `n` = the move count this rack is current for (client reconciliation).
-    rackDocs: [
-      { tiles: state.racks[0]!.join(''), n: 0 },
-      { tiles: state.racks[1]!.join(''), n: 0 },
-    ],
+    rackDocs: state.racks.map((rack) => ({ tiles: rack.join(''), n: 0 })),
   };
 }
 
@@ -114,7 +141,7 @@ async function seatRackDoc(
   tx: Transaction,
   gameRef: DocumentReference,
   game: DocumentData,
-  seatIndex: 0 | 1,
+  seatIndex: number,
 ): Promise<Record<string, unknown>> {
   const bag = await tx.get(gameRef.collection('private').doc('bag'));
   const order = (bag.data()?.['order'] as string | undefined) ?? '';
@@ -197,20 +224,25 @@ export function buildPayload(trigger: SharedTrigger, args: TriggerArgs): PushPay
 }
 
 export function isMyTurn(game: DocumentData, uid: string): boolean {
-  const players = game['players'] as { p0: string | null; p1: string | null };
-  const mySeat = players.p0 === uid ? 'p0' : 'p1';
-  return game['toMove'] === mySeat;
+  const players = (game['players'] ?? {}) as Record<string, string | null>;
+  const mySeat = SEAT_KEYS.find((key) => players[key] === uid);
+  return mySeat !== undefined && game['toMove'] === mySeat;
 }
 
 export const lexServerConfig: GameServerConfig<LexGameOptions> = {
-  seatKeys: ['p0', 'p1'],
+  seatKeys: SEAT_KEYS,
+  players: { min: 2, max: 4 },
   parseOptions,
-  parseSeatChoice(raw: unknown): 0 | 1 {
-    // Turn-order choice (DESIGN §2.3): p0 moves first.
+  maxPlayers: (options) => options.maxPlayers,
+  parseSeatChoice(raw: unknown): SeatChoice {
+    // Turn-order choice (DESIGN §2.3): p0 moves first. The two-seat wire values
+    // resolve to a creator seat here, exactly as they always have; the 3+ room
+    // sends a TurnOrderChoice and settles it at startGame instead.
     if (raw === 'me') return 0;
     if (raw === 'them') return 1;
     if (raw === 'random') return randomInt(2) === 0 ? 0 : 1;
-    throw new HttpsError('invalid-argument', "seat must be 'me' | 'them' | 'random'");
+    if (raw && typeof raw === 'object') return parseTurnOrderChoice(raw);
+    throw new HttpsError('invalid-argument', "seat must be 'me' | 'them' | 'random' | a turn order");
   },
   timeControlDays: (options) => options.timeControl?.days ?? null,
   initialGame,

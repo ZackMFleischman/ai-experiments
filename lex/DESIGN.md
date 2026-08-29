@@ -458,15 +458,21 @@ service account, and preview-channel strategy).
 
 ```
 users/{uid}:              { displayName, photoURL, fcmTokens: string[], settings }   // = hive
-games/{gameId}:           { players: {p0: uid, p1: uid|null},        // p0 moves first
-                            playerNames: {p0, p1}, playerIds: uid[],
-                            options: { rulesetId, dictionaryId, timeControl },
+games/{gameId}:           { players: {p0: uid, p1: uid|null, …},     // one key per seat; p0 moves first
+                            playerNames: {p0, p1, …}, playerIds: uid[],
+                            options: { rulesetId, dictionaryId, timeControl, maxPlayers },
                             status: 'open'|'active'|'finished',
                             inviteCode?, challenge?,                  // = hive semantics
-                            result?: 'p0'|'p1'|'draw',
+                            maxPlayers?, roster?, invited?, declined?, turnOrder?,
+                                                                      // 3+ ONLY: the pre-start guest list
+                                                                      // (§2.3). Its presence is what makes a
+                                                                      // game a 3+ game; a 2-seat doc has none
+                                                                      // of these and `players` from creation
+                            result?: 'p0'|'p1'|'draw',                // winning seat key, or a shared top
+                            standings?: seatKey[][],                  // every placing, best-first, inner = tied
                             endedBy?: 'played-out'|'scoreless'|'last-standing'|'resign'|'timeout',
-                            toMove: 'p0'|'p1', moveCount,
-                            scores: {p0, p1}, bagCount, rackCounts: {p0, p1},
+                            toMove: seatKey, moveCount,
+                            scores: {p0, p1, …}, bagCount, rackCounts: {p0, p1, …},
                             lastPlay?: {by, word, score},             // lobby cards + push copy
                             rematchOf?, rematchGameId?,
                             timeControl?: {days: 1|3|7} | null,
@@ -485,10 +491,14 @@ games/{gameId}/private/bag: { order: string, drawn: number,           // NO clie
                               state: string,                          // serialized FULL GameState — submitMove's fast path,
                                                                       // regression-checked against order+log+events replay
                               events: [{n, returned, reshuffled}] }   // exchange re-shuffles (§3.3 replay)
-invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expiresAt }  // = hive
+invites/{code}:           { gameId, createdBy, hostName, hostSeat?, options, expiresAt,
+                            preview? }   // 3+: {hostName, names, filled, maxPlayers} — UID-FREE,
+                                         // because anyone signed in holding the code may read this doc
 ```
 
-- Security rules: game docs + moves readable by the two players; `racks/{uid}`
+- Security rules: game docs + moves readable by the seated players — and, before
+  a 3+ game starts, by everyone on its guest list, since `playerIds` carries the
+  roster plus anyone still holding an invitation (a decline drops both); `racks/{uid}`
   readable only when `request.auth.uid == uid`; `private/*` readable by **no one**;
   all writes through callables except your own `users/{uid}`. **Rules tests assert
   each boundary, including the negative cases** (opponent rack read denied, bag read

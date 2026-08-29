@@ -468,3 +468,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   auto-start outright — the trap IMPLEMENTATION §2 T7.6 names. `setTurnOrder` still
   rejects an arrangement naming somebody who is not in the game, so typos surface
   when the host makes them rather than silently at the start.
+
+- **2026-08-28 — Per-seat doc fields stay seat-KEYED maps, not arrays**
+  (T7.11, deviating from IMPLEMENTATION §2's "array `scores`/`rackCounts`").
+  `{p0, p1, p2}` is N-capable already, and it keeps a two-seat game's doc
+  byte-for-byte what it was — which is the promise the rest of M7 is built on and
+  what lets the 75 existing functions tests pass untouched. An array would have
+  changed the wire format for every existing game and dragged the whole sync layer
+  (T7.12) into this task. `standings` is a new field rather than a reshaped
+  `result`: `result` keeps its two-seat meaning for the lobby, and T7.9 reads
+  `standings` behind `finalStandings()`.

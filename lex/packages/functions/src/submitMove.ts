@@ -29,7 +29,7 @@ import {
   type TileFace,
 } from '@lex/engine';
 import { loadDictionarySync } from '@lex/dict/node';
-import { lexServerConfig, playedCopy, requireRuleset, type LexGameOptions } from './config';
+import { SEAT_KEYS, bySeat, lexServerConfig, playedCopy, requireRuleset, type LexGameOptions } from './config';
 
 // The compiled DAWGs ship next to the bundle (lib/dict, scripts/dawgs.mjs).
 const DICT_DIR = join(__dirname, 'dict');
@@ -115,9 +115,10 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
   },
   async advance({ tx, gameRef, gameId, doc, move, mySeat, caller, expectedMoveCount }): Promise<AdvanceResult> {
     const d = doc as {
-      players: { p0: string | null; p1: string | null };
+      players: Record<string, string | null>;
       options: LexGameOptions;
     };
+    const seatKey = (seat: number): string => SEAT_KEYS[seat]!;
     // Full state lives server-private only (§3.3): the snapshot in the bag doc,
     // regression-checked against public-log + events replay in tests.
     const bagRef = gameRef.collection('private').doc('bag');
@@ -173,26 +174,35 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
       };
     }
 
-    const recipientUid = mySeat === 0 ? d.players.p1 : d.players.p0;
+    const seatCount = next.racks.length;
+    // The push goes to whoever moves NEXT — at two seats that is the other
+    // player, exactly as before; T7.8 widens the game-over fan-out.
+    const recipientSeat = next.toMove;
+    const recipientUid = d.players[seatKey(recipientSeat)] ?? null;
     const outcome = gameResult(next);
+    // Placings as seat keys (§6.2). `result` keeps its two-seat meaning — the
+    // winning seat, or 'draw' when the top placing is shared.
+    const standings =
+      outcome.status === 'finished' ? outcome.standings.map((placing) => placing.map(seatKey)) : null;
     const terminal =
-      outcome.status === 'finished'
+      outcome.status === 'finished' && standings
         ? {
-            // 2-seat wire form (T7.11 widens it to standings): the top
-            // placing is a draw when more than one seat shares it.
-            result: outcome.standings[0]!.length > 1 ? 'draw' : outcome.standings[0]![0] === 0 ? 'p0' : 'p1',
+            result: standings[0]!.length > 1 ? 'draw' : standings[0]![0]!,
             endedBy: outcome.by,
+            standings,
           }
         : null;
     let recipientOutcome: string | null = null;
-    if (terminal) {
-      const recipientSeat = mySeat === 0 ? 'p1' : 'p0';
+    if (terminal && standings) {
+      const placing = standings.findIndex((tied) => tied.includes(seatKey(recipientSeat)));
       recipientOutcome =
         terminal.result === 'draw'
           ? 'Draw'
-          : terminal.result === recipientSeat
+          : placing === 0
             ? 'You won!'
-            : 'You lost';
+            : seatCount > 2
+              ? `You placed ${placing + 1} of ${seatCount}`
+              : 'You lost';
     }
     let movedCopy: string | null = null;
     if (move.type === 'play' && playRecord) {
@@ -210,10 +220,10 @@ export const lexSubmitConfig: SubmitMoveConfig<LexGameOptions, Move> = {
       },
       gameFields: {
         public: serializePublic(next),
-        toMove: next.toMove === 0 ? 'p0' : 'p1',
-        scores: { p0: next.scores[0], p1: next.scores[1] },
+        toMove: seatKey(next.toMove),
+        scores: bySeat(seatCount, (seat) => next.scores[seat]!),
         bagCount: next.bag.length,
-        rackCounts: { p0: next.racks[0]!.length, p1: next.racks[1]!.length },
+        rackCounts: bySeat(seatCount, (seat) => next.racks[seat]!.length),
         ...(playRecord
           ? {
               lastPlay: {
