@@ -6,6 +6,10 @@ export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
+  /** The host's chosen MAXIMUM seat count (DECISIONS 2026-08-28 — the count is
+   * a maximum, not a fixed size). Absent means two. The picker is T7.15; the
+   * field exists now so the sync layer can branch on it. */
+  maxPlayers?: number;
 }
 
 /** Turn-order choice (DESIGN §2.3): p0 moves first; 'me' seats the creator

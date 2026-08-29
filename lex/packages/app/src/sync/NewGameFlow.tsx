@@ -48,7 +48,14 @@ function Flow({ uid }: { uid: string }) {
       ? api
           .challengeUser({ opponentUid: opponent.uid, options, seat })
           .then(({ gameId }) => void navigate(`/game/${gameId}`))
-      : api.createGame({ options, seat }).then(setCreated)
+      : api.createGame({ options, seat }).then((created) => {
+          // At three or four seats the created game IS a room, and the room
+          // screen already carries the code and the friend picker — a separate
+          // post-create invite step would be a detour. Two seats keep the
+          // invite-link view exactly as it has always been.
+          if ((options.maxPlayers ?? 2) >= 3) void navigate(`/game/${created.gameId}`);
+          else setCreated(created);
+        })
     )
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'failed to create the game');

@@ -17,8 +17,9 @@ import { Tile } from '../board/Tile';
 export interface LobbyGameSummary extends LobbySummary {
   mySeat: Seat;
   toMove: Seat;
-  /** games/{id}.public — renders the thumbnail without replaying. */
-  public: string;
+  /** games/{id}.public — renders the thumbnail without replaying. Absent while
+   * a 3+ room is still a guest list: there is no state until it starts. */
+  public?: string;
   rulesetId: string;
   scores: readonly number[];
   /** Lobby-card copy: the most recent play (word + score). */
@@ -29,18 +30,39 @@ export { relativeTime };
 export { timeLeft } from '../game/clock';
 
 function Thumbnail({ game }: { game: LobbyGameSummary }) {
-  const board = useMemo(() => parsePublic(game.public).board, [game.public]);
-  return <MiniBoard rulesetId={game.rulesetId} tiles={board} />;
+  // LobbyList renders the thumbnail for EVERY card, including an open 3+ room
+  // that has no `public` yet — so this falls back to the empty board rather
+  // than taking the whole lobby down inside parsePublic.
+  const board = useMemo(
+    () => (game.public === undefined ? undefined : parsePublic(game.public).board),
+    [game.public],
+  );
+  return <MiniBoard rulesetId={game.rulesetId} {...(board ? { tiles: board } : {})} />;
 }
 
-/** "You 24 · Sam 18" plus the last play, the lex card's second line. */
-function cardCaption(game: LobbyGameSummary, now: number): string {
-  const opp = game.opponentName ?? 'them';
-  const mine = game.scores[game.mySeat] ?? 0;
-  const theirs = game.scores[game.mySeat === 0 ? 1 : 0] ?? 0;
-  const scores = `You ${mine} · ${opp} ${theirs}`;
+/** "You 24 · Sam 18 · Lee 31" plus the last play — the lex card's second line.
+ *  Always me first, then the other seats in turn order. Exported for its unit
+ *  test; the card itself reaches it through `renderCaption`. */
+export function cardCaption(game: LobbyGameSummary, now: number): string {
+  const seatCount = game.seatCount ?? 2;
+  // A room that hasn't started has no scores to show — say where it stands.
+  if (game.status === 'open' && seatCount > 2) {
+    const filled = seatCount - (game.openSeats ?? 0);
+    return `${filled} of ${seatCount} players — waiting to start`;
+  }
+  const nameOf = (seat: number): string =>
+    (game.opponents
+      ? game.opponents.find((o) => o.seat === seat)?.name
+      : game.opponentName) ?? 'them';
+  const others = Array.from({ length: seatCount }, (_, seat) => seat).filter(
+    (seat) => seat !== game.mySeat,
+  );
+  const scores = [
+    `You ${game.scores[game.mySeat] ?? 0}`,
+    ...others.map((seat) => `${nameOf(seat)} ${game.scores[seat] ?? 0}`),
+  ].join(' · ');
   if (game.lastPlay) {
-    const who = game.lastPlay.by === game.mySeat ? 'You' : opp;
+    const who = game.lastPlay.by === game.mySeat ? 'You' : nameOf(game.lastPlay.by);
     return `${scores} — ${who} played ${game.lastPlay.word} +${game.lastPlay.score}`;
   }
   return `${scores} · ${relativeTime(game.updatedAtMs, now)}`;
