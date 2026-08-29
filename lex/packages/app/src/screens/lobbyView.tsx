@@ -7,18 +7,20 @@ import { Box, Button, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import type { Seat } from '@lex/engine';
 import { parsePublic, RULESETS } from '@lex/engine';
-import { makeLobby, relativeTime, type LobbySummary } from '@parlor/web/lobby-ui';
+import { finalStandings, makeLobby, placingOf, relativeTime, type LobbySummary } from '@parlor/web/lobby-ui';
 import { useMemo } from 'react';
 import { MiniBoard } from '../board/MiniBoard';
 import { skinVars } from '../board/skin';
 import { useSkinId } from '../board/skinContext';
 import { Tile } from '../board/Tile';
+import { ordinal } from '../game/score';
 
 export interface LobbyGameSummary extends LobbySummary {
   mySeat: Seat;
   toMove: Seat;
-  /** games/{id}.public — renders the thumbnail without replaying. */
-  public: string;
+  /** games/{id}.public — renders the thumbnail without replaying. Absent while
+   * a 3+ room is still a guest list: there is no state until it starts. */
+  public?: string;
   rulesetId: string;
   scores: readonly number[];
   /** Lobby-card copy: the most recent play (word + score). */
@@ -29,21 +31,99 @@ export { relativeTime };
 export { timeLeft } from '../game/clock';
 
 function Thumbnail({ game }: { game: LobbyGameSummary }) {
-  const board = useMemo(() => parsePublic(game.public).board, [game.public]);
-  return <MiniBoard rulesetId={game.rulesetId} tiles={board} />;
+  // LobbyList renders the thumbnail for EVERY card, including an open 3+ room
+  // that has no `public` yet — so this falls back to the empty board rather
+  // than taking the whole lobby down inside parsePublic.
+  const board = useMemo(
+    () => (game.public === undefined ? undefined : parsePublic(game.public).board),
+    [game.public],
+  );
+  return <MiniBoard rulesetId={game.rulesetId} {...(board ? { tiles: board } : {})} />;
 }
 
-/** "You 24 · Sam 18" plus the last play, the lex card's second line. */
-function cardCaption(game: LobbyGameSummary, now: number): string {
-  const opp = game.opponentName ?? 'them';
-  const mine = game.scores[game.mySeat] ?? 0;
-  const theirs = game.scores[game.mySeat === 0 ? 1 : 0] ?? 0;
-  const scores = `You ${mine} · ${opp} ${theirs}`;
-  if (game.lastPlay) {
-    const who = game.lastPlay.by === game.mySeat ? 'You' : opp;
-    return `${scores} — ${who} played ${game.lastPlay.word} +${game.lastPlay.score}`;
+/** Who somebody is on this card. */
+function nameOf(game: LobbyGameSummary, seat: number): string {
+  return (
+    (game.opponents ? game.opponents.find((o) => o.seat === seat)?.name : game.opponentName) ??
+    'them'
+  );
+}
+
+/** The other players, in seat order once seats exist. */
+function otherSeats(game: LobbyGameSummary): number[] {
+  const seatCount = game.seatCount ?? 2;
+  return Array.from({ length: seatCount }, (_, seat) => seat).filter((seat) => seat !== game.mySeat);
+}
+
+/**
+ * The card's caption as its two lines: the standing (scores, or placings once
+ * the game has finished — never re-ranked, `finalStandings` hands them over in
+ * order) and then what last happened. A room that hasn't started has neither,
+ * so it says where IT stands in one line.
+ */
+export function captionLines(game: LobbyGameSummary, now: number): readonly [string, string?] {
+  const seatCount = game.seatCount ?? 2;
+  if (game.status === 'open' && seatCount > 2) {
+    const filled = seatCount - (game.openSeats ?? 0);
+    return [`${filled} of ${seatCount} players — waiting to start`];
   }
-  return `${scores} · ${relativeTime(game.updatedAtMs, now)}`;
+  const scoreOf = (seat: number) => `${seat === game.mySeat ? 'You' : nameOf(game, seat)} ${game.scores[seat] ?? 0}`;
+  // Finished at 3+: the line reads as the result — best first, with placings.
+  const standings = game.status === 'finished' && seatCount > 2 ? finalStandings(game) : [];
+  const standing = standings.length
+    ? standings
+        .flatMap((tied) => tied)
+        .map((seat) => `${ordinal(placingOf(game, seat) ?? 0)} ${scoreOf(seat)}`)
+        .join(' · ')
+    : [game.mySeat, ...otherSeats(game)].map(scoreOf).join(' · ');
+  if (game.lastPlay) {
+    const who = game.lastPlay.by === game.mySeat ? 'You' : nameOf(game, game.lastPlay.by);
+    return [standing, `${who} played ${game.lastPlay.word} +${game.lastPlay.score}`];
+  }
+  return [standing, relativeTime(game.updatedAtMs, now)];
+}
+
+/** "You 24 · Sam 18 · Lee 31" plus the last play — the lex card's second line.
+ *  The one-line form the two-seat card has always rendered. Exported for its
+ *  unit test; the card itself reaches it through `renderCaption`. */
+export function cardCaption(game: LobbyGameSummary, now: number): string {
+  const [standing, tail] = captionLines(game, now);
+  if (tail === undefined) return standing;
+  return `${standing}${game.lastPlay ? ' — ' : ' · '}${tail}`;
+}
+
+/** The card's title. Two seats: the opponent, exactly as before. At 3+ it
+ *  names the TABLE — everyone else in the game, plus the places still open. */
+export function cardTitle(game: LobbyGameSummary): string | null {
+  const seatCount = game.seatCount ?? 2;
+  if (seatCount <= 2) return game.opponentName;
+  const named = game.opponents?.length
+    ? game.opponents.map((o) => o.name)
+    : otherSeats(game).map((seat) => nameOf(game, seat));
+  const open = game.status === 'open' ? (game.openSeats ?? 0) : 0;
+  const parts = [...named, ...(open > 0 ? [`${open} open`] : [])];
+  if (parts.length === 0) return game.opponentName;
+  if (parts.length === 1) return parts[0]!;
+  return `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`;
+}
+
+/** The caption as the card renders it: one line at two seats (byte for byte
+ *  what it was), the two lines above at 3+. */
+function renderCaption(game: LobbyGameSummary, now: number) {
+  if ((game.seatCount ?? 2) <= 2) return cardCaption(game, now);
+  const [standing, tail] = captionLines(game, now);
+  return (
+    <>
+      <Box component="span" sx={{ display: 'block' }}>
+        {standing}
+      </Box>
+      {tail !== undefined && (
+        <Box component="span" sx={{ display: 'block' }}>
+          {tail}
+        </Box>
+      )}
+    </>
+  );
 }
 
 /** A real empty state (T6.2): tile motif + headline + what-to-do copy + the
@@ -77,10 +157,23 @@ function LobbyEmpty({ onNewGame }: { onNewGame?: (() => void) | undefined }) {
 
 const lobby = makeLobby<LobbyGameSummary>({
   renderThumbnail: (game) => <Thumbnail game={game} />,
-  renderCaption: (game, now) => cardCaption(game, now),
+  renderCaption,
   renderEmpty: (onNewGame) => <LobbyEmpty onNewGame={onNewGame} />,
 });
 
 export const GameCard = lobby.GameCard;
 export const ChallengeCard = lobby.ChallengeCard;
-export const LobbyView = lobby.LobbyView;
+
+/** The bound lobby, with lex's card title: the shared card titles itself from
+ *  `opponentName`, which at 3+ is one player out of several — so the roster
+ *  title lands there. A two-seat summary passes through untouched. */
+export function LobbyView(props: Parameters<typeof lobby.LobbyView>[0]) {
+  const games = useMemo(
+    () =>
+      props.games.map((game) =>
+        (game.seatCount ?? 2) <= 2 ? game : { ...game, opponentName: cardTitle(game) },
+      ),
+    [props.games],
+  );
+  return <lobby.LobbyView {...props} games={games} />;
+}

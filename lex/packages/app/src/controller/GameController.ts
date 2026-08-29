@@ -10,6 +10,7 @@ import type {
   GameResult,
   GameState,
   Letter,
+  PlacedTile,
   MoveOptions,
   PlayCheck,
   Ruleset,
@@ -61,16 +62,26 @@ export interface Preview {
   playable: boolean;
 }
 
+/** The N-seat truth every ending carries (T7.16): `standings` best-first with
+ * an inner array of 2+ seats tied, and the seats that withdrew. The order is
+ * the ENGINE's (or the server's) — everyone who finished ranks above everyone
+ * who left, whatever the frozen scores say (DECISIONS 2026-08-28). Nothing
+ * downstream re-sorts it. Absent only on an end built before M7. */
+interface FinalPlacings {
+  standings?: readonly (readonly Seat[])[];
+  withdrawn?: readonly Seat[];
+}
+
 export type GameEnd =
-  | {
+  | ({
       by: 'played-out' | 'scoreless' | 'last-standing';
       winner: Seat | 'draw';
       finalScores: readonly number[];
       /** Per-seat end adjustment (rack gains/deductions), for the score
        * story's line items — finalScores minus the pre-adjustment totals. */
       adjustments: readonly number[];
-    }
-  | { by: 'resign' | 'timeout'; winner: Seat; finalScores: readonly number[] };
+    } & FinalPlacings)
+  | ({ by: 'resign' | 'timeout'; winner: Seat; finalScores: readonly number[] } & FinalPlacings);
 
 export interface LastPlay {
   by: Seat;
@@ -85,7 +96,10 @@ export interface LastPlay {
   count?: number;
 }
 
-/** One score-sheet line (T3.9): what happened + running totals after it. */
+/** One score-sheet line (T3.9): what happened + running totals after it.
+ * `cells` (T7.14) carries a play's placement cells — the catch-up player
+ * rewinds the board with them (a play's tiles are the only thing a later row
+ * adds to it), and highlights the reviewed move. Empty for non-plays. */
 export interface SheetRow {
   n: number;
   by: Seat;
@@ -94,7 +108,21 @@ export interface SheetRow {
   words: readonly WordScore[];
   score: number;
   count?: number;
+  cells: readonly CellKey[];
   totals: readonly number[];
+}
+
+/** The catch-up player's cursor (T7.14): where it sits in the run of moves
+ * that happened since the local player last acted, and what that move was. */
+export interface ReviewState {
+  /** 0 = the first move you missed; `total - 1` = the newest (the live board). */
+  index: number;
+  total: number;
+  row: SheetRow;
+  /** The board AS OF the reviewed move — the live board minus every cell laid
+   * after it. Null while the cursor sits on the newest move, whose position IS
+   * the live one (so the live board never re-renders from a rewound copy). */
+  board: ReadonlyMap<CellKey, PlacedTile> | null;
 }
 
 export interface Snapshot {
@@ -105,6 +133,10 @@ export interface Snapshot {
   result: GameResult;
   end?: GameEnd;
   toMove: Seat;
+  /** The seat this client reads FROM — the local player's seat in
+   * multiplayer, the side to move in hot-seat. Same seat whose rack shows
+   * below (actingSeat); the score bar phrases the turn from it. */
+  mySeat: Seat;
   scores: readonly number[];
   bagCount: number;
   rackCounts: readonly number[];
@@ -125,6 +157,10 @@ export interface Snapshot {
   canExchange: boolean;
   lastPlay?: LastPlay;
   sheet: readonly SheetRow[];
+  /** Catch-up player (T7.14): the moves that happened since the local player
+   * last acted, and where the cursor sits in them. Null when there is nothing
+   * to catch up on (fewer than two missed moves, or the game is over). */
+  review: ReviewState | null;
   view: ViewState | null;
   /** End-of-game beat (T3.10): camera settles on these cells before the
    * overlay. Present only until finishBeat() (board endings only). */
@@ -141,6 +177,9 @@ interface SessionState {
   game: GameState;
   resigned?: Seat;
   timedOut?: Seat;
+  /** Multiplayer: the finished game's placings as the SERVER ranked them —
+   * the authority over the client's own `result(state)` reading. */
+  placings?: FinalPlacings;
   lastPlay?: LastPlay;
   sheet: readonly SheetRow[];
   /** Multiplayer (T4.6): the REAL own-rack faces (rack doc). The engine
@@ -205,6 +244,11 @@ export class GameController {
   private syncedGame: GameState | null = null;
   private syncedSeat: Seat | null = null;
 
+  /** Catch-up cursor (T7.14): the ABSOLUTE sheet index under review, or null
+   * for "live". Absolute so a move landing mid-review keeps the cursor on the
+   * move the player is looking at. */
+  private reviewRow: number | null = null;
+
   private view: ViewState | null = null;
   private beatDone = false;
   private overlayDismissed = false;
@@ -260,6 +304,7 @@ export class GameController {
   async newGame(options?: HotSeatOptions): Promise<void> {
     await this.session.reset(options ?? this.defaultOptions);
     this.pending.clear();
+    this.reviewRow = null;
     this.view = null;
     this.beatDone = false;
     this.overlayDismissed = false;
@@ -350,7 +395,7 @@ export class GameController {
             ...state,
             game,
             lastPlay: { by, kind: 'phoney', cells: [], words: refused, total: 0 },
-            sheet: row({ by, kind: 'phoney', word: bad[0] ?? null, words: refused, score: 0 }),
+            sheet: row({ by, kind: 'phoney', word: bad[0] ?? null, words: refused, score: 0, cells: [] }),
           };
         }
         return {
@@ -370,6 +415,7 @@ export class GameController {
             word: score.words[0]?.word ?? null,
             words: score.words,
             score: score.total,
+            cells: entry.placements.map((p) => cellKey(p.cell)),
           }),
         };
       }
@@ -386,7 +432,15 @@ export class GameController {
           ...nextMyRack(entry.tiles),
           game: { ...game, bag: entry.bagAfter },
           lastPlay: { by, kind: 'exchange', cells: [], words: [], total: 0, count: entry.tiles.length },
-          sheet: row({ by, kind: 'exchange', word: null, words: [], score: 0, count: entry.tiles.length }),
+          sheet: row({
+            by,
+            kind: 'exchange',
+            word: null,
+            words: [],
+            score: 0,
+            count: entry.tiles.length,
+            cells: [],
+          }),
         };
       }
       case 'pass': {
@@ -395,20 +449,20 @@ export class GameController {
           ...state,
           game,
           lastPlay: { by, kind: 'pass', cells: [], words: [], total: 0 },
-          sheet: row({ by, kind: 'pass', word: null, words: [], score: 0 }),
+          sheet: row({ by, kind: 'pass', word: null, words: [], score: 0, cells: [] }),
         };
       }
       case 'resign':
         return {
           ...state,
           resigned: entry.by,
-          sheet: row({ by: entry.by, kind: 'resign', word: null, words: [], score: 0 }),
+          sheet: row({ by: entry.by, kind: 'resign', word: null, words: [], score: 0, cells: [] }),
         };
       case 'timeout':
         return {
           ...state,
           timedOut: entry.by,
-          sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0 }),
+          sheet: row({ by: entry.by, kind: 'timeout', word: null, words: [], score: 0, cells: [] }),
         };
     }
   }
@@ -429,6 +483,7 @@ export class GameController {
         words: row.words.map((w) => ({ ...w, cells: [] })),
         score: row.score,
         ...(row.count !== undefined ? { count: row.count } : {}),
+        cells: row.cells,
         totals,
       };
     });
@@ -446,11 +501,21 @@ export class GameController {
         }
       : undefined;
     const ended = entry.ended;
+    // The server's placings, carried verbatim (T7.16): they rank everyone who
+    // finished above everyone who withdrew, and the client never re-sorts.
+    const placings: FinalPlacings | undefined =
+      ended && (ended.standings || ended.withdrawn)
+        ? {
+            ...(ended.standings ? { standings: ended.standings } : {}),
+            ...(ended.withdrawn ? { withdrawn: ended.withdrawn } : {}),
+          }
+        : undefined;
     return {
       game,
       myRack: entry.myRack.split('') as TileFace[],
       sheet,
       ...(lastPlay ? { lastPlay } : {}),
+      ...(placings ? { placings } : {}),
       ...(ended?.endedBy === 'resign' && ended.winner !== 'draw'
         ? { resigned: ended.winner === 0 ? 1 : 0 }
         : {}),
@@ -559,6 +624,7 @@ export class GameController {
       result: res,
       ...(end ? { end } : {}),
       toMove: s.game.toMove,
+      mySeat: this.actingSeat(),
       scores: s.game.scores,
       bagCount: s.game.bag.length,
       rackCounts: s.game.racks.map((r) => r.length),
@@ -573,6 +639,7 @@ export class GameController {
         this.interactive() && this.pending.size === 0 && s.game.bag.length >= ruleset.exchangeMinBag,
       ...(s.lastPlay ? { lastPlay: s.lastPlay } : {}),
       sheet: s.sheet,
+      review: this.buildReview(s, end !== undefined),
       view: this.view,
       ...(end && !this.beatDone && (end.by === 'played-out' || end.by === 'scoreless' || end.by === 'last-standing')
         ? { beat: { cells: s.lastPlay?.cells ?? [] } }
@@ -583,25 +650,109 @@ export class GameController {
     };
   }
 
+  // ── catch-up review (T7.14) ────────────────────────────────────────────────
+
+  /** Sheet index of the first move the local player has not seen: everything
+   * after their own last row. (Their own move is the last thing they watched
+   * happen.) `sheet.length` when there is nothing new. */
+  private firstMissed(s: SessionState): number {
+    const seat = this.actingSeat();
+    for (let i = s.sheet.length - 1; i >= 0; i--) {
+      if (s.sheet[i]!.by === seat) return i + 1;
+    }
+    return 0;
+  }
+
+  /**
+   * The catch-up window: null unless at least TWO moves happened since the
+   * local player last acted. One missed move is already told by the last-play
+   * highlight and its badge — and at two seats there is never more than one,
+   * so the two-player surface is exactly what it was (M7's N=2 contract).
+   */
+  private buildReview(s: SessionState, ended: boolean): ReviewState | null {
+    if (ended) return null;
+    const from = this.firstMissed(s);
+    const total = s.sheet.length - from;
+    if (total < 2) return null;
+    const at = this.reviewRow === null ? total - 1 : Math.min(Math.max(this.reviewRow - from, 0), total - 1);
+    const row = s.sheet[from + at];
+    if (!row) return null;
+    return { index: at, total, row, board: at === total - 1 ? null : this.rewound(s, from + at) };
+  }
+
+  /** The board as of sheet row `index`: the live board less every cell laid
+   * after it. Tiles are never removed from a board, so the recorded placement
+   * cells (SheetRow.cells) are the whole difference — no replay, no rules. */
+  private rewound(s: SessionState, index: number): ReadonlyMap<CellKey, PlacedTile> {
+    const board = new Map(s.game.board);
+    for (const row of s.sheet.slice(index + 1)) {
+      for (const key of row.cells) board.delete(key);
+    }
+    return board;
+  }
+
+  /** Step the catch-up cursor (−1 back, +1 forward), clamped to the window. */
+  reviewStep(delta: number): void {
+    const s = this.sessionState();
+    const review = this.buildReview(s, this.ended());
+    if (!review) return;
+    const from = this.firstMissed(s);
+    const next = Math.min(Math.max(review.index + delta, 0), review.total - 1);
+    this.reviewRow = next === review.total - 1 ? null : from + next;
+    this.emit();
+  }
+
+  /** Back to the live board (the cursor parks on the newest missed move). */
+  reviewExit(): void {
+    if (this.reviewRow === null) return;
+    this.reviewRow = null;
+    this.emit();
+  }
+
+  /** The placings this end carries: the server's where it sent them, else the
+   * engine's — never a fresh ranking of our own (DECISIONS 2026-08-28). */
+  private placingsOf(s: SessionState, standings: readonly (readonly Seat[])[]): FinalPlacings {
+    return {
+      standings: s.placings?.standings ?? standings,
+      withdrawn: s.placings?.withdrawn ?? s.game.withdrawn,
+    };
+  }
+
   private computeEnd(s: SessionState, res: GameResult): GameEnd | undefined {
     if (s.resigned !== undefined) {
-      return { by: 'resign', winner: s.resigned === 0 ? 1 : 0, finalScores: s.game.scores };
+      const winner = (s.resigned === 0 ? 1 : 0) as Seat;
+      // Two seats: the resigner places second. (At 3+ a resignation is a
+      // withdrawal — the game runs on and ends through `result` below.)
+      return {
+        by: 'resign',
+        winner,
+        finalScores: s.game.scores,
+        ...this.placingsOf(s, [[winner], [s.resigned]]),
+      };
     }
     if (s.timedOut !== undefined) {
-      return { by: 'timeout', winner: s.timedOut === 0 ? 1 : 0, finalScores: s.game.scores };
+      const winner = (s.timedOut === 0 ? 1 : 0) as Seat;
+      return {
+        by: 'timeout',
+        winner,
+        finalScores: s.game.scores,
+        ...this.placingsOf(s, [[winner], [s.timedOut]]),
+      };
     }
     if (res.status === 'finished') {
       // Line items = engine finals minus the recorded pre-adjustment totals
       // (arithmetic over verdicts already computed — no rules re-derived).
       const before = s.sheet[s.sheet.length - 1]?.totals ?? res.finalScores.map(() => 0);
-      // The 2-seat form of the engine's standings: the top placing is a draw
-      // when more than one seat shares it (T7.13/T7.16 render the full rail).
-      const top = res.standings[0]!;
+      const placings = this.placingsOf(s, res.standings);
+      // The 2-seat form of the same standings: the top placing is a draw when
+      // more than one seat shares it. The podium reads `standings` itself.
+      const top = placings.standings![0]!;
       return {
         by: res.by,
         winner: top.length > 1 ? 'draw' : top[0]!,
         finalScores: res.finalScores,
         adjustments: res.finalScores.map((score, seat) => score - (before[seat] ?? 0)),
+        ...placings,
       };
     }
     return undefined;
@@ -672,6 +823,7 @@ export class GameController {
     if (this.ended()) return;
     this.syncRack();
     if (!this.rackSlots[index]) return;
+    this.reviewRow = null; // reaching for a tile means you are done reviewing
     this.selection = this.selection === index ? null : index;
     this.emit();
   }
@@ -713,6 +865,7 @@ export class GameController {
     if (cell.row < 0 || cell.col < 0 || cell.row >= ruleset.board.rows || cell.col >= ruleset.board.cols) return;
     const face = this.rackSlots[rackIndex];
     if (!face) return;
+    this.reviewRow = null; // never stage onto a rewound board
     this.rackSlots[rackIndex] = null;
     this.pending.set(key, {
       face,

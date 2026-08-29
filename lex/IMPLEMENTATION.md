@@ -390,7 +390,7 @@ the only growing file, `check-docs.mjs` enforcement. Lex's table:
 | `DESIGN.md` | the *current* design — what & why | 900 |
 | `IMPLEMENTATION.md` | how to build what isn't built yet + reference | 700 |
 | `DECISIONS.md` | append-only decision + SHIPPED log | no cap; ≤8 lines/entry |
-| `e2e/visual-checklist.md` | living visual-review checklist | 150 |
+| `e2e/visual-checklist.md` | living visual-review checklist | 200 |
 
 (`../parlor/` keeps its own two docs — `README.md` + `CLAUDE.md`, ≤55 lines each —
 checked by parlor's copy of the doc gate.)

@@ -137,6 +137,31 @@ describe('GameActions (pure) — pass/resign confirms, exchange availability', (
     expect(props.onResign).toHaveBeenCalledOnce();
   });
 
+  // T7.14: at 3+ seats leaving is a withdrawal — the player is out, their
+  // score freezes, and play carries on — so "this ends the game" is a lie.
+  it('calls leaving a withdrawal at three or more seats', () => {
+    const props = renderActions({ seats: 3 });
+    fireEvent.click(screen.getByTestId('more-actions'));
+    expect(screen.getByTestId('resign-action').textContent).toMatch(/withdraw/i);
+    fireEvent.click(screen.getByTestId('resign-action'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toMatch(/withdraw from the game\?/i);
+    expect(dialog.textContent).toMatch(/the others play on/i);
+    expect(dialog.textContent).not.toMatch(/opponent wins/i);
+    fireEvent.click(within(dialog).getByRole('button', { name: /withdraw/i }));
+    expect(props.onResign).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the two-seat resign wording word for word', () => {
+    renderActions({ seats: 2 });
+    fireEvent.click(screen.getByTestId('more-actions'));
+    expect(screen.getByTestId('resign-action').textContent).toBe('Resign');
+    fireEvent.click(screen.getByTestId('resign-action'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('Resign the game?');
+    expect(dialog.textContent).toContain('Your opponent wins immediately.');
+  });
+
   it('Exchange is disabled with a reason when the bag is short', () => {
     renderActions({ canExchange: false, bagCount: 5 });
     const button = screen.getByRole('button', { name: /exchange/i });

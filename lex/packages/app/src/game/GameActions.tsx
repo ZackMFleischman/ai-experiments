@@ -52,6 +52,11 @@ export interface GameActionsProps {
    * turn in multiplayer. Defaults to `interactive` for fixture back-compat. */
   canResign?: boolean;
   canExchange: boolean;
+  /** How many seats the game dealt. At 3+ a resign is a WITHDRAWAL — the
+   * player is out, their score freezes, and the others play on — so the
+   * confirm says that instead of "your opponent wins" (DECISIONS 2026-08-28).
+   * Defaults to the two-seat wording. */
+  seats?: number;
   exchangeMinBag: number;
   bagCount: number;
   /** When true, Play opens a confirm dialog before committing (Settings opt-in). */
@@ -81,6 +86,7 @@ export function GameActions({
   interactive,
   canResign,
   canExchange,
+  seats = 2,
   exchangeMinBag,
   bagCount,
   confirmBeforePlay,
@@ -101,9 +107,20 @@ export function GameActions({
   const exchangeTitle = exchangeShort ? `Exchange — needs ${exchangeMinBag} in bag` : 'Exchange';
   const playBlocked = !playable && blockedReason ? blockedReason : '';
 
+  // At 3+ seats leaving is a withdrawal, not the end of the game.
+  const withdrawal = seats > 2;
+  const leaveLabel = withdrawal ? 'Withdraw' : 'Resign';
+
   const dialogCopy = {
     pass: { title: 'Pass your turn?', body: 'You will score nothing this turn.', cta: 'Pass', color: 'primary' as const },
-    resign: { title: 'Resign the game?', body: 'Your opponent wins immediately.', cta: 'Resign', color: 'error' as const },
+    resign: withdrawal
+      ? {
+          title: 'Withdraw from the game?',
+          body: 'You leave the table for good and your score is final. The others play on.',
+          cta: 'Withdraw',
+          color: 'error' as const,
+        }
+      : { title: 'Resign the game?', body: 'Your opponent wins immediately.', cta: 'Resign', color: 'error' as const },
     play: {
       title: 'Play your move?',
       body:
@@ -202,7 +219,7 @@ export function GameActions({
           <ListItemIcon sx={{ color: 'inherit' }}>
             <FlagOutlinedIcon fontSize="small" />
           </ListItemIcon>
-          Resign
+          {leaveLabel}
         </MenuItem>
       </Menu>
 

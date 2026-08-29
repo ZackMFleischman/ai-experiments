@@ -16,7 +16,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { RULESETS } from '@lex/engine';
+import { RULESETS, type Ruleset } from '@lex/engine';
 import { DICTIONARIES } from '@lex/dict';
 import type { ReactNode } from 'react';
 import { MiniBoard } from '../board/MiniBoard';
@@ -40,42 +40,75 @@ export function OptionSection({ label, children }: { label: string; children: Re
   );
 }
 
-/** FR-6: board layout, with a mini premium-map preview per registry entry. */
+const rangeLabel = (range: { min: number; max: number }): string =>
+  range.min === range.max ? `${range.min} players` : `${range.min}–${range.max} players`;
+
+/**
+ * FR-6: board layout, with a mini premium-map preview per registry entry.
+ *
+ * `players` is optional because only the online form has a seat count to
+ * respect — hot-seat setup has no picker for it. When it is given, a board
+ * whose `Ruleset.players` range cannot seat that many is dimmed and DISABLED
+ * with the range it does take, never hidden: the board still exists, it just
+ * cannot deal this many racks (T7.15).
+ */
 export function BoardPicker({
   value,
   onChange,
+  players,
+  rulesets = RULESETS,
 }: {
   value: string;
   onChange: (rulesetId: string) => void;
+  players?: number;
+  /** Injectable so the seat range stays engine data all the way into the
+   * tests, rather than a constant this file believes in. */
+  rulesets?: Readonly<Record<string, Ruleset>>;
 }) {
   return (
     <OptionSection label="Board">
       <Stack direction="row" spacing={1.5}>
-        {Object.keys(RULESETS).map((id) => (
-          <Card
-            key={id}
-            variant="outlined"
-            sx={{
-              flex: 1,
-              borderColor: value === id ? 'primary.main' : 'divider',
-              borderWidth: value === id ? 2 : 1,
-            }}
-          >
-            <CardActionArea
-              onClick={() => onChange(id)}
-              data-testid={`board-${id}`}
-              aria-pressed={value === id}
-              sx={{ p: 1.25 }}
+        {Object.entries(rulesets).map(([id, ruleset]) => {
+          const range = ruleset!.players;
+          const fits = players === undefined || (players >= range.min && players <= range.max);
+          return (
+            <Card
+              key={id}
+              variant="outlined"
+              sx={{
+                flex: 1,
+                opacity: fits ? 1 : 0.5,
+                borderColor: value === id ? 'primary.main' : 'divider',
+                borderWidth: value === id ? 2 : 1,
+              }}
             >
-              <Stack spacing={1} alignItems="center">
-                <MiniBoard rulesetId={id} size={96} />
-                <Typography variant="body2" fontWeight={600}>
-                  {boardName(id)}
-                </Typography>
-              </Stack>
-            </CardActionArea>
-          </Card>
-        ))}
+              <CardActionArea
+                onClick={() => onChange(id)}
+                disabled={!fits}
+                data-testid={`board-${id}`}
+                aria-pressed={value === id}
+                sx={{ p: 1.25 }}
+              >
+                <Stack spacing={1} alignItems="center">
+                  <MiniBoard rulesetId={id} size={96} />
+                  <Typography variant="body2" fontWeight={600}>
+                    {boardName(id)}
+                  </Typography>
+                  {!fits && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      align="center"
+                      data-testid={`board-${id}-unavailable`}
+                    >
+                      Takes {rangeLabel(range)}
+                    </Typography>
+                  )}
+                </Stack>
+              </CardActionArea>
+            </Card>
+          );
+        })}
       </Stack>
     </OptionSection>
   );

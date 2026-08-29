@@ -573,6 +573,44 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `GuestListView`, not `GuestList` — TypeScript cannot re-export a type and a
   value under one name, and the type keeps the server-mirroring name.
 
+- **2026-08-29 — The catch-up bar appears only after TWO missed moves** (T7.14).
+  One missed move is already told by the last-play highlight and its score badge,
+  so a review player for it would be a second way to say the same thing. Two or
+  more is the case the highlight cannot serve — you cannot see what the board
+  looked like before the last of them. It also means the bar never appears at two
+  seats, where at most one move can pass between yours: the N=2 contract holds
+  with no new element on any two-seat screen, and no two-seat capture changed.
+  `Snapshot.review.board` is null while the cursor sits on the newest missed
+  move, so the live board never re-renders from a rewound copy.
+
+- **2026-08-29 — `validate:visual`'s fit-view check targets the GAME board only**
+  (T7.15). `MiniBoard` reuses the real renderer for lobby thumbnails and the
+  board picker's premium-map preview, so those carry `data-board` too — the
+  check had been silently asserting on decorative previews since T3.11 and only
+  noticed when a 4-player form grew tall enough to scroll one off the top. A
+  decorative preview has no fit-view, so it is now excluded via `data-decorative`
+  rather than the assertion being loosened: the game board is held to exactly the
+  same bound as before. Lex's landing tagline also stops saying "for two".
+
+- **2026-08-29 — "Not this time" dismisses the rematch offer locally; it does not
+  decline it** (T7.16). A rematch at a table invites everyone, and the server has
+  no per-player decline: `rematch` mints the return game for the whole roster the
+  moment anyone taps it. Rather than mint a callable nobody else needs, the
+  overlay just hides its own Rematch button and says the others can start one
+  without you — true, because the return game reaches them through `playerIds`
+  whether or not you ever open it. The alternative (a server-side opt-out) would
+  make the rematch roster a fifth piece of room state for one button.
+
+- **2026-08-29 — the podium renders `standings` and never re-ranks it** (T7.16).
+  Sorting rows by `finalScores` in the UI would quietly undo the ranking rule of
+  2026-08-28 and place a player who resigned while ahead first — the exact
+  incentive the rule exists to remove. `FinalStandings` therefore takes the
+  order it is given; when an end predates standings travelling it falls back to
+  the two-seat winner/loser form, which is the same ordering, never a fresh one.
+  The winner's placing pill is filled accent (`primary.contrastText` on
+  `primary.main`), not accent text on the selected-row wash, which fails 4.5:1
+  in dark.
+
 - **2026-08-28 — A phoney is announced on the board surface, not just logged
   (Zack).** Shipped with the opponent learning only via a push and a row inside
   the score-sheet drawer — and since a phoney leaves the board untouched, a
@@ -597,3 +635,16 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   already on the board, so it discloses at most the tiles that word consumed.
   `moves/{n}` gains `phoney.words`; CLAUDE.md's hard rule now names this as its
   one sanctioned exception rather than being silently contradicted by the code.
+
+- **2026-08-29 — `e2e/visual-checklist.md`'s budget goes 150 → 200** (M7 ×
+  invalid-words merge). The 150 was set when lex was a two-player,
+  strict-dictionary game. It now has to carry the review criteria for two
+  shipped features the number never anticipated: seating three and four players
+  (the standings rail, the catch-up bar, the room, the podium) and the per-game
+  invalid-words setting (the withheld verdict, the phoney beat, the banner and
+  the marked sheet row). Four consolidation passes went first — the stale
+  milestone list left DESIGN.md, a fixed deviation left this file, and a dozen
+  bullets were tightened — and what remains is all live criteria. Cutting
+  further would delete coverage of shipped behavior to satisfy a line count,
+  which is the opposite of what the budget is for. §7's own escape hatch is a
+  DECISIONS entry, and this is it.

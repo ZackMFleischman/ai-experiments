@@ -8,6 +8,7 @@ import { FULL_GAME, SCORELESS_GAME, TIE_GAME } from '../../engine/test/fixtures/
 import { stubDict } from '../../engine/test/helpers';
 import { GameBoard } from '../src/board/GameBoard';
 import type { HotSeatOptions, LexEntry } from '../src/controller/entries';
+import type { GameEnd } from '../src/controller/GameController';
 import { GameController } from '../src/controller/GameController';
 import { ResultOverlay } from '../src/game/ResultOverlay';
 import { storedGameFromFixture, type GameFixture } from './fixtures';
@@ -127,5 +128,124 @@ describe('GameBoard end-of-game flow', () => {
     act(() => controller.finishBeat());
     fireEvent.click(screen.getByRole('button', { name: /rematch/i }));
     expect(onRematch).toHaveBeenCalledOnce();
+  });
+});
+
+describe('FinalStandings podium (T7.16)', () => {
+  const base = { open: true, sheet: [], onRematch: () => {}, onViewBoard: () => {} };
+  const rows = () =>
+    [...screen.getByTestId('final-standings').querySelectorAll('[data-testid^="result-seat-"]')].map(
+      (el) => el.getAttribute('data-testid'),
+    );
+
+  // Ada left the four-handed game holding the best score of anyone; Noor and
+  // Kai played it out. DECISIONS 2026-08-28: finishing beats leaving, so Ada
+  // places THIRD — and the podium must render that order, never re-sort it.
+  const withdrawnEnd: GameEnd = {
+    by: 'last-standing',
+    winner: 2,
+    finalScores: [244, 12, 176, 143],
+    adjustments: [0, 0, 0, 0],
+    standings: [[2], [3], [0], [1]],
+    withdrawn: [0, 1],
+  };
+
+  it('leads with the winner and places the withdrawn below everyone who finished', () => {
+    render(
+      <ResultOverlay {...base} end={withdrawnEnd} names={['Ada', 'Sam', 'Noor', 'Kai']} mySeat={2} />,
+    );
+    expect(rows()).toEqual(['result-seat-2', 'result-seat-3', 'result-seat-0', 'result-seat-1']);
+    // Ada outscores the winner by 68 and still reads as third.
+    expect(screen.getByTestId('result-placing-2').textContent).toBe('1st');
+    expect(screen.getByTestId('result-placing-0').textContent).toBe('3rd');
+    expect(screen.getByTestId('result-seat-0').textContent).toContain('244');
+    // …and the row says WHY it landed there.
+    expect(screen.getByTestId('result-withdrawn-0').textContent).toBe('out');
+    expect(screen.getByTestId('result-withdrawn-note-0').textContent).toMatch(
+      /below everyone who finished/i,
+    );
+    expect(screen.queryByTestId('result-withdrawn-note-2')).toBeNull();
+  });
+
+  it('shares a placing between tied seats', () => {
+    render(
+      <ResultOverlay
+        {...base}
+        end={{
+          by: 'scoreless',
+          winner: 'draw',
+          finalScores: [10, 21, 10],
+          adjustments: [0, 0, 0],
+          standings: [[1], [0, 2]],
+        }}
+        names={['Ada', 'Sam', 'Noor']}
+        mySeat={0}
+      />,
+    );
+    expect(rows()).toEqual(['result-seat-1', 'result-seat-0', 'result-seat-2']);
+    expect(screen.getByTestId('result-placing-0').textContent).toBe('2nd');
+    expect(screen.getByTestId('result-placing-2').textContent).toBe('2nd');
+  });
+
+  it('reads winner-first at two seats — the podium is not seat order', async () => {
+    // Seat 1 wins on seat 0's resignation: the winner heads the list.
+    const controller = await replayController({ ...TIE_GAME, moves: [] });
+    act(() => controller.resign(0));
+    const snap = controller.getSnapshot();
+    render(<ResultOverlay {...base} end={snap.end!} names={['Alice', 'Bob']} />);
+    expect(rows()).toEqual(['result-seat-1', 'result-seat-0']);
+    expect(screen.getByTestId('result-placing-1').textContent).toBe('1st');
+  });
+
+  it('the hot-seat engine ending carries its own standings', async () => {
+    const controller = await replayController(FULL_GAME);
+    expect(controller.getSnapshot().end?.standings).toEqual(FULL_GAME.standings);
+    expect(controller.getSnapshot().end?.withdrawn).toEqual([]);
+  });
+});
+
+describe('rematch at a table (T7.16)', () => {
+  const tableEnd: GameEnd = {
+    by: 'last-standing',
+    winner: 2,
+    finalScores: [244, 12, 176, 143],
+    standings: [[2], [3], [0], [1]],
+    withdrawn: [0, 1],
+    adjustments: [0, 0, 0, 0],
+  };
+  const props = {
+    open: true,
+    end: tableEnd,
+    names: ['Ada', 'Sam', 'Noor', 'Kai'],
+    sheet: [],
+    mySeat: 2,
+    onViewBoard: () => {},
+  };
+
+  it('says who a rematch invites, and lets you sit it out', () => {
+    const onRematch = vi.fn();
+    render(<ResultOverlay {...props} onRematch={onRematch} />);
+    expect(screen.getByTestId('rematch-action').textContent).toBe('Rematch all 4');
+    expect(screen.getByTestId('rematch-invites').textContent).toMatch(/Ada, Sam and Kai/);
+    fireEvent.click(screen.getByTestId('rematch-opt-out'));
+    // Opted out: no rematch goes out from here, and the copy says so.
+    expect(screen.queryByTestId('rematch-action')).toBeNull();
+    expect(screen.getByTestId('rematch-opted-out').textContent).toMatch(/Sitting this one out/);
+    expect(onRematch).not.toHaveBeenCalled();
+  });
+
+  it('keeps the two-seat rematch button exactly as it was', async () => {
+    const controller = await replayController(FULL_GAME);
+    render(
+      <ResultOverlay
+        {...props}
+        end={controller.getSnapshot().end!}
+        names={['Alice', 'Bob']}
+        onRematch={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('rematch-action').textContent).toBe('Rematch');
+    expect(screen.queryByTestId('rematch-invites')).toBeNull();
+    expect(screen.queryByTestId('rematch-opt-out')).toBeNull();
   });
 });

@@ -753,10 +753,21 @@ until tapped. The gallery captures it; the e2e drives through it.
 
 Hive §6.3's structure ported: a brief board beat (camera settles on the final play;
 skip on resign/timeout), then the result overlay — headline + reason ("Played out!",
-"Sam resigned", "Won on time", "Draw — 212 apiece"), the **score story** (final
-scores with the end-adjustment line items: "+9 from Sam's rack" / "−4 unplayed"),
-stats (moves, biggest word, duration), and Rematch / View board / Back to lobby.
-Finished games reopen read-only with the score sheet, same as hive.
+"Sam resigned", "Won on time", "Draw — 212 apiece", "Ada and Kai tie for the win"),
+the **final standings podium**, stats (moves, biggest word, duration), and
+Rematch / View board / Back to lobby. Finished games reopen read-only with the
+score sheet, same as hive.
+
+The podium is one row per player in the order `GameResult.standings` gives —
+winner first at every seat count, tied seats sharing a placing — each row
+carrying placing, name, final score and its end-adjustment line item ("+9 from
+Sam's rack" / "−4 unplayed"). It **renders that order and never re-ranks it**:
+withdrawn players sit below everyone who finished however high their frozen
+score, each saying so on its own row, so the ranking rule is visible where it
+bites. Once the game is over the player bar's rail reads by placing too. At 3+
+seats Rematch names everyone it pulls back in (the server rotates the order by
+one, so the old second seat opens) and offers "Not this time" — a local
+dismissal of the offer, not a server-side decline.
 
 ### 7.5 Art direction & 7.6 state management
 

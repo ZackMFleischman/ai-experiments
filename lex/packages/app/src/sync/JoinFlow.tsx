@@ -14,10 +14,17 @@ import * as api from './gameApi';
 interface InviteDoc {
   gameId: string;
   hostName: string;
-  hostSeat: 'p0' | 'p1';
+  /** Two-seat invites only — at 3+ nobody has a seat until the host starts. */
+  hostSeat?: 'p0' | 'p1';
   options: LexGameOptions;
   expiresAt: { toMillis(): number };
+  /** Written by a 3+ room and kept fresh as people join (parlor's
+   * `previewOf`). Uid-free: invites/{code} is readable by anyone signed in. */
+  preview?: { hostName: string; names: readonly string[]; filled: number; maxPlayers: number };
 }
+
+/** The room is gone as a place to sit, but the code was never wrong. */
+const FULL_RE = /full|already started/i;
 
 export default function JoinFlow({ code }: { code: string }) {
   const navigate = useNavigate();
@@ -38,10 +45,21 @@ export default function JoinFlow({ code }: { code: string }) {
           setState({ kind: 'invalid' });
           return;
         }
+        const preview = inv.preview;
+        if (preview) {
+          // A 3+ room: the guest list, or 'closed' once the places are gone.
+          setState(
+            preview.filled >= preview.maxPlayers
+              ? { kind: 'closed' }
+              : { kind: 'room', ...preview, options: inv.options },
+          );
+          return;
+        }
         setState({
           kind: 'ready',
           hostName: inv.hostName,
-          hostSeat: inv.hostSeat,
+          // Every two-seat invite carries a seat; the fallback is unreachable.
+          hostSeat: inv.hostSeat ?? 'p0',
           options: inv.options,
         });
       })
@@ -59,7 +77,11 @@ export default function JoinFlow({ code }: { code: string }) {
       .joinGame({ code })
       .then(({ gameId }) => void navigate(`/game/${gameId}`))
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'could not join the game');
+        const message = err instanceof Error ? err.message : 'could not join the game';
+        // Somebody else took the last place, or the host started while this
+        // card was open: that is a closed room, not a broken invite.
+        if (FULL_RE.test(message)) setState({ kind: 'closed' });
+        else setError(message);
       });
   };
 

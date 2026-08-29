@@ -1,17 +1,20 @@
-// Score sheet drawer (T3.9): per-turn word + score + running totals — lex's
-// replacement for hive's move list. Rows come from the controller (verdict
-// data recorded at apply time); nothing is recomputed here.
+// Score sheet drawer (T3.9, columnar at T7.14): the paper score sheet — a
+// COLUMN per player, a ROW per round, each cell carrying that player's play
+// and what it scored, with the running total footing every column. The flat
+// "who did what, totals joined by dashes" list it replaced was unreadable the
+// moment there were more than two of those totals. Rows come from the
+// controller (verdict data recorded at apply time); nothing is recomputed here.
 //
-// A phoney (§2.3) is the one row that reports something going WRONG, and the
-// sheet is where both players read the history of the game — so it is marked,
-// not merely worded: an ✗ badge and a red-tinted row, the same visual language
-// the preview card uses for a word the dictionary refuses. Scanning the sheet
-// should answer "did anyone blow a turn?" without reading every line, and the
-// row names the word that was tried (§3.3).
-import { Box, Divider, Drawer, Typography } from '@mui/material';
+// A phoney (§2.3) is the one cell that reports something going WRONG, and the
+// sheet is where players read the history — so it is MARKED, not merely worded:
+// an ✗ badge, a red-tinted cell and an explicit `0`, the same visual language
+// the preview card uses for a word the dictionary refuses. "Did anyone blow a
+// turn?" should be answerable by scanning a column, not by reading it.
+import { Box, Drawer, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { SheetRow } from '../controller/GameController';
 import { invalidWordList } from '../gameOptions';
+import { displayNames } from './names';
 
 export interface ScoreSheetProps {
   open: boolean;
@@ -20,7 +23,7 @@ export interface ScoreSheetProps {
   names: readonly string[];
 }
 
-function describe(row: SheetRow): string {
+function describe(row: SheetRow, seats: number): string {
   switch (row.kind) {
     case 'play':
       return row.words.map((w) => w.word).join(' / ') || '—';
@@ -35,13 +38,53 @@ function describe(row: SheetRow): string {
     case 'pass':
       return 'Pass';
     case 'resign':
-      return 'Resigned';
+      // At 3+ a resign is a withdrawal, not the end of the game (DECISIONS
+      // 2026-08-28); at two seats the wording is what it always was.
+      return seats > 2 ? 'Withdrew' : 'Resigned';
     case 'timeout':
       return 'Forfeited on time';
   }
 }
 
+/**
+ * Deal the flat row list into score-sheet columns: each seat's turns stack
+ * down its own column, so round N is the Nth line of every column. A seat
+ * that withdraws simply stops adding lines — its column ends where it left.
+ */
+export function sheetColumns(
+  rows: readonly SheetRow[],
+  seats: number,
+): ReadonlyArray<ReadonlyArray<SheetRow | null>> {
+  const filled: number[] = Array.from({ length: seats }, () => 0);
+  const grid: Array<Array<SheetRow | null>> = [];
+  for (const row of rows) {
+    if (row.by < 0 || row.by >= seats) continue;
+    const at = filled[row.by]!;
+    while (grid.length <= at) grid.push(Array.from({ length: seats }, () => null));
+    grid[at]![row.by] = row;
+    filled[row.by] = at + 1;
+  }
+  return grid;
+}
+
+/** Where each column stands after the last row that touched it. */
+function finalTotals(rows: readonly SheetRow[], seats: number): number[] {
+  const last = rows[rows.length - 1];
+  return Array.from({ length: seats }, (_, seat) => last?.totals[seat] ?? 0);
+}
+
 export function ScoreSheet({ open, onClose, rows, names }: ScoreSheetProps) {
+  const seats = Math.max(names.length, ...rows.map((r) => r.totals.length), 2);
+  // A column per SEAT, even if the caller named fewer of them.
+  const shown = displayNames(
+    Array.from({ length: seats }, (_, seat) => names[seat] ?? `Player ${seat + 1}`),
+  );
+  const grid = sheetColumns(rows, seats);
+  const totals = finalTotals(rows, seats);
+  // One template for every row, so the columns line up without a <table>.
+  const columns = `24px repeat(${seats}, minmax(80px, 1fr))`;
+  const cell = { px: 0.5, py: 0.75, minWidth: 0 } as const;
+
   return (
     <Drawer anchor="bottom" open={open} onClose={onClose}>
       <Box data-testid="score-sheet" sx={{ p: 2, maxHeight: '60dvh', overflowY: 'auto' }}>
@@ -53,77 +96,157 @@ export function ScoreSheet({ open, onClose, rows, names }: ScoreSheetProps) {
             No turns yet.
           </Typography>
         )}
-        {rows.map((row) => (
-          <Box key={row.n}>
-            <Box
-              data-testid="sheet-row"
-              data-kind={row.kind}
-              sx={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 1,
-                py: 0.75,
-                ...(row.kind === 'phoney' && {
-                  bgcolor: (t) => alpha(t.palette.error.main, 0.12),
-                  borderRadius: 0.5,
-                  px: 0.5,
-                  mx: -0.5,
-                }),
-              }}
-            >
-              <Typography variant="caption" color="text.secondary" sx={{ width: 22 }}>
-                {row.n + 1}
-              </Typography>
-              <Typography variant="body2" sx={{ width: 72, fontWeight: 600 }} noWrap>
-                {names[row.by] ?? `Player ${row.by + 1}`}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ flex: 1, ...(row.kind === 'phoney' && { color: 'error.main', fontWeight: 600 }) }}
+        {rows.length > 0 && (
+          // The sheet scrolls sideways INSIDE this box at many seats; the page
+          // itself never does.
+          <Box sx={{ overflowX: 'auto' }}>
+            <Box sx={{ minWidth: 24 + seats * 80 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: columns,
+                  borderBottom: 2,
+                  borderColor: 'divider',
+                }}
               >
-                {row.kind === 'phoney' && (
-                  <Box
-                    component="span"
-                    aria-hidden
-                    data-testid="sheet-phoney-mark"
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 15,
-                      height: 15,
-                      mr: 0.75,
-                      borderRadius: '50%',
-                      bgcolor: 'error.main',
-                      color: 'error.contrastText',
-                      fontSize: 10,
-                      fontWeight: 800,
-                      lineHeight: 1,
-                      verticalAlign: 'middle',
-                    }}
+                <Box sx={cell} />
+                {shown.map((name, seat) => (
+                  <Typography
+                    key={seat}
+                    data-testid="sheet-column-head"
+                    variant="body2"
+                    noWrap
+                    sx={{ ...cell, fontWeight: 700 }}
                   >
-                    ✗
-                  </Box>
-                )}
-                {describe(row)}
-              </Typography>
-              {/* A phoney scored zero, and says so: a blank column would read
-                  as "no score column applies here" rather than "nothing". */}
-              {(row.kind === 'play' || row.kind === 'phoney') && (
-                <Typography
-                  variant="body2"
-                  sx={{ fontWeight: 700, ...(row.kind === 'phoney' && { color: 'error.main' }) }}
+                    {name}
+                  </Typography>
+                ))}
+              </Box>
+              {grid.map((round, n) => (
+                <Box
+                  key={n}
+                  data-testid="sheet-row"
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: columns,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                  }}
                 >
-                  {row.kind === 'phoney' ? '0' : `+${row.score}`}
+                  <Typography variant="caption" color="text.secondary" sx={{ ...cell, pt: 1 }}>
+                    {n + 1}
+                  </Typography>
+                  {round.map((row, seat) => (
+                    <Box
+                      key={seat}
+                      data-testid="sheet-cell"
+                      data-kind={row?.kind}
+                      sx={{
+                        ...cell,
+                        // In a columnar sheet the phoney tint belongs to the
+                        // CELL: the round it sits in was fine for everyone else.
+                        ...(row?.kind === 'phoney' && {
+                          bgcolor: (t) => alpha(t.palette.error.main, 0.12),
+                          borderRadius: 0.5,
+                        }),
+                      }}
+                    >
+                      {row ? (
+                        <>
+                          <Typography
+                            variant="body2"
+                            // Slightly tighter than body: an 80px column has
+                            // to hold "Exchanged 3" without breaking it.
+                            sx={{
+                              fontSize: '0.8125rem',
+                              lineHeight: 1.3,
+                              wordBreak: 'break-word',
+                              ...(row.kind === 'phoney' && {
+                                color: 'error.main',
+                                fontWeight: 600,
+                              }),
+                            }}
+                          >
+                            {row.kind === 'phoney' && (
+                              <Box
+                                component="span"
+                                aria-hidden
+                                data-testid="sheet-phoney-mark"
+                                sx={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 15,
+                                  height: 15,
+                                  mr: 0.5,
+                                  borderRadius: '50%',
+                                  bgcolor: 'error.main',
+                                  color: 'error.contrastText',
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  lineHeight: 1,
+                                  verticalAlign: 'middle',
+                                }}
+                              >
+                                ✗
+                              </Box>
+                            )}
+                            {describe(row, seats)}
+                          </Typography>
+                          {/* Only a play carries a number; "Pass" and
+                              "Exchanged 3" already say they scored nothing,
+                              and a placeholder dash under them just cost a
+                              third line in an 80px column. A phoney is the
+                              exception: it scored zero and says so, because a
+                              blank would read as "no score applies here". */}
+                          {row.kind === 'play' && (
+                            <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                              +{row.score}
+                            </Typography>
+                          )}
+                          {row.kind === 'phoney' && (
+                            <Typography
+                              variant="caption"
+                              sx={{ fontWeight: 700, color: 'error.main' }}
+                            >
+                              0
+                            </Typography>
+                          )}
+                        </>
+                      ) : (
+                        <Typography variant="body2" color="text.disabled">
+                          ·
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              ))}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: columns,
+                  borderTop: 2,
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ ...cell, pt: 1 }}>
+                  Σ
                 </Typography>
-              )}
-              <Typography variant="caption" color="text.secondary" sx={{ width: 64, textAlign: 'right' }}>
-                {row.totals.join(' — ')}
-              </Typography>
+                {totals.map((total, seat) => (
+                  <Typography
+                    key={seat}
+                    data-testid="sheet-total"
+                    variant="subtitle2"
+                    sx={{ ...cell, fontWeight: 700 }}
+                  >
+                    {total}
+                  </Typography>
+                ))}
+              </Box>
             </Box>
-            <Divider />
           </Box>
-        ))}
+        )}
       </Box>
     </Drawer>
   );

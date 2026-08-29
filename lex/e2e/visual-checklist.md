@@ -1,33 +1,32 @@
 # Visual review checklist — lex/
 
-Reviewed against every `validate:visual` / `validate:ux` capture (IMPLEMENTATION §0.2.5).
-Per-screen sections grow as screens land; global items first. Accepted deviations
-are logged at the bottom with date + reason, and deleted when fixed.
+Reviewed against every `validate:visual` / `validate:ux` capture (IMPLEMENTATION
+§0.2.5). Per-screen sections grow as screens land; global items first. Accepted
+deviations are logged at the bottom with date + reason, deleted when fixed.
 
 ## Global
 
-- Tile letters and point indexes legible at placement zoom on the phone viewport;
-  at fit-view the board reads as orientation (word shapes visible), not mush.
-- Premium squares distinguishable in light **and** dark and across tile skins;
-  DL/TL/DW/TW text labels present so color is never the only signal.
+- Tile letters and point indexes legible at placement zoom on phone; at fit-view
+  the board reads as orientation (word shapes visible), not mush.
+- Premium squares distinguishable in light **and** dark across tile skins, with
+  DL/TL/DW/TW labels so color is never the only signal.
 - **Pending vs committed tiles** unmistakable in both themes (lift + gold edge);
   pending tiles never look submitted.
 - Preview card (one row per word + score + ✓/✗, bingo line, total) readable at
-  every zoom, never occluding the pending word or the rack, and fully on screen
-  — including the eight-row bingo case. It is click-through apart from its grip
-  (a tap lands on the cell beneath it); the geometry hint has no grip. Its
-  parked position survives a pan/zoom.
+  every zoom, never occluding the pending word or the rack, fully on screen
+  including the eight-row bingo case. Click-through apart from its grip (a tap
+  lands on the cell beneath); the geometry hint has no grip; its parked position
+  survives a pan/zoom.
 - A word that failed the dictionary reads as a blocked play from across the
   board in both themes: red card border, struck-through total, that row filled
-  red, its cells ringed dashed red — and the valid card next to it stays calm
-  (no red anywhere). The card says it in color, never in a sentence.
+  red, cells ringed dashed red — and the valid card beside it stays calm. The
+  card says it in color, never in a sentence.
 - **A "Cost your turn" game gives NOTHING away** (`pending-words-unchecked`,
-  which stages a word the dictionary refuses): no ✓, no ✗, nothing standing in
-  for a mark, no red anywhere on the card or the board, the total not struck
-  through, Play plainly enabled. Each row is just the word and its score. Its
-  capture must be indistinguishable from the same staging with a valid word
-  except for the missing mark — if a reviewer can tell which word is bad, the
-  feature is broken.
+  staging a word the dictionary refuses): no ✓, no ✗, nothing standing in for a
+  mark, no red on card or board, total not struck through, Play plainly enabled
+  — each row just the word and its score. The capture must be indistinguishable
+  from the same staging with a valid word except for the missing mark; if a
+  reviewer can tell which word is bad, the feature is broken.
 - **Phoney beat** (`phoney-beat`): the refused word dominates the dialog, the
   cost is a sentence, the board behind is unchanged, no mode name appears. Both
   themes at 390×844. In hot-seat it sits ON TOP of the pass-device interstitial
@@ -58,6 +57,20 @@ are logged at the bottom with date + reason, and deleted when fixed.
   wrapping to a second line so the big score number sits centered, not
   top-justified); the side-to-move seat carries a clock-icon move-clock when
   the game has a time control, on that seat only.
+- Player bar at N seats (T7.13): the turn line reads from the local seat ("Your
+  turn" / "{Name}'s turn"), and the standings rail runs in TURN order — seat to
+  move first, each row numbered 1..n. One row at ≥900px, turn line above rail
+  below 900px; four seats fit 390px with no horizontal scroll and no wrapped
+  rows (names ellipsize instead).
+- Withdrawn seat in the rail: muted, no numeral, "out", score readable; others
+  renumber gapless. At game over the rail reads by PLACING, no turn highlight.
+- Catch-up bar at 3+ seats (T7.14): one line under the player bar naming the
+  reviewed move ("Kai played TOE +4") with ‹ › and Live ≥44px; stepping back
+  rewinds the board (later tiles gone) and moves the SAME green highlight onto
+  the reviewed play; the rack and action row stay live behind it.
+- Columnar score sheet: a column per player, a row per round, running totals
+  footing each column; four seats readable at 390px (the sheet scrolls sideways
+  inside its own box, the page never does).
 - Last-play highlight (green edge) clearly a different signal than pending gold,
   and gone entirely while any tile is staged.
 - A dragged tile is always visible: a fixed-position shadowed ghost rides
@@ -72,8 +85,9 @@ are logged at the bottom with date + reason, and deleted when fixed.
   ANY drag hovering the tray — rack- or board-origin — flips to insertion
   mode: the ghost un-snaps to ride the finger, slots preview the splice,
   release commits it (staged tiles return to the exact slot you point at).
-- Result overlay hierarchy: outcome → reason → score story (with adjustment line
-  items) → actions; readable over any board.
+- Result overlay: outcome → reason → podium (placing, name, final, adjustment
+  line item; winner first at any count; withdrawn rows out, last, and say why)
+  → stats → actions; at 3+ Rematch names who it invites and offers the opt-out.
 - Text contrast ≥ 4.5:1 (spot-check theme tokens, all tile skins).
 - No layout shift between `?static=1` captures of the same entry (determinism).
 
@@ -90,38 +104,42 @@ are logged at the bottom with date + reason, and deleted when fixed.
 - Header fits ONE line at 390px: title + truncating identity chip + gear
   (sign-out lives in Settings → Account). New-game FAB is labeled, not a bare
   +; the empty state carries the primary "Start a new game" CTA.
-
 - Lobby groups labeled and ordered (challenges, your turn, waiting, finished);
-  cards carry thumbnail, scores + last play (2-line clamp — never truncated to
-  scores alone), your-turn/deadline/result chips distinguishable in both themes.
-  The deadline (clock-icon) chip rides BOTH your-turn and waiting cards — the
-  current player's move deadline — and never starves the caption at 390px.
+  cards carry thumbnail, scores/placings + last play (two lines at 3+, clamped,
+  never truncated to scores alone), your-turn/deadline/result chips clear in
+  both themes; at 3+ the title names the table. The deadline (clock-icon) chip
+  rides your-turn AND waiting cards and never starves the caption at 390px.
 - New game: both board cards show real premium-map previews; dictionaries show
-  name + word count + description; toggles legible at 390px.
-- Join card lists board, dictionary + word count, time control, and seat
-  (FR-10) before the accept button; themed hero above.
-- Waiting screen: invite link AND bare code visible with copy affordances;
-  challenge variant swaps copy + withdraw action; board never visible while open.
+  name + word count + description, toggles legible at 390px. PLAYERS offers only
+  the selected board's range; a board that cannot seat the count is dimmed and
+  disabled with its range, never hidden; the invite row is multi-select at 3+;
+  the pace line under the clock states the round at the chosen count.
+- Join card lists board, dictionary + word count, time control and seat (FR-10)
+  before the accept button, themed hero above; a "costs your turn" game says so
+  on a warning chip. A 3+ code previews the guest list and the places left
+  instead of a seat; a full room reads "This game is full", never "no longer
+  valid". Waiting screen: invite link AND bare code with copy affordances; the
+  challenge variant swaps copy + withdraw action; the board is never visible
+  while the game is open.
 
 ## Notifications (T5.2)
 
 - iOS coach mark: share-icon + copy legible both themes; dismiss target ≥ 44px.
-- Enable-notifications banner appears only in full mode with permission
-  undecided (unit-gated; not in the static gallery).
+- Enable-notifications banner only in full mode with permission undecided
+  (unit-gated; not in the static gallery).
 
 ## Polish (T6.2)
 
 - Rejected-move toast (notice-toast entry): filled error alert, top-center,
   legible over the board in both themes; dismiss target present.
-- Lobby empty state: tile motif + headline + invite copy centered; tiles render
-  in the active skin/theme.
-- Negative scores everywhere (score bar, result overlay) use the typographic
-  minus (−), never hyphen-minus.
-- Action row fits one line at 390×844: Recall/Exchange/Pass are a compact
-  icon-button cluster (≥44px targets) on the left; Play is the prominent
-  contained CTA pinned to the right ("thumb corner"), clearly separated by a
-  spacer so it never sits adjacent to a secondary action; Resign is only in the
-  ⋯ overflow menu (never in the CTA slot).
+- Lobby empty state: tile motif + headline + invite copy centered, tiles in the
+  active skin/theme. Negative scores (score bar, result overlay) use the
+  typographic minus (−), never hyphen-minus.
+- Action row fits one line at 390×844: Recall/Exchange/Pass a compact
+  icon-button cluster (≥44px targets) on the left; Play the contained CTA pinned
+  right ("thumb corner"), spacer-separated so it never abuts a secondary action;
+  Resign only in the ⋯ overflow, never in the CTA slot — labelled Withdraw at 3+
+  seats, its confirm saying the player leaves and the others play on.
 
 ## Tile skins & Settings (T6.1)
 
@@ -138,12 +156,8 @@ are logged at the bottom with date + reason, and deleted when fixed.
 
 ## Accepted deviations
 
-- **2026-08-05 — the preview card's drag grip is 26×28, not 44×44.** Every
-  pixel of the grip is a board cell the player cannot tap (the rest of the card
-  is click-through precisely so taps reach the board), so the usual target size
-  would trade the bug we just fixed for a smaller version of itself. A missed
-  grab is harmless — it falls through to the board. Revisit if real-device use
-  shows grabs failing.
-
-(The ~41px rack-slot deviation closed when the tray shed its side column
-reserve: slots now hit ~45px at 390px and cap at 52px.)
+- **2026-08-05 — the preview card's drag grip is 26×28, not 44×44.** Every pixel
+  of the grip is a board cell the player cannot tap (the rest of the card is
+  click-through so taps reach the board), so the usual target size would trade
+  the bug just fixed for a smaller one. A missed grab falls through to the
+  board. Revisit if real-device use shows grabs failing.

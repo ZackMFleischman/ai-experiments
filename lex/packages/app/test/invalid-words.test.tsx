@@ -211,11 +211,16 @@ describe('a phoney is legible to the OPPONENT', () => {
     fireEvent.click(screen.getByTestId('phoney-dismiss'));
     fireEvent.click(screen.getByTestId('phoney-banner'));
 
-    const row = screen.getByTestId('sheet-row');
-    expect(row.getAttribute('data-kind')).toBe('phoney');
-    expect(within(row).getByTestId('sheet-phoney-mark')).toBeTruthy();
-    expect(row.textContent).toContain('Tried the invalid word “CATS”');
-    expect(row.textContent).toContain('0');
+    // T7.14 made the sheet columnar — a `sheet-row` is now a ROUND across every
+    // seat and the move lives in a `sheet-cell`, which is what carries the kind.
+    // Same four assertions, one level down.
+    const cell = screen
+      .getAllByTestId('sheet-cell')
+      .find((c) => c.getAttribute('data-kind') === 'phoney');
+    expect(cell).toBeTruthy();
+    expect(within(cell!).getByTestId('sheet-phoney-mark')).toBeTruthy();
+    expect(cell!.textContent).toContain('Tried the invalid word “CATS”');
+    expect(cell!.textContent).toContain('0');
   });
 
   it('a good play scores normally and raises no beat', async () => {
