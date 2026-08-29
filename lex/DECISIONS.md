@@ -507,3 +507,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   alongside it that parlor always sets — a rename would have been a breaking
   change to a field every game constructs. A decline sends nothing: it is the
   host's business and not push-worthy.
+
+- **2026-08-28 — `LobbySummary.result` is kept, deprecated, and read through
+  helpers** (T7.9). Every N-shaped field on the lobby contract is optional, and
+  `finalStandings()` falls back to the two-seat `'p0'|'p1'|'draw'` when a game
+  carries no `standings` — so games finished before M7 still place correctly and
+  no backfill is needed. `placingOf()` / `isWinner()` are the only things the UI
+  calls; nothing reads `result` directly any more. `friendsFrom` now prefers an
+  `opponents` list, so a three-handed game contributes all of its players to the
+  challenge picker rather than one, and `actionableCount` stops nagging a player
+  who has withdrawn but is still nominally `toMove`.

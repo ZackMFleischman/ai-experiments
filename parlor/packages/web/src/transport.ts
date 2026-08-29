@@ -32,11 +32,10 @@ import { getDb } from './firebase';
 export function seatIndexOf(
   players: Record<string, string | null>,
   uid: string,
-  seatKeys: readonly [string, string],
-): 0 | 1 | null {
-  if (players[seatKeys[0]] === uid) return 0;
-  if (players[seatKeys[1]] === uid) return 1;
-  return null;
+  seatKeys: readonly string[],
+): number | null {
+  const seat = seatKeys.findIndex((key) => players[key] === uid);
+  return seat === -1 ? null : seat;
 }
 
 /** Subscribe to the live game-doc slice the chrome renders outside the session

@@ -5,11 +5,15 @@
 // and option chips; everything else is shared. (parlor/README §web.)
 export {
   actionableCount,
+  finalStandings,
   friendsFrom,
+  isWinner,
+  placingOf,
   relativeTime,
   timeLeft,
   type Friend,
   type LobbySummary,
+  type Opponent,
 } from './summary';
 export { applyTurnBadge, makeTurnBadge } from './turnBadge';
 export { makeLobby, type LobbyConfig } from './LobbyList';

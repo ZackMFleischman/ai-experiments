@@ -6,6 +6,14 @@
 // injected render slots. Firebase-free, React-free — pure logic the game and
 // the badge both build on.
 
+/** Somebody else in the game — the N-seat generalization of `opponentName`. */
+export interface Opponent {
+  uid?: string;
+  name: string;
+  /** Seat index once seats exist; absent while a 3+ game is still a guest list. */
+  seat?: number;
+}
+
 /** The cross-game lobby-card contract: platform meta every parlor game shares.
  * Seats are indices (0 = the player who moves first); a game that names its
  * seats otherwise (hive's white/black) maps to indices in its `toSummary`. */
@@ -17,7 +25,9 @@ export interface LobbySummary {
   status: 'open' | 'active' | 'finished';
   /** Seat to move (index). */
   toMove: number;
-  /** Finished result, by seat: 'p0' won, 'p1' won, or a draw. */
+  /** Finished result, by seat: 'p0' won, 'p1' won, or a draw.
+   * @deprecated The two-seat form. Read `finalStandings()` / `placingOf()`,
+   * which fall back to this when a game predates `standings`. */
   result?: 'p0' | 'p1' | 'draw';
   endedBy?: string;
   updatedAtMs: number;
@@ -30,6 +40,43 @@ export interface LobbySummary {
   /** Active at move zero, activated by the opponent (accepted invite/challenge,
    * rematch offer) — counts toward the badge even before it's my move. */
   freshFromOpponent?: boolean;
+
+  // ── N seats (M7). Absent on a two-seat summary, which reads as it always did.
+  /** How many seats this game holds. Undefined means two. */
+  seatCount?: number;
+  /** Places still to fill while a 3+ game is open. 0 once it has started. */
+  openSeats?: number;
+  /** Everyone else, in seat order once seats exist, else join order. */
+  opponents?: readonly Opponent[];
+  /** Final placings by seat, best-first; an inner array of 2+ seats is tied. */
+  standings?: readonly (readonly number[])[];
+  /** Seats that withdrew (resigned or timed out at 3+). */
+  withdrawn?: readonly number[];
+}
+
+/**
+ * Final placings, best-first. Prefers the N-seat `standings` and falls back to
+ * the two-seat `result` so a game finished before M7 still reads correctly.
+ * Empty while the game is unfinished.
+ */
+export function finalStandings(game: LobbySummary): readonly (readonly number[])[] {
+  if (game.standings) return game.standings;
+  if (!game.result) return [];
+  if (game.result === 'draw') return [[0, 1]];
+  return game.result === 'p0' ? [[0], [1]] : [[1], [0]];
+}
+
+/** 1-based placing of a seat, or null when the game has not finished. Tied
+ *  seats share a placing. */
+export function placingOf(game: LobbySummary, seat: number): number | null {
+  const standings = finalStandings(game);
+  const at = standings.findIndex((tied) => tied.includes(seat));
+  return at === -1 ? null : at + 1;
+}
+
+/** Did `seat` win outright or share the top placing? */
+export function isWinner(game: LobbySummary, seat: number): boolean {
+  return placingOf(game, seat) === 1;
 }
 
 /** "just now" / "5m ago" / "3h ago" / "2d ago" — coarse relative time. */
@@ -60,7 +107,7 @@ export function timeLeft(deadlineMs: number, nowMs: number, compact = false): st
 export function actionableCount(games: readonly LobbySummary[]): number {
   return games.filter(
     (g) =>
-      (g.status === 'active' && g.toMove === g.mySeat) ||
+      (g.status === 'active' && g.toMove === g.mySeat && !g.withdrawn?.includes(g.mySeat)) ||
       (g.status === 'open' && g.challenge?.direction === 'incoming') ||
       g.freshFromOpponent === true,
   ).length;
@@ -72,14 +119,22 @@ export interface Friend {
   name: string;
 }
 
-/** Distinct past opponents, most recent first — the direct-challenge targets. */
+/** Distinct past opponents, most recent first — the direct-challenge targets.
+ *  Prefers `opponents` (every other player) and falls back to the two-seat
+ *  pair, so a three-handed game contributes all of its players, not one. */
 export function friendsFrom(
-  games: ReadonlyArray<{ opponentUid?: string; opponentName: string | null; updatedAtMs: number }>,
+  games: ReadonlyArray<
+    Pick<LobbySummary, 'opponentUid' | 'opponentName' | 'updatedAtMs' | 'opponents'>
+  >,
 ): Friend[] {
   const seen = new Map<string, Friend>();
   for (const g of [...games].sort((a, b) => b.updatedAtMs - a.updatedAtMs)) {
-    if (!g.opponentUid || !g.opponentName || seen.has(g.opponentUid)) continue;
-    seen.set(g.opponentUid, { uid: g.opponentUid, name: g.opponentName });
+    const others: Friend[] = g.opponents
+      ? g.opponents.flatMap((o) => (o.uid ? [{ uid: o.uid, name: o.name }] : []))
+      : g.opponentUid && g.opponentName
+        ? [{ uid: g.opponentUid, name: g.opponentName }]
+        : [];
+    for (const friend of others) if (!seen.has(friend.uid)) seen.set(friend.uid, friend);
   }
   return [...seen.values()];
 }
