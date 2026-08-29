@@ -24,10 +24,10 @@ those requirements and cross-references them where useful.
 
 ### Goals (v1)
 
-- **Two-player over the internet.** Create a game, send an invite link or challenge a
-  past opponent, play.
+- **Two to four players over the internet.** Create a game, send an invite link or
+  challenge a past opponent, play.
 - **Async or sync, seamlessly.** No mode switch: a game is shared state updating in
-  real time. Both online ⇒ feels live; otherwise you get a push when it's your turn.
+  real time. All online ⇒ feels live; otherwise you get a push when it's your turn.
 - **Great placement UX.** Drag tiles from a rack to the board (tap-tap fallback),
   with live feedback: a preview card of the words it forms, their scores and
   validity, the total; recall, shuffle, blank designation.
@@ -287,7 +287,7 @@ Firestore**. Consequences, designed once here and referenced everywhere:
   `exchange`. Hot-seat mode shuffles in the local transport. Tests inject fixed
   orders — the whole engine stays as deterministic as hive's.
 - **Three storage tiers per game** (schema in §6.2): the public game doc + move log
-  (board, scores, counts — readable by both players); a per-player **rack doc**
+  (board, scores, counts — readable by every seated player); a per-player **rack doc**
   readable only by its owner; a **private bag doc** readable by no client at all
   (Cloud Functions only). Firestore rules tests assert all three boundaries (§10).
 - **Public log + private draw log = full replay.** The private doc records the
