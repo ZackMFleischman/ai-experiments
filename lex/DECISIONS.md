@@ -457,3 +457,15 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   unedited; 3+ coverage lands in a new `room.spec.ts`. The one accepted 2-player
   change is the **winner-first result overlay** (today it lists seats in seat order;
   a victory screen should read winner-first, and `ResultOverlay` is not shared).
+
+- **2026-08-28 — A phoney is announced on the board surface, not just logged
+  (Zack).** Shipped with the opponent learning only via a push and a row inside
+  the score-sheet drawer — and since a phoney leaves the board untouched, a
+  player opening the game saw nothing at all and could not tell it from a pass.
+  Two surfaces now: a persistent strip under the score bar naming the player and
+  the cost (tap to open the sheet, replaced by the next move, hidden while tiles
+  are staged), and the sheet row marked ✗/red/0 rather than merely worded.
+  Neither names the word — that half of the privacy call stands: the letters are
+  still in the mover's rack and both surfaces are on both players' screens. If
+  the word should be revealed too, that is a deliberate loosening of the §3.3
+  invariant and wants its own decision.

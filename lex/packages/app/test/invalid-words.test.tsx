@@ -7,7 +7,7 @@
 // defined by what the screen must NOT reveal, so each one pins a specific
 // leak that would give the answer away early (a ✗, a red row, a ringed cell,
 // a disabled Play button, a word in the shared score sheet).
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { RULESETS } from '@lex/engine';
 import type { InvalidWordRule, TileFace } from '@lex/engine';
@@ -158,6 +158,59 @@ describe("invalidWords 'costs-turn': committing a phoney costs the turn", () => 
     // The sheet is the one surface BOTH players read: it must not carry the
     // attempted letters, which are still in the mover's rack.
     expect(JSON.stringify(controller.getSnapshot().sheet)).not.toContain('CATS');
+  });
+});
+
+// A phoney changes nothing on the board, so without these two surfaces the
+// player who arrives next cannot tell it from a pass.
+describe('a phoney is legible to the OPPONENT', () => {
+  it('leaves a banner naming the player and the cost — but never the word', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    fireEvent.click(screen.getByTestId('phoney-dismiss'));
+
+    const banner = screen.getByTestId('phoney-banner');
+    expect(banner.textContent).toContain('Player 1');
+    expect(banner.textContent).toMatch(/isn.t in the dictionary/i);
+    expect(banner.textContent).toMatch(/turn lost/i);
+    expect(banner.textContent).not.toContain('CATS');
+  });
+
+  it('the banner yields once the next player starts staging', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    fireEvent.click(screen.getByTestId('phoney-dismiss'));
+    expect(screen.getByTestId('phoney-banner')).toBeTruthy();
+
+    act(() => controller.placeAt({ row: 7, col: 7 }, 0));
+    expect(screen.queryByTestId('phoney-banner')).toBeNull();
+    act(() => controller.recallAll());
+    expect(screen.getByTestId('phoney-banner')).toBeTruthy();
+  });
+
+  it('no banner after an ordinary play', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn' });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    expect(screen.queryByTestId('phoney-banner')).toBeNull();
+  });
+
+  it('marks the turn in the score sheet: ✗, red, and a zero', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    fireEvent.click(screen.getByTestId('phoney-dismiss'));
+    fireEvent.click(screen.getByTestId('phoney-banner'));
+
+    const row = screen.getByTestId('sheet-row');
+    expect(row.getAttribute('data-kind')).toBe('phoney');
+    expect(within(row).getByTestId('sheet-phoney-mark')).toBeTruthy();
+    expect(row.textContent).toMatch(/isn.t in the dictionary/i);
+    expect(row.textContent).toContain('0');
+    // Still no letters on the shared surface.
+    expect(row.textContent).not.toContain('CATS');
   });
 
   it('a good play scores normally and raises no beat', async () => {

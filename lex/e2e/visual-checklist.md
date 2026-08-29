@@ -28,12 +28,15 @@ are logged at the bottom with date + reason, and deleted when fixed.
   capture must be indistinguishable from the same staging with a valid word
   except for the missing mark — if a reviewer can tell which word is bad, the
   feature is broken.
-- **Phoney beat** (`phoney-beat`): the refused word is the biggest thing on the
-  dialog, the cost is stated in a sentence, and the board behind it is visibly
-  unchanged (no tiles placed), and no mode name is used — the copy states the
-  rule. Readable in both themes at 390×844. In hot-seat the beat sits ON TOP of
-  the pass-device interstitial — no rack is readable in the frame, before or
-  after it is dismissed.
+- **Phoney beat** (`phoney-beat`): the refused word dominates the dialog, the
+  cost is a sentence, the board behind is unchanged, no mode name appears. Both
+  themes at 390×844. In hot-seat it sits ON TOP of the pass-device interstitial
+  — no rack readable in the frame, before or after dismissal.
+- **The aftermath names the player, never the word** (`phoney-banner`,
+  `score-sheet-phoney`): the strip under the score bar says who lost the turn,
+  over a visibly untouched board; the sheet row is MARKED as well as worded (✗,
+  red, an explicit `0`), so a burned turn is findable by scanning. No word in
+  either frame.
 - Last-play score badge sits in an EMPTY cell beside its word — including a word
   that bridged committed letters — never on top of a tile, and follows the
   word's axis (right of an across play, below a down play). Tapping it expands

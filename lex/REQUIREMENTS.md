@@ -105,6 +105,11 @@ Functions: validation, notifications, forfeits).
 - **FR-33** Every word formed (main + cross-words) must be in the game's chosen
   dictionary or the play is rejected naming the offending word(s) — strict
   dictionary, no challenge mechanic in v1.
+- **FR-24c** A phoney is legible to the OPPONENT without opening anything: a
+  persistent strip under the score bar names the player and the cost until the
+  next move replaces it (tapping it opens the score sheet), and the score-sheet
+  row is marked — ✗, red, and an explicit 0 — not merely worded. Neither names
+  the word (FR-38).
 - **FR-33b** When the game's invalid-words rule is **Cost your turn**, the same
   verdict has a different consequence: the play is a **phoney** — it places
   nothing, scores nothing, and costs the turn (counting toward the scoreless

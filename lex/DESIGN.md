@@ -277,7 +277,13 @@ Firestore**. Consequences, designed once here and referenced everywhere:
   "log is the source of truth" property, split across a public and a private half.
 - **Exchanges are private.** The public move entry records only *how many* tiles
   were exchanged; which letters went back is server-private.
-- **Phoneys are private too** (§2.3), for exactly the same reason:
+- **Phoneys are ANNOUNCED but not spelled out.** A phoney changes nothing on
+  the board, so to the player arriving next it is indistinguishable from a pass
+  unless the app says so: the last play, when it was a phoney, carries a
+  persistent strip under the score bar naming the player and the cost, and the
+  turn is marked in the score sheet (✗, red, a zero) rather than merely worded.
+  Both name the player, never the word.
+- **The words themselves are private** (§2.3), for exactly the same reason:
   the letters of a refused play never reached the board — they are still sitting
   in the mover's rack. So the public move entry records `kind: 'phoney'` and
   nothing else: no placements, no words, no score, and the opponent's push says
