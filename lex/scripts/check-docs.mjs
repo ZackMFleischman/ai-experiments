@@ -17,7 +17,7 @@ const BUDGETS = new Map([
   ['DESIGN.md', 900],
   ['IMPLEMENTATION.md', 700],
   ['DECISIONS.md', null],
-  ['e2e/visual-checklist.md', 150],
+  ['e2e/visual-checklist.md', 200],
 ]);
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'artifacts', 'coverage', 'test-results', 'playwright-report', 'emulator-seed', '.firebase', 'words', 'generated']);

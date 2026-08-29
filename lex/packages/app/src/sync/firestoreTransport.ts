@@ -97,7 +97,11 @@ function winnerOf(
 
 interface MoveDocData {
   n: number;
-  kind: 'play' | 'exchange' | 'pass' | 'resign' | 'timeout';
+  /** 'phoney' = a play the dictionary refused in a 'costs-turn' game (§2.3).
+   * It carries no `play` payload — no placements, no score — only the WORDS it
+   * formed, which are public (§3.3); the rack behind them is not. */
+  kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
+  phoney?: { words: string[] };
   play?: {
     placements: Array<{ row: number; col: number; letter: string; isBlank: boolean }>;
     words: Array<{ word: string; score: number }>;
@@ -312,7 +316,11 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
     if (moves.length !== game.moveCount) return null;
     const lastMine = [...moves]
       .reverse()
-      .find((m) => m.by === this.uid && (m.kind === 'play' || m.kind === 'exchange' || m.kind === 'pass'));
+      .find(
+        (m) =>
+          m.by === this.uid &&
+          (m.kind === 'play' || m.kind === 'phoney' || m.kind === 'exchange' || m.kind === 'pass'),
+      );
     const expectedRackN = lastMine ? lastMine.n + 1 : 0;
     if (rack.n !== expectedRackN) return null;
 
@@ -331,8 +339,10 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       n: m.n,
       by: (seatByUid.get(m.by) ?? 0) as Seat,
       kind: m.kind,
-      word: m.play?.words[0]?.word ?? null,
-      words: m.play?.words ?? [],
+      // A phoney's words ride the same two fields a play's do, scored 0 — so
+      // the sheet and the last-play banner need no separate carrier.
+      word: m.play?.words[0]?.word ?? m.phoney?.words[0] ?? null,
+      words: m.play?.words ?? (m.phoney?.words ?? []).map((word) => ({ word, score: 0 })),
       score: m.play?.score ?? 0,
       ...(m.exchanged !== undefined ? { count: m.exchanged } : {}),
       cells: (m.play?.placements ?? []).map((p) => cellKey({ row: p.row, col: p.col })),
@@ -365,6 +375,10 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       options: {
         rulesetId: game.options.rulesetId,
         dictionaryId: game.options.dictionaryId,
+        // The per-game settings travel with every adoption: the controller
+        // replays the client's OWN moves through the engine, so it must apply
+        // them under the same rules the server did (§2.3).
+        invalidWords: game.options.invalidWords ?? 'blocked',
         bagOrder: canonicalBagOrder(game.options.rulesetId),
         // The real seat count, from the deal itself — 2, 3 or 4.
         seats: pub.rackCounts.length,

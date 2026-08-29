@@ -11,6 +11,7 @@ import type {
   GameState,
   Letter,
   PlacedTile,
+  MoveOptions,
   PlayCheck,
   Ruleset,
   Seat,
@@ -24,6 +25,7 @@ import {
   checkPlay,
   deserializeState,
   initialState,
+  rejectedWords,
   result,
   scorePlay,
 } from '@lex/engine';
@@ -41,7 +43,12 @@ export interface PendingTile {
 export interface PreviewWord {
   word: string;
   score: number;
-  valid: boolean;
+  /** The dictionary verdict — or `null` when the game WITHHOLDS it. A game
+   * whose invalid words cost the turn (DESIGN §2.3) is exactly that
+   * withholding: the verdict still exists, the player just doesn't get it
+   * until they commit. Deliberately not `false`, so no surface can mistake
+   * "not told" for "rejected". */
+  valid: boolean | null;
   cells: readonly Cell[];
 }
 
@@ -78,7 +85,10 @@ export type GameEnd =
 
 export interface LastPlay {
   by: Seat;
-  kind: 'play' | 'exchange' | 'pass';
+  /** 'phoney' = a play the dictionary refused where that costs the turn
+   * (§2.3): the turn is spent, nothing reached the board, so `cells`/`words`
+   * stay empty. */
+  kind: 'play' | 'phoney' | 'exchange' | 'pass';
   cells: readonly CellKey[];
   words: readonly WordScore[];
   total: number;
@@ -93,7 +103,7 @@ export interface LastPlay {
 export interface SheetRow {
   n: number;
   by: Seat;
-  kind: 'play' | 'exchange' | 'pass' | 'resign' | 'timeout';
+  kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
   word: string | null; // main word of a play
   words: readonly WordScore[];
   score: number;
@@ -157,6 +167,10 @@ export interface Snapshot {
   beat?: { cells: readonly CellKey[] };
   overlayOpen: boolean;
   notice?: { id: number; text: string };
+  /** The play just committed was a phoney (§2.3). Raised for the MOVER at the
+   * moment they commit (never on replay or resume), so the turn they just lost
+   * is told to them once, in full, before the device moves on. */
+  phoney?: { id: number; words: readonly string[] };
 }
 
 interface SessionState {
@@ -240,6 +254,7 @@ export class GameController {
   private overlayDismissed = false;
   private noticeSeq = 0;
   private notice: { id: number; text: string } | undefined;
+  private phoney: { id: number; words: readonly string[] } | undefined;
 
   constructor(
     transport: GameTransport<HotSeatOptions, LexEntry>,
@@ -261,6 +276,8 @@ export class GameController {
           // The rolled-back state has the pre-submit object identity — force
           // the lazy rack sync to rebuild slots from the engine rack.
           this.syncedGame = null;
+          // The move never happened, so neither did the lost turn.
+          this.phoney = undefined;
           this.notice = { id: ++this.noticeSeq, text: 'Move rejected — undone.' };
           this.emit();
         },
@@ -291,6 +308,7 @@ export class GameController {
     this.view = null;
     this.beatDone = false;
     this.overlayDismissed = false;
+    this.phoney = undefined;
     this.emit();
   }
 
@@ -306,6 +324,18 @@ export class GameController {
     const ruleset = RULESETS[options.rulesetId];
     if (!ruleset) throw new Error(`unknown ruleset '${options.rulesetId}'`);
     return ruleset;
+  }
+
+  /** Does an invalid word cost the turn in this game (§2.3)? Read from the
+   * SESSION's options, not the defaults — a resumed or synced game brings its
+   * own. */
+  private invalidWordsCostTurn(): boolean {
+    return this.currentOptions().invalidWords === 'costs-turn';
+  }
+
+  /** The per-game settings every applyMove in this class must be handed. */
+  private moveOptions(): MoveOptions {
+    return { invalidWords: this.currentOptions().invalidWords ?? 'blocked' };
   }
 
   private applyEntry(state: SessionState, entry: LexEntry): SessionState {
@@ -345,7 +375,29 @@ export class GameController {
         return this.adoptSync(entry);
       case 'play': {
         const score = scorePlay(state.game.board, entry.placements, ruleset);
-        const game = applyMove(state.game, { type: 'play', placements: entry.placements }, this.dict);
+        const game = applyMove(
+          state.game,
+          { type: 'play', placements: entry.placements },
+          this.dict,
+          this.moveOptions(),
+        );
+        // 'costs-turn': the engine turned this play into a phoney rather than
+        // throwing. Re-asking the dictionary is how we learn which — the same
+        // verdict applyMove just reached, over the same words, so replay of the
+        // same log always classifies the row the same way.
+        const bad = this.invalidWordsCostTurn() ? rejectedWords(score.words, this.dict) : [];
+        if (bad.length > 0) {
+          // The tiles never left the rack, so nextMyRack consumes nothing.
+          // No cells — a phoney leaves the board untouched — but the words it
+          // formed ARE kept and shown to both players (§3.3). They score 0.
+          const refused = bad.map((word) => ({ word, score: 0, cells: [] }));
+          return {
+            ...state,
+            game,
+            lastPlay: { by, kind: 'phoney', cells: [], words: refused, total: 0 },
+            sheet: row({ by, kind: 'phoney', word: bad[0] ?? null, words: refused, score: 0, cells: [] }),
+          };
+        }
         return {
           ...state,
           ...nextMyRack(entry.placements.map((p) => (p.isBlank ? '?' : p.letter))),
@@ -368,7 +420,7 @@ export class GameController {
         };
       }
       case 'exchange': {
-        const game = applyMove(state.game, { type: 'exchange', tiles: entry.tiles }, this.dict);
+        const game = applyMove(state.game, { type: 'exchange', tiles: entry.tiles }, this.dict, this.moveOptions());
         // The engine appended the returned tiles deterministically; the entry
         // pins the edge-shuffled remainder (same multiset, new order).
         const sameBag =
@@ -392,7 +444,7 @@ export class GameController {
         };
       }
       case 'pass': {
-        const game = applyMove(state.game, { type: 'pass' }, this.dict);
+        const game = applyMove(state.game, { type: 'pass' }, this.dict, this.moveOptions());
         return {
           ...state,
           game,
@@ -437,11 +489,11 @@ export class GameController {
     });
     const lastMove = [...entry.rows]
       .reverse()
-      .find((r) => r.kind === 'play' || r.kind === 'exchange' || r.kind === 'pass');
+      .find((r) => r.kind === 'play' || r.kind === 'phoney' || r.kind === 'exchange' || r.kind === 'pass');
     const lastPlay: LastPlay | undefined = lastMove
       ? {
           by: lastMove.by,
-          kind: lastMove.kind as 'play' | 'exchange' | 'pass',
+          kind: lastMove.kind as 'play' | 'phoney' | 'exchange' | 'pass',
           cells: lastMove.cells,
           words: lastMove.words.map((w) => ({ ...w, cells: [] })),
           total: lastMove.score,
@@ -594,6 +646,7 @@ export class GameController {
         : {}),
       overlayOpen: !!end && (this.beatDone || end.by === 'resign' || end.by === 'timeout') && !this.overlayDismissed,
       ...(this.notice ? { notice: this.notice } : {}),
+      ...(this.phoney ? { phoney: this.phoney } : {}),
     };
   }
 
@@ -720,20 +773,45 @@ export class GameController {
     // opponent, but the staged tiles — and the rack to check them against — are
     // mine. On-turn actingSeat === game.toMove, so behavior is unchanged.
     const rack = game.racks[this.actingSeat()] ?? [];
+    // The whole point of 'costs-turn': stage 3 of the pipeline is NOT run for
+    // the preview, so nothing downstream can leak a verdict the player is
+    // supposed to be guessing at. Geometry and scoring are still shown — you
+    // always knew where the tiles go and what they'd be worth.
+    const withheld = this.invalidWordsCostTurn();
     const check = checkPlay(game.board, rack, placements, ruleset);
     if (!check.ok) {
-      return { check, words: [], total: 0, bingo: false, needsBlank, playable: false };
+      return {
+        check,
+        words: [],
+        total: 0,
+        bingo: false,
+        needsBlank,
+        playable: false,
+      };
     }
     const score = scorePlay(game.board, placements, ruleset);
     const words: PreviewWord[] = score.words.map((w) => ({
       word: w.word,
       score: w.score,
-      valid: this.dict.has(w.word),
+      valid: withheld ? null : this.dict.has(w.word),
       cells: w.cells,
     }));
     const playable =
-      !ended && !needsBlank && this.interactive() && words.every((w) => w.valid) && words.length > 0;
-    return { check, words, total: score.total, bingo: score.bingo, needsBlank, playable };
+      !ended &&
+      !needsBlank &&
+      this.interactive() &&
+      words.length > 0 &&
+      // Withheld ⇒ Play is live for any legal geometry; that is what makes the
+      // commit a gamble rather than a confirmation.
+      (withheld || words.every((w) => w.valid === true));
+    return {
+      check,
+      words,
+      total: score.total,
+      bingo: score.bingo,
+      needsBlank,
+      playable,
+    };
   }
 
   // ── tap-tap selection (DESIGN §7.2) ────────────────────────────────────────
@@ -879,8 +957,24 @@ export class GameController {
         isBlank: p.isBlank,
       };
     });
+    // The verdict the preview withheld is due NOW. Raised here — the one place
+    // that is a deliberate commit by this player — rather than in applyEntry,
+    // so resuming a stored game or adopting a server snapshot never
+    // re-announces a turn lost long ago.
+    if (this.invalidWordsCostTurn()) {
+      const bad = snap.preview.words.filter((w) => !this.dict.has(w.word)).map((w) => w.word);
+      if (bad.length > 0) this.phoney = { id: ++this.noticeSeq, words: bad };
+    }
     this.pending.clear();
     this.session.submit({ kind: 'play', placements }, 'rollback');
+  }
+
+  /** The mover read the bad news: drop the beat and let the game move on
+   * (in hot-seat, the pass-device interstitial is waiting behind it). */
+  dismissPhoney(): void {
+    if (!this.phoney) return;
+    this.phoney = undefined;
+    this.emit();
   }
 
   pass(): void {
@@ -933,7 +1027,7 @@ export class GameController {
     // Edge randomness: the engine's deterministic append is re-shuffled here
     // and the result pinned in the entry so replay is exact (DESIGN §3.3).
     const s = this.sessionState();
-    const after = applyMove(s.game, { type: 'exchange', tiles }, this.dict);
+    const after = applyMove(s.game, { type: 'exchange', tiles }, this.dict, this.moveOptions());
     const bagAfter = shuffled(after.bag, this.rng);
     this.session.submit({ kind: 'exchange', tiles, bagAfter }, 'rollback');
   }
