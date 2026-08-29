@@ -1,24 +1,14 @@
 // ported from hive/packages/app/src/screens/newGameView.tsx (adapted)
-// New-game presentation (T4.7 + T7.15, DESIGN §7.1, FR-6..9): how many players
+// New-game presentation (T4.7 + T7.15, DESIGN §7.1, FR-6..9b): how many players
 // (the SELECTED ruleset's `players` range — never a hard-coded 2–4), who to
 // invite (one opponent at two seats, as many as you like at three or four),
-// BOARD picker with a mini premium-map preview (a board that cannot seat the
-// chosen count is disabled with its reason, not hidden), DICTIONARY picker
-// labeled with word counts, turn order (the shared TurnOrderPicker), async
+// then the per-game option pickers shared with the hot-seat setup screen
+// (board — which dims and disables a board that cannot seat the chosen count,
+// dictionary, invalid words), turn order (the shared TurnOrderPicker), async
 // time control and the pace of a round at this table size; then the
 // invite-link view. Firebase-free — sync/NewGameFlow drives it.
-import {
-  Button,
-  Card,
-  CardActionArea,
-  Chip,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
+import { Button, Chip, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { RULESETS, type Ruleset } from '@lex/engine';
-import { DICTIONARIES } from '@lex/dict';
 import {
   friendsFrom,
   InviteLinkView,
@@ -27,13 +17,17 @@ import {
   type TurnOrderChoice,
 } from '@parlor/web/lobby-ui';
 import { useState } from 'react';
-import { MiniBoard } from '../board/MiniBoard';
 import {
-  boardName,
+  BoardPicker,
+  DictionaryPicker,
+  InvalidWordsPicker,
+  OptionSection,
+} from './optionPickers';
+import {
   clampCount,
   paceLine,
   seatCounts,
-  seats,
+  type InvalidWordRule,
   type LexGameOptions,
   type SeatChoice,
   type SeatRange,
@@ -61,9 +55,6 @@ const DEFAULT_BOARD = 'classic';
 const DEFAULT_DICTIONARY = 'nwl2023'; // the official North American tournament list
 const DEFAULT_DAYS: TimeControlDays = 3;
 
-const rangeLabel = (range: SeatRange): string =>
-  range.min === range.max ? `${range.min} players` : `${range.min}–${range.max} players`;
-
 export function NewGameForm({
   onCreate,
   busy = false,
@@ -84,6 +75,7 @@ export function NewGameForm({
 }) {
   const [rulesetId, setRulesetId] = useState(DEFAULT_BOARD);
   const [dictionaryId, setDictionaryId] = useState(DEFAULT_DICTIONARY);
+  const [invalidWords, setInvalidWords] = useState<InvalidWordRule>('blocked');
   const [seat, setSeat] = useState<SeatChoice>('random');
   const [order, setOrder] = useState<TurnOrderChoice>({ mode: 'random' });
   const [days, setDays] = useState<TimeControlDays>(DEFAULT_DAYS);
@@ -177,89 +169,9 @@ export function NewGameForm({
           </Typography>
         </Stack>
       )}
-      <Stack spacing={1}>
-        <Typography variant="overline" color="text.secondary">
-          Board
-        </Typography>
-        <Stack direction="row" spacing={1.5}>
-          {Object.entries(rulesets).map(([id, ruleset]) => {
-            const fits = seats(ruleset.players, players);
-            return (
-              <Card
-                key={id}
-                variant="outlined"
-                sx={{
-                  flex: 1,
-                  opacity: fits ? 1 : 0.5,
-                  borderColor: rulesetId === id ? 'primary.main' : 'divider',
-                  borderWidth: rulesetId === id ? 2 : 1,
-                }}
-              >
-                <CardActionArea
-                  onClick={() => setRulesetId(id)}
-                  disabled={!fits}
-                  data-testid={`board-${id}`}
-                  aria-pressed={rulesetId === id}
-                  sx={{ p: 1.25 }}
-                >
-                  <Stack spacing={1} alignItems="center">
-                    <MiniBoard rulesetId={id} size={96} />
-                    <Typography variant="body2" fontWeight={600}>
-                      {boardName(id)}
-                    </Typography>
-                    {/* Disabled, not hidden: the board still exists, it just
-                        cannot deal this many racks — say which count it takes. */}
-                    {!fits && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        align="center"
-                        data-testid={`board-${id}-unavailable`}
-                      >
-                        Takes {rangeLabel(ruleset.players)}
-                      </Typography>
-                    )}
-                  </Stack>
-                </CardActionArea>
-              </Card>
-            );
-          })}
-        </Stack>
-      </Stack>
-      <Stack spacing={1}>
-        <Typography variant="overline" color="text.secondary">
-          Dictionary
-        </Typography>
-        <Stack spacing={1}>
-          {DICTIONARIES.map((d) => (
-            <Card
-              key={d.id}
-              variant="outlined"
-              sx={{
-                borderColor: dictionaryId === d.id ? 'primary.main' : 'divider',
-                borderWidth: dictionaryId === d.id ? 2 : 1,
-              }}
-            >
-              <CardActionArea
-                onClick={() => setDictionaryId(d.id)}
-                data-testid={`dictionary-${d.id}`}
-                aria-pressed={dictionaryId === d.id}
-                sx={{ p: 1.25 }}
-              >
-                <Stack direction="row" spacing={1} alignItems="baseline">
-                  <Typography fontWeight={600}>{d.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {Math.round(d.wordCount / 1000)}k words
-                  </Typography>
-                </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  {d.description}
-                </Typography>
-              </CardActionArea>
-            </Card>
-          ))}
-        </Stack>
-      </Stack>
+      <BoardPicker value={rulesetId} onChange={setRulesetId} players={players} rulesets={rulesets} />
+      <DictionaryPicker value={dictionaryId} onChange={setDictionaryId} />
+      <InvalidWordsPicker value={invalidWords} onChange={setInvalidWords} />
       <Stack spacing={1}>
         <Typography variant="overline" color="text.secondary">
           Who goes first
@@ -318,6 +230,7 @@ export function NewGameForm({
             options: {
               rulesetId,
               dictionaryId,
+              invalidWords,
               timeControl: days === null ? null : { days },
               // Absent at two seats: the wire shape stays byte-for-byte what
               // every game shipped before M7.
