@@ -24,8 +24,9 @@ task says **[port: hive path]**, start from that file.
 - `@lex/engine`, `@lex/dict`, and `@parlor/core` stay zero-dependency, pure
   TS, deterministic (no Date.now/random; the bag order is an input).
 - **Privacy is a security invariant:** rack letters and bag contents never appear
-  in public docs, logs, pushes, or client-visible errors. Exchange entries carry a
-  count only. Rules tests must cover the negative cases.
+  in public docs, logs, pushes, or errors; exchanges carry a count only. The one
+  exception: a phoney publishes the words its play formed (DESIGN §3.3) — not its
+  placements, score, or rack. Rules tests cover the negatives.
 - No game dimension hard-coded outside the `classic` ruleset data: board size,
   premiums, tile counts/points, rack size, bonuses all come from the `Ruleset`.
 - The shared platform is the sibling repo-root workspace `../parlor/`

@@ -1,32 +1,52 @@
 # Visual review checklist — lex/
 
-Reviewed against every `validate:visual` / `validate:ux` capture (IMPLEMENTATION §0.2.5).
-Per-screen sections grow as screens land; global items first. Accepted deviations
-are logged at the bottom with date + reason, and deleted when fixed.
+Reviewed against every `validate:visual` / `validate:ux` capture (IMPLEMENTATION
+§0.2.5). Per-screen sections grow as screens land; global items first. Accepted
+deviations are logged at the bottom with date + reason, deleted when fixed.
 
 ## Global
 
-- Tile letters and point indexes legible at placement zoom on the phone viewport;
-  at fit-view the board reads as orientation (word shapes visible), not mush.
-- Premium squares distinguishable in light **and** dark and across tile skins;
-  DL/TL/DW/TW text labels present so color is never the only signal.
+- Tile letters and point indexes legible at placement zoom on phone; at fit-view
+  the board reads as orientation (word shapes visible), not mush.
+- Premium squares distinguishable in light **and** dark across tile skins, with
+  DL/TL/DW/TW labels so color is never the only signal.
 - **Pending vs committed tiles** unmistakable in both themes (lift + gold edge);
   pending tiles never look submitted.
 - Preview card (one row per word + score + ✓/✗, bingo line, total) readable at
-  every zoom, never occluding the pending word or the rack, and fully on screen
-  — including the eight-row bingo case. It is click-through apart from its grip
-  (a tap lands on the cell beneath it); the geometry hint has no grip. Its
-  parked position survives a pan/zoom.
+  every zoom, never occluding the pending word or the rack, fully on screen
+  including the eight-row bingo case. Click-through apart from its grip (a tap
+  lands on the cell beneath); the geometry hint has no grip; its parked position
+  survives a pan/zoom.
 - A word that failed the dictionary reads as a blocked play from across the
   board in both themes: red card border, struck-through total, that row filled
-  red, its cells ringed dashed red — and the valid card next to it stays calm
-  (no red anywhere). The card says it in color, never in a sentence.
+  red, cells ringed dashed red — and the valid card beside it stays calm. The
+  card says it in color, never in a sentence.
+- **A "Cost your turn" game gives NOTHING away** (`pending-words-unchecked`,
+  staging a word the dictionary refuses): no ✓, no ✗, nothing standing in for a
+  mark, no red on card or board, total not struck through, Play plainly enabled
+  — each row just the word and its score. The capture must be indistinguishable
+  from the same staging with a valid word except for the missing mark; if a
+  reviewer can tell which word is bad, the feature is broken.
+- **Phoney beat** (`phoney-beat`): the refused word dominates the dialog, the
+  cost is a sentence, the board behind is unchanged, no mode name appears. Both
+  themes at 390×844. In hot-seat it sits ON TOP of the pass-device interstitial
+  — no rack readable in the frame, before or after dismissal.
+- **The aftermath names who, what and the cost** (`phoney-banner`,
+  `score-sheet-phoney`): the strip reads "<name> tried to play the invalid word
+  “X” — turn lost" over a visibly untouched board, wrapping to at most two lines
+  at 390px without crowding the score bar; the sheet row is MARKED as well as
+  worded (✗, red, an explicit `0`), so a burned turn is findable by scanning.
 - Last-play score badge sits in an EMPTY cell beside its word — including a word
   that bridged committed letters — never on top of a tile, and follows the
   word's axis (right of an across play, below a down play). Tapping it expands
   the per-word breakdown; the popover is readable in both themes and clears the
   board on dismiss. A tap on the board tucks the badge away (the green
   highlight stays put); another tap brings it back.
+- The two creation forms (`new-game`, `hotseat-setup`) render the shared option
+  pickers identically — same section rhythm, same board previews, same
+  invalid-words toggle and blurb. Hot-seat shows no turn-order or clock section
+  (one device honours neither); differences beyond that mean the pickers have
+  drifted apart.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.
@@ -92,22 +112,20 @@ are logged at the bottom with date + reason, and deleted when fixed.
 ## Notifications (T5.2)
 
 - iOS coach mark: share-icon + copy legible both themes; dismiss target ≥ 44px.
-- Enable-notifications banner appears only in full mode with permission
-  undecided (unit-gated; not in the static gallery).
+- Enable-notifications banner only in full mode with permission undecided
+  (unit-gated; not in the static gallery).
 
 ## Polish (T6.2)
 
 - Rejected-move toast (notice-toast entry): filled error alert, top-center,
   legible over the board in both themes; dismiss target present.
-- Lobby empty state: tile motif + headline + invite copy centered; tiles render
-  in the active skin/theme.
-- Negative scores everywhere (score bar, result overlay) use the typographic
-  minus (−), never hyphen-minus.
-- Action row fits one line at 390×844: Recall/Exchange/Pass are a compact
-  icon-button cluster (≥44px targets) on the left; Play is the prominent
-  contained CTA pinned to the right ("thumb corner"), clearly separated by a
-  spacer so it never sits adjacent to a secondary action; Resign is only in the
-  ⋯ overflow menu (never in the CTA slot).
+- Lobby empty state: tile motif + headline + invite copy centered, tiles in the
+  active skin/theme. Negative scores (score bar, result overlay) use the
+  typographic minus (−), never hyphen-minus.
+- Action row fits one line at 390×844: Recall/Exchange/Pass a compact
+  icon-button cluster (≥44px targets) on the left; Play the contained CTA pinned
+  right ("thumb corner"), spacer-separated so it never abuts a secondary action;
+  Resign only in the ⋯ overflow, never in the CTA slot.
 
 ## Tile skins & Settings (T6.1)
 
@@ -124,12 +142,8 @@ are logged at the bottom with date + reason, and deleted when fixed.
 
 ## Accepted deviations
 
-- **2026-08-05 — the preview card's drag grip is 26×28, not 44×44.** Every
-  pixel of the grip is a board cell the player cannot tap (the rest of the card
-  is click-through precisely so taps reach the board), so the usual target size
-  would trade the bug we just fixed for a smaller version of itself. A missed
-  grab is harmless — it falls through to the board. Revisit if real-device use
-  shows grabs failing.
-
-(The ~41px rack-slot deviation closed when the tray shed its side column
-reserve: slots now hit ~45px at 390px and cap at 52px.)
+- **2026-08-05 — the preview card's drag grip is 26×28, not 44×44.** Every pixel
+  of the grip is a board cell the player cannot tap (the rest of the card is
+  click-through so taps reach the board), so the usual target size would trade
+  the bug just fixed for a smaller one. A missed grab falls through to the
+  board. Revisit if real-device use shows grabs failing.
