@@ -7,7 +7,7 @@
 // defined by what the screen must NOT reveal, so each one pins a specific
 // leak that would give the answer away early (a ✗, a red row, a ringed cell,
 // a disabled Play button, a word in the shared score sheet).
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { RULESETS } from '@lex/engine';
 import type { InvalidWordRule, TileFace } from '@lex/engine';
@@ -17,6 +17,7 @@ import { riggedBagOrder, stubDict } from '../../engine/test/helpers';
 import { GameBoard } from '../src/board/GameBoard';
 import type { HotSeatOptions, LexEntry } from '../src/controller/entries';
 import { GameController } from '../src/controller/GameController';
+import { invalidWordList } from '../src/gameOptions';
 import { HotSeatGame } from '../src/game/HotSeatGame';
 
 const classic = RULESETS['classic']!;
@@ -145,7 +146,7 @@ describe("invalidWords 'costs-turn': committing a phoney costs the turn", () => 
     expect(controller.getSnapshot().phoney).toBeUndefined();
   });
 
-  it('records the lost turn in the score sheet WITHOUT the word (privacy)', async () => {
+  it('records the lost turn in the score sheet, naming the word tried', async () => {
     const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
     stageCats(controller);
     act(() => controller.submitPlay());
@@ -153,11 +154,68 @@ describe("invalidWords 'costs-turn': committing a phoney costs the turn", () => 
     const [row] = controller.getSnapshot().sheet;
     expect(row?.kind).toBe('phoney');
     expect(row?.score).toBe(0);
-    expect(row?.word).toBeNull();
-    expect(row?.words).toEqual([]);
-    // The sheet is the one surface BOTH players read: it must not carry the
-    // attempted letters, which are still in the mover's rack.
-    expect(JSON.stringify(controller.getSnapshot().sheet)).not.toContain('CATS');
+    // The words a refused play FORMED are public (§3.3) — scored 0, with no
+    // cells, because nothing reached the board.
+    expect(row?.word).toBe('CATS');
+    expect(row?.words).toEqual([{ word: 'CATS', score: 0, cells: [] }]);
+  });
+});
+
+// A phoney changes nothing on the board, so without these two surfaces the
+// player who arrives next cannot tell it from a pass.
+describe('a phoney is legible to the OPPONENT', () => {
+  it('leaves a banner naming the player, the word tried, and the cost', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    fireEvent.click(screen.getByTestId('phoney-dismiss'));
+
+    const banner = screen.getByTestId('phoney-banner');
+    expect(banner.textContent).toBe(
+      'Player 1 tried to play the invalid word “CATS” — turn lost',
+    );
+  });
+
+  it('phrases one word and several the same way the push does', () => {
+    // Pinned literally against the server's phoneyCopy (functions/notify test)
+    // — the two packages cannot share code, so they share a spelling instead.
+    expect(invalidWordList(['QUIZZ'])).toBe('the invalid word “QUIZZ”');
+    expect(invalidWordList(['QUIZZ', 'ZA'])).toBe('the invalid words “QUIZZ” and “ZA”');
+    expect(invalidWordList(['A', 'B', 'C'])).toBe('the invalid words “A”, “B” and “C”');
+  });
+
+  it('the banner yields once the next player starts staging', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    fireEvent.click(screen.getByTestId('phoney-dismiss'));
+    expect(screen.getByTestId('phoney-banner')).toBeTruthy();
+
+    act(() => controller.placeAt({ row: 7, col: 7 }, 0));
+    expect(screen.queryByTestId('phoney-banner')).toBeNull();
+    act(() => controller.recallAll());
+    expect(screen.getByTestId('phoney-banner')).toBeTruthy();
+  });
+
+  it('no banner after an ordinary play', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn' });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    expect(screen.queryByTestId('phoney-banner')).toBeNull();
+  });
+
+  it('marks the turn in the score sheet: ✗, red, and a zero', async () => {
+    const { controller } = await setup({ invalidWords: 'costs-turn', rejects: ['CATS'] });
+    stageCats(controller);
+    act(() => controller.submitPlay());
+    fireEvent.click(screen.getByTestId('phoney-dismiss'));
+    fireEvent.click(screen.getByTestId('phoney-banner'));
+
+    const row = screen.getByTestId('sheet-row');
+    expect(row.getAttribute('data-kind')).toBe('phoney');
+    expect(within(row).getByTestId('sheet-phoney-mark')).toBeTruthy();
+    expect(row.textContent).toContain('Tried the invalid word “CATS”');
+    expect(row.textContent).toContain('0');
   });
 
   it('a good play scores normally and raises no beat', async () => {

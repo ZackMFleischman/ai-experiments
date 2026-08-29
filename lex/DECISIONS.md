@@ -457,3 +457,28 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   unedited; 3+ coverage lands in a new `room.spec.ts`. The one accepted 2-player
   change is the **winner-first result overlay** (today it lists seats in seat order;
   a victory screen should read winner-first, and `ResultOverlay` is not shared).
+
+- **2026-08-28 — A phoney is announced on the board surface, not just logged
+  (Zack).** Shipped with the opponent learning only via a push and a row inside
+  the score-sheet drawer — and since a phoney leaves the board untouched, a
+  player opening the game saw nothing at all and could not tell it from a pass.
+  Two surfaces now: a persistent strip under the score bar naming the player and
+  the cost (tap to open the sheet, replaced by the next move, hidden while tiles
+  are staged), and the sheet row marked ✗/red/0 rather than merely worded.
+  Neither names the word — that half of the privacy call stands: the letters are
+  still in the mover's rack and both surfaces are on both players' screens. If
+  the word should be revealed too, that is a deliberate loosening of the §3.3
+  invariant and wants its own decision.
+
+- **2026-08-28 — A phoney names the word; the rack behind it stays secret
+  (Zack).** Reverses the privacy half of the 08-24 entry, which withheld the
+  refused words from every shared surface. Zack's call: the banner, the score
+  sheet and the opponent's push all read "<name> tried to play the invalid word
+  “QUIZZ” — turn lost". This is what an over-the-board challenge does — a phoney
+  is shown before it is withdrawn — and without it the opponent could not tell a
+  lost turn from a pass, since a phoney leaves the board untouched. The bound
+  that keeps §3.3 true: only the words the play FORMED are published, never the
+  placements, the score, or the rest of the rack. A formed word can span tiles
+  already on the board, so it discloses at most the tiles that word consumed.
+  `moves/{n}` gains `phoney.words`; CLAUDE.md's hard rule now names this as its
+  one sanctioned exception rather than being silently contradicted by the code.

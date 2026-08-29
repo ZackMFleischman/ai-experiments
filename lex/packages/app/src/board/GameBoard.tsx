@@ -31,6 +31,7 @@ import { useSkinId } from './skinContext';
 import { useConfirmPlay } from '../game/confirmPlayContext';
 import { GameInfoDialog } from '../game/GameInfoDialog';
 import { NoticeToast } from '../game/NoticeToast';
+import { PhoneyBanner } from '../game/PhoneyBanner';
 import { PhoneyBeat } from '../game/PhoneyBeat';
 import { Tile } from './Tile';
 
@@ -443,6 +444,16 @@ export function GameBoard({
         {...(deadlineAtMs !== undefined && !snap.end ? { deadlineAtMs } : {})}
       />
       <NoticeToast notice={snap.notice} />
+      {/* A phoney leaves the board untouched, so without this the next player
+          sees nothing at all. Hidden once tiles are staged — by then they are
+          reading their own turn, not the last one. */}
+      {snap.lastPlay?.kind === 'phoney' && snap.pending.size === 0 && (
+        <PhoneyBanner
+          name={seatNames[snap.lastPlay.by] ?? `Player ${snap.lastPlay.by + 1}`}
+          words={snap.lastPlay.words.map((w) => w.word)}
+          onOpenSheet={() => setSheetOpen(true)}
+        />
+      )}
       <GameInfoDialog
         open={infoOpen}
         onClose={() => setInfoOpen(false)}

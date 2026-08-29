@@ -105,12 +105,19 @@ Functions: validation, notifications, forfeits).
 - **FR-33** Every word formed (main + cross-words) must be in the game's chosen
   dictionary or the play is rejected naming the offending word(s) — strict
   dictionary, no challenge mechanic in v1.
+- **FR-24c** A phoney is legible to the OPPONENT without opening anything: a
+  persistent strip under the score bar until the next move replaces it (tapping
+  it opens the score sheet), plus a score-sheet row marked ✗/red/0 rather than
+  merely worded. Both name the player, **the words that were tried**, and the
+  cost — as does the opponent's push — in one shared phrasing:
+  *"Sam tried to play the invalid word “QUIZZ” — turn lost"*.
 - **FR-33b** When the game's invalid-words rule is **Cost your turn**, the same
   verdict has a different consequence: the play is a **phoney** — it places
   nothing, scores nothing, and costs the turn (counting toward the scoreless
   run, FR-35). Geometry and rack legality are unaffected; those plays are still
-  rejected outright. The public move log records that a turn was spent, never on
-  which letters (FR-38).
+  rejected outright. The public move log records the turn and the **words the
+  play formed** — never the placements, the score, or the rest of the rack, so
+  FR-38 still holds for the hand behind them.
 - **FR-34** Scoring: letter premiums on newly placed tiles only; word premiums
   stack multiplicatively; premiums never re-count; cross-words score; placing
   all 7 tiles is a bingo (+50).

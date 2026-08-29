@@ -60,3 +60,18 @@ export const INVALID_WORDS_BLURBS: Readonly<Record<InvalidWordRule, string>> = {
 export function invalidWordsLabel(rule: InvalidWordRule): string {
   return INVALID_WORDS_LABELS[rule] ?? rule;
 }
+
+/** `the invalid word “X”` / `the invalid words “X” and “Y”`. The words a
+ * refused play formed are public (DESIGN §3.3) — this is the one phrasing for
+ * them, so the banner and the score sheet name them identically. The server
+ * builds the same sentence for the push from its own package (it cannot import
+ * this one); both sides pin the exact string in their tests, so a change to one
+ * that is not mirrored in the other shows up as a diff. */
+export function invalidWordList(words: readonly string[]): string {
+  const quoted = words.map((w) => `“${w}”`);
+  const list =
+    quoted.length <= 1
+      ? (quoted[0] ?? '')
+      : `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
+  return `the invalid word${words.length === 1 ? '' : 's'} ${list}`;
+}
