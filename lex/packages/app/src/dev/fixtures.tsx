@@ -3,7 +3,7 @@
 // pinned GCG fixtures. Deterministic: rigged bags, fixed rng, no clocks.
 import { Box, CircularProgress } from '@mui/material';
 import { RULESETS, applyMove, initialState, parseGcg, serializePublic, withdraw } from '@lex/engine';
-import type { GameState, Seat, TileFace } from '@lex/engine';
+import type { GameState, InvalidWordRule, Seat, TileFace } from '@lex/engine';
 import { LocalTransport } from '@parlor/core';
 import { useEffect, useState, type ReactNode } from 'react';
 import { canonicalBagOrder, riggedBagOrder, stubDict } from '../../../engine/test/helpers';
@@ -21,12 +21,16 @@ export interface GameFixture {
 export const P0_RACK: TileFace[] = ['C', 'A', 'T', 'S', '?', 'E', 'R'];
 export const P1_RACK: TileFace[] = ['D', 'O', 'G', 'L', 'I', 'P', 'U'];
 
-export function freshOptions(rulesetId = 'classic'): HotSeatOptions {
+export function freshOptions(
+  rulesetId = 'classic',
+  invalidWords: InvalidWordRule = 'blocked',
+): HotSeatOptions {
   const ruleset = RULESETS[rulesetId];
   if (!ruleset) throw new Error(`unknown ruleset '${rulesetId}'`);
   return {
     rulesetId,
     dictionaryId: 'stub',
+    invalidWords,
     bagOrder: riggedBagOrder(ruleset, [P0_RACK, P1_RACK]),
     seats: 2,
   };
@@ -69,8 +73,13 @@ export async function fixtureController(
   setup?: (controller: GameController) => void | Promise<void>,
   rejectWords: readonly string[] = [],
   extraEntries: readonly LexEntry[] = [],
+  /** 'costs-turn' (§2.3): the preview withholds every dictionary verdict, and
+   * a committed phoney raises the beat instead of being refused. */
+  invalidWords: InvalidWordRule = 'blocked',
 ): Promise<GameController> {
-  const { options, log } = fixture ? storedLog(fixture) : { options: freshOptions(), log: [] };
+  const base = fixture ? storedLog(fixture) : { options: freshOptions(), log: [] };
+  const { log } = base;
+  const options: HotSeatOptions = { ...base.options, invalidWords };
   log.push(...extraEntries);
   const transport = new LocalTransport<HotSeatOptions, LexEntry>(options);
   for (let i = 0; i < log.length; i++) await transport.submit(log[i]!, i);
