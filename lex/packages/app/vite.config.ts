@@ -65,7 +65,7 @@ export default defineConfig({
       manifest: {
         name: 'LEX',
         short_name: 'LEX',
-        description: 'A crossword tile game for two.',
+        description: 'A crossword tile game for two to four.',
         theme_color: '#0d7a5f',
         background_color: '#efe9dc',
         display: 'standalone',
