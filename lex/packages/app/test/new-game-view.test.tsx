@@ -15,19 +15,40 @@ function create(overrides?: { friends?: Array<{ uid: string; name: string }> }):
     onCreate,
     submit: () => {
       fireEvent.click(screen.getByTestId('create-game'));
-      return onCreate.mock.calls[0]?.[0] as NewGameChoices;
+      // The LATEST call, not the first: a test that changes a pick and
+      // re-submits must read what it just submitted.
+      return onCreate.mock.calls.at(-1)?.[0] as NewGameChoices;
     },
   };
 }
 
 describe('NewGameForm', () => {
-  it('defaults: classic board, NWL2023 dictionary, random first, 3 days', () => {
+  it('defaults: classic board, NWL2023 dictionary, random first, 3 days, invalid words blocked', () => {
     const { submit } = create();
     expect(submit()).toEqual({
-      options: { rulesetId: 'classic', dictionaryId: 'nwl2023', timeControl: { days: 3 } },
+      options: {
+        rulesetId: 'classic',
+        dictionaryId: 'nwl2023',
+        timeControl: { days: 3 },
+        invalidWords: 'blocked',
+      },
       seat: 'random',
       opponent: null,
     });
+  });
+
+  it('picks what invalid words do, and states the rule for the pick (DESIGN §2.3)', () => {
+    const { submit } = create();
+    // A named setting with two values, like turn order and time control — and
+    // the blurb tracks the selection, so a host can't choose the turn-costing
+    // rule without reading what it does to their opponent.
+    expect(screen.getByText(/checked as you place it/i)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('invalid-words-costs-turn'));
+    expect(screen.getByText(/costs your turn/i)).toBeTruthy();
+    expect(submit().options.invalidWords).toBe('costs-turn');
+    // …and it is reversible: picking the default back gives the default.
+    fireEvent.click(screen.getByTestId('invalid-words-blocked'));
+    expect(submit().options.invalidWords).toBe('blocked');
   });
 
   it('offers both boards with a mini premium-map preview (FR-6)', () => {

@@ -21,12 +21,33 @@ are logged at the bottom with date + reason, and deleted when fixed.
   board in both themes: red card border, struck-through total, that row filled
   red, its cells ringed dashed red — and the valid card next to it stays calm
   (no red anywhere). The card says it in color, never in a sentence.
+- **A "Cost your turn" game gives NOTHING away** (`pending-words-unchecked`,
+  which stages a word the dictionary refuses): no ✓, no ✗, nothing standing in
+  for a mark, no red anywhere on the card or the board, the total not struck
+  through, Play plainly enabled. Each row is just the word and its score. Its
+  capture must be indistinguishable from the same staging with a valid word
+  except for the missing mark — if a reviewer can tell which word is bad, the
+  feature is broken.
+- **Phoney beat** (`phoney-beat`): the refused word dominates the dialog, the
+  cost is a sentence, the board behind is unchanged, no mode name appears. Both
+  themes at 390×844. In hot-seat it sits ON TOP of the pass-device interstitial
+  — no rack readable in the frame, before or after dismissal.
+- **The aftermath names who, what and the cost** (`phoney-banner`,
+  `score-sheet-phoney`): the strip reads "<name> tried to play the invalid word
+  “X” — turn lost" over a visibly untouched board, wrapping to at most two lines
+  at 390px without crowding the score bar; the sheet row is MARKED as well as
+  worded (✗, red, an explicit `0`), so a burned turn is findable by scanning.
 - Last-play score badge sits in an EMPTY cell beside its word — including a word
   that bridged committed letters — never on top of a tile, and follows the
   word's axis (right of an across play, below a down play). Tapping it expands
   the per-word breakdown; the popover is readable in both themes and clears the
   board on dismiss. A tap on the board tucks the badge away (the green
   highlight stays put); another tap brings it back.
+- The two creation forms (`new-game`, `hotseat-setup`) render the shared option
+  pickers identically — same section rhythm, same board previews, same
+  invalid-words toggle and blurb. Hot-seat shows no turn-order or clock section
+  (one device honours neither); differences beyond that mean the pickers have
+  drifted apart.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.

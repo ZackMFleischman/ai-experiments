@@ -3,7 +3,7 @@ import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { RequireAuth } from '@parlor/web';
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { Route, Routes, useParams } from 'react-router-dom';
-import { Game } from './screens/Game';
+import { Game, HotSeatNew } from './screens/Game';
 import { Join } from './screens/Join';
 import { Landing } from './screens/Landing';
 import { Lobby } from './screens/Lobby';
@@ -73,6 +73,8 @@ export function AppRoutes() {
             </RequireAuth>
           }
         />
+        {/* Before /game/:id — a literal path must not be eaten by the param. */}
+        <Route path="/game/local/new" element={<HotSeatNew />} />
         <Route path="/game/:id" element={<GameGate />} />
         <Route path="/settings" element={<Settings />} />
         {GalleryRoute && (

@@ -5,12 +5,13 @@
 // structurally identical; the e2e exercises compatibility.
 import { callable, createGameApi } from '@parlor/web/gameApi';
 import type { TurnOrderChoice } from '@parlor/web/lobby-ui';
-import type { Placement, TileFace } from '@lex/engine';
+import type { InvalidWordRule, Placement, TileFace } from '@lex/engine';
 
 export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
+  invalidWords: InvalidWordRule;
   /** The host's chosen MAXIMUM seat count (DECISIONS 2026-08-28). Absent means
    * two — the shape every game shipped before M7. */
   maxPlayers?: number;
