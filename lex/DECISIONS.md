@@ -496,3 +496,14 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   being unwritable in production. The same suite caught a second one — parlor was
   writing the meta log entry BEFORE calling `withdrawSeat`, which reads the
   private bag, violating Firestore's reads-before-writes rule.
+
+- **2026-08-28 — Guest-list pushes are a capability trigger, and `actorName` is
+  additive** (T7.8). `'invited' | 'player-joined' | 'game-started'` form a
+  `RoomTrigger` that parlor builds copy for itself (the `DrawTrigger` pattern),
+  rather than joining `SharedTrigger`: adding a member there would make hive's,
+  checkers' and tafl's exhaustive `buildPayload` switches non-exhaustive and
+  break the three workspaces M7 promises not to touch. For the same reason
+  `TriggerArgs.opponentName` stays required and `actorName` is an optional
+  alongside it that parlor always sets — a rename would have been a breaking
+  change to a field every game constructs. A decline sends nothing: it is the
+  host's business and not push-worthy.

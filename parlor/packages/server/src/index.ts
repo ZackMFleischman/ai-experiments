@@ -58,13 +58,18 @@ export {
   type Caller,
 } from './helpers';
 export {
+  actorOf,
   countActionable,
   createNotify,
+  createNotifyRoom,
+  defaultRoomPayload,
   sendPush,
   type Notify,
   type NotifyConfig,
+  type NotifyRoom,
   type PushPayload,
   type PushTransport,
+  type RoomTrigger,
   type SharedTrigger,
   type TriggerArgs,
 } from './notify';

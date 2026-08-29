@@ -27,7 +27,7 @@ import {
   requireGameId,
   type Caller,
 } from './helpers';
-import { createNotify, type NotifyConfig } from './notify';
+import { createNotify, createNotifyRoom, type NotifyConfig } from './notify';
 import { withdrawInTx, type WithdrawResult } from './withdraw';
 import {
   declineInvite,
@@ -156,6 +156,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
   }
   const SEAT0 = SEATS[0]!;
   const notify = createNotify(config.notify);
+  const notifyRoom = createNotifyRoom(config.notify);
 
   const seatKey = (i: number): string => {
     const key = SEATS[i];
@@ -551,6 +552,8 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     const inviteRef = db.collection('invites').doc(code);
 
     let creatorUid: string | null = null;
+    type RoomEvent = { trigger: 'player-joined' | 'game-started'; audience: string[] };
+    let roomEvent: RoomEvent | null = null;
     const gameId = await db.runTransaction(async (tx) => {
       const invite = await tx.get(inviteRef);
       if (!invite.exists) throw new HttpsError('not-found', 'invite not found');
@@ -575,8 +578,10 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
         tx.update(gameRef, guestListFields(list));
         if (list.roster.length >= seats) {
           startGameInTx(db, tx, gameRef, data, list);
+          roomEvent = { trigger: 'game-started', audience: list.roster.map((e) => e.uid) } as RoomEvent;
         } else {
           tx.update(inviteRef, { preview: previewOf(list, seats) });
+          roomEvent = { trigger: 'player-joined', audience: list.roster.map((e) => e.uid) } as RoomEvent;
         }
         return inv.gameId;
       }
@@ -607,7 +612,22 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
       return inv.gameId;
     });
 
-    await notify(db, creatorUid, 'game-joined', { gameId, opponentName: caller.name });
+    const event = roomEvent as RoomEvent | null;
+    if (event) {
+      // Everyone already in hears about it — except the person who just did it.
+      await notifyRoom(
+        db,
+        event.audience.filter((uid) => uid !== caller.uid),
+        event.trigger,
+        { gameId, opponentName: caller.name, actorName: caller.name },
+      );
+    } else {
+      await notify(db, creatorUid, 'game-joined', {
+        gameId,
+        opponentName: caller.name,
+        actorName: caller.name,
+      });
+    }
     return { gameId };
   });
 
@@ -630,12 +650,11 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
       }
       outcome = await withdrawInTx(config, tx, gameRef, doc, seatIndex, 'resign', caller.uid);
     });
-    // T7.8 turns this into the placing-aware fan-out; the copy below is the
-    // two-seat wording, sent to everyone still in at 3+.
     for (const uid of outcome.remaining) {
       await notify(db, uid, 'game-over', {
         gameId,
         opponentName: caller.name,
+        actorName: caller.name,
         outcome: outcome.finished
           ? `You won — ${caller.name} resigned`
           : `${caller.name} left the game`,
@@ -717,6 +736,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     const db = getFirestore();
     const gameRef = db.collection('games').doc(gameId);
     let started = false;
+    let audience: string[] = [];
     await db.runTransaction(async (tx) => {
       const game = await tx.get(gameRef);
       if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -730,6 +750,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
         ? joinRoster(before, { uid: caller.uid, name: caller.name }, seats)
         : declineInvite(before, caller.uid);
       tx.update(gameRef, guestListFields(list));
+      audience = list.roster.map((entry) => entry.uid).filter((uid) => uid !== caller.uid);
       if (accept && list.roster.length >= seats) {
         startGameInTx(db, tx, gameRef, doc, list);
         started = true;
@@ -739,6 +760,15 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
         });
       }
     });
+    // A decline is nobody's business but the host's, and it is not push-worthy;
+    // only an arrival or a start reaches the table.
+    if (accept) {
+      await notifyRoom(db, audience, started ? 'game-started' : 'player-joined', {
+        gameId,
+        opponentName: caller.name,
+        actorName: caller.name,
+      });
+    }
     return { gameId, started };
   });
 
@@ -774,6 +804,11 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
         throw new HttpsError('permission-denied', 'only the host can invite');
       }
       tx.update(gameRef, guestListFields(inviteToList(before, entries)));
+    });
+    await notifyRoom(db, uids, 'invited', {
+      gameId,
+      opponentName: caller.name,
+      actorName: caller.name,
     });
     return { invited: uids };
   });
@@ -834,6 +869,7 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
 
     const db = getFirestore();
     const gameRef = db.collection('games').doc(gameId);
+    let audience: string[] = [];
     await db.runTransaction(async (tx) => {
       const game = await tx.get(gameRef);
       if (!game.exists) throw new HttpsError('not-found', 'game not found');
@@ -854,6 +890,12 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
         );
       }
       startGameInTx(db, tx, gameRef, turnOrder ? { ...doc, turnOrder } : doc, list);
+      audience = list.roster.map((entry) => entry.uid).filter((uid) => uid !== caller.uid);
+    });
+    await notifyRoom(db, audience, 'game-started', {
+      gameId,
+      opponentName: caller.name,
+      actorName: caller.name,
     });
     return { gameId, started: true };
   });
