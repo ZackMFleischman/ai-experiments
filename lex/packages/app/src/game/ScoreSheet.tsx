@@ -134,13 +134,15 @@ export function ScoreSheet({ open, onClose, rows, names }: ScoreSheetProps) {
                           >
                             {describe(row, seats)}
                           </Typography>
-                          <Typography
-                            variant="caption"
-                            color={row.kind === 'play' ? 'text.primary' : 'text.secondary'}
-                            sx={{ fontWeight: row.kind === 'play' ? 700 : 400 }}
-                          >
-                            {row.kind === 'play' ? `+${row.score}` : '—'}
-                          </Typography>
+                          {/* Only a play carries a number; "Pass" and
+                              "Exchanged 3" already say they scored nothing,
+                              and a placeholder dash under them just cost a
+                              third line in an 80px column. */}
+                          {row.kind === 'play' && (
+                            <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                              +{row.score}
+                            </Typography>
+                          )}
                         </>
                       ) : (
                         <Typography variant="body2" color="text.disabled">

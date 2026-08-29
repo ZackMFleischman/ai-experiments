@@ -527,3 +527,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   players see always matches the panel the host is looking at. The component is
   `GuestListView`, not `GuestList` — TypeScript cannot re-export a type and a
   value under one name, and the type keeps the server-mirroring name.
+
+- **2026-08-29 — The catch-up bar appears only after TWO missed moves** (T7.14).
+  One missed move is already told by the last-play highlight and its score badge,
+  so a review player for it would be a second way to say the same thing. Two or
+  more is the case the highlight cannot serve — you cannot see what the board
+  looked like before the last of them. It also means the bar never appears at two
+  seats, where at most one move can pass between yours: the N=2 contract holds
+  with no new element on any two-seat screen, and no two-seat capture changed.
+  `Snapshot.review.board` is null while the cursor sits on the newest missed
+  move, so the live board never re-renders from a rewound copy.
