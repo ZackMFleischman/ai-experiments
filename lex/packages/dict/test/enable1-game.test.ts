@@ -34,7 +34,7 @@ describe('ENABLE full-game fixture', () => {
     expect([...state.scores]).toEqual(ENABLE1_GAME.finalScores);
     expect(result(state)).toEqual({
       status: 'finished',
-      winner: ENABLE1_GAME.winner,
+      standings: ENABLE1_GAME.standings,
       by: ENABLE1_GAME.endedBy,
       finalScores: ENABLE1_GAME.finalScores,
     });

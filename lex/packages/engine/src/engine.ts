@@ -12,7 +12,7 @@
 // with `invalid`.
 import { extractWords, type Placement } from './board.js';
 import { RULESETS, type Ruleset, type Seat, type TileFace } from './ruleset.js';
-import { draw, freezeState, type GameState } from './state.js';
+import { activeSeats, draw, freezeState, isWithdrawn, nextActiveSeat, type GameState } from './state.js';
 import { checkPlay, type WordScore } from './validate.js';
 import { scorePlay } from './score.js';
 
@@ -64,7 +64,13 @@ export class IllegalMoveError extends Error {
 
 export type GameResult =
   | { status: 'ongoing' }
-  | { status: 'finished'; winner: Seat | 'draw'; by: 'played-out' | 'scoreless'; finalScores: readonly number[] };
+  | {
+      status: 'finished';
+      /** Best-first placings; an inner array of 2+ seats is a tie. */
+      standings: readonly (readonly Seat[])[];
+      by: 'played-out' | 'scoreless' | 'last-standing';
+      finalScores: readonly number[];
+    };
 
 export function rulesetOf(state: GameState): Ruleset {
   const ruleset = RULESETS[state.rulesetId];
@@ -81,11 +87,39 @@ function rackSum(rack: readonly TileFace[], ruleset: Ruleset): number {
   return rack.reduce((sum, face) => sum + (ruleset.tiles.points[face] ?? 0), 0);
 }
 
-/** Which board ending, if any, does this state sit in? Played-out wins. */
-function endedBy(state: GameState, ruleset: Ruleset): 'played-out' | 'scoreless' | null {
-  if (state.bag.length === 0 && state.racks.some((rack) => rack.length === 0)) return 'played-out';
-  if (state.scorelessRun >= ruleset.scorelessLimit) return 'scoreless';
+/**
+ * Which board ending, if any, does this state sit in? Last-standing outranks
+ * played-out, which outranks scoreless. Every test reads ACTIVE seats: a
+ * withdrawn seat's rack is empty by construction (it went back to the bag),
+ * so counting it would end the game the instant anyone withdrew.
+ */
+function endedBy(state: GameState, ruleset: Ruleset): 'played-out' | 'scoreless' | 'last-standing' | null {
+  const active = activeSeats(state);
+  if (state.withdrawn.length > 0 && active.length <= 1) return 'last-standing';
+  if (state.bag.length === 0 && active.some((seat) => state.racks[seat]!.length === 0)) return 'played-out';
+  // The limit is per ROUND — one full circuit of the seats still playing — so
+  // it is 6 at two seats, exactly as before M7 (DECISIONS 2026-08-28).
+  if (state.scorelessRun >= ruleset.scorelessRounds * active.length) return 'scoreless';
   return null;
+}
+
+/**
+ * Best-first placings. Everyone who finished ranks above everyone who
+ * withdrew; inside each block, by score, tied seats sharing a placing
+ * (DECISIONS 2026-08-28 — ranking purely by score would make resigning while
+ * ahead a viable way to bank a placing).
+ */
+function placings(state: GameState): readonly (readonly Seat[])[] {
+  const byScore = (seats: readonly Seat[]): (readonly Seat[])[] => {
+    const groups = new Map<number, Seat[]>();
+    for (const seat of seats) {
+      const tied = groups.get(state.scores[seat]!);
+      if (tied) tied.push(seat);
+      else groups.set(state.scores[seat]!, [seat]);
+    }
+    return [...groups.keys()].sort((a, b) => b - a).map((score) => Object.freeze(groups.get(score)!));
+  };
+  return Object.freeze([...byScore(activeSeats(state)), ...byScore(state.withdrawn)]);
 }
 
 /** Board outcomes only — resign/timeout live in the game doc (DESIGN §6.2). */
@@ -93,21 +127,18 @@ export function result(state: GameState): GameResult {
   const ruleset = rulesetOf(state);
   const by = endedBy(state, ruleset);
   if (!by) return { status: 'ongoing' };
-  const top = Math.max(...state.scores);
-  const winners = state.scores.filter((score) => score === top);
-  const winner: Seat | 'draw' = winners.length === 1 ? state.scores.indexOf(top) : 'draw';
-  return { status: 'finished', winner, by, finalScores: state.scores };
+  return { status: 'finished', standings: placings(state), by, finalScores: state.scores };
 }
 
 /** The §2.1 end adjustments, applied by the terminal applyMove. */
 function finalizeIfEnded(state: GameState, ruleset: Ruleset): GameState {
   const by = endedBy(state, ruleset);
   if (by === 'played-out') {
-    const finisher = state.racks.findIndex((rack) => rack.length === 0);
+    const finisher = activeSeats(state).find((seat) => state.racks[seat]!.length === 0)!;
     const scores = [...state.scores];
     let gained = 0;
     state.racks.forEach((rack, seat) => {
-      if (seat === finisher) return;
+      if (seat === finisher || isWithdrawn(state, seat)) return;
       const stranded = rackSum(rack, ruleset);
       scores[seat]! -= stranded;
       gained += stranded;
@@ -116,9 +147,12 @@ function finalizeIfEnded(state: GameState, ruleset: Ruleset): GameState {
     return freezeState({ ...state, scores });
   }
   if (by === 'scoreless') {
-    const scores = state.scores.map((score, seat) => score - rackSum(state.racks[seat]!, ruleset));
+    // A withdrawn seat's score is frozen — it holds no tiles to deduct.
+    const scores = state.scores.map((score, seat) => (isWithdrawn(state, seat) ? score : score - rackSum(state.racks[seat]!, ruleset)));
     return freezeState({ ...state, scores });
   }
+  // 'last-standing' adjusts nothing: the survivor's tiles never came off a
+  // natural ending, and every other rack is already back in the bag.
   return state;
 }
 
@@ -134,12 +168,40 @@ function removeFromRack(rack: readonly TileFace[], faces: readonly TileFace[]): 
 }
 
 function advance(state: GameState, changes: Partial<GameState>): GameState {
-  return freezeState({
+  const next: GameState = { ...state, ...changes, moveCount: state.moveCount + 1 };
+  return freezeState({ ...next, toMove: nextActiveSeat(next, state.toMove) });
+}
+
+/**
+ * A seat leaves the game — resign or timeout at 3+ seats (DESIGN §2.1). Their
+ * score freezes and their rack returns to the bag END, exactly as an exchange
+ * does, for the server to re-shuffle (DESIGN §3.3); the turn passes on if it
+ * was theirs. Withdrawal is not a move, but it does advance `moveCount`: it
+ * writes a log entry and must move the optimistic-concurrency cursor with it.
+ */
+export function withdraw(state: GameState, seat: Seat): GameState {
+  const rack = state.racks[seat];
+  if (!Number.isInteger(seat) || rack === undefined) {
+    throw new IllegalMoveError('no-such-seat', `seat ${seat} out of range (game has ${state.racks.length} seats)`);
+  }
+  if (isWithdrawn(state, seat)) {
+    throw new IllegalMoveError('already-withdrawn', `seat ${seat} has already withdrawn`);
+  }
+  const ruleset = rulesetOf(state);
+  if (endedBy(state, ruleset)) {
+    throw new IllegalMoveError('game-over', 'game-over: no withdrawal from a finished game');
+  }
+  const next: GameState = {
     ...state,
-    ...changes,
-    toMove: (state.toMove + 1) % state.racks.length,
+    racks: state.racks.map((r, i) => (i === seat ? [] : r)),
+    bag: [...state.bag, ...rack], // server re-shuffles, as after an exchange (§3.3)
+    withdrawn: [...state.withdrawn, seat].sort((a, b) => a - b),
     moveCount: state.moveCount + 1,
-  });
+  };
+  const moved = freezeState({ ...next, toMove: state.toMove === seat ? nextActiveSeat(next, seat) : state.toMove });
+  // Losing an active seat shrinks the scoreless limit, and the last withdrawal
+  // ends the game outright — either way the ending must be finalized here.
+  return finalizeIfEnded(moved, ruleset);
 }
 
 function applyPlay(

@@ -221,7 +221,8 @@ export interface TileSet {
 export interface Ruleset {
   id: string; board: BoardLayout; tiles: TileSet;
   rackSize: number; bingoBonus: number;
-  exchangeMinBag: number; scorelessLimit: number;
+  exchangeMinBag: number; scorelessRounds: number;   // × active seats
+  players: { min: number; max: number };            // dealable seat counts
 }                                                          // dictionary chosen per game (GameOptions)
 export const RULESETS: Readonly<Record<string, Ruleset>>;  // v1: { classic, modern }
 
@@ -253,6 +254,7 @@ export interface GameState {                       // FULL state — server/hot-
   readonly toMove: Seat;
   readonly moveCount: number;
   readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[];             // seats that left, ascending
 }
 export interface PlayerView {
   readonly rulesetId: string;
@@ -262,12 +264,13 @@ export interface PlayerView {
   readonly bagCount: number;
   readonly rackCounts: readonly number[];
   readonly toMove: Seat; readonly moveCount: number; readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[];             // public: who left
 }
 
 export type GameResult =
   | { status: 'ongoing' }
-  | { status: 'finished'; winner: Seat | 'draw';
-      by: 'played-out' | 'scoreless'; finalScores: readonly number[] };
+  | { status: 'finished'; standings: readonly (readonly Seat[])[];  // best-first, inner = tied
+      by: 'played-out' | 'scoreless' | 'last-standing'; finalScores: readonly number[] };
 
 export function initialState(ruleset: Ruleset, bagOrder: readonly TileFace[],
                              seats: number): GameState;   // validates permutation; deals racks
@@ -281,8 +284,12 @@ export function applyMove(state: GameState, move: Move, dict: Dictionary,
                           options?: MoveOptions): GameState;  // throws IllegalMoveError; terminal move finalizes
                                                               // scores; 'costs-turn' turns an invalid word into
                                                               // a phoney (turn spent, board untouched)
+export function withdraw(state: GameState, seat: Seat): GameState;
+                             // resign/timeout at 3+: rack → bag end, turn skips the seat
 export function result(state: GameState): GameResult;     // board outcomes only (resign/timeout live in the game doc)
 export function playerView(state: GameState, seat: Seat): PlayerView;
+export function turnQueue(state: GameState): readonly Seat[];
+                             // rotation from toMove, withdrawn excluded — the ONLY turn order
 export function toGcg(move: Move, state: GameState): string;
 export function parseGcg(line: string, state: GameState): Move;
 export function serializeState(state: GameState): string;    // exact round-trip
@@ -305,9 +312,10 @@ export function loadDictionary(id: string): Promise<Dictionary>;  // app (fetch)
 
 ### Property-test invariants (fast-check, T1.10)
 
-Over random legal games (random bag orders; a stub dictionary accepting everything;
-random choice among candidate plays found by brute-force placement search, else
-exchange/pass; until terminal or 200 plies):
+Over random legal games at **2, 3 and 4 seats** (random bag orders; a stub
+dictionary accepting everything; random choice among candidate plays found by
+brute-force placement search, else exchange/pass; occasional withdrawals while
+more than two seats are active; until terminal or the ply cap):
 
 1. Tile conservation: board + all racks + bag = the TileSet, per face, every ply.
 2. Every candidate accepted by `checkPlay` is accepted by `applyMove` (no throws).
@@ -319,8 +327,15 @@ exchange/pass; until terminal or 200 plies):
    counts match reality.
 7. `toGcg → parseGcg` round-trips to a deep-equal Move at every position.
 8. `scorelessRun` resets exactly on plays with total > 0; the game always
-   terminates (scoreless limit guarantees it even under pass-only play).
-9. Terminal scores equal hand-computed adjustments (independent reimplementation).
+   terminates (`scorelessRounds` × active seats guarantees it even under
+   pass-only play).
+9. Terminal scores equal hand-computed adjustments (independent reimplementation):
+   the played-out pot and the scoreless deduction cover active seats only, and
+   `last-standing` adjusts nothing.
+10. Withdrawal: conservation still holds across a rack-to-bag move; `toMove` never
+   lands on a withdrawn seat; `turnQueue` is exactly the active seats in rotation
+   from `toMove`; a withdrawn seat's score and empty rack never change again;
+   `standings` partitions the seats, no withdrawn seat placing above an active one.
 
 ### Pinned edge-case fixtures (T1.4–T1.6, T2.4 — one fixture each)
 
@@ -344,7 +359,8 @@ exchange/pass; until terminal or 200 plies):
 - Exchange with bag = 7 ⇒ allowed; bag = 6 ⇒ rejected; exchanged count public,
   letters private (schema-level test in T4.5).
 - Pass, exchange, and 0-point plays each increment `scorelessRun`; a scoring play
-  resets it; 6th consecutive scoreless turn ends the game with rack deductions.
+  resets it; the `scorelessRounds` × active-seats turn ends the game with rack
+  deductions (the 6th at two seats); a withdrawal shrinks that limit mid-game.
 - Played-out ending: finisher gains opponent rack sum; opponent deducts; resulting
   tie ⇒ draw.
 - Final refill when bag < needed draws what remains.

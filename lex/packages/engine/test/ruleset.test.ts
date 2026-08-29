@@ -34,7 +34,10 @@ describe('registry', () => {
       expect(ruleset.rackSize).toBe(7);
       expect(ruleset.bingoBonus).toBe(50);
       expect(ruleset.exchangeMinBag).toBe(7);
-      expect(ruleset.scorelessLimit).toBe(6);
+      // Per active seat — 3 × 2 = the six scoreless turns §2.1 pins.
+      expect(ruleset.scorelessRounds).toBe(3);
+      // Both v1 rulesets deal the full 2–4 range (DESIGN §2.2).
+      expect(ruleset.players).toEqual({ min: 2, max: 4 });
     }
   });
 });

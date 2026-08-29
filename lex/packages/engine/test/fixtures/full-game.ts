@@ -32,7 +32,7 @@ export const FULL_GAME = {
   ],
   finalScores: [1346, 841] as readonly number[],
   endedBy: 'played-out' as const,
-  winner: 0,
+  standings: [[0], [1]] as readonly (readonly number[])[],
 };
 
 // A quick game to the scoreless limit: one scoring play, then six scoreless
@@ -49,7 +49,7 @@ export const SCORELESS_GAME = {
   // seat 0: 10 − (E×4 + B+B+C = 13) = −3; seat 1: 0 − 49 = −49
   finalScores: [-3, -49] as readonly number[],
   endedBy: 'scoreless' as const,
-  winner: 0,
+  standings: [[0], [1]] as readonly (readonly number[])[],
 };
 
 // Six opening passes with equal rack sums ⇒ a scoreless draw.
@@ -64,5 +64,5 @@ export const TIE_GAME = {
   moves: ['-', '-', '-', '-', '-', '-'],
   finalScores: [-7, -7] as readonly number[],
   endedBy: 'scoreless' as const,
-  winner: 'draw' as const,
+  standings: [[0, 1]] as readonly (readonly number[])[],
 };

@@ -30,7 +30,7 @@ interface GameDocData {
   moveCount: number;
   public: string;
   result?: 'p0' | 'p1' | 'draw';
-  endedBy?: 'played-out' | 'scoreless' | 'resign' | 'timeout';
+  endedBy?: 'played-out' | 'scoreless' | 'last-standing' | 'resign' | 'timeout';
   inviteCode?: string; // present while status 'open' (DESIGN §6.2)
   challenge?: { from: string; fromName: string; to: string; toName: string };
   rematchGameId?: string;

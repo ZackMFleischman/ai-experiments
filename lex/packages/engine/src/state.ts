@@ -14,6 +14,7 @@ export interface GameState {
   readonly toMove: Seat;
   readonly moveCount: number;
   readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[]; // seats that left the game, ascending
 }
 
 export interface PlayerView {
@@ -26,6 +27,7 @@ export interface PlayerView {
   readonly toMove: Seat;
   readonly moveCount: number;
   readonly scorelessRun: number;
+  readonly withdrawn: readonly Seat[]; // public: which seats have left
 }
 
 /**
@@ -48,7 +50,47 @@ export function playerView(state: GameState, seat: Seat): PlayerView {
     toMove: state.toMove,
     moveCount: state.moveCount,
     scorelessRun: state.scorelessRun,
+    withdrawn: state.withdrawn,
   };
+}
+
+/** Has `seat` left the game (DESIGN §2.1 withdrawal)? */
+export function isWithdrawn(state: GameState, seat: Seat): boolean {
+  return state.withdrawn.includes(seat);
+}
+
+/** Seats still in the game, in seat order. */
+export function activeSeats(state: GameState): Seat[] {
+  return state.racks.map((_rack, seat) => seat).filter((seat) => !isWithdrawn(state, seat));
+}
+
+/**
+ * The next seat after `from` that has not withdrawn, wrapping. Returns `from`
+ * itself when it is the only seat left — the caller (T7.2 `endedBy`) ends the
+ * game rather than looping.
+ */
+export function nextActiveSeat(state: GameState, from: Seat): Seat {
+  const seats = state.racks.length;
+  for (let step = 1; step <= seats; step++) {
+    const seat = (from + step) % seats;
+    if (!isWithdrawn(state, seat)) return seat;
+  }
+  return from;
+}
+
+/**
+ * The seats still to play, starting at `toMove` and skipping the withdrawn —
+ * the ONE source of turn order (DESIGN §5.1). The UI renders this; it never
+ * derives the rotation itself.
+ */
+export function turnQueue(state: GameState): readonly Seat[] {
+  const seats = state.racks.length;
+  const queue: Seat[] = [];
+  for (let step = 0; step < seats; step++) {
+    const seat = (state.toMove + step) % seats;
+    if (!isWithdrawn(state, seat)) queue.push(seat);
+  }
+  return queue;
 }
 
 /** Draw `n` tiles off the bag front (or all that remain). Pure. */
@@ -61,6 +103,7 @@ export function freezeState(state: GameState): GameState {
   Object.freeze(state.racks);
   Object.freeze(state.bag);
   Object.freeze(state.scores);
+  Object.freeze(state.withdrawn);
   return Object.freeze(state);
 }
 
@@ -87,8 +130,9 @@ function assertPermutation(ruleset: Ruleset, bagOrder: readonly TileFace[]): voi
 
 /** Validates the permutation and deals `seats` racks in seat order. */
 export function initialState(ruleset: Ruleset, bagOrder: readonly TileFace[], seats: number): GameState {
-  if (!Number.isInteger(seats) || seats < 2) {
-    throw new Error(`seats must be an integer ≥ 2, got ${seats}`);
+  const { min, max } = ruleset.players;
+  if (!Number.isInteger(seats) || seats < min || seats > max) {
+    throw new Error(`seats must be an integer in ${min}–${max} for ruleset '${ruleset.id}', got ${seats}`);
   }
   assertPermutation(ruleset, bagOrder);
   const racks: TileFace[][] = [];
@@ -107,5 +151,6 @@ export function initialState(ruleset: Ruleset, bagOrder: readonly TileFace[], se
     toMove: 0,
     moveCount: 0,
     scorelessRun: 0,
+    withdrawn: [],
   });
 }

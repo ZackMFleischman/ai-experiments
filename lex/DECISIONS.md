@@ -458,6 +458,33 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   change is the **winner-first result overlay** (today it lists seats in seat order;
   a victory screen should read winner-first, and `ResultOverlay` is not shared).
 
+- **2026-08-28 — `withdraw` advances `moveCount`, and a withdrawal adjusts no
+  score** (T7.1). Withdrawal is not a move, but it writes a log entry and passes
+  the turn, so counting it keeps the entry index, the turn cursor and
+  `submitMove`'s `expectedMoveCount` guard in step — a withdrawal racing a move is
+  then a conflict rather than a silent overwrite. The leaving player's score
+  freezes exactly as it stands: their rack is already back in the bag, so there is
+  nothing to deduct, and deducting anything would price quitting differently from
+  the §2.1 endings, which all settle against tiles a player still holds.
+
+- **2026-08-28 — Ending precedence, and `withdraw` finalizes** (T7.2). `endedBy`
+  ranks `last-standing` above `played-out` above `scoreless`: once one active seat
+  remains nothing else can be decided, and a played-out rack still beats a
+  scoreless run as it always has. `last-standing` applies **no** adjustment — the
+  survivor's tiles never came off a natural ending, and the other racks are
+  already in the bag. `withdraw` therefore runs the same finalizer `applyMove`
+  does: dropping an active seat shrinks the scoreless limit (`scorelessRounds` ×
+  active seats), so leaving can itself end the game, deductions and all.
+
+- **2026-08-28 — `standings` is the only outcome the engine reports; the 2-seat
+  `winner` is derived at the boundary** (T7.3). `result()` stops carrying a winner,
+  so the two places that still speak the `'p0'|'p1'|'draw'` wire form — `submitMove`
+  and the app's `computeEnd` — read `standings[0]` and treat a shared top placing as
+  a draw. Behaviour is identical at two seats; widening those surfaces is T7.9/T7.11.
+  `initialState` also starts **refusing** seat counts outside `ruleset.players`,
+  closing a door that was open (5+ seats dealt happily): the range is rules data,
+  and a board that cannot deal a count should be the thing that says so.
+
 - **2026-08-28 — A phoney is announced on the board surface, not just logged
   (Zack).** Shipped with the opponent learning only via a push and a row inside
   the score-sheet drawer — and since a phoney leaves the board untouched, a

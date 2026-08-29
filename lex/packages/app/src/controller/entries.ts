@@ -59,5 +59,5 @@ export type LexEntry =
       myRack: string;
       rows: readonly SyncRow[];
       /** Present once the server marked the game finished. */
-      ended?: { endedBy: 'played-out' | 'scoreless' | 'resign' | 'timeout'; winner: Seat | 'draw' };
+      ended?: { endedBy: 'played-out' | 'scoreless' | 'last-standing' | 'resign' | 'timeout'; winner: Seat | 'draw' };
     };

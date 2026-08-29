@@ -28,6 +28,7 @@ export {
   applyMove,
   rejectedWords,
   result,
+  withdraw,
   type Dictionary,
   type GameResult,
   type InvalidWordRule,
@@ -37,6 +38,6 @@ export {
 
 export { parseGcg, toGcg } from './gcg.js';
 
-export { initialState, playerView, type GameState, type PlayerView } from './state.js';
+export { initialState, playerView, turnQueue, type GameState, type PlayerView } from './state.js';
 
 export { deserializeState, parsePublic, serializePublic, serializeState } from './serialize.js';

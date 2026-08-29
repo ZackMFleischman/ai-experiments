@@ -90,11 +90,20 @@ among them (§2.3); everything below holds under both settings:
   holds ≥ 7 tiles. Costs the turn.
 - **Pass:** always allowed; costs the turn.
 - **Game end:**
-  1. The bag is empty and one player plays out their last tile ⇒ that player adds
-     the sum of the opponent's remaining tile points; the opponent deducts their own.
-  2. **Six consecutive scoreless turns** (pass, exchange, a 0-point play, or a
-     phoney) ⇒ game ends; each player deducts their own remaining tile points.
-  3. Resignation, or timeout under an async time control (§6.4).
+  1. The bag is empty and one active player plays out their last tile ⇒ that
+     player adds the sum of every other **active** rack; each of those deducts its
+     own. Withdrawn seats hold nothing and sit the pot out.
+  2. **`scorelessRounds` scoreless turns per active seat** (pass, exchange, a
+     0-point play, or a phoney) ⇒ game ends; each player still holding tiles
+     deducts their own remaining points. The knob is 3, so it is six turns at two
+     seats — unchanged — nine at three, twelve at four.
+  3. Resignation, or timeout under an async time control (§6.4). At two seats
+     that ends the game; at three or four it is a **withdrawal** — that player
+     is out, their score freezes, their rack goes back to the bag, and the turn
+     order skips them (DECISIONS 2026-08-28).
+  4. **One active player left** (`last-standing`) ⇒ game ends with no adjustment:
+     every other rack is already back in the bag, and the survivor's tiles never
+     came off a natural ending.
 - Higher adjusted score wins; equal ⇒ **draw** (no first-player tiebreak).
 
 ### 2.2 Configurable surfaces (the "easily changeable" requirement)
@@ -107,13 +116,17 @@ word list):
 Ruleset = {
   board:   BoardLayout      // rows, cols, premium map, start cell
   tiles:   TileSet          // per-letter count + points, blank count
-  rackSize, bingoBonus, exchangeMinBag, scorelessLimit
+  rackSize, bingoBonus, exchangeMinBag
+  scorelessRounds           // scoreless turns × active seats end the game
+  players: {min, max}       // seat counts this ruleset can be dealt for
 }
 GameOptions = { rulesetId, dictionaryId, timeControl, invalidWords }  // pinned at creation (FR-6..11)
 ```
 
 - The engine computes **everything** — geometry, scoring, end conditions — from the
   `Ruleset`; no dimension, premium, letter count, or bonus is hard-coded anywhere.
+  The **seat range is one of those dimensions** (a reduced-tile board cannot deal
+  four racks), so `initialState` refuses a count outside `players`.
 - Rulesets live in a registry in `@lex/engine` keyed by id. **v1 ships two**, both
   15×15 over the standard tile set, differing only in premium arrangement:
   `classic` (the traditional layout) and `modern` (a WWF-style layout). Games
@@ -173,6 +186,9 @@ The move log is a collection of **typed entries** (`play` with explicit placemen
 blanks, words, and score; `exchange` with a tile *count* publicly; `pass`; plus meta
 `resign`/`timeout`) — JSON, not a string format, because placements with blank
 designations are unambiguous that way and the wire format equals the storage format.
+A `resign`/`timeout` entry at three or four seats records a **withdrawal**, not an
+ending, and advances the move count like any other entry so the turn cursor and the
+`expectedMoveCount` guard stay in step with the log.
 
 For fixtures, human-auditable records, and interop, the engine also speaks
 **GCG-style notation** (the community-standard crossword game format): coordinates
@@ -390,8 +406,11 @@ and shrinks to zero when hive migrates.
 - Racks and bag hold `TileFace = 'A'…'Z' | '?'`. The bag is an ordered array;
   the **front is the next draw** — order is the injected randomness (§3.3).
 - Full `GameState`: ruleset id, board, per-seat racks, bag, per-seat scores,
-  `toMove` seat, `moveCount`, `scorelessRun`. `PlayerView`: same minus other racks
-  and bag contents (counts only).
+  `toMove` seat, `moveCount`, `scorelessRun`, and `withdrawn` (the seats that have
+  left, ascending). `PlayerView`: same minus other racks and bag contents (counts
+  only) — who withdrew is public, so `withdrawn` projects through unchanged.
+- **Turn order is engine output, never UI arithmetic.** `turnQueue(state)` is the
+  rotation from `toMove` with withdrawn seats dropped; screens render it.
 
 ### 5.2 Verdict pipeline (what replaces hive's `legalMoves`)
 
@@ -428,6 +447,18 @@ board, racks, bag and scores are untouched, only `toMove`, `moveCount` and
 can never make an illegal placement legal. It needs no marker in the log:
 replaying the same entries against the same dictionary reaches the same verdict,
 so a phoney is re-derived, not remembered.
+
+`withdraw(state, seat)` is the one transition that is not a move: it empties that
+seat's rack into the **bag end** for the server to re-shuffle (the machinery
+exchange already uses, §3.3), records the seat in `withdrawn`, advances
+`moveCount`, and passes the turn on if it was theirs. Every seat scan in the
+engine — turn advance, the played-out test, the end adjustments — runs over
+**active** seats only, so a withdrawal never ends the game by itself.
+
+`result(state)` reports **`standings`** — placings best-first, an inner array of two
+or more seats being a tie — rather than a single winner. Everyone who finished
+ranks above everyone who withdrew, and only then by score, so resigning while
+ahead cannot bank a placing (DECISIONS 2026-08-28).
 
 ### 5.3 Algorithms (the interesting parts)
 
@@ -491,7 +522,7 @@ games/{gameId}:           { players: {p0: uid, p1: uid|null},        // p0 moves
                             status: 'open'|'active'|'finished',
                             inviteCode?, challenge?,                  // = hive semantics
                             result?: 'p0'|'p1'|'draw',
-                            endedBy?: 'played-out'|'scoreless'|'resign'|'timeout',
+                            endedBy?: 'played-out'|'scoreless'|'last-standing'|'resign'|'timeout',
                             toMove: 'p0'|'p1', moveCount,
                             scores: {p0, p1}, bagCount, rackCounts: {p0, p1},
                             lastPlay?: {by, word, score},             // lobby cards + push copy
@@ -793,40 +824,19 @@ not reinvented process. Full harness spec and build protocol: IMPLEMENTATION.md.
 
 ## 11. Milestone map
 
-Task-level breakdown, gates, and the frozen engine API live in
-[IMPLEMENTATION.md](./IMPLEMENTATION.md). Estimates assume agent builders, matching
-hive's actuals.
+Every milestone through **M7** has shipped. The per-task breakdown, the gate for
+each, and the frozen engine API live in [IMPLEMENTATION.md](./IMPLEMENTATION.md),
+which collapses each shipped milestone to a SHIPPED entry in
+[DECISIONS.md](./DECISIONS.md) — that pair is the record, so it is not restated
+here. In outline: M0 scaffolded both workspaces, M1 the engine, M2 the
+dictionaries, M3 the local/hot-seat UI and the whole validation harness, M4 the
+multiplayer backend, M5 PWA + push + async deadlines, M6 the polish-and-ship
+pass, and M7 seats three and four players.
 
-- **M0 — Scaffold (½ day).** The `parlor/` workspace + the lex workspace (five
-  packages) with source-link wiring, CI for both, emulators, doc-lint — hive's
-  M0 outputs copied wholesale. *Gate:* `validate:m0` in CI.
-- **M1 — Engine core (2–3 days).** Ruleset data + registry (`classic` +
-  `modern`), bag/draw, checkPlay, scoring, applyMove, end conditions, GCG,
-  serialization, property suite. *Gate:* scripted full game replays to known
-  final scores; property run clean.
-- **M2 — Dictionaries (1–2 days).** Both lists vendored, DAWG build + loaders,
-  registry metadata, engine integration, invalid-word fixtures.
-  *Gate:* `validate:m2`.
-- **M3 — Local game UI (3–4 days).** Grid board + viewport, rack, drag/tap,
-  pending-placement UX with live preview, blank/exchange/pass flows, pass-device
-  hot-seat with persistence, end-of-game sequence, **the whole validation harness**,
-  static hot-seat PWA deploy. *Gate:* hot-seat e2e full game; visual review done.
-- **M4 — Multiplayer backend (3–4 days).** Auth + landing, three-tier schema +
-  rules (+ privacy rules tests), callables, invite/challenge/rematch, lobby,
-  new-game flow with board/dictionary pickers, optimistic + refill
-  reconciliation, two-browser e2e, multiplayer build + deploy workflow.
-  *Gate:* `validate:m4`; a real game from two devices.
-- **M5 — PWA + notifications + async (2–3 days).** Manifest/SW, push (all
-  triggers, payloads asserted), badges, deadlines + hourly forfeit.
-  *Gate:* `validate:m5`; real push on a phone.
-- **M6 — Polish & ship (2–3 days).** Theme/tile-skin pass, dark + responsive
-  audit, Lighthouse, production deploy + DNS, website card, a real game
-  start-to-finish. *Gate:* full `pnpm validate`; a finished real game.
-
-**v1.1 candidates:** challenge-mode ruleset · real-time clocks · 3–4 players ·
-keyboard entry on desktop · game chat/emotes · AI opponent (`@lex/ai`, DAWG move
-gen) · analysis/best-play review · hive's migration onto `parlor/` · `.gcg` export ·
-more rulesets/word lists (11×11 quick board; NWL/SOWPODS if licensed).
+**v1.1 candidates:** real-time clocks · keyboard entry on desktop · game
+chat/emotes · AI opponent (`@lex/ai`, DAWG move gen) · analysis/best-play review ·
+hive's migration onto `parlor/` · `.gcg` export · more rulesets/word lists
+(11×11 quick board; NWL/SOWPODS if licensed).
 
 ---
 

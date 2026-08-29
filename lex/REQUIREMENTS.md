@@ -121,8 +121,9 @@ Functions: validation, notifications, forfeits).
 - **FR-34** Scoring: letter premiums on newly placed tiles only; word premiums
   stack multiplicatively; premiums never re-count; cross-words score; placing
   all 7 tiles is a bingo (+50).
-- **FR-35** Endings: played-out (finisher gains opponent's rack points,
-  opponent deducts own); six consecutive scoreless turns (both deduct);
+- **FR-35** Endings: played-out (finisher gains every other rack's points, each
+  of those deducts its own); `scorelessRounds` scoreless turns per active seat
+  (six at two players; each holder deducts); one player left standing;
   resignation; timeout. Higher adjusted score wins; equal is a draw.
 - **FR-36** Every game is exactly reproducible from its logs (public move log +
   server-private draw log); finished games replay identically forever
