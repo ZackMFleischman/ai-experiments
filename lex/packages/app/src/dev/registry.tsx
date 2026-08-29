@@ -25,9 +25,11 @@ import { LobbyView, type LobbyGameSummary } from '../screens/lobbyView';
 import { NewGameForm } from '../screens/newGameView';
 import { WaitingForOpponent } from '../screens/waitingView';
 import {
+  finishedTableController,
   fixtureController,
   fixturePublic,
   playWord,
+  scorelessTableController,
   seatedState,
   tableController,
   WithController,
@@ -181,6 +183,59 @@ const LOBBY_GAMES: LobbyGameSummary[] = [
   lobbyGame({ id: 'f2', status: 'finished', result: 'draw', scores: [212, 212] }),
 ];
 
+// T7.16: the lobby card at a TABLE — the title names everyone else, and the
+// caption is two lines (the standing, then what last happened). Seat indices
+// and placings are the summary's, exactly as the sync layer maps them.
+const TABLE_LOBBY_GAMES: LobbyGameSummary[] = [
+  lobbyGame({
+    id: 't1',
+    mySeat: 1,
+    toMove: 1,
+    seatCount: 4,
+    scores: [212, 198, 176, 143],
+    opponents: [
+      { uid: 'u1', name: 'Ada', seat: 0 },
+      { uid: 'u2', name: 'Noor', seat: 2 },
+      { uid: 'u3', name: 'Kai', seat: 3 },
+    ],
+    lastPlay: { by: 3, word: 'JINX', score: 40 },
+    public: fixturePublic(midGame),
+    deadlineAtMs: LOBBY_NOW + 26 * 3_600_000,
+  }),
+  // An open room genuinely has no `public` — the deal hasn't happened (T7.12),
+  // so this card drops it rather than borrowing another game's board.
+  (({ public: _unstarted, ...room }) =>
+    room)(
+    lobbyGame({
+      id: 't2',
+      status: 'open',
+      opponentName: null,
+      seatCount: 4,
+      openSeats: 2,
+      opponents: [{ uid: 'u1', name: 'Ada' }],
+      updatedAtMs: LOBBY_NOW - 4 * 60_000,
+    }),
+  ),
+  lobbyGame({
+    id: 't3',
+    status: 'finished',
+    mySeat: 2,
+    toMove: 0,
+    seatCount: 3,
+    scores: [212, 244, 198],
+    // Kai left with the best score and still places last (DECISIONS
+    // 2026-08-28) — the card reads the standings, it never re-ranks them.
+    standings: [[0], [2], [1]],
+    withdrawn: [1],
+    result: 'p0',
+    opponents: [
+      { uid: 'u1', name: 'Ada', seat: 0 },
+      { uid: 'u3', name: 'Kai', seat: 1 },
+    ],
+    public: fixturePublic(FULL_GAME),
+  }),
+];
+
 export const GALLERY: GalleryEntry[] = [
   {
     id: 'landing',
@@ -213,6 +268,16 @@ export const GALLERY: GalleryEntry[] = [
     render: () => (
       <Box data-gallery-ready sx={{ p: 2, maxWidth: 560 }}>
         <LobbyView games={LOBBY_GAMES} now={LOBBY_NOW} onOpen={() => {}} onRespondChallenge={() => {}} />
+      </Box>
+    ),
+  },
+  // T7.16: 3+ lobby cards — a four-handed game in play, an open room, and a
+  // finished table whose withdrawn player outscored the winner.
+  {
+    id: 'lobby-table',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2, maxWidth: 560 }}>
+        <LobbyView games={TABLE_LOBBY_GAMES} now={LOBBY_NOW} onOpen={() => {}} />
       </Box>
     ),
   },
@@ -626,6 +691,48 @@ export const GALLERY: GalleryEntry[] = [
     id: 'ending-resign',
     render: () =>
       game(() => fixtureController({ ...TIE_GAME, moves: TIE_GAME.moves.slice(0, 2) }, (c) => c.resign(1))),
+  },
+  // T7.16 — the DECISIONS 2026-08-28 case, made visible: Ada and Sam left the
+  // four-handed game, Ada holding the top score, and the podium still places
+  // them below Noor and Kai, who played it out. The rail above reads by
+  // PLACING (the game is over), not by turn order.
+  {
+    id: 'ending-4-seats-withdrawn',
+    render: () => (
+      <WithController
+        make={() =>
+          finishedTableController({ seats: 4, script: tableTwoRounds, out: [0, 1], mySeat: 2 })
+        }
+        render={(c) => <GameBoard controller={c} seatNames={TABLE_NAMES} />}
+      />
+    ),
+  },
+  // Three seats, two of them level at the top: a shared 1st on the podium and
+  // a headline that names them (the two-seat "apiece" draw is below).
+  {
+    id: 'ending-3-seats-tie',
+    render: () => (
+      <WithController
+        make={() =>
+          scorelessTableController([
+            ['A', 'E', 'I', 'O', 'U', 'S', 'T'],
+            ['A', 'E', 'I', 'O', 'U', 'S', 'T'],
+            ['Q', 'Z', 'J', 'X', 'K', 'V', 'W'],
+          ])
+        }
+        render={(c) => <GameBoard controller={c} seatNames={['Ada', 'Sam', 'Noor']} />}
+      />
+    ),
+  },
+  // Two seats, and the WINNER IS SEAT 1: the podium leads with them, which the
+  // old seat-ordered score list could not do (the one accepted two-seat change).
+  {
+    id: 'ending-winner-second-seat',
+    render: () =>
+      game(
+        () => fixtureController({ ...TIE_GAME, moves: TIE_GAME.moves.slice(0, 2) }, (c) => c.resign(0)),
+        ['Ada', 'Sam'],
+      ),
   },
   {
     id: 'ending-timeout',

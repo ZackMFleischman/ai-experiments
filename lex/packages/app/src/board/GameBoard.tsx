@@ -457,8 +457,9 @@ export function GameBoard({
         toMove={snap.toMove}
         mySeat={snap.mySeat}
         queue={queue}
-        withdrawn={snap.state.withdrawn}
+        withdrawn={snap.end?.withdrawn ?? snap.state.withdrawn}
         ended={snap.end !== undefined}
+        {...(snap.end?.standings ? { standings: snap.end.standings } : {})}
         onOpenSheet={() => setSheetOpen(true)}
         onInfo={() => setInfoOpen(true)}
         {...(onBackToLobby ? { onBack: onBackToLobby } : {})}
@@ -650,6 +651,7 @@ export function GameBoard({
           end={snap.end}
           names={seatNames}
           sheet={snap.sheet}
+          mySeat={snap.mySeat}
           onRematch={() => onRematch?.()}
           onViewBoard={() => controller.dismissOverlay()}
           {...(onBackToLobby ? { onBackToLobby } : {})}

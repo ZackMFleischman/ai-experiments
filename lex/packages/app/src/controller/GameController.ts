@@ -55,16 +55,26 @@ export interface Preview {
   playable: boolean;
 }
 
+/** The N-seat truth every ending carries (T7.16): `standings` best-first with
+ * an inner array of 2+ seats tied, and the seats that withdrew. The order is
+ * the ENGINE's (or the server's) — everyone who finished ranks above everyone
+ * who left, whatever the frozen scores say (DECISIONS 2026-08-28). Nothing
+ * downstream re-sorts it. Absent only on an end built before M7. */
+interface FinalPlacings {
+  standings?: readonly (readonly Seat[])[];
+  withdrawn?: readonly Seat[];
+}
+
 export type GameEnd =
-  | {
+  | ({
       by: 'played-out' | 'scoreless' | 'last-standing';
       winner: Seat | 'draw';
       finalScores: readonly number[];
       /** Per-seat end adjustment (rack gains/deductions), for the score
        * story's line items — finalScores minus the pre-adjustment totals. */
       adjustments: readonly number[];
-    }
-  | { by: 'resign' | 'timeout'; winner: Seat; finalScores: readonly number[] };
+    } & FinalPlacings)
+  | ({ by: 'resign' | 'timeout'; winner: Seat; finalScores: readonly number[] } & FinalPlacings);
 
 export interface LastPlay {
   by: Seat;
@@ -153,6 +163,9 @@ interface SessionState {
   game: GameState;
   resigned?: Seat;
   timedOut?: Seat;
+  /** Multiplayer: the finished game's placings as the SERVER ranked them —
+   * the authority over the client's own `result(state)` reading. */
+  placings?: FinalPlacings;
   lastPlay?: LastPlay;
   sheet: readonly SheetRow[];
   /** Multiplayer (T4.6): the REAL own-rack faces (rack doc). The engine
@@ -436,11 +449,21 @@ export class GameController {
         }
       : undefined;
     const ended = entry.ended;
+    // The server's placings, carried verbatim (T7.16): they rank everyone who
+    // finished above everyone who withdrew, and the client never re-sorts.
+    const placings: FinalPlacings | undefined =
+      ended && (ended.standings || ended.withdrawn)
+        ? {
+            ...(ended.standings ? { standings: ended.standings } : {}),
+            ...(ended.withdrawn ? { withdrawn: ended.withdrawn } : {}),
+          }
+        : undefined;
     return {
       game,
       myRack: entry.myRack.split('') as TileFace[],
       sheet,
       ...(lastPlay ? { lastPlay } : {}),
+      ...(placings ? { placings } : {}),
       ...(ended?.endedBy === 'resign' && ended.winner !== 'draw'
         ? { resigned: ended.winner === 0 ? 1 : 0 }
         : {}),
@@ -633,25 +656,50 @@ export class GameController {
     this.emit();
   }
 
+  /** The placings this end carries: the server's where it sent them, else the
+   * engine's — never a fresh ranking of our own (DECISIONS 2026-08-28). */
+  private placingsOf(s: SessionState, standings: readonly (readonly Seat[])[]): FinalPlacings {
+    return {
+      standings: s.placings?.standings ?? standings,
+      withdrawn: s.placings?.withdrawn ?? s.game.withdrawn,
+    };
+  }
+
   private computeEnd(s: SessionState, res: GameResult): GameEnd | undefined {
     if (s.resigned !== undefined) {
-      return { by: 'resign', winner: s.resigned === 0 ? 1 : 0, finalScores: s.game.scores };
+      const winner = (s.resigned === 0 ? 1 : 0) as Seat;
+      // Two seats: the resigner places second. (At 3+ a resignation is a
+      // withdrawal — the game runs on and ends through `result` below.)
+      return {
+        by: 'resign',
+        winner,
+        finalScores: s.game.scores,
+        ...this.placingsOf(s, [[winner], [s.resigned]]),
+      };
     }
     if (s.timedOut !== undefined) {
-      return { by: 'timeout', winner: s.timedOut === 0 ? 1 : 0, finalScores: s.game.scores };
+      const winner = (s.timedOut === 0 ? 1 : 0) as Seat;
+      return {
+        by: 'timeout',
+        winner,
+        finalScores: s.game.scores,
+        ...this.placingsOf(s, [[winner], [s.timedOut]]),
+      };
     }
     if (res.status === 'finished') {
       // Line items = engine finals minus the recorded pre-adjustment totals
       // (arithmetic over verdicts already computed — no rules re-derived).
       const before = s.sheet[s.sheet.length - 1]?.totals ?? res.finalScores.map(() => 0);
-      // The 2-seat form of the engine's standings: the top placing is a draw
-      // when more than one seat shares it (T7.13/T7.16 render the full rail).
-      const top = res.standings[0]!;
+      const placings = this.placingsOf(s, res.standings);
+      // The 2-seat form of the same standings: the top placing is a draw when
+      // more than one seat shares it. The podium reads `standings` itself.
+      const top = placings.standings![0]!;
       return {
         by: res.by,
         winner: top.length > 1 ? 'draw' : top[0]!,
         finalScores: res.finalScores,
         adjustments: res.finalScores.map((score, seat) => score - (before[seat] ?? 0)),
+        ...placings,
       };
     }
     return undefined;

@@ -52,6 +52,14 @@ export type LexEntry =
       /** The real own-rack faces (rack doc). */
       myRack: string;
       rows: readonly SyncRow[];
-      /** Present once the server marked the game finished. */
-      ended?: { endedBy: 'played-out' | 'scoreless' | 'last-standing' | 'resign' | 'timeout'; winner: Seat | 'draw' };
+      /** Present once the server marked the game finished. `standings` is the
+       * N-seat truth (best-first, an inner array of 2+ seats tied, withdrawn
+       * seats below everyone who finished — DECISIONS 2026-08-28); `winner` is
+       * the two-seat shape. Both are absent on a game finished before M7. */
+      ended?: {
+        endedBy: 'played-out' | 'scoreless' | 'last-standing' | 'resign' | 'timeout';
+        winner: Seat | 'draw';
+        standings?: readonly (readonly Seat[])[];
+        withdrawn?: readonly Seat[];
+      };
     };

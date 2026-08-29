@@ -197,3 +197,60 @@ describe('ScoreBar standings rail', () => {
     expect(screen.queryByTestId('withdrawn-0')).toBeNull();
   });
 });
+
+describe('ScoreBar rail once the game is over (T7.16)', () => {
+  const rail = () => screen.getByTestId('standings-rail');
+  const seatOrder = () =>
+    [...rail().querySelectorAll('[data-testid^="score-seat-"]')].map((el) =>
+      el.getAttribute('data-testid'),
+    );
+
+  it('reads by placing, not by turn order, with no seat to move', () => {
+    render(
+      <ScoreBar
+        names={['Ada', 'Sam', 'Noor', 'Kai']}
+        scores={[244, 12, 176, 143]}
+        toMove={2}
+        mySeat={2}
+        queue={[2, 3]}
+        withdrawn={[0, 1]}
+        ended
+        // Ada left with the best score and the engine still ranks her third.
+        standings={[[2], [3], [0], [1]]}
+        onOpenSheet={noop}
+      />,
+    );
+    expect(screen.getByTestId('turn-line').textContent).toBe('Game over');
+    expect(seatOrder()).toEqual([
+      'score-seat-2',
+      'score-seat-3',
+      'score-seat-0',
+      'score-seat-1',
+    ]);
+    expect(screen.getByTestId('placing-2').textContent).toBe('1');
+    expect(screen.getByTestId('placing-0').textContent).toBe('3');
+    // No queue numerals and no to-move highlight survive the ending.
+    expect(screen.queryByTestId('queue-2')).toBeNull();
+    expect(rail().querySelector('[data-to-move="true"]')).toBeNull();
+    // The withdrawn keep their marker and their frozen score.
+    expect(screen.getByTestId('withdrawn-0').textContent).toBe('out');
+    expect(screen.getByTestId('score-seat-0').textContent).toContain('244');
+  });
+
+  it('shares a numeral between tied seats', () => {
+    render(
+      <ScoreBar
+        names={['Ada', 'Sam', 'Noor']}
+        scores={[10, 21, 10]}
+        toMove={0}
+        mySeat={0}
+        ended
+        standings={[[1], [0, 2]]}
+        onOpenSheet={noop}
+      />,
+    );
+    expect(seatOrder()).toEqual(['score-seat-1', 'score-seat-0', 'score-seat-2']);
+    expect(screen.getByTestId('placing-0').textContent).toBe('2');
+    expect(screen.getByTestId('placing-2').textContent).toBe('2');
+  });
+});

@@ -8,12 +8,24 @@ import {
   deserializeState,
   initialState,
   serializePublic,
+  serializeState,
   withdraw,
 } from '@lex/engine';
+import type { TileFace } from '@lex/engine';
+import { LocalTransport } from '@parlor/core';
 import { describe, expect, it } from 'vitest';
+import { stubDict } from '../../engine/test/helpers';
+import { GameController } from '../src/controller/GameController';
+import type { GameOptions, LexEntry } from '../src/controller/entries';
 import { synthesizedState } from '../src/sync/firestoreTransport';
 import { toSummary } from '../src/sync/lobby';
-import { LobbyView, cardCaption, type LobbyGameSummary } from '../src/screens/lobbyView';
+import {
+  LobbyView,
+  captionLines,
+  cardCaption,
+  cardTitle,
+  type LobbyGameSummary,
+} from '../src/screens/lobbyView';
 
 const classic = RULESETS['classic']!;
 const ORDER = Object.entries(classic.tiles.counts).flatMap(([face, count]) =>
@@ -260,5 +272,119 @@ describe('the transport’s synthesized state', () => {
     >[0];
     delete pub.withdrawn;
     expect(deserializeState(synthesizedState(pub, 0, 'CATSQJX')).withdrawn).toEqual([]);
+  });
+});
+
+describe('the lobby card at a table (T7.16)', () => {
+  const table = (partial: Partial<LobbyGameSummary> = {}): LobbyGameSummary => ({
+    id: 't1',
+    mySeat: 1,
+    opponentName: 'Ada',
+    status: 'active',
+    toMove: 1,
+    updatedAtMs: NOW - 60_000,
+    rulesetId: 'classic',
+    seatCount: 4,
+    scores: [212, 198, 176, 143],
+    opponents: [
+      { uid: 'ada', name: 'Ada', seat: 0 },
+      { uid: 'noor', name: 'Noor', seat: 2 },
+      { uid: 'kai', name: 'Kai', seat: 3 },
+    ],
+    ...partial,
+  });
+
+  it('titles the card with the whole table, not one opponent', () => {
+    expect(cardTitle(table())).toBe('Ada, Noor & Kai');
+    render(<LobbyView games={[table()]} now={NOW} onOpen={() => {}} />);
+    expect(screen.getByTestId('game-card-t1').textContent).toContain('Ada, Noor & Kai');
+  });
+
+  it('counts the places still open in an open room’s title', () => {
+    expect(
+      cardTitle(
+        table({ status: 'open', openSeats: 2, opponents: [{ uid: 'ada', name: 'Ada' }] }),
+      ),
+    ).toBe('Ada & 2 open');
+  });
+
+  it('leaves the two-seat title exactly as it was', () => {
+    // A two-seat summary carries neither field at all — under
+    // exactOptionalPropertyTypes that means omitted, not explicitly undefined.
+    const { seatCount: _seatCount, opponents: _opponents, ...two } = table({ scores: [24, 18] });
+    expect(cardTitle(two)).toBe('Ada');
+  });
+
+  it('breaks the caption into a standing line and a what-happened line', () => {
+    expect(captionLines(table({ lastPlay: { by: 3, word: 'JINX', score: 40 } }), NOW)).toEqual([
+      'You 198 · Ada 212 · Noor 176 · Kai 143',
+      'Kai played JINX +40',
+    ]);
+  });
+
+  it('reads finished tables by PLACING, in the standings’ own order', () => {
+    // Kai left holding the best score and still places last — the card renders
+    // the standings it was given (DECISIONS 2026-08-28), it never re-ranks.
+    const finished = table({
+      status: 'finished',
+      seatCount: 3,
+      scores: [212, 198, 244],
+      standings: [[0], [1], [2]],
+      withdrawn: [2],
+      opponents: [
+        { uid: 'ada', name: 'Ada', seat: 0 },
+        { uid: 'kai', name: 'Kai', seat: 2 },
+      ],
+    });
+    expect(captionLines(finished, NOW)[0]).toBe('1st Ada 212 · 2nd You 198 · 3rd Kai 244');
+  });
+});
+
+describe('the server’s standings reach GameEnd (T7.16)', () => {
+  /** A finished 4-seat game the way the transport delivers one: the server's
+   * public snapshot as a sync entry, with its `ended` block. */
+  async function syncedEnd(ended: NonNullable<Extract<LexEntry, { kind: 'sync' }>['ended']>) {
+    let state = initialState(classic, ORDER, 4);
+    for (const seat of [1, 2, 3]) state = withdraw(state, seat); // last player standing
+    const options = {
+      rulesetId: 'classic',
+      dictionaryId: 'stub',
+      bagOrder: ORDER as TileFace[],
+      seats: 4,
+    };
+    const transport = new LocalTransport<GameOptions, LexEntry>(options);
+    await transport.submit(
+      {
+        kind: 'sync',
+        state: serializeState(state),
+        myRack: (state.racks[0] ?? []).join(''),
+        rows: [],
+        ended,
+      },
+      0,
+    );
+    const controller = new GameController(transport, options, { dict: stubDict() }, 0);
+    await controller.init();
+    return controller.getSnapshot().end;
+  }
+
+  it('carries the placings and the withdrawn through to the end', async () => {
+    const end = await syncedEnd({
+      endedBy: 'last-standing',
+      winner: 0,
+      standings: [[0], [3], [1, 2]],
+      withdrawn: [1, 2, 3],
+    });
+    expect(end?.by).toBe('last-standing');
+    expect(end?.standings).toEqual([[0], [3], [1, 2]]);
+    expect(end?.withdrawn).toEqual([1, 2, 3]);
+    expect(end?.winner).toBe(0);
+  });
+
+  it('falls back to the engine’s own placings for a game finished before M7', async () => {
+    const end = await syncedEnd({ endedBy: 'last-standing', winner: 0 });
+    // Nobody scored, so the three who left share a placing behind the survivor.
+    expect(end?.standings).toEqual([[0], [1, 2, 3]]);
+    expect(end?.withdrawn).toEqual([1, 2, 3]);
   });
 });

@@ -546,3 +546,22 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   decorative preview has no fit-view, so it is now excluded via `data-decorative`
   rather than the assertion being loosened: the game board is held to exactly the
   same bound as before. Lex's landing tagline also stops saying "for two".
+
+- **2026-08-29 — "Not this time" dismisses the rematch offer locally; it does not
+  decline it** (T7.16). A rematch at a table invites everyone, and the server has
+  no per-player decline: `rematch` mints the return game for the whole roster the
+  moment anyone taps it. Rather than mint a callable nobody else needs, the
+  overlay just hides its own Rematch button and says the others can start one
+  without you — true, because the return game reaches them through `playerIds`
+  whether or not you ever open it. The alternative (a server-side opt-out) would
+  make the rematch roster a fifth piece of room state for one button.
+
+- **2026-08-29 — the podium renders `standings` and never re-ranks it** (T7.16).
+  Sorting rows by `finalScores` in the UI would quietly undo the ranking rule of
+  2026-08-28 and place a player who resigned while ahead first — the exact
+  incentive the rule exists to remove. `FinalStandings` therefore takes the
+  order it is given; when an end predates standings travelling it falls back to
+  the two-seat winner/loser form, which is the same ordering, never a fresh one.
+  The winner's placing pill is filled accent (`primary.contrastText` on
+  `primary.main`), not accent text on the selected-row wash, which fails 4.5:1
+  in dark.

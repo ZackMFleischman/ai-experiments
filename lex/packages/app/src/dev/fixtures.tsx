@@ -2,7 +2,16 @@
 // through the engine's public API + the controller — replayed from the
 // pinned GCG fixtures. Deterministic: rigged bags, fixed rng, no clocks.
 import { Box, CircularProgress } from '@mui/material';
-import { RULESETS, applyMove, initialState, parseGcg, serializePublic, withdraw } from '@lex/engine';
+import {
+  RULESETS,
+  applyMove,
+  initialState,
+  parseGcg,
+  result,
+  serializePublic,
+  serializeState,
+  withdraw,
+} from '@lex/engine';
 import type { GameState, Seat, TileFace } from '@lex/engine';
 import { LocalTransport } from '@parlor/core';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -120,12 +129,9 @@ const TABLE_RACKS: readonly (readonly TileFace[])[] = [
  * (T7.14): rigged racks per seat and a fixed rng, driven through the
  * controller's own actions so every sheet row is real recorded verdict data.
  */
-export async function tableController(
-  seats: number,
-  script?: (controller: GameController) => void,
-): Promise<GameController> {
+function tableOptions(seats: number): HotSeatOptions {
   const ruleset = RULESETS['classic']!;
-  const options: HotSeatOptions = {
+  return {
     rulesetId: 'classic',
     dictionaryId: 'stub',
     // A pinned draw tail too, so refills are letters rather than the blanks
@@ -135,6 +141,13 @@ export async function tableController(
     ]),
     seats,
   };
+}
+
+export async function tableController(
+  seats: number,
+  script?: (controller: GameController) => void,
+): Promise<GameController> {
+  const options = tableOptions(seats);
   const transport = new LocalTransport<HotSeatOptions, LexEntry>(options);
   const controller = new GameController(transport, options, {
     dict: stubDict(),
@@ -142,6 +155,97 @@ export async function tableController(
   });
   await controller.init();
   script?.(controller);
+  return controller;
+}
+
+/**
+ * A finished N-seat game AS THE SERVER REPORTS ONE (T7.16): the table plays
+ * `script`, `out` seats then withdraw, and whoever is left passes until the
+ * engine calls it. The result is delivered the way a real client receives it —
+ * one `sync` entry carrying the server's own standings — so the podium and the
+ * placing rail render the very shape the transport sends. Every number here is
+ * the engine's: withdraw/applyMove/result did the ranking, not this fixture.
+ */
+export async function finishedTableController(opts: {
+  seats: number;
+  script: (controller: GameController) => void;
+  /** Seats that leave mid-game — the engine ranks them below everyone who
+   * finished, however high their frozen score (DECISIONS 2026-08-28). */
+  out: readonly Seat[];
+  /** The seat this client reads from. */
+  mySeat: Seat;
+}): Promise<GameController> {
+  const played = await tableController(opts.seats, opts.script);
+  const snap = played.getSnapshot();
+  const dict = stubDict();
+  let state = snap.state;
+  for (const seat of opts.out) state = withdraw(state, seat);
+  // The survivors pass it out: no scoring move is left in this fixture, and
+  // the scoreless limit is the engine's own ending.
+  for (let i = 0; i < 40 && result(state).status === 'ongoing'; i++) {
+    state = applyMove(state, { type: 'pass' }, dict);
+  }
+  const res = result(state);
+  if (res.status !== 'finished') throw new Error('fixture never finished');
+  const top = res.standings[0]!;
+  const options = tableOptions(opts.seats);
+  const transport = new LocalTransport<HotSeatOptions, LexEntry>(options);
+  await transport.submit(
+    {
+      kind: 'sync',
+      state: serializeState(state),
+      myRack: (state.racks[opts.mySeat] ?? []).join(''),
+      rows: snap.sheet.map((row) => ({
+        n: row.n,
+        by: row.by,
+        kind: row.kind,
+        word: row.word,
+        words: row.words.map((w) => ({ word: w.word, score: w.score })),
+        score: row.score,
+        ...(row.count !== undefined ? { count: row.count } : {}),
+        cells: row.cells,
+      })),
+      ended: {
+        endedBy: res.by,
+        winner: top.length > 1 ? 'draw' : top[0]!,
+        standings: res.standings,
+        withdrawn: state.withdrawn,
+      },
+    },
+    0,
+  );
+  const controller = new GameController(
+    transport,
+    options,
+    { dict, rng: () => 0.5 },
+    opts.mySeat,
+  );
+  await controller.init();
+  controller.finishBeat(); // the board beat is not what this entry is for
+  return controller;
+}
+
+/**
+ * The quickest honest finish (T7.16): nobody scores, everybody passes to the
+ * scoreless limit, so each seat's final is exactly its rigged rack's
+ * deduction — a tie in the gallery is the engine's arithmetic, never a
+ * hand-written number.
+ */
+export async function scorelessTableController(
+  racks: readonly (readonly TileFace[])[],
+): Promise<GameController> {
+  const ruleset = RULESETS['classic']!;
+  const options: HotSeatOptions = {
+    rulesetId: 'classic',
+    dictionaryId: 'stub',
+    bagOrder: riggedBagOrder(ruleset, racks),
+    seats: racks.length,
+  };
+  const transport = new LocalTransport<HotSeatOptions, LexEntry>(options);
+  const controller = new GameController(transport, options, { dict: stubDict(), rng: () => 0.5 });
+  await controller.init();
+  for (let i = 0; i < 40 && !controller.getSnapshot().end; i++) controller.pass();
+  controller.finishBeat();
   return controller;
 }
 

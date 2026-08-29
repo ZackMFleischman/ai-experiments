@@ -15,7 +15,7 @@ import { Box, Chip, IconButton, Paper, Typography } from '@mui/material';
 import type { Seat } from '@lex/engine';
 import { timeLeft, useNow } from './clock';
 import { displayNames } from './names';
-import { formatScore } from './score';
+import { formatScore, ordinal } from './score';
 
 export interface ScoreBarProps {
   names: readonly string[];
@@ -32,8 +32,14 @@ export interface ScoreBarProps {
   /** Seats that have left the game (`GameState.withdrawn`): no queue position,
    * muted, marked "out". */
   withdrawn?: readonly Seat[];
-  /** Game over — the turn line says so instead of naming a seat. */
+  /** Game over — the turn line says so instead of naming a seat, and the rail
+   * stops reading as a turn queue (no to-move highlight). */
   ended?: boolean;
+  /** Final placings from the engine/server (`GameEnd.standings`), best-first,
+   * an inner array of 2+ seats tied. Once `ended`, the rail runs in THIS order
+   * with placing numerals instead of queue positions — the withdrawn sit where
+   * the standings put them (below everyone who finished), never re-sorted. */
+  standings?: readonly (readonly Seat[])[];
   onOpenSheet: () => void;
   /** Leaves the game for the lobby / landing. Omitted where there is nowhere
    * to go back to (e.g. the standalone gallery). */
@@ -68,6 +74,7 @@ export function ScoreBar({
   queue = [],
   withdrawn = [],
   ended = false,
+  standings = [],
   onOpenSheet,
   onBack,
   onInfo,
@@ -77,12 +84,20 @@ export function ScoreBar({
   const nameOf = (seat: Seat): string => shown[seat] ?? `Player ${seat + 1}`;
   const perspective = mySeat ?? toMove;
 
-  // Rail order: the engine's queue first (seat to move leading), then the
-  // seats it left out — the withdrawn — in seat order. Positions come from
-  // the queue alone, so a withdrawn seat simply has none.
+  // Rail order. While the game runs: the engine's queue first (seat to move
+  // leading), then the seats it left out — the withdrawn — in seat order;
+  // positions come from the queue alone, so a withdrawn seat simply has none.
+  // Once it is over the rail reads by PLACING instead (T7.16) — the standings
+  // as the engine ranked them, tied seats sharing a numeral.
   const seats = scores.map((_score, seat) => seat);
-  const order = [...queue, ...seats.filter((seat) => !queue.includes(seat))];
+  const byPlacing = ended && standings.length > 0;
+  const ranked = byPlacing ? standings.flatMap((tied) => tied) : queue;
+  const order = [...ranked, ...seats.filter((seat) => !ranked.includes(seat))];
   const positionOf = (seat: Seat): number | null => {
+    if (byPlacing) {
+      const at = standings.findIndex((tied) => tied.includes(seat));
+      return at < 0 ? null : at + 1;
+    }
     const at = queue.indexOf(seat);
     return at < 0 ? null : at + 1;
   };
@@ -150,13 +165,15 @@ export function ScoreBar({
       >
         {order.map((seat) => {
           const out = withdrawn.includes(seat);
-          const active = toMove === seat && !out;
+          // Nobody is to move once the game is over: the rail drops the
+          // highlight (and the attribute the e2e reads it by) with the turn.
+          const active = toMove === seat && !out && !ended;
           const position = positionOf(seat);
           return (
             <Box
               key={seat}
               data-testid={`score-seat-${seat}`}
-              data-to-move={toMove === seat ? 'true' : undefined}
+              data-to-move={active ? 'true' : undefined}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -188,8 +205,10 @@ export function ScoreBar({
                 {position !== null && (
                   <Box
                     component="span"
-                    data-testid={`queue-${seat}`}
-                    aria-label={`${position} in the turn order`}
+                    data-testid={byPlacing ? `placing-${seat}` : `queue-${seat}`}
+                    aria-label={
+                      byPlacing ? `${ordinal(position)} place` : `${position} in the turn order`
+                    }
                     sx={{
                       flexShrink: 0,
                       display: 'inline-flex',
@@ -250,7 +269,7 @@ export function ScoreBar({
                     out
                   </Box>
                 )}
-                {toMove === seat && deadlineAtMs !== undefined && (
+                {active && deadlineAtMs !== undefined && (
                   <TurnClock deadlineAtMs={deadlineAtMs} />
                 )}
               </Box>

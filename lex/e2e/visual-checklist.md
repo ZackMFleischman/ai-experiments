@@ -42,8 +42,8 @@ are logged at the bottom with date + reason, and deleted when fixed.
   move first, each row numbered 1..n. One row at ≥900px, turn line above rail
   below 900px; four seats fit 390px with no horizontal scroll and no wrapped
   rows (names ellipsize instead).
-- A withdrawn seat in the rail: muted, no queue numeral, an "out" marker, score
-  still readable — and the seats still playing renumber with no gap.
+- Withdrawn seat in the rail: muted, no numeral, "out", score readable; others
+  renumber gapless. At game over the rail reads by PLACING, no turn highlight.
 - Catch-up bar at 3+ seats (T7.14): one line under the player bar naming the
   reviewed move ("Kai played TOE +4") with ‹ › and Live ≥44px; stepping back
   rewinds the board (later tiles gone) and moves the SAME green highlight onto
@@ -65,8 +65,9 @@ are logged at the bottom with date + reason, and deleted when fixed.
   ANY drag hovering the tray — rack- or board-origin — flips to insertion
   mode: the ghost un-snaps to ride the finger, slots preview the splice,
   release commits it (staged tiles return to the exact slot you point at).
-- Result overlay hierarchy: outcome → reason → score story (with adjustment line
-  items) → actions; readable over any board.
+- Result overlay: outcome → reason → podium (placing, name, final, adjustment
+  line item; winner first at any count; withdrawn rows out, last, and say why)
+  → stats → actions; at 3+ Rematch names who it invites and offers the opt-out.
 - Text contrast ≥ 4.5:1 (spot-check theme tokens, all tile skins).
 - No layout shift between `?static=1` captures of the same entry (determinism).
 
@@ -85,10 +86,10 @@ are logged at the bottom with date + reason, and deleted when fixed.
   +; the empty state carries the primary "Start a new game" CTA.
 
 - Lobby groups labeled and ordered (challenges, your turn, waiting, finished);
-  cards carry thumbnail, scores + last play (2-line clamp — never truncated to
-  scores alone), your-turn/deadline/result chips distinguishable in both themes.
-  The deadline (clock-icon) chip rides BOTH your-turn and waiting cards — the
-  current player's move deadline — and never starves the caption at 390px.
+  cards carry thumbnail, scores/placings + last play (two lines at 3+, clamped,
+  never truncated to scores alone), your-turn/deadline/result chips clear in
+  both themes; at 3+ the title names the table. The deadline (clock-icon) chip
+  rides your-turn AND waiting cards and never starves the caption at 390px.
 - New game: both board cards show real premium-map previews; dictionaries show
   name + word count + description; toggles legible at 390px. PLAYERS offers only
   the selected board's range; a board that cannot seat the count is dimmed and

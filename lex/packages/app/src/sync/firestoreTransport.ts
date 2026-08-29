@@ -338,19 +338,18 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       cells: (m.play?.placements ?? []).map((p) => cellKey({ row: p.row, col: p.col })),
     }));
 
-    // `standings` is the N-seat truth; `winner` is the two-seat shape the
-    // controller's GameEnd still speaks. (The entry cannot yet CARRY standings
-    // or withdrawn — LexEntry['ended'] holds neither, and the controller is
-    // T7.13–T7.16's to widen.)
+    // `standings` is the N-seat truth — best-first, an inner array of 2+ seats
+    // tied, the withdrawn last (the engine placed them there; nothing here
+    // re-sorts). `winner` is the two-seat shape the controller's GameEnd also
+    // speaks. Both travel to the session: T7.16 widened LexEntry['ended'].
+    const standings = game.standings?.map((placing) => seatIndices(placing.seats, seats));
     const ended =
       game.status === 'finished' && game.endedBy && game.result
         ? {
             endedBy: game.endedBy,
-            winner: winnerOf(
-              game.standings?.map((placing) => seatIndices(placing.seats, seats)),
-              game.result,
-              seats,
-            ),
+            winner: winnerOf(standings, game.result, seats),
+            ...(standings ? { standings } : {}),
+            ...(game.withdrawn ? { withdrawn: seatIndices(game.withdrawn, seats) } : {}),
           }
         : undefined;
 
