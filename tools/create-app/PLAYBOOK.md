@@ -20,7 +20,7 @@ shipped apps, never invented — this is that, taken literally.
 
 ```
 node tools/create-app/index.mjs <name> --kind duo|solo|arcade|utility \
-  --display "Name" --tagline "..." --accent "#rrggbb" --port 52X0
+  --display "Name" --tagline "..." --accent "#rrggbb" --port 52X0 [--players N]
 cd <name> && pnpm install && pnpm typecheck && pnpm test   # must be green untouched
 git add <name> .github/workflows/<name>-*.yml   # commit the stamp as-is
 ```
@@ -28,6 +28,14 @@ git add <name> .github/workflows/<name>-*.yml   # commit the stamp as-is
 Ports: pick an unused base (grep `--port` history: sudoku 5199, breakout
 5201, tafl 5202/03). The stamp rewrites the exemplar's e2e/dev ports from
 the base.
+
+`--players` is the **maximum** seats, and it defaults to the exemplar's own
+range (duo 2, the zero-backend kinds 1). Asking for more than the exemplar
+seats stamps a registry *claim*, not a fact — the ruleset you just cloned still
+declares the exemplar's seats — so widen `players` in the stamped ruleset and
+run the engine's seat-parameterized suite before the claim is true. `lex/` is
+the worked example of a 2–4 game (its M7 entries in `lex/DECISIONS.md` are the
+short version of what N seats costs).
 
 ## 2. Morph the engine first (tests before code)
 

@@ -5,7 +5,7 @@ import type { FamilyApp } from './MoreFromUs';
 
 export const FAMILY: readonly FamilyApp[] = [
   { name: "Hive", tagline: "The bug board game, online with a friend", glyph: "🐝", url: "https://hive.zackmfleischman.com" },
-  { name: "Lex", tagline: "A crossword tile game for two", glyph: "🅻" },
+  { name: "Lex", tagline: "A crossword tile game for 2–4", glyph: "🅻" },
   { name: "Checkers", tagline: "Draughts, online with a friend", glyph: "⛃" },
   { name: "Tafl", tagline: "The Viking siege game, for two", glyph: "⚔️", url: "https://tafl.pages.dev" },
   { name: "Sudoku", tagline: "A calm daily puzzle", glyph: "🔢", url: "https://sudoku-zmf.pages.dev" },

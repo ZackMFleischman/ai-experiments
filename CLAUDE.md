@@ -10,7 +10,7 @@ platefit were forked to their own repos and no longer live here — platefit is
 now at https://github.com/ZackMFleischman/platefit.) The portfolio:
 
 - **`parlor/`** — the shared platform workspace every game consumes:
-  `core`/`web`/`server`/`harness` for two-player Firebase games,
+  `core`/`web`/`server`/`harness` for 2–4-player Firebase games,
   `solo`/`arcade`/`brand`/`native` for the zero-backend brand titles. Consumed
   by sibling workspaces as source-linked `link:` deps — **always
   `pnpm install` in `parlor/` before installing a game** (`link:` deps don't

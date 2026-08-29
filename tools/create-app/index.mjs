@@ -137,7 +137,10 @@ function* walk(dir) {
 const args = parseArgs(process.argv.slice(2));
 const name = args.name;
 if (!name || !/^[a-z][a-z0-9-]*$/.test(name)) {
-  fail('usage: create-app <name> --kind duo|solo|arcade|utility (name is lowercase, e.g. checkers)');
+  fail(
+    'usage: create-app <name> --kind duo|solo|arcade|utility [--players N] ' +
+      '(name is lowercase, e.g. checkers)',
+  );
 }
 const kind = KINDS[args.kind];
 if (!kind) fail(`--kind must be one of: ${Object.keys(KINDS).join(' | ')}`);
@@ -153,6 +156,21 @@ const tagline = args.tagline ?? `TODO: one-line tagline for ${display}.`;
 const accent = args.accent ?? fromAccent;
 if (!/^#[0-9a-fA-F]{6}$/.test(accent)) fail('--accent must be a #rrggbb hex color');
 const glyph = args.glyph ?? '🔷'; // placeholder mark; the PLAYBOOK swaps it for the game's own
+
+// Seats. The registry requires a `players` range on every game (M7), so the
+// stamp has to carry one or `check-registry` rejects the entry it just wrote.
+// `--players` names the MAXIMUM; the minimum is the archetype's (2 for a duo
+// game, 1 for the zero-backend kinds, which cannot seat more than one at all).
+const seatMin = kind.zeroBackend ? 1 : 2;
+const seatMax = args.players === undefined ? (exemplarEntry?.players?.max ?? seatMin) : Number(args.players);
+if (!Number.isInteger(seatMax) || seatMax < seatMin) {
+  fail(`--players must be an integer ≥ ${seatMin} for a ${args.kind} app`);
+}
+if (kind.zeroBackend && seatMax !== 1) fail(`a ${args.kind} app seats exactly one player`);
+// Above the exemplar's own range the stamp is a CLAIM, not a fact: the copied
+// ruleset still declares the exemplar's seats. Say so rather than let the
+// registry and the engine disagree quietly.
+const widened = seatMax > (exemplarEntry?.players?.max ?? seatMin);
 const target = join(repoRoot, name);
 if (existsSync(target) && !args.force) fail(`${name}/ already exists (use --force to overwrite files into it)`);
 
@@ -270,6 +288,7 @@ if (existsSync(registryPath)) {
       name,
       dir: name,
       kind: args.kind,
+      players: { min: seatMin, max: seatMax },
       displayName: display,
       tagline,
       glyph,
@@ -294,8 +313,15 @@ if (existsSync(registryPath)) {
   }
 }
 
-console.log(`stamped ${name}/ (${args.kind}, from ${kind.exemplar}) — ${cloned} files cloned, docs + DONE.md fresh, workflows: ${kind.workflows.map((w) => `${name}-${w}.yml`).join(' ')}; registry: ${registered}.
-
+console.log(`stamped ${name}/ (${args.kind}, ${seatMin}–${seatMax} players, from ${kind.exemplar}) — ${cloned} files cloned, docs + DONE.md fresh, workflows: ${kind.workflows.map((w) => `${name}-${w}.yml`).join(' ')}; registry: ${registered}.
+${
+  widened
+    ? `\n⚑ --players ${seatMax} is wider than ${kind.exemplar}'s own range: the registry now
+   claims ${seatMin}–${seatMax}, but the ruleset you just cloned still declares
+   ${kind.exemplar}'s seats. Widen \`players\` in the stamped ruleset (and prove it with
+   the engine's seat-parameterized suite) before that claim is true.\n`
+    : ''
+}
 Next (tools/create-app/PLAYBOOK.md drives the rest):
   cd ${name} && pnpm install && pnpm typecheck && pnpm test   # green before any edit
   git add ${name} .github/workflows/${name}-*.yml && commit the stamp

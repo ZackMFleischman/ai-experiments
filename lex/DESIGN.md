@@ -1,7 +1,7 @@
 # LEX — Design Doc
 
-A digital, two-player **crossword tile game** (Scrabble / Words-with-Friends family),
-built as a **PWA** so two people in different states can play each other
+A digital **crossword tile game** for two to four players (Scrabble /
+Words-with-Friends family), built as a **PWA** so people in different states play
 **synchronously or asynchronously** — same shape as its sibling project
 [`hive/`](../hive/DESIGN.md), from which this project deliberately inherits its
 architecture, backend, validation harness, and much of its code (§4).
@@ -336,7 +336,7 @@ mode), the hot-seat **pass-device** privacy interstitial, sprite/art assets
 
 **The shared library is repo-level from day one (owner decision): `parlor/`** —
 named for what it is, a parlor-games platform: the game-agnostic layer for
-turn-based, two-player, invite-a-friend PWA games on Firebase. It is its own pnpm
+turn-based, 2–4-player, invite-a-friend PWA games on Firebase. It is its own pnpm
 workspace at the repo root with four packages (`@parlor/core`, `@parlor/web`,
 `@parlor/server`, `@parlor/harness`), its own tests and CI, and **no game
 imports** — lex was its first consumer; hive now consumes the `@parlor/web`

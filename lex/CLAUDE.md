@@ -1,6 +1,6 @@
 # CLAUDE.md — lex/
 
-LEX: a two-player crossword-tile-game PWA (Scrabble/Words-with-Friends family).
+LEX: a 2–4-player crossword-tile-game PWA (Scrabble/Words-with-Friends family).
 Independent pnpm workspace. LEX shares its
 architecture with `../hive/` and ports much of hive's code (DESIGN.md §4); when a
 task says **[port: hive path]**, start from that file.

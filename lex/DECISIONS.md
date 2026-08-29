@@ -588,3 +588,33 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `@parlor/server`'s roster module: everyone but the actor, deduped, empty seats
   dropped. It is a pure helper so it can be unit-tested — the callable itself
   cannot be, since `fire()` swallows push failures and the emulator has no FCM.
+
+- **2026-08-29 — SHIPPED M7 (T7.1–T7.18): N players (2–4).** Gates: full
+  `pnpm validate` green (m0–m5 + typecheck + 592 unit tests); `validate:m4`
+  runs both browser specs, `game.spec.ts` **unedited**; hive, checkers and tafl
+  typecheck+test green with **zero file changes** in those workspaces, PR by PR.
+  Engine: `withdrawn`, `withdraw()`, `turnQueue()`, `standings`,
+  `scorelessRounds`, `Ruleset.players`, property suite over 2/3/4 seats.
+  Platform: seat lists not pairs, the guest-list room (`roster`/`invited`/
+  `declined`), `startGame`, turn-order modes, `withdrawInTx`, room pushes,
+  N-seat lobby contract, `GameRoom`/`TurnOrderPicker`/`InvitationReceived`.
+  Lex: count picker, catch-up bar, standings rail, the podium, the room e2e.
+  Stumbles, all caught by a gate rather than by luck: `standings` as a nested
+  array is **unwritable to Firestore** (a placing became a map); a meta write
+  before `withdrawSeat`'s read broke every 3+ resign (read-before-write);
+  `challengeUser` built 4-seat docs once lex declared `{min:2,max:4}`; and the
+  sync gate swallowed withdrawals entirely (T7.17's entry). The plan's array
+  `scores`/`rackCounts` were kept as seat-keyed maps so two-seat docs stay
+  byte-identical.
+
+- **2026-08-29 — `players` is required on every game in the registry, and the
+  factory stamps it** (T7.18). How many can play an app was folklore living in
+  taglines ("for two"), which is how lex's own tagline stayed wrong through
+  eighteen tasks of making it untrue. It is now a `{min,max}` range that
+  `check-registry.mjs` requires of every game kind and forbids on `other`, with
+  a solo/arcade/utility app pinned to 1..1 and a duo game floored at 2. That
+  made `create-app` stamp an entry its own checker would reject, so the factory
+  grew `--players` (the MAXIMUM; the minimum comes from the archetype). Asking
+  for more seats than the exemplar has stamps a **claim, not a fact** — the
+  cloned ruleset still declares the exemplar's seats — so the tool says so on
+  stamp rather than letting the registry and the engine disagree quietly.
