@@ -2,11 +2,11 @@
 // through the engine's public API + the controller — replayed from the
 // pinned GCG fixtures. Deterministic: rigged bags, fixed rng, no clocks.
 import { Box, CircularProgress } from '@mui/material';
-import { RULESETS, applyMove, initialState, parseGcg, serializePublic } from '@lex/engine';
-import type { GameState, TileFace } from '@lex/engine';
+import { RULESETS, applyMove, initialState, parseGcg, serializePublic, withdraw } from '@lex/engine';
+import type { GameState, Seat, TileFace } from '@lex/engine';
 import { LocalTransport } from '@parlor/core';
 import { useEffect, useState, type ReactNode } from 'react';
-import { riggedBagOrder, stubDict } from '../../../engine/test/helpers';
+import { canonicalBagOrder, riggedBagOrder, stubDict } from '../../../engine/test/helpers';
 import type { HotSeatOptions, LexEntry } from '../controller/entries';
 import { GameController } from '../controller/GameController';
 
@@ -105,4 +105,21 @@ export function WithController({
   }, []);
   if (!controller) return <CircularProgress size={20} sx={{ m: 2 }} />;
   return <Box data-gallery-ready sx={{ height: '100%' }}>{render(controller)}</Box>;
+}
+
+/**
+ * A dealt N-seat state for the score-bar entries (T7.13): `passes` rotate the
+ * turn, `out` seats withdraw. Built through the engine so the rail's queue is
+ * the real `turnQueue`, never a hand-written order.
+ */
+export function seatedState(
+  seats: number,
+  opts: { passes?: number; out?: readonly Seat[] } = {},
+): GameState {
+  const ruleset = RULESETS['classic']!;
+  const dict = stubDict();
+  let state = initialState(ruleset, canonicalBagOrder(ruleset), seats);
+  for (let i = 0; i < (opts.passes ?? 0); i++) state = applyMove(state, { type: 'pass' }, dict);
+  for (const seat of opts.out ?? []) state = withdraw(state, seat);
+  return state;
 }

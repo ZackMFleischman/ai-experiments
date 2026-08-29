@@ -5,7 +5,7 @@
 // board-space (transform-proof). Rules stay in the controller's verdicts.
 import { Box } from '@mui/material';
 import type { Cell, CellKey, TileFace } from '@lex/engine';
-import { cellKey, parseCellKey } from '@lex/engine';
+import { cellKey, parseCellKey, turnQueue } from '@lex/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GameController } from '../controller/GameController';
 import { useGameController } from '../controller/useGameController';
@@ -107,6 +107,10 @@ export function GameBoard({
   // trying to read. Its only exit used to be staging a tile, so a tap on the
   // board tucks it away, and another tap brings it back.
   const [scoreTucked, setScoreTucked] = useState(false);
+
+  // Turn order is the engine's verdict, not the bar's arithmetic (§7.1): the
+  // queue skips withdrawn seats and leads with the side to move.
+  const queue = useMemo(() => turnQueue(snap.state), [snap.state]);
 
   const layout = snap.ruleset.board;
   const points = snap.ruleset.tiles.points;
@@ -429,6 +433,10 @@ export function GameBoard({
         names={seatNames}
         scores={snap.scores}
         toMove={snap.toMove}
+        mySeat={snap.mySeat}
+        queue={queue}
+        withdrawn={snap.state.withdrawn}
+        ended={snap.end !== undefined}
         onOpenSheet={() => setSheetOpen(true)}
         onInfo={() => setInfoOpen(true)}
         {...(onBackToLobby ? { onBack: onBackToLobby } : {})}

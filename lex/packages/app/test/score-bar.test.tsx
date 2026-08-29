@@ -71,3 +71,129 @@ describe('ScoreBar leave button', () => {
     expect(screen.queryByTestId('leave-game')).toBeNull();
   });
 });
+
+describe('ScoreBar turn line', () => {
+  it('reads "Your turn" from the seat to move', () => {
+    render(
+      <ScoreBar
+        names={['Mike', 'Zachary', 'Noor']}
+        scores={[78, 36, 51]}
+        toMove={1}
+        mySeat={1}
+        queue={[1, 2, 0]}
+        onOpenSheet={noop}
+      />,
+    );
+    expect(screen.getByTestId('turn-line').textContent).toBe('Your turn');
+  });
+
+  it('names the seat to move from anyone else\u2019s perspective', () => {
+    render(
+      <ScoreBar
+        names={['Mike', 'Zachary', 'Noor']}
+        scores={[78, 36, 51]}
+        toMove={1}
+        mySeat={0}
+        queue={[1, 2, 0]}
+        onOpenSheet={noop}
+      />,
+    );
+    expect(screen.getByTestId('turn-line').textContent).toContain('Zachary');
+    expect(screen.getByTestId('turn-line').textContent).toContain('turn');
+    expect(screen.getByTestId('turn-line').textContent).not.toContain('Your');
+  });
+
+  it('says the game is over instead of naming a turn', () => {
+    render(
+      <ScoreBar
+        names={['Mike', 'Zachary']}
+        scores={[78, 36]}
+        toMove={0}
+        mySeat={0}
+        queue={[0, 1]}
+        ended
+        onOpenSheet={noop}
+      />,
+    );
+    expect(screen.getByTestId('turn-line').textContent).toBe('Game over');
+  });
+});
+
+describe('ScoreBar standings rail', () => {
+  const rail = () => screen.getByTestId('standings-rail');
+  const seatOrder = () =>
+    [...rail().querySelectorAll('[data-testid^="score-seat-"]')].map(
+      (el) => el.getAttribute('data-testid'),
+    );
+
+  it('orders the rail by the queue and numbers each seat 1-based', () => {
+    render(
+      <ScoreBar
+        names={['Mike', 'Zachary', 'Noor']}
+        scores={[78, 36, 51]}
+        toMove={2}
+        mySeat={0}
+        queue={[2, 0, 1]}
+        onOpenSheet={noop}
+      />,
+    );
+    expect(seatOrder()).toEqual(['score-seat-2', 'score-seat-0', 'score-seat-1']);
+    expect(screen.getByTestId('queue-2').textContent).toBe('1');
+    expect(screen.getByTestId('queue-0').textContent).toBe('2');
+    expect(screen.getByTestId('queue-1').textContent).toBe('3');
+  });
+
+  it('renders four seats, each with its name and score', () => {
+    render(
+      <ScoreBar
+        names={['Mike', 'Zachary', 'Noor', 'Kai']}
+        scores={[78, 36, 51, 12]}
+        toMove={0}
+        mySeat={0}
+        queue={[0, 1, 2, 3]}
+        onOpenSheet={noop}
+      />,
+    );
+    expect(seatOrder()).toHaveLength(4);
+    for (const [seat, name, score] of [
+      [0, 'Mike', '78'],
+      [1, 'Zachary', '36'],
+      [2, 'Noor', '51'],
+      [3, 'Kai', '12'],
+    ] as const) {
+      const row = screen.getByTestId(`score-seat-${seat}`);
+      expect(row.textContent).toContain(name);
+      expect(row.textContent).toContain(score);
+    }
+  });
+
+  it('gives a withdrawn seat no numeral, an out marker, and the last row', () => {
+    render(
+      <ScoreBar
+        names={['Mike', 'Zachary', 'Noor', 'Kai']}
+        scores={[78, 36, 51, 12]}
+        toMove={1}
+        mySeat={0}
+        // Kai withdrew: the engine's queue skips seat 3 entirely.
+        queue={[1, 2, 0]}
+        withdrawn={[3]}
+        onOpenSheet={noop}
+      />,
+    );
+    expect(seatOrder()).toEqual([
+      'score-seat-1',
+      'score-seat-2',
+      'score-seat-0',
+      'score-seat-3',
+    ]);
+    expect(screen.queryByTestId('queue-3')).toBeNull();
+    expect(screen.getByTestId('withdrawn-3').textContent).toBe('out');
+    // The seats still playing keep a full 1..3 numbering.
+    expect(screen.getByTestId('queue-1').textContent).toBe('1');
+    expect(screen.getByTestId('queue-2').textContent).toBe('2');
+    expect(screen.getByTestId('queue-0').textContent).toBe('3');
+    // The withdrawn seat still shows its frozen score.
+    expect(screen.getByTestId('score-seat-3').textContent).toContain('12');
+    expect(screen.queryByTestId('withdrawn-0')).toBeNull();
+  });
+});

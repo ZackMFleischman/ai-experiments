@@ -1,7 +1,8 @@
 // The §4.1 minimum gallery registry (T3.11). Every [visual] task's states,
 // named and reproducible; validate:visual walks these × viewports × themes.
 import { Box } from '@mui/material';
-import { RULESETS } from '@lex/engine';
+import { RULESETS, turnQueue } from '@lex/engine';
+import type { GameState, Seat } from '@lex/engine';
 import type { GalleryEntry } from '@parlor/harness';
 import { FULL_GAME, SCORELESS_GAME, TIE_GAME } from '../../../engine/test/fixtures/full-game';
 import { BoardGrid, boardPixelSize } from '../board/BoardGrid';
@@ -11,6 +12,7 @@ import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
 import { NoticeToast } from '../game/NoticeToast';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
+import { ScoreBar } from '../game/ScoreBar';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
 import type { TileSkinId } from '../board/skin';
@@ -22,7 +24,7 @@ import { JoinCard } from '../screens/Join';
 import { LobbyView, type LobbyGameSummary } from '../screens/lobbyView';
 import { NewGameForm } from '../screens/newGameView';
 import { WaitingForOpponent } from '../screens/waitingView';
-import { fixtureController, fixturePublic, WithController } from './fixtures';
+import { fixtureController, fixturePublic, seatedState, WithController } from './fixtures';
 
 const classic = RULESETS['classic']!;
 
@@ -57,6 +59,28 @@ const stageCats = (c: import('../controller/GameController').GameController) => 
   c.placeAt({ row: 7, col: 9 }, 2);
   c.placeAt({ row: 7, col: 10 }, 3);
 };
+
+/** The N-seat player bar (T7.13): the turn line from the reader's seat, plus a
+ * standings rail ordered by the ENGINE's turn queue (each row carries its
+ * 1-based position; a withdrawn seat has none and is marked out). */
+const seatBar = (
+  state: GameState,
+  bar: { names: readonly string[]; scores: readonly number[]; mySeat: Seat },
+) => (
+  <Box data-gallery-ready>
+    <ScoreBar
+      names={bar.names}
+      scores={bar.scores}
+      toMove={state.toMove}
+      mySeat={bar.mySeat}
+      queue={turnQueue(state)}
+      withdrawn={state.withdrawn}
+      onOpenSheet={() => {}}
+      onBack={() => {}}
+      onInfo={() => {}}
+    />
+  </Box>
+);
 
 const earlyGame = { ...FULL_GAME, moves: FULL_GAME.moves.slice(0, 2) };
 const midGame = { ...FULL_GAME, moves: FULL_GAME.moves.slice(0, 6) };
@@ -225,6 +249,38 @@ export const GALLERY: GalleryEntry[] = [
   {
     id: 'board-long-names',
     render: () => game(() => fixtureController(midGame), ['Mike Borrebach', 'Zachary Fleischman']),
+  },
+  // Three seats, Sam to move: the rail leads with the seat to move, numbered
+  // 1-2-3 around the table, read from Ada's seat.
+  {
+    id: 'score-bar-3-seats',
+    render: () =>
+      seatBar(seatedState(3, { passes: 1 }), {
+        names: ['Ada', 'Sam', 'Noor'],
+        scores: [124, 98, 131],
+        mySeat: 0,
+      }),
+  },
+  // Four seats — the widest rail — from the seat to move ("Your turn").
+  {
+    id: 'score-bar-4-seats',
+    render: () =>
+      seatBar(seatedState(4, { passes: 2 }), {
+        names: ['Ada', 'Sam', 'Noor', 'Kai'],
+        scores: [124, 98, 131, 76],
+        mySeat: 2,
+      }),
+  },
+  // Four seats with Kai withdrawn: no numeral, muted, marked out — and the
+  // three still playing renumber 1-2-3.
+  {
+    id: 'score-bar-4-seats-withdrawn',
+    render: () =>
+      seatBar(seatedState(4, { passes: 1, out: [3] }), {
+        names: ['Ada', 'Sam', 'Noor', 'Kai'],
+        scores: [124, 98, 131, 76],
+        mySeat: 0,
+      }),
   },
   {
     id: 'board-late',

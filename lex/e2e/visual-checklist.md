@@ -37,6 +37,13 @@ are logged at the bottom with date + reason, and deleted when fixed.
   wrapping to a second line so the big score number sits centered, not
   top-justified); the side-to-move seat carries a clock-icon move-clock when
   the game has a time control, on that seat only.
+- Player bar at N seats (T7.13): the turn line reads from the local seat ("Your
+  turn" / "{Name}'s turn"), and the standings rail runs in TURN order — seat to
+  move first, each row numbered 1..n. One row at ≥900px, turn line above rail
+  below 900px; four seats fit 390px with no horizontal scroll and no wrapped
+  rows (names ellipsize instead).
+- A withdrawn seat in the rail: muted, no queue numeral, an "out" marker, score
+  still readable — and the seats still playing renumber with no gap.
 - Last-play highlight (green edge) clearly a different signal than pending gold,
   and gone entirely while any tile is staged.
 - A dragged tile is always visible: a fixed-position shadowed ghost rides

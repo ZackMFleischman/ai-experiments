@@ -95,6 +95,10 @@ export interface Snapshot {
   result: GameResult;
   end?: GameEnd;
   toMove: Seat;
+  /** The seat this client reads FROM — the local player's seat in
+   * multiplayer, the side to move in hot-seat. Same seat whose rack shows
+   * below (actingSeat); the score bar phrases the turn from it. */
+  mySeat: Seat;
   scores: readonly number[];
   bagCount: number;
   rackCounts: readonly number[];
@@ -507,6 +511,7 @@ export class GameController {
       result: res,
       ...(end ? { end } : {}),
       toMove: s.game.toMove,
+      mySeat: this.actingSeat(),
       scores: s.game.scores,
       bagCount: s.game.bag.length,
       rackCounts: s.game.racks.map((r) => r.length),
