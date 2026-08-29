@@ -42,10 +42,10 @@ interface GameDocData {
 interface MoveDocData {
   n: number;
   /** 'phoney' = a play the dictionary refused in a 'costs-turn' game (§2.3).
-   * It carries NO `play` payload: the attempted letters are the mover's rack,
-   * and the privacy invariant keeps rack letters out of every doc both players
-   * read. */
+   * It carries no `play` payload — no placements, no score — only the WORDS it
+   * formed, which are public (§3.3); the rack behind them is not. */
   kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
+  phoney?: { words: string[] };
   play?: {
     placements: Array<{ row: number; col: number; letter: string; isBlank: boolean }>;
     words: Array<{ word: string; score: number }>;
@@ -208,8 +208,10 @@ export class FirestoreTransport implements GameTransport<GameOptions, LexEntry> 
       n: m.n,
       by: (m.by === game.players.p0 ? 0 : 1) as Seat,
       kind: m.kind,
-      word: m.play?.words[0]?.word ?? null,
-      words: m.play?.words ?? [],
+      // A phoney's words ride the same two fields a play's do, scored 0 — so
+      // the sheet and the last-play banner need no separate carrier.
+      word: m.play?.words[0]?.word ?? m.phoney?.words[0] ?? null,
+      words: m.play?.words ?? (m.phoney?.words ?? []).map((word) => ({ word, score: 0 })),
       score: m.play?.score ?? 0,
       ...(m.exchanged !== undefined ? { count: m.exchanged } : {}),
       cells: (m.play?.placements ?? []).map((p) => cellKey({ row: p.row, col: p.col })),

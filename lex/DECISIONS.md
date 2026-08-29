@@ -469,3 +469,16 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   still in the mover's rack and both surfaces are on both players' screens. If
   the word should be revealed too, that is a deliberate loosening of the §3.3
   invariant and wants its own decision.
+
+- **2026-08-28 — A phoney names the word; the rack behind it stays secret
+  (Zack).** Reverses the privacy half of the 08-24 entry, which withheld the
+  refused words from every shared surface. Zack's call: the banner, the score
+  sheet and the opponent's push all read "<name> tried to play the invalid word
+  “QUIZZ” — turn lost". This is what an over-the-board challenge does — a phoney
+  is shown before it is withdrawn — and without it the opponent could not tell a
+  lost turn from a pass, since a phoney leaves the board untouched. The bound
+  that keeps §3.3 true: only the words the play FORMED are published, never the
+  placements, the score, or the rest of the rack. A formed word can span tiles
+  already on the board, so it discloses at most the tiles that word consumed.
+  `moves/{n}` gains `phoney.words`; CLAUDE.md's hard rule now names this as its
+  one sanctioned exception rather than being silently contradicted by the code.

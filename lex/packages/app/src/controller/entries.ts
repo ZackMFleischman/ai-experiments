@@ -32,8 +32,8 @@ export interface SyncRow {
   n: number;
   by: Seat;
   /** 'phoney' = a play the dictionary refused in a 'costs-turn' game: the turn
-   * was spent, nothing was placed, and — the privacy invariant — the server
-   * records no letters for it, so the row carries no word and no cells. */
+   * was spent and nothing was placed, so the row has no cells — but it does
+   * carry the words that were tried (§3.3), scored 0. */
   kind: 'play' | 'phoney' | 'exchange' | 'pass' | 'resign' | 'timeout';
   word: string | null;
   words: ReadonlyArray<{ word: string; score: number }>;

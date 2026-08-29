@@ -343,14 +343,14 @@ export class GameController {
         const bad = this.invalidWordsCostTurn() ? rejectedWords(score.words, this.dict) : [];
         if (bad.length > 0) {
           // The tiles never left the rack, so nextMyRack consumes nothing.
+          // No cells — a phoney leaves the board untouched — but the words it
+          // formed ARE kept and shown to both players (§3.3). They score 0.
+          const refused = bad.map((word) => ({ word, score: 0, cells: [] }));
           return {
             ...state,
             game,
-            // No cells and no words: a phoney leaves the board untouched, and
-            // the words are the mover's rack — never the sheet's to keep
-            // (privacy invariant; the mover gets them in the beat instead).
-            lastPlay: { by, kind: 'phoney', cells: [], words: [], total: 0 },
-            sheet: row({ by, kind: 'phoney', word: null, words: [], score: 0 }),
+            lastPlay: { by, kind: 'phoney', cells: [], words: refused, total: 0 },
+            sheet: row({ by, kind: 'phoney', word: bad[0] ?? null, words: refused, score: 0 }),
           };
         }
         return {

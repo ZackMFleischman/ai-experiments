@@ -8,15 +8,27 @@
 // own turn still there when they come back.
 //
 // So the last play, when it was a phoney, gets a persistent strip under the
-// score bar until the next move replaces it. It names the player and the
-// consequence, and it names NO WORD — the letters are still in the mover's
-// rack and this strip is on both players' screens (§3.3). Tapping it opens the
-// score sheet, where the same turn is marked in the history.
+// score bar until the next move replaces it: who, what they tried, and what it
+// cost. Naming the word is deliberate (§3.3) — the same way an over-the-board
+// challenge reveals a phoney before it is withdrawn. Only the words the play
+// FORMED are public; the rest of the rack is not. Tapping it opens the score
+// sheet, where the same turn is marked in the history.
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { Box, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { invalidWordList } from '../gameOptions';
 
-export function PhoneyBanner({ name, onOpenSheet }: { name: string; onOpenSheet?: () => void }) {
+export function PhoneyBanner({
+  name,
+  words,
+  onOpenSheet,
+}: {
+  name: string;
+  /** The words the refused play formed. Empty only for a game recorded before
+   * the words were public — the sentence degrades to the bare outcome. */
+  words: readonly string[];
+  onOpenSheet?: () => void;
+}) {
   return (
     <Box
       data-testid="phoney-banner"
@@ -47,7 +59,9 @@ export function PhoneyBanner({ name, onOpenSheet }: { name: string; onOpenSheet?
         variant="body2"
         sx={{ fontWeight: 600, textAlign: 'center', lineHeight: 1.25 }}
       >
-        {name} played a word that isn’t in the dictionary — turn lost
+        {words.length > 0
+          ? `${name} tried to play ${invalidWordList(words)} — turn lost`
+          : `${name} played a word that isn’t in the dictionary — turn lost`}
       </Typography>
     </Box>
   );

@@ -432,18 +432,24 @@ describe("submitMove — invalidWords: 'costs-turn' (§2.3)", () => {
     expect(rack?.['tiles']).toBe(RIGGED.racks[0]!.join(''));
   });
 
-  it('records the phoney with NO letters — the privacy invariant holds', async () => {
+  it('records the WORDS tried, and nothing that would expose the rack', async () => {
     const { gameId, p0 } = await riggedCostsTurnGame();
     await call('submitMove', { gameId, expectedMoveCount: 0, move: PHONEY_PLAY }, p0);
 
     const moves = await adminListDocs(`games/${gameId}/moves`);
     expect(moves).toHaveLength(1);
     expect(moves[0]?.['kind']).toBe('phoney');
-    // No play payload at all: placements, words and the attempted letters are
-    // the mover's rack, and moves/* is readable by BOTH players. Asserted as
-    // the doc's whole key set, so a future field carrying letters can't slip
-    // past (a substring scan would false-positive on the random uid).
-    expect(Object.keys(moves[0] ?? {}).sort()).toEqual(['at', 'by', 'kind', 'n']);
+    // The words the play FORMED are public (§3.3) — the opponent is told what
+    // was tried.
+    expect(moves[0]?.['phoney']).toEqual({ words: ['CQ'] });
+    // …but nothing more. Asserted as the doc's whole key set so a future field
+    // carrying placements, a score, or the rack can't slip past unnoticed (a
+    // substring scan would false-positive on the random uid).
+    expect(Object.keys(moves[0] ?? {}).sort()).toEqual(['at', 'by', 'kind', 'n', 'phoney']);
+    expect(moves[0]?.['play']).toBeUndefined();
+    // The rack doc still holds the untouched hand; the log says nothing of it.
+    const rack = await adminGetDoc(`games/${gameId}/racks/${p0.uid}`);
+    expect(rack?.['tiles']).toBe(RIGGED.racks[0]!.join(''));
   });
 
   it('still rejects illegal geometry — only the dictionary verdict changes', async () => {

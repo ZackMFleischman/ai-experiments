@@ -277,20 +277,20 @@ Firestore**. Consequences, designed once here and referenced everywhere:
   "log is the source of truth" property, split across a public and a private half.
 - **Exchanges are private.** The public move entry records only *how many* tiles
   were exchanged; which letters went back is server-private.
-- **Phoneys are ANNOUNCED but not spelled out.** A phoney changes nothing on
-  the board, so to the player arriving next it is indistinguishable from a pass
-  unless the app says so: the last play, when it was a phoney, carries a
-  persistent strip under the score bar naming the player and the cost, and the
-  turn is marked in the score sheet (✗, red, a zero) rather than merely worded.
-  Both name the player, never the word.
-- **The words themselves are private** (§2.3), for exactly the same reason:
-  the letters of a refused play never reached the board — they are still sitting
-  in the mover's rack. So the public move entry records `kind: 'phoney'` and
-  nothing else: no placements, no words, no score, and the opponent's push says
-  a turn was lost without naming the word. The mover sees their own words once,
-  client-side, in the beat that follows the commit (§7.2). Recording the attempt
-  in full — as an over-the-board challenge would — would leak rack contents on a
-  doc both players read, breaking the invariant this whole section exists for.
+- **A phoney IS made public, words and all — the one deliberate opening in this
+  section.** A refused play changes nothing on the board, so to the player
+  arriving next it is indistinguishable from a pass unless the app says so. It
+  says so three times, in one sentence: a persistent strip under the score bar
+  (§7.2), the score-sheet row (marked ✗/red/0, not merely worded), and the
+  opponent's push — each naming the player, **the words that were tried**, and
+  the cost. This is what an over-the-board challenge does: a phoney is shown
+  before it is withdrawn.
+  What is published is exactly the **words the play formed** — never the
+  placements, never a score, and never the rest of the rack. That bound is what
+  keeps the rest of this section true: a formed word can include tiles already
+  on the board, so it discloses at most the tiles that word consumed, and the
+  hand behind it stays as secret as the bag. The move entry carries
+  `kind: 'phoney'` plus `phoney.words`, and nothing else.
 - **Optimistic play still works** because play legality and scoring depend only on
   public board + own rack: the client fully validates and scores locally, applies
   optimistically, and the only thing it must wait for is its **refill** — which
@@ -504,9 +504,9 @@ games/{gameId}/moves/{n}: { n, kind: 'play'|'phoney'|'exchange'|'pass'|'resign'|
                             play?: { placements: [{row, col, letter, isBlank}],
                                      words: [{word, score}], score, bingo },
                             exchanged?: number,                       // count ONLY — letters are private
-                            by: uid, at }                             // 'phoney' (§2.3) carries
-                                                                      // NO play payload: the refused letters
-                                                                      // are still in the mover's rack (§3.3)
+                            phoney?: { words: string[] },             // the words a refused play formed —
+                                                                      // public (§3.3); no placements, no score
+                            by: uid, at }
 games/{gameId}/racks/{uid}: { tiles: string, n: number }              // e.g. "AEINRT?" — owner-read only;
                                                                       // n = move count this rack is current for
                                                                       // (client refill reconciliation)
@@ -533,7 +533,7 @@ invites/{code}:           { gameId, createdBy, hostName, hostSeat, options, expi
 |---|---|
 | `createGame(options, seat)` | seat = `me / them / random` (turn order, not color); shuffles + persists the bag, deals both racks |
 | `joinGame(code)` / `cancelGame` / `challengeUser` / `respondChallenge` / `rematch` | ported from `@parlor/server` — semantics identical to hive §5.3 (challenge = open game addressed to a past opponent; rematch links + swaps who starts) |
-| `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary) **under the game's own `invalidWords`**, draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent. A phoney takes the same path: it is a legal move, so it commits, but writes `kind:'phoney'` with no play payload, clears `lastPlay`, and pushes copy that names no word |
+| `submitMove(gameId, expectedMoveCount, move)` | `move` is the typed JSON `Move` (§2.4). Server reconstructs full state (public log + private doc), asserts turn + concurrency guard, runs `applyMove` (full verdict pipeline incl. dictionary) **under the game's own `invalidWords`**, draws refill, writes: move doc + game doc (incl. `public`, counts, `lastPlay`, deadline) + caller's rack doc + private bag doc — one transaction — then pushes to the opponent. A phoney takes the same path: it is a legal move, so it commits, but writes `kind:'phoney'` with the refused words (no placements, no score), clears `lastPlay`, and pushes copy naming what was tried |
 | `resign(gameId)` | = hive |
 | `forfeitExpired` *(scheduled, hourly)* | = hive (timeouts, expiry-warning pushes, stale-invite cull) |
 

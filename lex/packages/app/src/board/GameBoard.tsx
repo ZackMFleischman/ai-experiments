@@ -450,6 +450,7 @@ export function GameBoard({
       {snap.lastPlay?.kind === 'phoney' && snap.pending.size === 0 && (
         <PhoneyBanner
           name={seatNames[snap.lastPlay.by] ?? `Player ${snap.lastPlay.by + 1}`}
+          words={snap.lastPlay.words.map((w) => w.word)}
           onOpenSheet={() => setSheetOpen(true)}
         />
       )}
