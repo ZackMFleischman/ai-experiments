@@ -9,7 +9,13 @@ import { DICTIONARIES } from '@lex/dict';
 import { JoinCard as ParlorJoinCard } from '@parlor/web/lobby-ui';
 import { lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
-import { boardName, timeControlLabel, type LexGameOptions } from '../gameOptions';
+import {
+  boardName,
+  INVALID_WORDS_NAME,
+  invalidWordsLabel,
+  timeControlLabel,
+  type LexGameOptions,
+} from '../gameOptions';
 import { LandingLayout } from './LandingLayout';
 
 export type JoinState =
@@ -42,6 +48,19 @@ function OptionChips({ options }: { options: LexGameOptions }) {
       <Chip label={`${boardName(options.rulesetId)} board`} size="small" />
       <Chip label={dictionaryLabel(options.dictionaryId)} size="small" />
       <Chip label={timeControlLabel(options.timeControl)} size="small" />
+      {/* The invitee sees every chosen option before accepting (FR-10). This
+          one is highlighted rather than stated flatly like the rest, because it
+          is the only setting here that can cost them a turn — and only when it
+          is set away from the default. It lives inside OptionChips so the 3+
+          room preview carries it as well as the two-seat card. */}
+      {options.invalidWords === 'costs-turn' && (
+        <Chip
+          label={`${INVALID_WORDS_NAME.toLowerCase()} ${invalidWordsLabel('costs-turn').toLowerCase()}`}
+          size="small"
+          color="warning"
+          data-testid="join-invalid-words"
+        />
+      )}
     </>
   );
 }
