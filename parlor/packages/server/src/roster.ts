@@ -63,6 +63,24 @@ export function playerIdsOf(list: GuestList): string[] {
   return [...list.roster.map((e) => e.uid), ...list.invited.map((e) => e.uid)];
 }
 
+/**
+ * Who a whole-table event has to reach: every seat but the one that caused it,
+ * deduped, with empty seats dropped. At two seats this is the single opponent
+ * the callables have always notified; at three or four it is the rest of the
+ * table, which is the point — telling only the next player leaves everybody
+ * else to notice for themselves.
+ */
+export function othersOf(
+  seatUids: readonly (string | null | undefined)[],
+  actor: string,
+): string[] {
+  const seen = new Set<string>();
+  for (const uid of seatUids) {
+    if (uid && uid !== actor) seen.add(uid);
+  }
+  return [...seen];
+}
+
 export function previewOf(list: GuestList, maxPlayers: number): InvitePreview {
   return {
     hostName: list.roster[0]?.name ?? 'Host',

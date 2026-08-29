@@ -579,3 +579,12 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   left at, which is not one of their moves, so the gate could never pass
   again), and `canResign` still offered Withdraw to a player who had already
   withdrawn — an action only the server would refuse.
+
+- **2026-08-29 — a rematch at a table notifies the whole table** (M7 follow-up).
+  `rematch` took the first other seat (`rotated.find(uid => uid !== caller)`)
+  and pushed to that one player — correct at two seats, silently wrong at three
+  or four, where the other one or two were left to notice a game they were
+  already in. The recipient rule is now `othersOf(seatUids, actor)` in
+  `@parlor/server`'s roster module: everyone but the actor, deduped, empty seats
+  dropped. It is a pure helper so it can be unit-tested — the callable itself
+  cannot be, since `fire()` swallows push failures and the emulator has no FCM.

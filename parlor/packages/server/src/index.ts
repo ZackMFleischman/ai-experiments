@@ -17,6 +17,7 @@ export {
   inviteToList,
   joinRoster,
   leaveList,
+  othersOf,
   playerIdsOf,
   previewOf,
   resolveSeatOrder,
