@@ -33,8 +33,15 @@ Functions: validation, notifications, forfeits).
   labeled with word counts. Registry-driven, same as layouts.
 - **FR-8** Choose an async time control: none, or 1 / 3 / 7 days per move.
 - **FR-9** Choose turn order: me / them / random (default random).
+- **FR-9b** **Choose what invalid words do** at creation — a named setting with
+  two values, picked like the dictionary and the clock: *Can't be played*
+  (default) or *Cost your turn*. Under the latter the app withholds every
+  dictionary verdict until the play is committed (FR-24b) and a play whose words
+  aren't all in the dictionary costs the turn (FR-33b).
 - **FR-10** All chosen options are visible to the invitee **before accepting**
-  (join screen + challenge card) and to both players in-game (game menu).
+  (join screen + challenge card) and to both players in-game (game menu) — the
+  invalid-words rule is highlighted when set away from its default, since it is
+  the only option that changes what a turn can cost.
 - **FR-11** Options are immutable once the game is created.
 
 ### Invites, challenges & rematches (DESIGN §6.3)
@@ -70,6 +77,12 @@ Functions: validation, notifications, forfeits).
 - **FR-24** Live preview while staging: every formed word gets a chip with its
   points and a ✓/✗ dictionary verdict; a total-score badge (including bingo)
   anchors to the main word; Play is enabled only when the play is fully legal.
+- **FR-24b** When invalid words **cost the turn**, the preview shows the same
+  words, scores and total and **no dictionary verdict at all** — no ✓/✗ and
+  nothing standing in for one. No rejected word is flagged on the card or the
+  board, and Play stays enabled for any legally-placed play. Committing a phoney
+  raises a dismissible beat naming the refused word(s) — the only surface that
+  ever shows them.
 - **FR-25** Playing a blank prompts for its letter; the designation is permanent
   and visually distinct (no point index) thereafter.
 - **FR-26** Exchange tiles: multi-select on the rack + confirm ("costs your
@@ -92,6 +105,19 @@ Functions: validation, notifications, forfeits).
 - **FR-33** Every word formed (main + cross-words) must be in the game's chosen
   dictionary or the play is rejected naming the offending word(s) — strict
   dictionary, no challenge mechanic in v1.
+- **FR-24c** A phoney is legible to the OPPONENT without opening anything: a
+  persistent strip under the score bar until the next move replaces it (tapping
+  it opens the score sheet), plus a score-sheet row marked ✗/red/0 rather than
+  merely worded. Both name the player, **the words that were tried**, and the
+  cost — as does the opponent's push — in one shared phrasing:
+  *"Sam tried to play the invalid word “QUIZZ” — turn lost"*.
+- **FR-33b** When the game's invalid-words rule is **Cost your turn**, the same
+  verdict has a different consequence: the play is a **phoney** — it places
+  nothing, scores nothing, and costs the turn (counting toward the scoreless
+  run, FR-35). Geometry and rack legality are unaffected; those plays are still
+  rejected outright. The public move log records the turn and the **words the
+  play formed** — never the placements, the score, or the rest of the rack, so
+  FR-38 still holds for the hand behind them.
 - **FR-34** Scoring: letter premiums on newly placed tiles only; word premiums
   stack multiplicatively; premiums never re-count; cross-words score; placing
   all 7 tiles is a bingo (+50).
@@ -135,6 +161,12 @@ Functions: validation, notifications, forfeits).
 
 ### Hot-seat mode (DESIGN §7.3)
 
+- **FR-47b** Hot-seat games are created from their own setup screen: board,
+  dictionary and invalid-words (FR-6/FR-7/FR-9b) — the settings one device can
+  honour. Turn order and time controls are not offered (p0 always starts; there
+  is no clock). Opening the hot-seat game with nothing stored shows this screen;
+  a stored game resumes straight onto the board. A rematch re-deals under the
+  finished game's own settings.
 - **FR-48** Two players, one device, no accounts, no network: full game with
   the same UI, backed by a local transport.
 - **FR-49** Pass-device interstitial hides both racks between turns.
@@ -188,7 +220,8 @@ Functions: validation, notifications, forfeits).
 
 ## 3. Out of scope for v1 (post-v1 candidates)
 
-Challenge/phoney rules (ruleset flag) · real-time chess clocks · 3–4 players ·
+Opponent-initiated challenges (the invalid-words setting ships the phoney;
+nobody adjudicates another player's word) · real-time chess clocks · 3–4 players ·
 offline move queueing · keyboard tile entry · chat/emotes · AI opponent ·
 analysis/best-play review · `.gcg` export · additional rulesets (e.g. an 11×11
 quick board with a reduced tile set) · additional word lists (NWL/SOWPODS if

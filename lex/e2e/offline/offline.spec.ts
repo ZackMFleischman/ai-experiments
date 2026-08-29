@@ -60,8 +60,14 @@ test('manifest + service worker + offline shell with cached lobby', async ({ pag
   });
   await expect(page.getByTestId('group-waiting')).toBeVisible({ timeout: 20_000 });
 
-  // the hot-seat game runs fully offline — dictionary served from the precache
+  // A hot-seat game can be STARTED fully offline — which is the stronger
+  // claim: the setup form has to render, and starting from it fetches the
+  // chosen dictionary, so a rack on screen proves the DAWG came from the
+  // precache rather than the network.
   await page.goto('/game/local');
+  await expect(page.getByTestId('hotseat-setup')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('dictionary-2of12inf').click();
+  await page.getByTestId('start-hotseat').click();
   await expect(page.getByTestId('rack-tray')).toBeVisible({ timeout: 20_000 });
 
   await context.setOffline(false);
