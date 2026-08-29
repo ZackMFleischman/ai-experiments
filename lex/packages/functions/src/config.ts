@@ -14,6 +14,7 @@ import {
   serializePublic,
   serializeState,
   withdraw,
+  type InvalidWordRule,
   type Ruleset,
   type TileFace,
 } from '@lex/engine';
@@ -37,6 +38,9 @@ export interface LexGameOptions {
   rulesetId: string;
   dictionaryId: string;
   timeControl: { days: 1 | 3 | 7 } | null;
+  /** What invalid words do (§2.3). Optional on the wire — games created before
+   * the setting existed carry no field and must keep playing as 'blocked'. */
+  invalidWords: InvalidWordRule;
   /** The host's chosen MAXIMUM (DECISIONS 2026-08-28) — the game may start
    * early from the ruleset's minimum. Absent on pre-M7 documents, which
    * re-parse as the two-seat games they are. */
@@ -88,6 +92,14 @@ function parseOptions(raw: unknown): LexGameOptions {
     }
     timeControl = { days };
   }
+  // Absent (old clients, older games) ⇒ 'blocked'. Only the exact opt-in value
+  // selects the other rule: a malformed setting must never silently change how
+  // a game plays, and an unknown one is a client bug worth surfacing.
+  const iw = o.invalidWords;
+  if (iw !== undefined && iw !== 'blocked' && iw !== 'costs-turn') {
+    throw new HttpsError('invalid-argument', "invalidWords must be 'blocked' or 'costs-turn'");
+  }
+  const invalidWords: InvalidWordRule = iw === 'costs-turn' ? 'costs-turn' : 'blocked';
   // The seat range is a property of the SELECTED ruleset, not of the registry
   // union: a reduced-tile board could not deal four racks (DESIGN §2.2).
   const seats = o.maxPlayers ?? ruleset.players.min;
@@ -101,6 +113,7 @@ function parseOptions(raw: unknown): LexGameOptions {
     rulesetId: ruleset.id,
     dictionaryId: o.dictionaryId,
     timeControl,
+    invalidWords,
     maxPlayers: seats as number,
   };
 }
@@ -267,6 +280,24 @@ export function withBag(state: ReturnType<typeof deserializeState>, bag: readonl
 /** The opponent-moved push copy: word + score in the body (DESIGN §8). */
 export function playedCopy(name: string, word: string, score: number): string {
   return `${name} played ${word} for ${score} — your move.`;
+}
+
+/** 'costs-turn' games (§2.3): the opponent burned a turn on a phoney, and the
+ * word they tried IS named — the owner's call, DESIGN §3.3. The rack behind it
+ * stays secret; only the words the play actually formed become public. */
+export function phoneyCopy(name: string, words: readonly string[]): string {
+  return `${name} tried to play ${quotedWords(words)} — turn lost. Your move.`;
+}
+
+/** `the invalid word “X”` / `the invalid words “X” and “Y”` — one formatter so
+ * the push and the in-app surfaces read the same sentence. */
+export function quotedWords(words: readonly string[]): string {
+  const quoted = words.map((w) => `“${w}”`);
+  const list =
+    quoted.length <= 1
+      ? (quoted[0] ?? '')
+      : `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
+  return `the invalid word${words.length === 1 ? '' : 's'} ${list}`;
 }
 
 export function buildPayload(trigger: SharedTrigger, args: TriggerArgs): PushPayload {

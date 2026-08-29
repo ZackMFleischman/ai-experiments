@@ -10,6 +10,7 @@ import { GameBoard } from '../board/GameBoard';
 import { RackTray } from '../board/RackTray';
 import { GameActions } from '../game/GameActions';
 import { NoticeToast } from '../game/NoticeToast';
+import { HotSeatSetup } from '../game/HotSeatSetup';
 import { PassDeviceInterstitial } from '../game/PassDeviceInterstitial';
 import { ScoreSheet } from '../game/ScoreSheet';
 import { AuthContext, HOTSEAT_AUTH, InstallCoachMark } from '@parlor/web';
@@ -51,6 +52,20 @@ const game = (make: Parameters<typeof WithController>[0]['make'], names?: readon
 );
 
 /** Stage CATS from the rigged fresh rack (C A T S ? E R). */
+/** A committed phoney: CATS staged and played in a 'costs-turn' game whose
+ * dictionary refuses it. The beat is up until the caller dismisses it. */
+const playedPhoney = () =>
+  fixtureController(
+    null,
+    (c) => {
+      stageCats(c);
+      c.submitPlay();
+    },
+    ['CATS'],
+    [],
+    'costs-turn',
+  );
+
 const stageCats = (c: import('../controller/GameController').GameController) => {
   c.placeAt({ row: 7, col: 7 }, 0);
   c.placeAt({ row: 7, col: 8 }, 1);
@@ -151,6 +166,16 @@ export const GALLERY: GalleryEntry[] = [
       </Box>
     ),
   },
+  // The hot-seat creation form: the same option pickers as `new-game`, minus
+  // the settings one device can't honour (turn order, the clock).
+  {
+    id: 'hotseat-setup',
+    render: () => (
+      <Box data-gallery-ready sx={{ p: 2 }}>
+        <HotSeatSetup onStart={() => {}} />
+      </Box>
+    ),
+  },
   {
     id: 'new-game',
     render: () => (
@@ -175,7 +200,12 @@ export const GALLERY: GalleryEntry[] = [
               kind: 'ready',
               hostName: 'Ada',
               hostSeat: 'p0',
-              options: { rulesetId: 'classic', dictionaryId: '2of12inf', timeControl: { days: 3 } },
+              options: {
+                rulesetId: 'classic',
+                dictionaryId: '2of12inf',
+                timeControl: { days: 3 },
+                invalidWords: 'costs-turn',
+              },
             }}
             onAccept={() => {}}
           />
@@ -268,6 +298,41 @@ export const GALLERY: GalleryEntry[] = [
           for (let i = 0; i < 7; i++) c.placeAt({ row: 8, col: 1 + i }, i);
         }),
       ),
+  },
+  // invalidWords: 'costs-turn' (§2.3): the same staged play as `pending-valid`,
+  // with the dictionary column withheld — every row's mark is a "—" and nothing
+  // on the card or the board can be red, however bad the word is.
+  {
+    id: 'pending-words-unchecked',
+    render: () => game(() => fixtureController(null, stageCats, ['CATS'], [], 'costs-turn')),
+  },
+  // The moment that setting exists for: the verdict comes due after the commit.
+  {
+    id: 'phoney-beat',
+    render: () => game(playedPhoney),
+  },
+  // What the NEXT player arrives to. The board is untouched, so this strip is
+  // the only thing on screen saying a turn was just burned.
+  {
+    id: 'phoney-banner',
+    render: () =>
+      game(async () => {
+        const c = await playedPhoney();
+        c.dismissPhoney();
+        return c;
+      }),
+  },
+  // The same turn in the history both players read: marked, not just worded.
+  {
+    id: 'score-sheet-phoney',
+    render: () => (
+      <WithController
+        make={playedPhoney}
+        render={(c) => (
+          <ScoreSheet open onClose={() => {}} rows={c.getSnapshot().sheet} names={['Player 1', 'Player 2']} />
+        )}
+      />
+    ),
   },
   {
     id: 'pending-illegal-geometry',

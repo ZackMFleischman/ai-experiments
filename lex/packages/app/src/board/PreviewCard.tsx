@@ -19,6 +19,15 @@
 // as clutter (the state is legible without being narrated; the disabled Play
 // button still carries the words for hover and screen readers).
 //
+// A game whose invalid words cost the turn (§2.3) removes exactly that column
+// and nothing else: every verdict is null, so no row can be red, no total
+// struck through, no cell ringed — and the mark is simply ABSENT. An earlier
+// build kept a "—" in the slot plus a "not checked" tag in the header, on the
+// theory that a blank column would read as a broken check; in the game it read
+// as clutter repeating what the player chose at setup. The row is just the
+// word and its score. (`data-valid="unknown"` still distinguishes withheld
+// from valid for tests and the e2e — it is simply not drawn.)
+//
 // Everything shown is a controller verdict; only the position is computed here.
 import { Box, Paper, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -123,8 +132,9 @@ export function PreviewCard({
   const words = preview.check.ok ? preview.words : [];
   const rows = preview.check.ok ? words.length + (preview.bingo ? 1 : 0) : 1;
   const longest = words.reduce((n, w) => Math.max(n, w.word.length), 4);
-  // The words the dictionary rejected — what turns the card red.
-  const rejected = words.filter((w) => !w.valid);
+  // The words the dictionary rejected — what turns the card red. `null` is
+  // "withheld", not "bad": only an explicit false counts.
+  const rejected = words.filter((w) => w.valid === false);
   const [size, setSize] = useState(() => estimateSize(rows, longest));
   const signature = playSignature(playCells);
 
@@ -391,9 +401,16 @@ export function PreviewCard({
             <Box
               key={`${w.word}-${i}`}
               data-testid="preview-word"
-              data-valid={w.valid ? 'true' : 'false'}
+              data-valid={w.valid === null ? 'unknown' : w.valid ? 'true' : 'false'}
               role="listitem"
-              aria-label={`${w.word}, ${w.score} points, ${w.valid ? 'valid' : 'not in dictionary'}`}
+              // Withheld reads the same to a screen reader as it looks on
+              // screen — word and score, no verdict — rather than narrating an
+              // absence the sighted card doesn't mention either.
+              aria-label={
+                w.valid === null
+                  ? `${w.word}, ${w.score} points`
+                  : `${w.word}, ${w.score} points, ${w.valid ? 'valid' : 'not in dictionary'}`
+              }
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -404,7 +421,7 @@ export function PreviewCard({
                 // The bad row is FILLED, not merely annotated — with three
                 // words stacked, "which one is wrong" has to be answerable
                 // without reading the marks.
-                ...(!w.valid && {
+                ...(w.valid === false && {
                   bgcolor: (t) => alpha(t.palette.error.main, 0.16),
                   color: 'error.main',
                 }),
@@ -429,29 +446,33 @@ export function PreviewCard({
               <Typography component="span" sx={{ fontSize: 13, fontWeight: 700, color: 'inherit' }}>
                 {w.score}
               </Typography>
-              <Box
-                component="span"
-                aria-hidden
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 16,
-                  height: 16,
-                  lineHeight: 1,
-                  fontWeight: 800,
-                  ...(w.valid
-                    ? { fontSize: 13, color: 'success.main' }
-                    : {
-                        fontSize: 11,
-                        borderRadius: '50%',
-                        bgcolor: 'error.main',
-                        color: 'error.contrastText',
-                      }),
-                }}
-              >
-                {w.valid ? '✓' : '✗'}
-              </Box>
+              {/* No mark at all when the verdict is withheld — not a
+                  placeholder standing in for one. */}
+              {w.valid !== null && (
+                <Box
+                  component="span"
+                  aria-hidden
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 16,
+                    height: 16,
+                    lineHeight: 1,
+                    fontWeight: 800,
+                    ...(w.valid
+                      ? { fontSize: 13, color: 'success.main' }
+                      : {
+                          fontSize: 11,
+                          borderRadius: '50%',
+                          bgcolor: 'error.main',
+                          color: 'error.contrastText',
+                        }),
+                  }}
+                >
+                  {w.valid ? '✓' : '✗'}
+                </Box>
+              )}
             </Box>
             ))}
           </Box>
