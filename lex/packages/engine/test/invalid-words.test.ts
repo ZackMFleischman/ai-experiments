@@ -107,15 +107,18 @@ describe("applyMove: invalidWords 'costs-turn'", () => {
     expect(next.scorelessRun).toBe(1);
   });
 
-  it('phoneys feed the scoreless run: scorelessLimit of them ends the game', () => {
+  it('phoneys feed the scoreless run: a full scoreless limit of them ends the game', () => {
     let state = startState();
     const bad = stubDict(['TAC', 'GOD']);
-    for (let i = 0; i < classic.scorelessLimit; i++) {
+    // M7 made the limit per ACTIVE seat (`scorelessRounds` × seats). At two
+    // seats that is 3 × 2 = 6 — the same six turns this test has always run.
+    const limit = classic.scorelessRounds * state.racks.length;
+    for (let i = 0; i < limit; i++) {
       // Alternates seats, each playing a phoney off its own rack; the board
       // never changes, so both stay legal-but-phoney first plays throughout.
       state = applyMove(state, state.toMove === 0 ? TAC : GOD, bad, costsTurn);
     }
-    expect(state.scorelessRun).toBe(classic.scorelessLimit);
+    expect(state.scorelessRun).toBe(limit);
     // The terminal move applied the §2.1 scoreless adjustment: each seat has
     // deducted its own rack.
     expect(state.scores[0]).toBeLessThan(0);
