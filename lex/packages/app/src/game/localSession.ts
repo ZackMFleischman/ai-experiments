@@ -14,17 +14,21 @@ export const HOTSEAT_STORAGE_KEY = 'lex.hotseat.v1';
 
 /** What a hot-seat game is configured with. Turn order and time control are
  * meaningless on one device (p0 always starts; there is no clock), so the
- * hot-seat setup screen offers exactly these three. */
+ * hot-seat setup screen offers exactly these four. */
 export interface HotSeatChoices {
   rulesetId: string;
   dictionaryId: string;
   invalidWords: InvalidWordRule;
+  /** How many seats to deal. One device can hand round any number the board
+   * allows, so hot-seat spans the same 2-4 as an online game. */
+  seats: number;
 }
 
 export const DEFAULT_HOTSEAT: HotSeatChoices = {
   rulesetId: 'classic',
   dictionaryId: 'nwl2023',
   invalidWords: 'blocked',
+  seats: 2,
 };
 
 /** Crypto-backed uniform rng in [0,1); Math.random fallback for old engines. */
@@ -58,15 +62,23 @@ export function createHotSeatOptions(
   choices: Partial<HotSeatChoices> = {},
   rng: () => number = cryptoRng,
 ): HotSeatOptions {
-  const { rulesetId, dictionaryId, invalidWords } = { ...DEFAULT_HOTSEAT, ...choices };
+  const { rulesetId, dictionaryId, invalidWords, seats } = { ...DEFAULT_HOTSEAT, ...choices };
   const ruleset = RULESETS[rulesetId];
   if (!ruleset) throw new Error(`unknown ruleset '${rulesetId}'`);
+  // The seat range is engine data, so a bad count is the ENGINE's verdict, not
+  // a UI constant — the form can only offer counts this range allows, and a
+  // rematch under a narrower board has to fail loudly rather than deal a table
+  // the ruleset can't seat.
+  const { min, max } = ruleset.players;
+  if (!Number.isInteger(seats) || seats < min || seats > max) {
+    throw new Error(`'${rulesetId}' seats ${min}-${max}, not ${seats}`);
+  }
   return {
     rulesetId,
     dictionaryId,
     invalidWords,
     bagOrder: shuffledBagOrder(ruleset, rng),
-    seats: 2,
+    seats,
   };
 }
 

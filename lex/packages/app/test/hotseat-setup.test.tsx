@@ -62,6 +62,7 @@ describe('HotSeatSetup form', () => {
       rulesetId: 'classic',
       dictionaryId: 'nwl2023',
       invalidWords: 'blocked',
+      seats: 2,
     });
   });
 
@@ -75,6 +76,7 @@ describe('HotSeatSetup form', () => {
       rulesetId: 'modern',
       dictionaryId: '2of12inf',
       invalidWords: 'costs-turn',
+      seats: 2,
     });
   });
 
@@ -92,12 +94,54 @@ describe('HotSeatSetup form', () => {
   });
 });
 
+describe('hot-seat seat count', () => {
+  function setup() {
+    const onStart = vi.fn();
+    render(
+      <MemoryRouter>
+        <HotSeatSetup onStart={onStart} />
+      </MemoryRouter>,
+    );
+    return onStart;
+  }
+
+  it('offers every count the board allows and starts at two', () => {
+    setup();
+    // classic seats 2-4, so the row is exactly those three.
+    expect(screen.getByTestId('count-2')).toBeTruthy();
+    expect(screen.getByTestId('count-3')).toBeTruthy();
+    expect(screen.getByTestId('count-4')).toBeTruthy();
+    expect(screen.queryByTestId('count-5')).toBeNull();
+    expect(screen.getByTestId('count-2').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('carries a chosen count through to onStart', () => {
+    const onStart = setup();
+    fireEvent.click(screen.getByTestId('count-4'));
+    fireEvent.click(screen.getByTestId('start-hotseat'));
+    expect(onStart).toHaveBeenCalledWith({
+      rulesetId: 'classic',
+      dictionaryId: 'nwl2023',
+      invalidWords: 'blocked',
+      seats: 4,
+    });
+  });
+
+  it('says how the device moves at three or more, not "two players"', () => {
+    setup();
+    expect(screen.queryByText(/two players/i)).toBeNull();
+    fireEvent.click(screen.getByTestId('count-4'));
+    // The handoff line should name the table size it now describes.
+    expect(screen.getByText(/4 players/i)).toBeTruthy();
+  });
+});
+
 describe('startLocalGame', () => {
   it('starts a game under the chosen options and makes it the session', async () => {
     setLocalController(null);
     const storage = new MemoryStorage();
     const controller = await startLocalGame(
-      { rulesetId: 'modern', dictionaryId: '2of12inf', invalidWords: 'costs-turn' },
+      { rulesetId: 'modern', dictionaryId: '2of12inf', invalidWords: 'costs-turn', seats: 2 },
       { storage, loadDict: async () => stubDict(), rng: () => 0.5 },
     );
     const snap = controller.getSnapshot();
@@ -139,7 +183,7 @@ describe('startLocalGame', () => {
 
     // Now start over under a dictionary that refuses the word already played.
     const next = await startLocalGame(
-      { rulesetId: 'classic', dictionaryId: 'narrow', invalidWords: 'blocked' },
+      { rulesetId: 'classic', dictionaryId: 'narrow', invalidWords: 'blocked', seats: 2 },
       { storage, loadDict: async () => stubDict(['CATS']), rng: () => 0.5 },
     );
     const snap = next.getSnapshot();
@@ -172,6 +216,22 @@ describe('hot-seat options survive a rematch', () => {
     expect(opts.rulesetId).toBe('classic');
     expect(opts.dictionaryId).toBe('nwl2023');
     expect(opts.invalidWords).toBe('blocked');
+    expect(opts.seats).toBe(2);
+  });
+
+  it('deals the chosen number of seats, and carries it through a rematch', () => {
+    const played = createHotSeatOptions({ seats: 4 });
+    expect(played.seats).toBe(4);
+    // Same hazard as the other settings: a rematch must not quietly reseat
+    // the table back to two.
+    expect(createHotSeatOptions(played).seats).toBe(4);
+  });
+
+  it('refuses a count the board cannot seat', () => {
+    // The range is engine data (Ruleset.players), so this is the engine's
+    // verdict, not a UI constant.
+    expect(() => createHotSeatOptions({ seats: 5 })).toThrow(/seat/i);
+    expect(() => createHotSeatOptions({ seats: 1 })).toThrow(/seat/i);
   });
 });
 
@@ -185,7 +245,7 @@ describe('hasStoredGame', () => {
     expect(hasStoredGame(storage)).toBe(false);
     setLocalController(null);
     await startLocalGame(
-      { rulesetId: 'classic', dictionaryId: 'stub', invalidWords: 'blocked' },
+      { rulesetId: 'classic', dictionaryId: 'stub', invalidWords: 'blocked', seats: 2 },
       { storage, loadDict: async () => stubDict(), rng: () => 0.5 },
     );
     await waitFor(() => expect(hasStoredGame(storage)).toBe(true));

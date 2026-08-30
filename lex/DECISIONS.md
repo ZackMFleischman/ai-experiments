@@ -701,3 +701,14 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   further would delete coverage of shipped behavior to satisfy a line count,
   which is the opposite of what the budget is for. §7's own escape hatch is a
   DECISIONS entry, and this is it.
+
+- **2026-08-30 — hot-seat seats 2–4, same as an online game.** M7 made the
+  engine, controller and every game surface N-seat, but hot-seat kept a
+  hardcoded `seats: 2`, so the one-device game stayed the only two-player
+  corner of lex. A device that can be handed to one opponent can be handed
+  round a table, so `HotSeatChoices` gains `seats` and the setup form grows the
+  same player-count row as the online form. The count is validated against the
+  board's own `Ruleset.players` — `createHotSeatOptions` throws on a count the
+  ruleset cannot seat, so a rematch under a narrower board fails loudly rather
+  than dealing an illegal table. Turn order and the clock stay absent: still
+  unhonourable on one device.

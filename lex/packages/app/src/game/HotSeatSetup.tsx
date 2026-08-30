@@ -4,18 +4,34 @@
 // reachable at all in the static build — which is also the only build a PR
 // preview deploys, making the options untestable there.
 //
-// It offers exactly the three settings a single device can honour, using the
-// same pickers as the multiplayer form (optionPickers). Turn order and the
-// async time control are deliberately absent: on one device p0 always starts,
-// and there is no clock to run.
-import { Alert, Box, Button, Stack, Typography } from '@mui/material';
+// It offers exactly the settings a single device can honour, using the same
+// pickers as the multiplayer form (optionPickers). Turn order and the async
+// time control are deliberately absent: on one device p0 always starts, and
+// there is no clock to run. The seat count IS honourable here — one device can
+// be handed round a table of any size the board seats — so hot-seat spans the
+// same 2-4 as an online game (M7).
+import {
+  Alert,
+  Box,
+  Button,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
+import { RULESETS } from '@lex/engine';
 import {
   BoardPicker,
   DictionaryPicker,
   InvalidWordsPicker,
 } from '../screens/optionPickers';
-import type { InvalidWordRule } from '../gameOptions';
+import {
+  clampCount,
+  seatCounts,
+  type InvalidWordRule,
+  type SeatRange,
+} from '../gameOptions';
 import { DEFAULT_HOTSEAT, type HotSeatChoices } from './localSession';
 
 export function HotSeatSetup({
@@ -36,6 +52,13 @@ export function HotSeatSetup({
   const [invalidWords, setInvalidWords] = useState<InvalidWordRule>(
     DEFAULT_HOTSEAT.invalidWords,
   );
+  const [chosenSeats, setChosenSeats] = useState(DEFAULT_HOTSEAT.seats);
+
+  // Same shape as the online form: the range is the BOARD's (engine data), and
+  // a chosen count is pulled back inside it when a narrower board is picked —
+  // so the count can never be one `createHotSeatOptions` would refuse.
+  const range: SeatRange = RULESETS[rulesetId]?.players ?? { min: 2, max: 2 };
+  const seats = clampCount(chosenSeats, range);
 
   return (
     <Box data-testid="hotseat-setup" sx={{ p: 3 }}>
@@ -45,13 +68,37 @@ export function HotSeatSetup({
             New hot-seat game
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Two players, one device — pass it over between turns.
+            One device, passed round between turns.
           </Typography>
         </Stack>
 
         {error && <Alert severity="error">{error}</Alert>}
 
-        <BoardPicker value={rulesetId} onChange={setRulesetId} />
+        <Stack spacing={1}>
+          <Typography variant="overline" color="text.secondary">
+            Players
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            value={seats}
+            onChange={(_, v: number | null) => v !== null && setChosenSeats(v)}
+            fullWidth
+            data-testid="player-count"
+          >
+            {seatCounts(range).map((n) => (
+              <ToggleButton key={n} value={n} data-testid={`count-${n}`}>
+                {n}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          <Typography variant="body2" color="text.secondary">
+            {seats === 2
+              ? 'Head to head — hand the device over each turn.'
+              : `${seats} players round one device — it passes on in seat order.`}
+          </Typography>
+        </Stack>
+
+        <BoardPicker value={rulesetId} onChange={setRulesetId} players={seats} />
         <DictionaryPicker value={dictionaryId} onChange={setDictionaryId} />
         <InvalidWordsPicker value={invalidWords} onChange={setInvalidWords} />
 
@@ -66,7 +113,7 @@ export function HotSeatSetup({
             variant="contained"
             size="large"
             disabled={busy}
-            onClick={() => onStart({ rulesetId, dictionaryId, invalidWords })}
+            onClick={() => onStart({ rulesetId, dictionaryId, invalidWords, seats })}
             data-testid="start-hotseat"
           >
             Start game
