@@ -723,3 +723,23 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `FIREBASE_SKIP_UNCHANGED_FUNCTIONS=false` plus a grep for "Skipped" makes
   every deploy total; an unauthenticated 401 probe per callable proves the
   backend is live, since hosting serving 200 never did.
+
+- **2026-08-30 — `random` turn order scales with the table.** It used to be
+  resolved at parse time by a two-seat coin flip, so a four-seat `random` could
+  only ever land on seat 0 or 1 — the two-seat rule silently applied to a bigger
+  table. Lex is a 2–4 player game, so two seats is no longer the shape everything
+  else is a special case of: `parseSeatChoice` now defers `random` and the seat
+  count decides, at create for a game that deals immediately and at `startGame`
+  for a room. `me`/`them` still name a seat outright. Two-seat behaviour and doc
+  shape are unchanged (a two-seat doc never stored `turnOrder`), and games that
+  are genuinely two-player return a seat index and never reach the new branch.
+
+- **2026-08-30 — parlor helpers may serve one player count.** Parlor is a
+  platform for turn-based games whatever their seat count, so a two-player-only
+  helper is as legitimate as an N-seat one: hive, checkers and tafl are
+  two-player games, not degenerate four-player ones, and their `parseSeatChoice`
+  returning `0 | 1` is correct rather than legacy. A helper generalizes when a
+  consumer actually needs it to stretch — which is why `creatorSeatFrom` grew a
+  seat count and `TurnOrderPicker` has two arms — and a little duplication
+  between a two-seat helper and an N-seat one beats one helper contorted to
+  cover both. Recorded here because parlor's own docs are budgeted to two files.

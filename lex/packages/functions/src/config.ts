@@ -377,12 +377,16 @@ export const lexServerConfig: GameServerConfig<LexGameOptions> = {
   parseOptions,
   maxPlayers: (options) => options.maxPlayers,
   parseSeatChoice(raw: unknown): SeatChoice {
-    // Turn-order choice (DESIGN §2.3): p0 moves first. The two-seat wire values
-    // resolve to a creator seat here, exactly as they always have; the 3+ room
-    // sends a TurnOrderChoice and settles it at startGame instead.
+    // Turn-order choice (DESIGN §2.3): p0 moves first. 'me' and 'them' name a
+    // seat outright, so they resolve here. 'random' does NOT: it means "nobody
+    // has chosen yet", which is the same statement at two seats as at four, so
+    // it defers to the one place that knows how many seats this game holds —
+    // `creatorSeatFrom` for a game that deals now, `startGame` for a room.
+    // Resolving it here with a coin flip is what made a four-seat 'random'
+    // able to pick only seat 0 or 1.
     if (raw === 'me') return 0;
     if (raw === 'them') return 1;
-    if (raw === 'random') return randomInt(2) === 0 ? 0 : 1;
+    if (raw === 'random') return { mode: 'random' };
     if (raw && typeof raw === 'object') return parseTurnOrderChoice(raw);
     throw new HttpsError('invalid-argument', "seat must be 'me' | 'them' | 'random' | a turn order");
   },
