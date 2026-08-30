@@ -167,3 +167,60 @@ describe('pass-device interstitial (T3.8, DESIGN §7.3)', () => {
     expect(screen.queryByTestId('pass-device')).toBeFalsy();
   });
 });
+
+describe('a four-seat hot-seat table (M7)', () => {
+  // The claim the seat picker makes: one device really does deal and hand
+  // round a 3-4 player table, not just accept the number on the form.
+  const RACKS: TileFace[][] = [
+    ['C', 'A', 'T', 'S', 'E', 'R', 'N'],
+    ['D', 'O', 'G', 'L', 'I', 'P', 'U'],
+    ['M', 'I', 'N', 'E', 'R', 'A', 'L'],
+    ['B', 'O', 'X', 'E', 'S', 'T', 'Y'],
+  ];
+
+  async function fourSeatController(storage: KeyValueStorage) {
+    const options: HotSeatOptions = {
+      rulesetId: 'classic',
+      dictionaryId: 'stub',
+      bagOrder: riggedBagOrder(classic, RACKS),
+      seats: 4,
+    };
+    const controller = new GameController(
+      new LocalStorageTransport<HotSeatOptions, LexEntry>(options, HOTSEAT_STORAGE_KEY, storage),
+      options,
+      { dict: stubDict(), rng: () => 0.5 },
+    );
+    await controller.init();
+    return controller;
+  }
+
+  it('deals four racks and scores four seats', async () => {
+    const controller = await fourSeatController(new MemoryStorage());
+    const snap = controller.getSnapshot();
+    expect(snap.scores).toHaveLength(4);
+    expect(snap.rack).toHaveLength(classic.rackSize);
+    expect(snap.toMove).toBe(0);
+  });
+
+  it('passes the device round all four seats in order', async () => {
+    const controller = await fourSeatController(new MemoryStorage());
+    render(
+      <MemoryRouter>
+        <HotSeatGame controller={controller} />
+      </MemoryRouter>,
+    );
+    // Seat 0 is behind the handoff screen on first load, as ever.
+    expect(screen.getByTestId('pass-device').textContent).toContain('Player 1');
+    fireEvent.click(screen.getByTestId('pass-device'));
+
+    // Each pass advances one seat, wrapping back to seat 0 after the fourth.
+    for (const name of ['Player 2', 'Player 3', 'Player 4', 'Player 1']) {
+      act(() => {
+        controller.pass();
+      });
+      expect(screen.getByTestId('pass-device').textContent).toContain(name);
+      fireEvent.click(screen.getByTestId('pass-device'));
+    }
+    expect(controller.getSnapshot().toMove).toBe(0);
+  });
+});

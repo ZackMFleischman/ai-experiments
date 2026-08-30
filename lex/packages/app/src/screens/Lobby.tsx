@@ -49,7 +49,7 @@ export function Lobby() {
         </Suspense>
       ) : (
         <Typography color="text.secondary" sx={{ mt: 2 }}>
-          Hot-seat play: two players, one device.
+          Hot-seat play: two to four players, one device.
         </Typography>
       )}
       <Stack direction="row" spacing={1} sx={{ mt: 3 }}>

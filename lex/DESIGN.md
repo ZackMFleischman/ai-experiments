@@ -624,7 +624,9 @@ wrong, and so also where "start one set up differently" is offered).
 **Hot-seat setup** (`/game/local/new`) is the one-device twin of the New game
 screen: the same board / dictionary / invalid-words pickers (literally the same
 components — `optionPickers`, so the two forms cannot describe a rule
-differently), minus the two settings one device cannot honour (turn order — p0
+differently) and the same **player-count** row (2-4, the board's own
+`Ruleset.players` range — one device can be handed round a table of any size),
+minus the two settings one device cannot honour (turn order — p0
 always starts; the async clock — there is nobody to wait for). `/game/local`
 resumes a stored game if there is one and shows this form if there isn't, so
 the very first hot-seat game is configured rather than assumed. This is also

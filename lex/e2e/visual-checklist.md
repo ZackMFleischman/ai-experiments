@@ -44,9 +44,9 @@ deviations are logged at the bottom with date + reason, deleted when fixed.
   highlight stays put); another tap brings it back.
 - The two creation forms (`new-game`, `hotseat-setup`) render the shared option
   pickers identically — same section rhythm, same board previews, same
-  invalid-words toggle and blurb. Hot-seat shows no turn-order or clock section
-  (one device honours neither); differences beyond that mean the pickers have
-  drifted apart.
+  invalid-words toggle and blurb, and the same 2-4 player-count row. Hot-seat
+  shows no turn-order or clock section (one device honours neither);
+  differences beyond that mean the pickers have drifted apart.
 - Blank tiles visually distinct (no point index) after designation.
 - Rack tiles and all interactive targets ≥ 44×44 px on the phone viewport.
 - Exchange-mode selection state obvious; confirm bar states the cost.
