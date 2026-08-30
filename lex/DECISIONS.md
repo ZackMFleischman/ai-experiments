@@ -723,3 +723,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   `FIREBASE_SKIP_UNCHANGED_FUNCTIONS=false` plus a grep for "Skipped" makes
   every deploy total; an unauthenticated 401 probe per callable proves the
   backend is live, since hosting serving 200 never did.
+
+- **2026-08-30 — `random` turn order scales with the table.** It used to be
+  resolved at parse time by a two-seat coin flip, so a four-seat `random` could
+  only ever land on seat 0 or 1 — the two-seat rule silently applied to a bigger
+  table. Lex is a 2–4 player game, so two seats is no longer the shape everything
+  else is a special case of: `parseSeatChoice` now defers `random` and the seat
+  count decides, at create for a game that deals immediately and at `startGame`
+  for a room. `me`/`them` still name a seat outright. Two-seat behaviour and doc
+  shape are unchanged (a two-seat doc never stored `turnOrder`), and games that
+  are genuinely two-player return a seat index and never reach the new branch.

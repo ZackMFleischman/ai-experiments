@@ -157,8 +157,8 @@ GameOptions = { rulesetId, dictionaryId, timeControl, invalidWords }  // pinned 
   scores, and offer flows would be dead UI; cut per §9.6).
 - **Time controls:** per-move async deadlines (`1 / 3 / 7 days` or none), timeout ⇒
   loss — identical semantics and machinery to hive (§6.4). Real-time clocks post-v1.
-- **Turn order:** chosen at creation (me / them / random, default random); rematch
-  rotates the order by one, which at two seats is the swap it always was.
+- **Turn order:** me / them / random at creation (default random), rotated one
+  seat by a rematch; `random` names no seat, so the table size settles it.
 - **Before a 3+ game starts** there is a **guest list**, not seats: a `roster` in
   join order (host first), `invited`, and `declined`. An invitation reserves
   nothing — first to arrive is next — and a decline moves a name rather than
@@ -348,7 +348,7 @@ by construction):**
 | `GameController`'s log-sync + optimistic-submit/rollback core (~1/3 of it) | `@parlor/core` `LogSession` | the hex selection/drag state machine parts are hive-specific — not ported |
 | `app/src/sync/firebase.ts, authContext.ts, RequireAuth.tsx, AppSyncProviders.tsx, push.ts, pushState.ts, NotificationsSetup.tsx, lobby.ts, gameApi.ts, firestoreTransport.ts` | `@parlor/web` | game-specific bits (doc field names beyond the shared meta set, payload types) become type params/config. `firestoreTransport.ts` keeps its class game-side but its shared shell — `seatIndexOf`, `watchGameMeta` (incl. the permission-denied **delete-detection**), and the log-replay reads `fetchOrderedMoves`/`watchAddedMoves` — is `@parlor/web/transport`. The **sync strategy** is game-owned: hive/perfect-info games replay the log (those two reads); lex keeps its hidden-info **coherent-adoption** strategy (re-read game+rack+log per signal, coherence + monotonic gates) — the plan's allowed "leave it game-provided". The monotonic gate counts **withdrawals as well as moves**, because a withdrawal advances the game without advancing `moveCount`; and the rack-currency gate is skipped for a seat that has withdrawn, whose empty rack is stamped with the move count it left at rather than one of its own moves. |
 | the lobby/landing **presentation**: `screens/lobbyView` (grouped list + cards), `turnBadge`, `waitingView` (invite/waiting/challenge), `Landing`+`LandingLayout` shell, `Join` card + `JoinByCode`, `newGameView`'s `friendsFrom`/`InviteLinkView` | `@parlor/web` (`./lobby-ui`) | game injects the slots — board thumbnail, card caption, empty-state motif, landing hero, join-detail chips; the lobby summary EXTENDS a generic `LobbySummary` (seat-index meta). Each `screens/*` file is now a thin wrapper binding lex's slots. |
-| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out. **Seats are a list, not a pair:** `seatKeys`/`rackDocs` are arrays, `players: {min,max}` declares the range (default `{2,2}`), `initialGame` receives the count, and `parseSeatChoice` returns a `TurnOrderChoice` — a bare seat index still means "the creator takes this seat", which is what the `me`/`them`/`random` wire values have always produced |
+| `functions/src/games.ts` create/join/cancel/challenge/respond/rematch + helpers (auth guard, invite codes, deadlines) | `@parlor/server` | `submitMove`'s transaction shell (load → turn check → concurrency guard → moveCount/deadline bookkeeping → write + push) is now extracted as `createSubmitMove`; lex injects only its engine `advance`. Draw offers are `createDrawCallables` (opt-in capability) — lex opts out. **Seats are a list, not a pair:** `seatKeys`/`rackDocs` are arrays, `players: {min,max}` declares the range (default `{2,2}`), `initialGame` receives the count, and `parseSeatChoice` returns a `TurnOrderChoice` — a bare seat index still means "the creator takes this seat", which is what `me`/`them` produce; `random` defers instead, so the seat count settles it |
 | `functions/src/notify.ts`, `forfeit.ts` | `@parlor/server` | payload copy injected per game |
 | `app/src/dev/Gallery.tsx` + registry pattern, `validate:visual`/`validate:ux` script cores, `scripts/check-docs.mjs`, `check-bundle.mjs`, icon/card build scripts | `@parlor/harness` (+ thin `scripts/` wrappers in lex) | near-verbatim |
 | `app/src/theme.ts`, `sw.ts` (push display, deep-link, push-sync postMessage) | `@parlor/web` | theme tokens re-skinned per game |
@@ -625,9 +625,9 @@ wrong, and so also where "start one set up differently" is offered).
 screen: the same board / dictionary / invalid-words pickers (literally the same
 components — `optionPickers`, so the two forms cannot describe a rule
 differently) and the same **player-count** row (2-4, the board's own
-`Ruleset.players` range — one device can be handed round a table of any size),
-minus the two settings one device cannot honour (turn order — p0
-always starts; the async clock — there is nobody to wait for). `/game/local`
+`Ruleset.players` range — one device seats a table as easily as a pair), minus
+the two settings one device cannot honour (turn order — p0 always starts; the
+async clock — there is nobody to wait for). `/game/local`
 resumes a stored game if there is one and shows this form if there isn't, so
 the very first hot-seat game is configured rather than assumed. This is also
 what makes the options exercisable in a PR preview, which deploys the static
@@ -637,8 +637,8 @@ Game-screen deltas: player bars carry **scores** (players shown by first name �
 falling back to first + last initial, then full name, only as far as needed to
 tell them apart — so long names never wrap the bar) and a bag-count chip, and
 the side-to-move seat carries the **live move-clock** when the game has a time
-control; the hand tray
-is the **rack** (7 slots, drag-reorder, shuffle button); a **score sheet** drawer
+control; the hand tray is the **rack** (7 slots, drag-reorder, shuffle button);
+a **score sheet** drawer
 replaces the move list (per-turn word + score + running totals); actions are
 **Play / Recall / Exchange / Pass / Resign**; while `status:'open'` the same
 waiting-screen treatment as hive (board withheld, invite re-shareable).

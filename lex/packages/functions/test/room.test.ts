@@ -131,23 +131,54 @@ describe('createGame at 3+ seats', () => {
     });
 
     /**
-     * The bare two-seat strings still parse at 3+ — they are resolved HERE
-     * rather than deferred, so 'random' lands on seat 0 or 1 and can never
-     * pick seat 2 or 3. No client sends a bare string at 3+ (the form sends a
-     * TurnOrderChoice, and rematch rotates seats without going through this
-     * path), so this pins the contract rather than blessing it: a future
-     * caller that does send one gets two-seat semantics at a bigger table.
+     * A bare 'random' means the same thing at every table size: nobody has
+     * chosen a seat yet. It used to be resolved HERE by a two-seat coin flip,
+     * which at four seats could only ever land on seat 0 or 1 — the two-seat
+     * rule quietly applied to a bigger table. It now defers exactly like the
+     * object form, and `startGame` settles it across the seats that actually
+     * filled.
      */
-    it('still parses the two-seat strings at 3+, resolving them immediately', async () => {
+    it("defers a bare 'random' at 3+ instead of coin-flipping two seats", async () => {
       const ada = await signUp('Ada');
       const { gameId } = await hostRoom(ada, 4, 'random');
-      const order = (await adminGetDoc(`games/${gameId}`))?.['turnOrder'] as {
-        mode: string;
-        seat: number;
-      };
-      expect(order.mode).toBe('host-seat');
-      expect([0, 1]).toContain(order.seat);
+      expect((await adminGetDoc(`games/${gameId}`))?.['turnOrder']).toEqual({ mode: 'random' });
     });
+
+    it("'me' and 'them' still name a seat directly", async () => {
+      const ada = await signUp('Ada');
+      const mine = await hostRoom(ada, 4, 'me');
+      expect((await adminGetDoc(`games/${mine.gameId}`))?.['turnOrder']).toEqual({
+        mode: 'host-seat',
+        seat: 0,
+      });
+      const theirs = await hostRoom(ada, 4, 'them');
+      expect((await adminGetDoc(`games/${theirs.gameId}`))?.['turnOrder']).toEqual({
+        mode: 'host-seat',
+        seat: 1,
+      });
+    });
+  });
+
+  it("a two-seat 'random' still deals the host into one of the two seats", async () => {
+    // Deferring 'random' must not strand a game that deals AT CREATE: two
+    // seats have no startGame to settle it later, so the seat is resolved
+    // here, across the seats this game actually holds.
+    const seen = new Set<string>();
+    for (let i = 0; i < 8; i++) {
+      const ada = await signUp(`Ada${i}`);
+      const { gameId } = await hostRoom(ada, 2, 'random');
+      const game = await adminGetDoc(`games/${gameId}`);
+      const players = game?.['players'] as Record<string, string | null>;
+      const seat = Object.keys(players).find((k) => players[k] === ada.uid);
+      expect(seat).toBeDefined();
+      expect(['p0', 'p1']).toContain(seat);
+      seen.add(seat!);
+      // The two-seat doc shape is untouched: no turnOrder field at all.
+      expect(game?.['turnOrder']).toBeUndefined();
+    }
+    // Eight flips landing on one seat every time would mean it stopped being
+    // random (1-in-128 by chance); the point of 'random' is that it moves.
+    expect(seen.size).toBe(2);
   });
 
   it('maxPlayers: 2 is still the old two-seat game, guest list and all absent', async () => {

@@ -182,13 +182,19 @@ export function createGameCallables<TOptions>(config: GameServerConfig<TOptions>
     return seatKey(callerSeatIndex(doc, uid));
   }
 
-  /**
-   * Which seat the creator takes. 'random' and 'arrange' are resolved when the
-   * game starts (3+ seats, T7.6); at two seats the game's own parseSeatChoice
-   * has already flipped the coin, so it arrives here as a seat index.
+   /**
+   * Which seat the creator takes, for a game that DEALS at create (two seats,
+   * or a challenge). A 3+ room never reaches here — it holds no seats until
+   * `startGame`, which is where its 'random' and 'arrange' are settled.
+   *
+   * 'random' is resolved across `seats`, the count THIS game holds, so the
+   * answer scales with the table instead of assuming two. A game whose own
+   * parseSeatChoice already returned a seat index (every strictly two-player
+   * game does) arrives as 'host-seat' and is unaffected.
    */
   function creatorSeatFrom(choice: SeatChoice, seats: number): number {
     const turnOrder = normalizeTurnOrder(choice);
+    if (turnOrder.mode === 'random') return randomInt(seats);
     if (turnOrder.mode !== 'host-seat') return 0;
     if (!Number.isInteger(turnOrder.seat) || turnOrder.seat < 0 || turnOrder.seat >= seats) {
       throw new HttpsError('invalid-argument', `seat ${turnOrder.seat} is not a seat in this game`);
