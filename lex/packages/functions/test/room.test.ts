@@ -78,6 +78,78 @@ describe('createGame at 3+ seats', () => {
     }
   });
 
+  /**
+   * Every turn-order shape the 3+ CLIENT can actually put on the wire.
+   *
+   * This suite existed before with `seat: 'me'` everywhere — a value only the
+   * TWO-seat form sends — so the shape a real 3-4 player create actually uses
+   * (`{ mode: 'random' }`, the form's default) had no coverage at all at this
+   * layer. That gap is why a `createGame` whose validator predated the room
+   * could sit in production rejecting every 3-4 player game: nothing here
+   * exercised the argument the client was sending.
+   */
+  describe('accepts every turn order the 3+ form can send', () => {
+    it("takes the form's DEFAULT, { mode: 'random' }, and stores it for the room", async () => {
+      const ada = await signUp('Ada');
+      const { gameId } = await hostRoom(ada, 4, { mode: 'random' });
+      const game = await adminGetDoc(`games/${gameId}`);
+      expect(game?.['turnOrder']).toEqual({ mode: 'random' });
+      // 'random' is settled at startGame, not now — the room must not have
+      // quietly resolved it to a seat while nobody has joined.
+      expect(game?.['players']).toBeUndefined();
+      expect(game?.['maxPlayers']).toBe(4);
+    });
+
+    it("takes { mode: 'host-seat' }, the shape the create form produces for 'somebody goes first'", async () => {
+      const ada = await signUp('Ada');
+      const { gameId } = await hostRoom(ada, 4, { mode: 'host-seat', seat: 2 });
+      expect((await adminGetDoc(`games/${gameId}`))?.['turnOrder']).toEqual({
+        mode: 'host-seat',
+        seat: 2,
+      });
+    });
+
+    it("takes { mode: 'arrange' } with the host's own uid", async () => {
+      const ada = await signUp('Ada');
+      const { gameId } = await hostRoom(ada, 3, { mode: 'arrange', order: [ada.uid] });
+      expect((await adminGetDoc(`games/${gameId}`))?.['turnOrder']).toEqual({
+        mode: 'arrange',
+        order: [ada.uid],
+      });
+    });
+
+    it('refuses a malformed turn order rather than seating anyone by accident', async () => {
+      const ada = await signUp('Ada');
+      for (const seat of [{ mode: 'sideways' }, { mode: 'host-seat', seat: -1 }, null, 7]) {
+        const res = await call(
+          'createGame',
+          { options: { ...OPTIONS, maxPlayers: 4 }, seat },
+          ada,
+        );
+        expect(res.errorStatus).toBe('INVALID_ARGUMENT');
+      }
+    });
+
+    /**
+     * The bare two-seat strings still parse at 3+ — they are resolved HERE
+     * rather than deferred, so 'random' lands on seat 0 or 1 and can never
+     * pick seat 2 or 3. No client sends a bare string at 3+ (the form sends a
+     * TurnOrderChoice, and rematch rotates seats without going through this
+     * path), so this pins the contract rather than blessing it: a future
+     * caller that does send one gets two-seat semantics at a bigger table.
+     */
+    it('still parses the two-seat strings at 3+, resolving them immediately', async () => {
+      const ada = await signUp('Ada');
+      const { gameId } = await hostRoom(ada, 4, 'random');
+      const order = (await adminGetDoc(`games/${gameId}`))?.['turnOrder'] as {
+        mode: string;
+        seat: number;
+      };
+      expect(order.mode).toBe('host-seat');
+      expect([0, 1]).toContain(order.seat);
+    });
+  });
+
   it('maxPlayers: 2 is still the old two-seat game, guest list and all absent', async () => {
     const ada = await signUp('Ada');
     const { gameId } = await hostRoom(ada, 2);

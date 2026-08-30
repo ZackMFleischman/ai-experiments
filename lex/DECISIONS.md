@@ -712,3 +712,14 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   ruleset cannot seat, so a rematch under a narrower board fails loudly rather
   than dealing an illegal table. Turn order and the clock stay absent: still
   unhonourable on one device.
+
+- **2026-08-30 — deploys stop skipping unchanged functions.** M7's deploy
+  partially failed: fourteen functions updated, `createGame` alone errored. The
+  CLI skips functions whose uploaded source is unchanged, so the two later
+  deploys logged "createGame … Skipped (No changes detected)" and reported
+  success while a pre-M7 `createGame` stayed live for a day, rejecting every
+  3–4 player game ("seat must be 'me' | 'them' | 'random'") — a function that
+  fails to deploy is never retried, because its source never changes again.
+  `FIREBASE_SKIP_UNCHANGED_FUNCTIONS=false` plus a grep for "Skipped" makes
+  every deploy total; an unauthenticated 401 probe per callable proves the
+  backend is live, since hosting serving 200 never did.

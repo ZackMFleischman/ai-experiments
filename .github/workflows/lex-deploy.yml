@@ -169,7 +169,25 @@ jobs:
           # the rest). Idempotent, so it just runs every time.
           gcloud auth login --brief --quiet --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud services enable cloudbilling.googleapis.com --project lex-zmf
-          pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force
+          # Deploy EVERY function, every time. The CLI's default is to skip
+          # functions whose uploaded source is unchanged — which sounds like a
+          # pure speed win and is actually a correctness hole: a function that
+          # FAILS to deploy is never retried, because the source it failed on
+          # never changes again. That is exactly how a pre-M7 `createGame`
+          # stayed live for a day behind an M7 client, rejecting every 3-4
+          # player game while the next two deploys reported success and logged
+          # "createGame ... Skipped (No changes detected)".
+          export FIREBASE_SKIP_UNCHANGED_FUNCTIONS=false
+          set -o pipefail
+          pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force \
+            2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          # Belt and braces: if the CLI ever skips one anyway (a default
+          # change, an env var that stops being honoured), say so loudly
+          # instead of shipping a half-updated backend.
+          if grep -q 'Skipped (No changes detected)' "$RUNNER_TEMP/deploy.log"; then
+            echo "::error::a function was skipped rather than deployed — the live backend may not match this commit"
+            exit 1
+          fi
           # Functions first created during a failed deploy never get their
           # invoker IAM binding, and the CLI never retries it on updates — the
           # callables then 403 at the Cloud Run layer ("internal" in the app).
@@ -207,6 +225,30 @@ jobs:
             [ "$code" = "200" ] || { echo "::error::$path returned $code"; exit 1; }
           done
           echo "hosting serving: index, SPA fallback, dictionary all 200"
+      - name: smoke-check the callables are actually live
+        if: env.FIREBASE_SA != ''
+        run: |
+          # Hosting serving 200 says NOTHING about the backend: the callables
+          # are separate Cloud Run services, and a half-applied functions
+          # deploy leaves hosting new while a callable stays stale or missing.
+          # Probe each unauthenticated — the callable framework answers 401
+          # UNAUTHENTICATED before it looks at any argument, so 401 proves the
+          # function exists, is invokable (not 403, i.e. the IAM binding above
+          # held) and is running. 404 means it never deployed at all.
+          base="https://us-central1-lex-zmf.cloudfunctions.net"
+          failed=0
+          for f in createGame joinGame startGame setTurnOrder invitePlayers respondInvite leaveGame submitMove; do
+            code=$(curl -s -o /tmp/probe.json -w '%{http_code}' -X POST "$base/$f" \
+              -H 'Content-Type: application/json' -d '{"data":{}}')
+            case "$code" in
+              401) ;;
+              403) echo "::error::$f is deployed but not publicly invokable (403) — invoker IAM binding missing"; failed=1 ;;
+              404) echo "::error::$f is NOT deployed (404)"; failed=1 ;;
+              *) echo "::error::$f answered $code, expected 401 (body: $(head -c 200 /tmp/probe.json))"; failed=1 ;;
+            esac
+          done
+          [ "$failed" = "0" ] || exit 1
+          echo "callables live: every probed function answered 401 (deployed, invokable, running)"
       - name: notice when the Firebase service-account secret is missing
         if: env.FIREBASE_SA == ''
         run: echo "::notice::FIREBASE_SERVICE_ACCOUNT_LEX_ZMF not set — built but skipped the Firebase deploy."
