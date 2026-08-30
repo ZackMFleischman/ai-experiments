@@ -1,7 +1,7 @@
 # CLAUDE.md — parlor/
 
-PARLOR: the game-agnostic platform workspace for this repo's turn-based
-two-player PWA games. Read `README.md` here first; the design rationale and
+PARLOR: the game-agnostic platform workspace for this repo's turn-based PWA
+games — two-player (hive, checkers, tafl) and 2-4 player (lex) alike. Read `README.md` here first; the design rationale and
 hive port map live in `lex/DESIGN.md` §4, and **all build tasks live in
 `lex/IMPLEMENTATION.md`** — parlor has no task list of its own and only grows
 in service of a consumer's task.
@@ -24,6 +24,12 @@ in service of a consumer's task.
 - `brand/` components encode repo-root `DESIGN-PRINCIPLES.md` (game-first
   real estate, GameHud by player count, accent-derived palette, footer
   cross-promo) — read it before changing them.
+- **A helper may serve one player count.** Parlor helps games regardless of how
+  many seats they have, which means a two-player-only helper is as legitimate
+  as an N-seat one — hive, checkers and tafl are two-player games, not
+  degenerate cases of a table. Generalize a helper when a consumer actually
+  needs it to stretch; a little duplication between a two-seat helper and an
+  N-seat one beats one helper contorted to cover both.
 - Never weaken tests to pass a gate. Docs: this file + README only, ≤55 lines
   each, current-state only; decisions go to the consumer's DECISIONS.md.
 

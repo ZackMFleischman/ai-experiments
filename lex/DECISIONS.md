@@ -733,3 +733,13 @@ at build time. Post-v1 ideas go here as one-liners tagged `post-v1`.
   for a room. `me`/`them` still name a seat outright. Two-seat behaviour and doc
   shape are unchanged (a two-seat doc never stored `turnOrder`), and games that
   are genuinely two-player return a seat index and never reach the new branch.
+
+- **2026-08-30 — parlor helpers may serve one player count.** Parlor is a
+  platform for turn-based games whatever their seat count, so a two-player-only
+  helper is as legitimate as an N-seat one: hive, checkers and tafl are
+  two-player games, not degenerate four-player ones, and their `parseSeatChoice`
+  returning `0 | 1` is correct rather than legacy. A helper generalizes when a
+  consumer actually needs it to stretch — which is why `creatorSeatFrom` grew a
+  seat count and `TurnOrderPicker` has two arms — and a little duplication
+  between a two-seat helper and an N-seat one beats one helper contorted to
+  cover both. Recorded here because parlor's own docs are budgeted to two files.
