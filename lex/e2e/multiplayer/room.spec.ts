@@ -77,6 +77,11 @@ test('three browsers fill a room, start early, play, and rank a walkout last', a
   await signInAs(ada, 'ada@example.com');
   await ada.getByRole('link', { name: 'New game' }).click();
   await ada.getByTestId('count-4').click();
+  // Leaving the turn-order picker alone is the POINT, not laziness: its 3+
+  // default is `{ mode: 'random' }`, so this create sends the exact wire shape
+  // a real 4-player game sends — an object, where two seats send the string
+  // 'me' | 'them' | 'random'. A createGame that only understands the strings
+  // rejects this and every 3-4 player game with it.
   // Four seats and no reservation: the room is the game, so create drops the
   // host straight into it rather than through a separate invite step.
   await ada.getByTestId('create-game').click();

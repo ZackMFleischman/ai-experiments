@@ -169,7 +169,18 @@ jobs:
           # the rest). Idempotent, so it just runs every time.
           gcloud auth login --brief --quiet --cred-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud services enable cloudbilling.googleapis.com --project tafl-zmf
-          pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force
+          # Deploy EVERY function, every time. Skipping unchanged functions
+          # means one that FAILED to deploy is never retried (its source never
+          # changes again) — lex shipped a stale `createGame` that way while
+          # two later deploys reported success. See lex-deploy.yml.
+          export FIREBASE_SKIP_UNCHANGED_FUNCTIONS=false
+          set -o pipefail
+          pnpm exec firebase deploy --project prod --only hosting,functions,firestore --non-interactive --force \
+            2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          if grep -q 'Skipped (No changes detected)' "$RUNNER_TEMP/deploy.log"; then
+            echo "::error::a function was skipped rather than deployed — the live backend may not match this commit"
+            exit 1
+          fi
           # Functions first created during a failed deploy never get their
           # invoker IAM binding, and the CLI never retries it on updates — the
           # callables then 403 at the Cloud Run layer ("internal" in the app).
