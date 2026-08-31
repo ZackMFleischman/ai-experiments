@@ -65,6 +65,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      - name: timer property sweep (validate:m1)
+        run: pnpm validate:m1
 
   # Gallery visual sweep (validate:visual): registry × 3 viewports × 2 themes
   # against the dev server. Machine checks (console noise, timer-face

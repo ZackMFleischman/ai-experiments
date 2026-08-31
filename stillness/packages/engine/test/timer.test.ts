@@ -9,7 +9,7 @@ import {
   remainingMs,
   resumeSit,
   startSit,
-} from '../src/timer/timer';
+} from '../src/index';
 
 const MIN = 60_000;
 

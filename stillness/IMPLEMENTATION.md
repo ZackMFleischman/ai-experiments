@@ -7,9 +7,10 @@ in `DESIGN.md`; the brand-wide plan in repo-root `BRAND-IMPLEMENTATION.md`
 ## §1 Gates (every PR)
 
 `pnpm typecheck` (docs lint + tsc) · `pnpm test` (timer machine, app flows,
-mocked-bridge native wiring, store listing) · `pnpm build` (PWA + no-firebase
-bundle check) · `pnpm validate:visual` (registry × 3 viewports × 2 themes —
-read the captures). Parlor and all consumers stay green in lockstep.
+mocked-bridge native wiring, store listing) · `pnpm validate:m1` (500-run
+timer property sweep) · `pnpm build` (PWA + no-firebase bundle check) ·
+`pnpm validate:visual` (registry × 3 viewports × 2 themes — read the
+captures). Parlor and all consumers stay green in lockstep.
 
 ## §2 Milestones
 

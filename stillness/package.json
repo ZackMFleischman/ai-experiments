@@ -8,6 +8,7 @@
     "typecheck": "node scripts/check-docs.mjs && node scripts/check-boundaries.mjs && pnpm -r --sequential typecheck",
     "test": "pnpm -r test",
     "build": "pnpm --filter @stillness/app build && node scripts/check-bundle.mjs",
+    "validate:m1": "STILLNESS_PROP_RUNS=500 pnpm --filter @stillness/engine test",
     "validate:visual": "pnpm --filter stillness-e2e test:visual",
     "native:sync": "pnpm build && pnpm --filter @stillness/app exec cap sync",
     "native:assets": "pnpm --filter @stillness/app exec node scripts/build-native-assets.mjs && pnpm --filter @stillness/app exec capacitor-assets generate --ios --android --iosProject ../../native/ios/App --androidProject ../../native/android/app"

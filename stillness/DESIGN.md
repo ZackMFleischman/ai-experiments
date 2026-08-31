@@ -6,17 +6,20 @@ platform pieces it leans on are documented at their sources
 
 ## Shape
 
-sudoku minus the engine: a pnpm workspace with one app package and the e2e
-visual workspace. No `@stillness/engine` — the "domain logic" is 60 lines of
-timer arithmetic, and inventing an engine package for it would be costume.
+The standard shape at its smallest: an engine package, the app package, and
+the e2e visual workspace. `@stillness/engine` is 60 lines of pure timer
+arithmetic — small, but a real engine: it gets the same purity boundary,
+zero-dep package, and property gate (`validate:m1`) as every other title, so
+the portfolio has one convention instead of a "too small to count" exception.
 
 ```
 stillness/
+├── packages/engine     # @stillness/engine — the pure timer machine + property gate
 ├── packages/app        # @stillness/app — the PWA
 │   ├── src/App.tsx     # providers: stats + storage context, brand theme,
 │   │                   #   color mode, status-bar sync
 │   ├── src/screens/    # Home (choose), Sit (ring/pause/done)
-│   ├── src/timer/      # timer.ts (pure machine), bell.ts (WebAudio synth)
+│   ├── src/timer/      # bell.ts (WebAudio synth — I/O, so app-side)
 │   └── src/dev/        # gallery registry + route (DEV-only)
 ├── e2e                 # stillness-e2e — validate:visual over the registry
 ├── native/{ios,android}# committed Capacitor shells (factory config)
@@ -24,7 +27,7 @@ stillness/
 └── scripts/            # check-docs, check-bundle
 ```
 
-## The timer (src/timer/timer.ts)
+## The timer (packages/engine)
 
 A `SitTimer` is `{durationMs, startedAt, pausedAt, pausedTotalMs}` — three
 timestamps and a target. Remaining time is `duration − (now − started −

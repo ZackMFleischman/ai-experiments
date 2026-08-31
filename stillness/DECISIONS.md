@@ -29,3 +29,11 @@
   `DESIGN-PRINCIPLES.md` now governs UI, encoded in `@parlor/brand`
   (GameHud play header coherent by player count, accent-derived
   palette + board tokens, MoreFromUs demoted to a footer). The Sit screen's chrome title is now the wordmark; the progress ring strokes `theme.palette.primary` instead of a hardcoded hex. Home's cross-promo renders as the quiet brand footer.
+
+- **2026-08-05 — `@stillness/engine` extracted (PORTFOLIO-HARDENING M3).** The
+  pure timer machine moved from `app/src/timer/timer.ts` into its own
+  zero-dependency workspace package with a fast-check property gate
+  (`validate:m1`, 500 runs in CI; STILLNESS_PROP_RUNS tunes it). This
+  supersedes DESIGN's original "engine package would be costume" stance: one portfolio
+  convention beats a too-small-to-count exception, and the purity rule now has
+  a machine gate instead of prose. The bell (WebAudio, I/O) stays app-side.

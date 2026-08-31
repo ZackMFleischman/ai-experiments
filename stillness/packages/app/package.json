@@ -26,6 +26,7 @@
     "@parlor/brand": "link:../../../parlor/packages/brand",
     "@parlor/native": "link:../../../parlor/packages/native",
     "@parlor/solo": "link:../../../parlor/packages/solo",
+    "@stillness/engine": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.1"
